@@ -32,7 +32,7 @@ const ART = `<svg class="art" viewBox="0 0 340 120" aria-hidden="true">
   ${[[40,70,12,"#0ECB81"],[70,62,16,"#F6465D"],[100,58,14,"#0ECB81"],[130,40,18,"#0ECB81"],[160,48,12,"#F6465D"],[190,30,16,"#0ECB81"],[220,22,12,"#0ECB81"],[250,26,14,"#F6465D"],[280,10,16,"#0ECB81"]].map(([x,y,h,c]) => `<line x1="${x}" x2="${x}" y1="${y-6}" y2="${y+h+6}" stroke="${c}" stroke-width="1.5" opacity=".7"/><rect x="${x-4}" y="${y}" width="8" height="${h}" rx="1.5" fill="${c}" opacity=".85"/>`).join("")}
   <circle cx="340" cy="8" r="4" fill="#FCD535"><animate attributeName="r" values="4;7;4" dur="1.6s" repeatCount="indefinite"/><animate attributeName="opacity" values="1;.4;1" dur="1.6s" repeatCount="indefinite"/></circle>
 </svg>`;
-function footer(){
+function endcap(){
   return `<section class="endcap" aria-label="About ${esc(C.APP_NAME)}">
     ${ART}
     <h4>Trade smarter with ${esc(C.APP_NAME)}</h4>
@@ -85,5 +85,5 @@ function openMenu(){
     <div style="height:24px"></div>`, el => el.querySelectorAll("a").forEach(a => a.addEventListener("click", () => U.closeLayer())));
 }
 
-window.UI = {pairIcon, letter, usdt, logo, footer, pageHead, emptyState, openNotifs, openLang, openMenu};
+window.UI = {pairIcon, letter, usdt, logo, endcap, footer: () => "", fullName: p => p.type === "crypto" ? (window.COIN_NAMES[p.base] || p.base) : p.name, pageHead, emptyState, openNotifs, openLang, openMenu};
 })();

@@ -162,65 +162,108 @@ function runAuto(){ clearInterval(autoTimer); if (!S().auto.on) return; autoTime
 function stopAuto(reason="Stopped by you."){ S().auto.on = false; clearInterval(autoTimer); autoLog("Auto trading stopped. " + reason); bus.emit("auto"); }
 
 
-/* ---- Futures (isolated margin, USDT-margined) ---- */
+/* ---- Futures (USDT-M perpetual, cross or isolated) ---- */
 const F = () => S().fut;
-function liqPrice(side, entry, lev){ return side === "long" ? entry * (1 - 1/lev + C.MMR) : entry * (1 + 1/lev - C.MMR); }
-function maxLev(p){ return C.LEVERAGE_MAX[p.type] || 125; }
+const r2 = v => Math.round(v * 100) / 100;
+function maxLev(p){ return C.LEVERAGE_MAX[p?.type] || 125; }
+function crossAvail(){ return S().balance; }
+// Liquidation: margin balance (margin [+ free balance for cross]) + uPnL = maintenance margin
+function liqPrice(side, entry, lev, mode="cross", qty=null, margin=null){
+  const mmr = C.MMR;
+  if (mode !== "cross" || qty == null) return side === "long" ? entry * (1 - 1/lev + mmr) : entry * (1 + 1/lev - mmr);
+  const eq = margin + crossAvail();
+  const lp = side === "long" ? (entry * qty - eq) / (qty * (1 - mmr)) : (entry * qty + eq) / (qty * (1 + mmr));
+  return lp > 0 ? lp : 0;
+}
+function refreshLiq(){ F().positions.forEach(p => { if (p.mode === "cross") p.liq = liqPrice(p.side, p.entry, p.lev, "cross", p.qty, p.margin); }); }
 function futValidate(sym, margin, lev, price){
   const p = M.get(sym);
   if (!p) return "Unknown pair.";
   if (p.closed) return "Market closed for " + M.label(p) + ".";
   if (M.isStale(p)) return "Market data offline. Reconnecting…";
-  if (!(margin > 0)) return "Enter a valid margin amount.";
-  if (margin < 1) return "Minimum margin is 1 USDT.";
+  if (!(margin > 0)) return "Please enter the amount.";
+  if (margin * lev < 5) return "Order value must be at least 5 USDT.";
   const fee = margin * lev * C.FEE;
-  if (margin + fee > S().balance) return "Insufficient balance for margin + fee.";
+  if (margin + fee > S().balance) return "Insufficient balance. Add funds to continue.";
   if (lev < 1 || lev > maxLev(p)) return `Leverage must be 1x–${maxLev(p)}x.`;
-  if (margin * lev > 2000000) return "Max position size is 2,000,000 USDT.";
-  if (price != null && !(price > 0)) return "Enter a valid limit price.";
+  if (margin * lev > 5000000) return "Max position size is 5,000,000 USDT.";
+  if (price != null && !(price > 0)) return "Please enter the price.";
   return null;
 }
-function tpslCheck(side, entry, tp, sl, liq){
-  if (tp && (side === "long" ? tp <= entry : tp >= entry)) return "Take profit must be " + (side === "long" ? "above" : "below") + " entry price.";
-  if (sl && (side === "long" ? sl >= entry : sl <= entry)) return "Stop loss must be " + (side === "long" ? "below" : "above") + " entry price.";
-  if (sl && liq && (side === "long" ? sl <= liq : sl >= liq)) return "Stop loss is beyond the liquidation price.";
+function tpslCheck(side, ref, tp, sl, liq){
+  if (tp && (side === "long" ? tp <= ref : tp >= ref)) return "TP price must be " + (side === "long" ? "higher" : "lower") + " than the " + "current price.";
+  if (sl && (side === "long" ? sl >= ref : sl <= ref)) return "SL price must be " + (side === "long" ? "lower" : "higher") + " than the current price.";
+  if (sl && liq && (side === "long" ? sl <= liq : sl >= liq)) return "SL price is beyond the liquidation price.";
   return null;
 }
-function openFut({sym, side, margin, lev, type="market", price=null, tp=null, sl=null}){
-  margin = Math.round(margin * 100) / 100;
+function addToPosition(sym, side, margin, lev, entry, fee, mode, tp, sl){
+  let pos = F().positions.find(p => p.sym === sym && p.side === side);
+  const qty = margin * lev / entry;
+  if (pos){
+    const nq = pos.qty + qty; pos.entry = (pos.entry * pos.qty + entry * qty) / nq; pos.qty = nq; pos.margin += margin; pos.fee += fee; pos.maxQty = Math.max(pos.maxQty || 0, nq);
+    pos.realized = (pos.realized || 0) - fee; pos.lev = Math.round(pos.qty * pos.entry / pos.margin);
+    if (tp) pos.tp = tp; if (sl) pos.sl = sl;
+  } else {
+    pos = {id:uid(), sym, side, margin, lev, entry, qty, maxQty:qty, tp, sl, fee, realized:-fee, mode, open:Date.now()};
+    F().positions.push(pos);
+  }
+  pos.liq = liqPrice(side, pos.entry, pos.lev, mode, pos.qty, pos.margin);
+  return pos;
+}
+function openFut({sym, side, margin, lev, type="market", price=null, tp=null, sl=null, mode=null}){
+  mode = mode || S().settings.marginMode || "cross";
+  margin = r2(margin);
   const err = futValidate(sym, margin, lev, type === "limit" ? price : null); if (err) return {err};
-  const p = M.get(sym), fee = Math.round(margin * lev * C.FEE * 100) / 100;
+  const p = M.get(sym), fee = r2(margin * lev * C.FEE);
   if (type === "limit"){
     if (side === "long" ? price >= p.price : price <= p.price) type = "market";
     else {
-      const e2 = tpslCheck(side, price, tp, sl, liqPrice(side, price, lev)); if (e2) return {err:e2};
-      const o = {id:uid(), sym, side, margin, lev, price, tp, sl, fee, t:Date.now()};
+      const e2 = tpslCheck(side, price, tp, sl, null); if (e2) return {err:e2};
+      const o = {id:uid(), sym, side, margin, lev, price, tp, sl, fee, mode, t:Date.now()};
       F().orders.push(o); store.setBalance(S().balance - margin - fee, "order");
+      F().log = (F().log || []).concat({t:Date.now(), sym, side, type:"Limit", price, qty: margin*lev/price, status:"New"}).slice(-200);
       bus.emit("positions"); store.save(); return {order:o};
     }
   }
-  const entry = p.price, liq = liqPrice(side, entry, lev);
-  const e2 = tpslCheck(side, entry, tp, sl, liq); if (e2) return {err:e2};
-  const pos = {id:uid(), sym, side, margin, lev, entry, qty: margin * lev / entry, liq, tp, sl, fee, open:Date.now()};
-  F().positions.push(pos); store.setBalance(S().balance - margin - fee, "futures");
-  award("futures"); bus.emit("positions"); store.save();
+  const e2 = tpslCheck(side, p.price, tp, sl, liqPrice(side, p.price, lev, mode, margin*lev/p.price, margin)); if (e2) return {err:e2};
+  store.setBalance(S().balance - margin - fee, "futures");
+  const pos = addToPosition(sym, side, margin, lev, p.price, fee, mode, tp, sl);
+  F().log = (F().log || []).concat({t:Date.now(), sym, side, type:"Market", price:p.price, qty: margin*lev/p.price, fee, status:"Filled"}).slice(-200);
+  refreshLiq(); award("futures"); bus.emit("positions"); store.save();
   return {pos};
 }
-function futPnl(pos, px){ px = px ?? M.get(pos.sym)?.price ?? pos.entry; const pnl = (px - pos.entry) * pos.qty * (pos.side === "long" ? 1 : -1); return {pnl, roe: pnl / pos.margin * 100, px}; }
-function closeFut(id, reason="manual", atPx){
+function futPnl(pos, px){
+  px = px ?? M.get(pos.sym)?.price ?? pos.entry;
+  const pnl = (px - pos.entry) * pos.qty * (pos.side === "long" ? 1 : -1);
+  const mm = pos.qty * px * C.MMR, bal = pos.margin + (pos.mode === "cross" ? crossAvail() : 0) + pnl;
+  return {pnl, roe: pnl / pos.margin * 100, px, size: pos.qty * px, mr: bal > 0 ? mm / bal * 100 : 100};
+}
+// Close fraction (0..1] of a position at market (or a given price)
+function closeFut(id, reason="manual", atPx, frac=1){
   const pos = F().positions.find(x => x.id === id); if (!pos) return null;
   const px = atPx ?? M.get(pos.sym)?.price ?? pos.entry;
-  let {pnl} = futPnl(pos, px);
-  const fee = Math.round(pos.qty * px * C.FEE * 100) / 100;
-  if (reason === "liquidated") pnl = -pos.margin;
-  const back = Math.max(0, pos.margin + pnl - (reason === "liquidated" ? 0 : fee));
-  const profit = Math.round((back - pos.margin - pos.fee) * 100) / 100;
-  F().positions = F().positions.filter(x => x.id !== id);
-  F().history.unshift(Object.assign({}, pos, {exit:px, closed:Date.now(), pnl:Math.round(pnl*100)/100, profit, reason}));
-  F().history = F().history.slice(0, 300);
+  frac = U.clamp(frac, 0, 1);
+  const q = pos.qty * frac, m = pos.margin * frac;
+  let pnl = (px - pos.entry) * q * (pos.side === "long" ? 1 : -1);
+  const fee = r2(q * px * C.FEE);
+  if (reason === "liquidated") pnl = -m;
+  const back = Math.max(0, m + pnl - (reason === "liquidated" ? 0 : fee));
+  pos.realized = (pos.realized || 0) + pnl - (reason === "liquidated" ? 0 : fee);
+  pos.closedQty = (pos.closedQty || 0) + q; pos.closeNotional = (pos.closeNotional || 0) + q * px;
   store.setBalance(S().balance + back, "futures");
+  F().log = (F().log || []).concat({t:Date.now(), sym:pos.sym, side: pos.side === "long" ? "short" : "long", type: reason === "manual" ? "Market" : reason.toUpperCase(), price:px, qty:q, fee, pnl, status:"Filled"}).slice(-200);
+  let profit = r2(pnl - fee);
+  if (frac >= 0.9999 || reason === "liquidated"){
+    F().positions = F().positions.filter(x => x.id !== id);
+    const avgClose = pos.closeNotional / pos.closedQty;
+    F().history.unshift({id:pos.id, sym:pos.sym, side:pos.side, lev:pos.lev, mode:pos.mode || "isolated", entry:pos.entry, exit:avgClose, closedVol:pos.closedQty, maxQty:pos.maxQty || pos.closedQty,
+      margin:pos.margin, open:pos.open, closed:Date.now(), profit:r2(pos.realized), roi: pos.realized / (pos.margin || 1) * 100, reason, fee:pos.fee});
+    F().history = F().history.slice(0, 300);
+    profit = r2(pos.realized);
+  } else { pos.qty -= q; pos.margin -= m; }
+  refreshLiq();
   const lbl = M.label(M.get(pos.sym));
-  const title = reason === "liquidated" ? "Position liquidated" : reason === "tp" ? "Take profit hit 🎯" : reason === "sl" ? "Stop loss hit" : "Position closed";
+  const title = reason === "liquidated" ? "Position liquidated" : reason === "tp" ? "Take profit triggered 🎯" : reason === "sl" ? "Stop loss triggered" : frac < 0.9999 ? "Position partially closed" : "Position closed";
   store.notify(title, `${lbl} ${pos.side === "long" ? "Long" : "Short"} ${pos.lev}x · ${signed(profit)} USDT`, profit >= 0 ? "ok" : "bad");
   bus.emit("positions"); bus.emit("history"); bus.emit("futClosed", {pos, profit, reason, px});
   return profit;
@@ -235,19 +278,26 @@ function setTpSl(id, tp, sl){
   const e = tpslCheck(pos.side, M.get(pos.sym)?.price ?? pos.entry, tp, sl, pos.liq); if (e) return e;
   pos.tp = tp || null; pos.sl = sl || null; store.save(); bus.emit("positions"); return null;
 }
+function setPosLev(id, lev){
+  const pos = F().positions.find(x => x.id === id); if (!pos) return "Position not found.";
+  const need = pos.qty * pos.entry / lev, diff = need - pos.margin;
+  if (diff > S().balance) return "Insufficient balance to lower leverage.";
+  store.setBalance(S().balance - diff, "futures"); pos.margin = need; pos.lev = lev;
+  pos.liq = liqPrice(pos.side, pos.entry, lev, pos.mode, pos.qty, pos.margin); refreshLiq(); store.save(); bus.emit("positions"); return null;
+}
 bus.on("tick", (sym, px) => {
   F().orders.filter(o => o.sym === sym).forEach(o => {
     if (o.side === "long" ? px <= o.price : px >= o.price){
       F().orders = F().orders.filter(x => x.id !== o.id);
-      const liq = liqPrice(o.side, o.price, o.lev);
-      F().positions.push({id:o.id, sym, side:o.side, margin:o.margin, lev:o.lev, entry:o.price, qty:o.margin*o.lev/o.price, liq, tp:o.tp, sl:o.sl, fee:o.fee, open:Date.now()});
-      store.notify("Limit order filled", `${M.label(M.get(sym))} ${o.side === "long" ? "Buy/Long" : "Sell/Short"} @ ${M.fmtPx(M.get(sym), o.price)}`, "ok");
-      U.toast("Limit order filled", "ok"); U.beep("open"); bus.emit("positions");
+      addToPosition(sym, o.side, o.margin, o.lev, o.price, o.fee, o.mode || "cross", o.tp, o.sl); refreshLiq();
+      F().log = (F().log || []).concat({t:Date.now(), sym, side:o.side, type:"Limit", price:o.price, qty:o.margin*o.lev/o.price, fee:o.fee, status:"Filled"}).slice(-200);
+      store.notify("Limit order filled", `${M.label(M.get(sym))} ${o.side === "long" ? "Open Long" : "Open Short"} @ ${M.fmtPx(M.get(sym), o.price)}`, "ok");
+      U.toast("Limit order filled", "ok"); U.beep("open"); U.buzz(20); bus.emit("positions");
     }
   });
   F().positions.filter(p => p.sym === sym).forEach(p => {
     const L = p.side === "long";
-    if (L ? px <= p.liq : px >= p.liq) closeFut(p.id, "liquidated", p.liq);
+    if (p.liq > 0 && (L ? px <= p.liq : px >= p.liq)) closeFut(p.id, "liquidated", p.liq);
     else if (p.tp && (L ? px >= p.tp : px <= p.tp)) closeFut(p.id, "tp", px);
     else if (p.sl && (L ? px <= p.sl : px >= p.sl)) closeFut(p.id, "sl", px);
   });
@@ -265,6 +315,8 @@ bus.on("tick", (sym, px) => {
     a.last = px;
   });
 });
+
+bus.on("balance", () => refreshLiq());
 
 /* ---- Rewards / XP ---- */
 const TASKS = [
@@ -325,5 +377,5 @@ function vaultMove(amount, dir){
   store.save(); bus.emit("vault"); return null;
 }
 
-window.E = {liqPrice, maxLev, futValidate, openFut, futPnl, closeFut, cancelOrder, setTpSl, TASKS, BADGES, award, taskDone, claim, streak, checkIn, CHECKIN, level, dayKey, vaultValue, vaultMove, APR, validate, place, livePnl, stats, todaySeries, BOTS, botPnl, startBot, stopBot, startAuto, stopAuto, runAuto, RATIO};
+window.E = {setPosLev, refreshLiq, liqPrice, maxLev, futValidate, openFut, futPnl, closeFut, cancelOrder, setTpSl, TASKS, BADGES, award, taskDone, claim, streak, checkIn, CHECKIN, level, dayKey, vaultValue, vaultMove, APR, validate, place, livePnl, stats, todaySeries, BOTS, botPnl, startBot, stopBot, startAuto, stopAuto, runAuto, RATIO};
 })();

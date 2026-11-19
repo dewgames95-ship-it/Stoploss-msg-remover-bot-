@@ -63,6 +63,15 @@ const P = {
   grid:'<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
   swap:'<path d="M7 4 3 8l4 4M3 8h14M17 20l4-4-4-4M21 16H7"/>', percent:'<path d="M19 5 5 19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/>',
   trend:'<path d="m22 7-8.5 8.5-5-5L2 17"/><path d="M16 7h6v6"/>', pie:'<path d="M21.2 15.9A10 10 0 1 1 8 2.8"/><path d="M22 12A10 10 0 0 0 12 2v10z"/>',
+  nhome:'<path d="M3 10.2 12 3l9 7.2V20a1 1 0 0 1-1 1h-5.5v-6h-5v6H4a1 1 0 0 1-1-1z"/>',
+  nmkt:'<path d="M3 17.5 9 11l4 4 8-8.5"/><path d="M15.5 6.5H21V12"/>',
+  ntrade:'<path d="M20 11A8 8 0 0 0 5.5 6.3L4 8"/><path d="M4 3.5V8h4.5"/><path d="M4 13a8 8 0 0 0 14.5 4.7L20 16"/><path d="M20 20.5V16h-4.5"/><circle cx="12" cy="12" r="2.2"/>',
+  nfut:'<path d="M5 3h10l4 4v14H5z"/><path d="M8.5 9h7M8.5 12.5h4"/><path d="m16 14.5 2.5 2.5-2.5 2.5-2.5-2.5z" fill="currentColor"/>',
+  nasset:'<rect x="3" y="6" width="18" height="14" rx="2"/><path d="M3 10h18"/><path d="m15.5 13 2 2-2 2-2-2z" fill="currentColor"/><path d="M7 6V4.5h10V6"/>',
+  pen:'<path d="m3 21 3.8-1 11.4-11.4a2 2 0 0 0-2.8-2.8L4 17.2z"/><path d="m14 7 3 3"/>', more:'<circle cx="12" cy="12" r="9"/><circle cx="8" cy="12" r=".8" fill="currentColor"/><circle cx="12" cy="12" r=".8" fill="currentColor"/><circle cx="16" cy="12" r=".8" fill="currentColor"/>',
+  dots:'<circle cx="5" cy="12" r="1.3" fill="currentColor"/><circle cx="12" cy="12" r="1.3" fill="currentColor"/><circle cx="19" cy="12" r="1.3" fill="currentColor"/>', sort:'<path d="M8 4v16M4 8l4-4 4 4M16 20V4M12 16l4 4 4-4"/>',
+  ind:'<path d="M3 3v18h18"/><path d="m6 16 4-6 4 3 5-8"/>', clockh:'<rect x="4" y="3" width="13" height="16" rx="1.5"/><circle cx="17" cy="17" r="4.2" fill="var(--bg)"/><path d="M17 15v2.2l1.4 1"/>',
+  qr:'<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM18 18h3v3h-3z"/>', send2:'<path d="M12 19V5M5 12l7-7 7 7"/>', earn:'<path d="M12 3a4 4 0 1 1 0 8 4 4 0 0 1 0-8z"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/><path d="M12 6v2.2"/>',
   file:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/>'
 };
 const ic = (n, s=20, sw=2) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[n]||""}</svg>`;
@@ -78,7 +87,7 @@ const bus = {
 const KEY = "novatrade_v1";
 const defaults = () => ({
   balance: C.START_BALANCE, positions: [], history: [], tx: [], notifs: [], unread: 0,
-  settings: {theme: "dark", lang:"en", sound:true, tapSound:true, haptic:true, hideBal:false, defAmt:10, defExp:30, lev:20, inds:["EMA","VOL"], chartType:"candle"},
+  settings: {theme: "dark", lang:"en", sound:true, tapSound:false, haptic:true, hideBal:false, defAmt:10, defExp:30, lev:20, inds:["EMA","VOL"], chartType:"candle"},
   fut: {positions:[], orders:[], history:[]}, alerts: [], favs: ["BTCUSDT","ETHUSDT","XAUUSD"], rewards: {checkins:[], claimed:{}, xp:0, used:{}}, vault: {bal:0, since:Date.now()},
   balHist: [], bots: {}, auto: {on:false, pair:"BTCUSDT", amount:10, expiry:30, strategy:"trend", interval:20, max:20, count:0, log:[]},
   profile: {name:"Trader" + Math.floor(1000 + Math.random()*9000), uid: String(Math.floor(10000000 + Math.random()*89999999)), ref: Math.random().toString(36).slice(2,8).toUpperCase(), joined: Date.now()},
@@ -176,7 +185,7 @@ let actx;
 const SND = {win:[[660,0],[880,.1],[1320,.2]], loss:[[330,0],[220,.12]], open:[[520,0],[780,.07]], tick:[[1000,0]], tap:[[1400,0]], alert:[[880,0],[880,.18],[880,.36]], claim:[[523,0],[659,.08],[784,.16],[1047,.24]]};
 function beep(kind="tap"){
   if (!S.settings.sound) return;
-  if (kind === "tap" && !S.settings.tapSound) return;
+  if (kind === "tap") return;
   try {
     actx ||= new (window.AudioContext || window.webkitAudioContext)();
     if (actx.state === "suspended") actx.resume();
@@ -214,10 +223,11 @@ function copyText(txt, msg="Copied to clipboard"){
   function fallback(){ const ta=document.createElement("textarea"); ta.value=txt; ta.style.position="fixed"; ta.style.opacity="0"; document.body.appendChild(ta); ta.select(); try{ document.execCommand("copy"); done(); }catch{ toast("Copy failed — long-press to copy","bad"); } ta.remove(); }
 }
 
+// Light haptic only on primary controls (no click sounds). Action sounds play on real events (order, win, loss, alert).
 document.addEventListener("pointerdown", e => {
-  const t = e.target.closest("button, a, .mkt-row, [role=button], .mover");
+  const t = e.target.closest(".btn-up, .btn-down, .btn-primary, .bnav a, .exp-chip, [data-hap]");
   if (!t || t.disabled) return;
-  buzz(6); beep("tap");
+  buzz(t.matches(".btn-up, .btn-down") ? 14 : 6);
 }, {passive:true});
 
 window.U = {$, $$, esc, clamp, fmt, money, signed, pct, mmss, timeStr, dateStr, uid, sleep, ic, bus, store, t, toast, sheet, drawer, modal, closeLayer, confirmBox, beep, buzz, confetti, spark, copyText};

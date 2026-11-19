@@ -31,14 +31,18 @@ function marketList(box, o = {}){
     if (p.type === "crypto") return p.tradable ? `<span class="tag t-y">Binary</span>` : `<span class="tag">Perp</span>`;
     return `<span class="tag t-y">${p.type === "forex" ? "FX" : "Metal"}</span>`;
   }
+  const chgTxt = p => p.closed ? '<span class="label">Closed</span>' : p.chg == null ? "--" : `<span class="${p.chg < 0 ? "down" : "up"}">${pct(p.chg)}</span>`;
   const chgHtml = p => p.closed ? `<span class="chg closed">Closed</span>` : p.chg == null ? `<span class="chg closed">--</span>` : `<span class="chg ${p.chg < 0 ? "neg" : ""}">${pct(p.chg)}</span>`;
   function render(){
     let l = list(); rows.clear();
     const more = limit && l.length > limit; if (limit) l = l.slice(0, limit);
     if (!M.cryptoOrder.length && ["popular","crypto","gainers","losers"].includes(tab) && !q){ box.innerHTML = Array(6).fill('<div class="skel"></div>').join(""); return; }
     if (!l.length){ box.innerHTML = UI.emptyState(tab === "fav" ? "star" : "search", q ? `No results for “${q}”` : tab === "fav" ? "No favorites yet. Tap ☆ on a trading screen to add one." : "No markets here right now."); return; }
-    box.innerHTML = l.map(p => `<div class="mkt-row" data-sym="${p.sym}" role="button" tabindex="0" aria-label="Open ${esc(M.label(p))}">
-      <div class="row" style="gap:10px;min-width:0">${UI.pairIcon(p)}<div class="grow"><div class="sym ellipsis">${esc(p.base)}<em> /${esc(p.quote)}</em></div><div class="sub2">${badge(p)}<span class="ellipsis">${vol(p)}</span></div></div></div>
+    box.innerHTML = l.map(p => o.plain ? `<div class="mkt-row" data-sym="${p.sym}" role="button" tabindex="0" style="grid-template-columns:minmax(0,1.6fr) minmax(0,1fr)">
+      <div class="row" style="gap:10px;min-width:0"><button class="star ${S().favs.includes(p.sym)?"on":""}" data-fav="${p.sym}" aria-label="Favorite">${ic("star",16)}</button>${UI.pairIcon(p,30)}<div class="grow"><div class="sym ellipsis">${esc(p.type === "crypto" ? p.base + "USDT" : p.sym)} <span class="perp">Perp</span></div><div class="sub2"><span class="ellipsis">${esc(UI.fullName(p))}</span>${p.qv ? `<span style="color:var(--line)">|</span>${CH.fmtVol(p.qv)}` : ""}</div></div></div>
+      <div style="text-align:right;min-width:0"><div class="px num" data-px>${M.fmtPx(p)}</div><div data-chg class="num" style="font-size:13px;font-weight:500">${chgTxt(p)}</div></div></div>`
+    : `<div class="mkt-row" data-sym="${p.sym}" role="button" tabindex="0" aria-label="Open ${esc(M.label(p))}">
+      <div class="row" style="gap:10px;min-width:0">${UI.pairIcon(p)}<div class="grow"><div class="sym ellipsis">${esc(p.type === "crypto" ? p.base + "USDT" : p.sym)}</div><div class="sub2"><span class="ellipsis">${esc(UI.fullName(p))}</span></div></div></div>
       <div style="min-width:0"><div class="px num" data-px>${M.fmtPx(p)}</div><div class="sub2 num" style="justify-content:flex-end">$${M.fmtPx(p, p.quote === "JPY" ? p.price/ (M.get("USDJPY")?.price||1) : p.price)}</div></div><div data-chg>${chgHtml(p)}</div></div>`).join("")
       + (more ? `<a class="more-btn" href="#/markets">View all markets ${ic("chev",14)}</a>` : "");
     box.querySelectorAll(".mkt-row").forEach(r => rows.set(r.dataset.sym, {px:r.querySelector("[data-px]"), chg:r.querySelector("[data-chg]")}));
@@ -48,11 +52,13 @@ function marketList(box, o = {}){
       const r = rows.get(sym), p = M.get(sym); if (!r || !p) return;
       const txt = M.fmtPx(p);
       if (r.px.textContent !== txt){ r.px.textContent = txt; r.px.classList.remove("fu","fd"); void r.px.offsetWidth; r.px.classList.add(p.dir >= 0 ? "fu" : "fd"); setTimeout(() => r.px.classList.remove("fu","fd"), 300); }
-      r.chg.innerHTML = chgHtml(p);
+      r.chg.innerHTML = o.plain ? chgTxt(p) : chgHtml(p);
     });
     dirty.clear();
   }
-  box.addEventListener("click", e => { const r = e.target.closest(".mkt-row"); if (r) location.hash = (M.get(r.dataset.sym).tradable ? "#/trade/" : "#/futures/") + r.dataset.sym; });
+  box.addEventListener("click", e => {
+    const f = e.target.closest("[data-fav]"); if (f){ e.stopPropagation(); const i = S().favs.indexOf(f.dataset.fav); if (i >= 0) S().favs.splice(i,1); else S().favs.push(f.dataset.fav); store.save(); f.classList.toggle("on", i < 0); U.buzz(6); if (tab === "fav") render(); return; }
+    const r = e.target.closest(".mkt-row"); if (r) location.hash = "#/chart/" + r.dataset.sym; });
   box.addEventListener("keydown", e => { const r = e.target.closest(".mkt-row"); if (r && e.key === "Enter") r.click(); });
   offs.push(bus.on("tick", s => dirty.add(s)), bus.on("meta", s => dirty.add(s)), bus.on("list", render));
   const iv = setInterval(flush, 500);
@@ -80,7 +86,7 @@ const LEV = `<svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="6
 const TILES = [
   ["Deposit","deposit","ic-y","#/deposit"],["Withdraw","withdraw","ic-b","#/withdraw"],["Activate Auto Trading","auto","ic-g","#/auto"],["Refer and Earn","gift","ic-p","#/referral"],
   ["Get VIP Signals","crown","ic-y","#/vip"],["Join Community","users","ic-c","#/community"],["About Us","info","ic-b","#/about"],["Contact Support","headset","ic-g","#/support"],
-  ["Futures","layers","ic-r","#/futures","125x"],["Rewards Hub","gift","ic-y","#/rewards","NEW"],["Academy","book","ic-p","#/academy"],["Price Alerts","ring","ic-c","#/alerts"]
+  ["Futures","layers","ic-r","#/futures","125x"],["Rewards Hub","gift","ic-y","#/rewards","NEW"],["Academy","book","ic-p","#/academy"],["Copy Trading","users","ic-c","#/copy","HOT"]
 ];
 
 /* ---------- Home ---------- */
@@ -132,7 +138,7 @@ Pages.home = () => {
       <div id="mlist"></div>
     </section>
   </div>
-  ${UI.footer()}`;
+  ${UI.endcap()}`;
 
   function renderBal(){
     const b = document.getElementById("bal"); if (!b) return;
@@ -158,7 +164,7 @@ Pages.home = () => {
     const pick = [...c.slice().sort((a,b) => b.chg - a.chg).slice(0,3), ...c.slice().sort((a,b) => a.chg - b.chg).slice(0,3)];
     box.innerHTML = pick.map(p => `<div class="mover" data-s="${p.sym}"><div class="row">${UI.pairIcon(p,20)}<b style="font-size:13px" class="ellipsis">${esc(p.base)}<span class="label">/USDT</span></b></div>
       <div class="num" style="font-weight:600;font-size:15px;margin-top:6px">${M.fmtPx(p)}</div><b class="num ${p.chg>=0?"up":"down"}" style="font-size:12px">${pct(p.chg)}</b><div data-sp></div></div>`).join("");
-    box.querySelectorAll("[data-s]").forEach(m => m.onclick = () => location.hash = (M.get(m.dataset.s).tradable ? "#/trade/" : "#/futures/") + m.dataset.s);
+    box.querySelectorAll("[data-s]").forEach(m => m.onclick = () => location.hash = "#/chart/" + m.dataset.s);
     for (const p of pick){
       try {
         const key = "spk_" + p.sym; let v = JSON.parse(sessionStorage.getItem(key) || "null");
@@ -195,12 +201,12 @@ Pages.home = () => {
 /* ---------- Markets ---------- */
 Pages.markets = () => {
   let ml;
-  const html = `<header class="page-head"><h1 class="h1">Markets</h1><a class="icon-btn" href="#/alerts" aria-label="Price alerts">${ic("ring",20)}</a></header>
+  const html = `<header class="page-head"><h1 class="h1">Markets</h1><a class="icon-btn" href="#/alerts" aria-label="Price alerts">${ic("bell",20)}</a></header>
     <label class="search" style="margin-bottom:8px"><span>${ic("search",16)}</span><span class="sr">Search</span><input id="mq" type="search" placeholder="Search coin, forex or metal" autocomplete="off"></label>
     <div class="kpis" id="ov" style="margin:12px 0"></div>
-    <section class="card" style="padding:6px 14px 10px">${tabsHtml(sessionStorage.getItem("mktTab") || "popular")}${sortHead()}<div id="ml"></div></section>${UI.footer()}`;
+    <div>${tabsHtml(sessionStorage.getItem("mktTab") || "popular")}<div class="mkt-head" style="grid-template-columns:1fr auto"><span>Name / Vol</span><span><button data-sort="price">Last Price ⇅</button> / <button data-sort="chg">24h Chg ⇅</button></span></div><div id="ml"></div></div>`;
   return {html, title:"Markets", mount(r){
-    ml = marketList(r.querySelector("#ml"));
+    ml = marketList(r.querySelector("#ml"), {plain:true});
     bindTabs(r, ml); bindSort(r, ml);
     r.querySelector("#mq").addEventListener("input", e => ml.setQ(e.target.value));
     const ov = () => {

@@ -270,7 +270,6 @@ Pages.settings = () => {
     ${row("globe","ic-b","Language",`<button class="btn btn-ghost btn-sm" data-lang>${st.lang==="hi"?"हिन्दी":"English"} ${ic("chev",14)}</button>`)}
     <div class="title" style="margin:16px 0 4px">Trading</div>
     ${row("volume","ic-g","Sounds",sw(st.sound,"sound"),"Win / loss sound effects")}
-    ${row("volume","ic-c","Tap sounds",sw(st.tapSound,"tapSound"),"Soft click on every tap")}
     ${row("vibrate","ic-p","Vibration",sw(st.haptic,"haptic"),"Haptic feedback on supported phones")}
     ${row("wallet","ic-c","Default amount",`<div class="field" style="width:110px;height:40px"><input type="number" min="1" id="sda" value="${st.defAmt}" aria-label="Default amount"></div>`,"USDT per trade")}
     ${row("clock","ic-y","Default expiry",`<div class="seg" style="width:150px">${C.EXPIRIES.map(x => `<button data-de="${x}" class="${st.defExp===x?"on":""}">${x<60?x+"s":x/60+"m"}</button>`).join("")}</div>`)}
