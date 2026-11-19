@@ -54,6 +54,15 @@ const P = {
   target:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>', heart:'<path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8z"/>',
   logout:'<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>', volume:'<path d="M11 5 6 9H2v6h4l5 4zM15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/>',
   vibrate:'<rect x="7" y="3" width="10" height="18" rx="2"/><path d="M3 8v8M21 8v8"/>', edit:'<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
+  expand:'<path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>', shrink:'<path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7"/>',
+  book:'<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20V3H6.5A2.5 2.5 0 0 0 4 5.5z"/><path d="M8 7h8M8 11h6"/>', award:'<circle cx="12" cy="9" r="6"/><path d="m8.2 13.8-1.7 7.2 5.5-3 5.5 3-1.7-7.2"/>',
+  cal:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>', vault:'<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="12" cy="12" r="3.5"/><path d="M12 8.5V7M15.5 12H17M7 20v1M17 20v1"/>',
+  layers:'<path d="m12 2 10 5-10 5L2 7z"/><path d="m2 17 10 5 10-5M2 12l10 5 10-5"/>', candle:'<path d="M7 3v4M7 17v4M17 3v6M17 19v2"/><rect x="5" y="7" width="4" height="10" rx="1"/><rect x="15" y="9" width="4" height="10" rx="1"/>',
+  ring:'<path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0M2 4l2 2M22 4l-2 2"/>', flame:'<path d="M12 22c4 0 7-3 7-7 0-5-5-7-5-12-3 2-5 5-5 8-1-1-2-2-2-4-2 2-2 5-2 8 0 4 3 7 7 7z"/>',
+  rocket:'<path d="M5 15c-1.5 1.3-2 5-2 5s3.7-.5 5-2c.7-.8.7-2.1-.1-2.9a2.2 2.2 0 0 0-2.9-.1z"/><path d="m12 15-3-3a22 22 0 0 1 2-4A13 13 0 0 1 22 2c0 2.7-.8 7.5-6 11a22 22 0 0 1-4 2z"/><path d="M9 12H4s.5-3 2-4c1.6-1.1 5 0 5 0M12 15v5s3-.5 4-2c1.1-1.6 0-5 0-5"/>',
+  grid:'<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
+  swap:'<path d="M7 4 3 8l4 4M3 8h14M17 20l4-4-4-4M21 16H7"/>', percent:'<path d="M19 5 5 19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/>',
+  trend:'<path d="m22 7-8.5 8.5-5-5L2 17"/><path d="M16 7h6v6"/>', pie:'<path d="M21.2 15.9A10 10 0 1 1 8 2.8"/><path d="M22 12A10 10 0 0 0 12 2v10z"/>',
   file:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/>'
 };
 const ic = (n, s=20, sw=2) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[n]||""}</svg>`;
@@ -69,14 +78,17 @@ const bus = {
 const KEY = "novatrade_v1";
 const defaults = () => ({
   balance: C.START_BALANCE, positions: [], history: [], tx: [], notifs: [], unread: 0,
-  settings: {theme: matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light", lang:"en", sound:true, haptic:true, hideBal:false, defAmt:10, defExp:30},
+  settings: {theme: "dark", lang:"en", sound:true, tapSound:true, haptic:true, hideBal:false, defAmt:10, defExp:30, lev:20, inds:["EMA","VOL"], chartType:"candle"},
+  fut: {positions:[], orders:[], history:[]}, alerts: [], favs: ["BTCUSDT","ETHUSDT","XAUUSD"], rewards: {checkins:[], claimed:{}, xp:0, used:{}}, vault: {bal:0, since:Date.now()},
   balHist: [], bots: {}, auto: {on:false, pair:"BTCUSDT", amount:10, expiry:30, strategy:"trend", interval:20, max:20, count:0, log:[]},
-  profile: {name:"Demo Trader", uid: String(Math.floor(10000000 + Math.random()*89999999)), ref: Math.random().toString(36).slice(2,8).toUpperCase(), joined: Date.now()},
+  profile: {name:"Trader" + Math.floor(1000 + Math.random()*9000), uid: String(Math.floor(10000000 + Math.random()*89999999)), ref: Math.random().toString(36).slice(2,8).toUpperCase(), joined: Date.now()},
   tickets: [], posts: [], likes: {}, created: Date.now()
 });
 let S;
 try { S = Object.assign(defaults(), JSON.parse(localStorage.getItem(KEY) || "{}")); } catch { S = defaults(); }
 S.settings = Object.assign(defaults().settings, S.settings || {});
+if (S.profile && S.profile.name === "Demo Trader") S.profile.name = "Trader" + Math.floor(1000 + Math.random()*9000);
+["fut","rewards","vault"].forEach(k => S[k] = Object.assign(defaults()[k], S[k] || {}));
 let saveT;
 const store = {
   get s(){ return S; },
@@ -112,7 +124,7 @@ function toast(msg, kind="info", ms=2600){
   const box = $("#toasts"); const el = document.createElement("div");
   const icn = {ok:"check", bad:"x", warn:"info", info:"info"}[kind];
   el.className = "toast " + kind; el.setAttribute("role","status");
-  el.innerHTML = `<span class="${kind==="ok"?"up":kind==="bad"?"down":""}">${ic(icn,18,2.5)}</span><span>${esc(msg)}</span>`;
+  el.innerHTML = `<span class="ti">${ic(icn,12,3.5)}</span><span>${esc(msg)}</span>`;
   box.appendChild(el);
   setTimeout(() => { el.classList.add("out"); setTimeout(() => el.remove(), 300); }, ms);
   while (box.children.length > 3) box.firstChild.remove();
@@ -161,23 +173,26 @@ document.addEventListener("keydown", e => { if (e.key === "Escape") closeLayer()
 
 /* ----- Feedback: sound + haptics + confetti ----- */
 let actx;
-function beep(kind){
+const SND = {win:[[660,0],[880,.1],[1320,.2]], loss:[[330,0],[220,.12]], open:[[520,0],[780,.07]], tick:[[1000,0]], tap:[[1400,0]], alert:[[880,0],[880,.18],[880,.36]], claim:[[523,0],[659,.08],[784,.16],[1047,.24]]};
+function beep(kind="tap"){
   if (!S.settings.sound) return;
+  if (kind === "tap" && !S.settings.tapSound) return;
   try {
     actx ||= new (window.AudioContext || window.webkitAudioContext)();
-    const notes = kind==="win" ? [660, 880, 1320] : kind==="loss" ? [330, 220] : [520];
-    notes.forEach((f,i) => {
+    if (actx.state === "suspended") actx.resume();
+    const vol = kind === "tap" ? 0.035 : kind === "tick" ? 0.06 : 0.14, dur = kind === "tap" ? 0.035 : 0.17;
+    (SND[kind] || SND.tap).forEach(([f, d]) => {
       const o = actx.createOscillator(), g = actx.createGain();
-      o.type = "sine"; o.frequency.value = f; o.connect(g); g.connect(actx.destination);
-      const t0 = actx.currentTime + i*0.11; g.gain.setValueAtTime(0.0001,t0); g.gain.exponentialRampToValueAtTime(0.15,t0+0.02); g.gain.exponentialRampToValueAtTime(0.0001,t0+0.18);
-      o.start(t0); o.stop(t0+0.2);
+      o.type = kind === "tap" || kind === "tick" ? "triangle" : "sine"; o.frequency.value = f; o.connect(g); g.connect(actx.destination);
+      const t0 = actx.currentTime + d; g.gain.setValueAtTime(0.0001,t0); g.gain.exponentialRampToValueAtTime(vol,t0+0.008); g.gain.exponentialRampToValueAtTime(0.0001,t0+dur);
+      o.start(t0); o.stop(t0+dur+0.02);
     });
   } catch {}
 }
 const buzz = p => { if (S.settings.haptic && navigator.vibrate) try{ navigator.vibrate(p); }catch{} };
 function confetti(){
   const box = document.createElement("div"); box.className = "confetti";
-  const cols = ["#16C784","#2F80ED","#56CCF2","#F2C94C","#EB5757","#9B51E0"];
+  const cols = ["#0ECB81","#FCD535","#F0B90B","#1E80FF","#F6465D","#9B6BFF"];
   for (let i=0;i<60;i++){ const d=document.createElement("i"); d.style.left=Math.random()*100+"%"; d.style.background=cols[i%cols.length]; d.style.animationDelay=Math.random()*0.5+"s"; d.style.animationDuration=(1.2+Math.random())+"s"; box.appendChild(d); }
   document.body.appendChild(box); setTimeout(() => box.remove(), 2800);
 }
@@ -198,6 +213,12 @@ function copyText(txt, msg="Copied to clipboard"){
   if (navigator.clipboard?.writeText) navigator.clipboard.writeText(txt).then(done, fallback); else fallback();
   function fallback(){ const ta=document.createElement("textarea"); ta.value=txt; ta.style.position="fixed"; ta.style.opacity="0"; document.body.appendChild(ta); ta.select(); try{ document.execCommand("copy"); done(); }catch{ toast("Copy failed — long-press to copy","bad"); } ta.remove(); }
 }
+
+document.addEventListener("pointerdown", e => {
+  const t = e.target.closest("button, a, .mkt-row, [role=button], .mover");
+  if (!t || t.disabled) return;
+  buzz(6); beep("tap");
+}, {passive:true});
 
 window.U = {$, $$, esc, clamp, fmt, money, signed, pct, mmss, timeStr, dateStr, uid, sleep, ic, bus, store, t, toast, sheet, drawer, modal, closeLayer, confirmBox, beep, buzz, confetti, spark, copyText};
 })();

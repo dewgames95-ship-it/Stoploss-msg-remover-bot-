@@ -55,8 +55,9 @@ async function binance(path){
 async function loadCrypto(attempt=0){
   try {
     const all = await binance("/api/v3/ticker/24hr");
-    const st = new Set(C.STABLES);
-    const rows = all.filter(x => x.symbol.endsWith("USDT") && !st.has(x.symbol.slice(0,-4)) && +x.quoteVolume > 0 && !/(UP|DOWN|BULL|BEAR)$/.test(x.symbol.slice(0,-4)) && /^[A-Z0-9]+$/.test(x.symbol.slice(0,-4)) && +x.count > 0)
+    const st = new Set(C.STABLES), stocks = new Set(C.STOCKS);
+    const isStock = b => b.length > 2 && b.endsWith("B") && stocks.has(b.slice(0,-1));
+    const rows = all.filter(x => x.symbol.endsWith("USDT") && !st.has(x.symbol.slice(0,-4)) && +x.quoteVolume > 0 && !/(UP|DOWN|BULL|BEAR)$/.test(x.symbol.slice(0,-4)) && /^[A-Z0-9]+$/.test(x.symbol.slice(0,-4)) && +x.count > 0 && !isStock(x.symbol.slice(0,-4)))
       .sort((a,b) => b.quoteVolume - a.quoteVolume);
     const top = rows.slice(0, 100);
     C.TRADABLE_CRYPTO.forEach(b => { if (!top.find(r => r.symbol === b+"USDT")){ const r = rows.find(r => r.symbol === b+"USDT"); if (r) top.push(r); } });
@@ -100,29 +101,42 @@ function openCryptoWS(){
   ws.onerror = () => { try { ws.close(); } catch {} };
 }
 
-/* ---- Per-chart fast trade stream (crypto) ---- */
+/* ---- Per-chart fast streams (crypto): trades + order book ---- */
 let tradeLast = 0;
 let tws, chartSym = null, twsRetry = 0, twsTimer;
+const book = {bids:[], asks:[], sym:null}, trades = [];
 function watchTrades(sym){
   chartSym = sym; clearTimeout(twsTimer);
   try { tws && (tws.onclose = null, tws.close()); } catch {}
-  tws = null;
+  tws = null; trades.length = 0; book.bids = []; book.asks = []; book.sym = sym;
   const p = pairs.get(sym); if (!p || p.type !== "crypto") { chartSym = null; return; }
-  const url = C.BINANCE_WS[wsHost % C.BINANCE_WS.length] + "/ws/" + sym.toLowerCase() + "@aggTrade";
+  binance(`/api/v3/depth?symbol=${sym}&limit=20`).then(d => { if (book.sym === sym && !book.bids.length){ book.bids = d.bids; book.asks = d.asks; bus.emit("depth", sym); } }).catch(() => {});
+  const s = sym.toLowerCase();
+  const url = C.BINANCE_WS[wsHost % C.BINANCE_WS.length] + `/stream?streams=${s}@aggTrade/${s}@depth20@100ms`;
   const sock = tws = new WebSocket(url);
-  let lastEmit = 0, pending = null;
+  let lastEmit = 0, pending = null, lastDepth = 0;
   sock.onmessage = ev => {
-    twsRetry = 0; tradeLast = Date.now();
+    twsRetry = 0;
     let m; try { m = JSON.parse(ev.data); } catch { return; }
-    pending = +m.p;
-    const now = Date.now();
-    if (now - lastEmit > 200){ lastEmit = now; setPrice(sym, pending); pending = null; }
+    const d = m.data; if (!d) return;
+    if (m.stream.endsWith("@aggTrade")){
+      tradeLast = Date.now();
+      const tr = {p:+d.p, q:+d.q, buy:!d.m, t:d.T};
+      trades.unshift(tr); if (trades.length > 40) trades.length = 40;
+      bus.emit("trade", sym, tr);
+      pending = tr.p;
+      const now = Date.now();
+      if (now - lastEmit > 200){ lastEmit = now; setPrice(sym, pending); pending = null; }
+    } else {
+      const now = Date.now(); if (now - lastDepth < 300) return; lastDepth = now;
+      book.bids = d.bids; book.asks = d.asks; bus.emit("depth", sym);
+    }
   };
   const flush = setInterval(() => { if (pending != null){ setPrice(sym, pending); pending = null; } }, 300);
   sock.onclose = () => { clearInterval(flush); if (tws !== sock) return; twsTimer = setTimeout(() => watchTrades(sym), Math.min(20000, 1000 * 2**(twsRetry++))); };
   sock.onerror = () => { try { sock.close(); } catch {} };
 }
-function unwatchTrades(){ chartSym = null; clearTimeout(twsTimer); if (tws){ tws.onclose = null; try{ tws.close(); }catch{} tws = null; } }
+function unwatchTrades(){ chartSym = null; book.sym = null; clearTimeout(twsTimer); if (tws){ tws.onclose = null; try{ tws.close(); }catch{} tws = null; } }
 
 /* ---- biquote.io: forex + metals ---- */
 const FX_SYMS = [...C.FOREX.map(f => f.s), ...C.METALS.map(m => m.s)];
@@ -164,42 +178,39 @@ async function startHub(){
   } catch { hubLive = false; setTimeout(startHub, Math.min(60000, 3000 * 2**(hubRetry++))); }
 }
 
-/* ---- Candles ---- */
-const TF_SEC = {tick:1, "5s":5, "15s":15, "30s":30, "1m":60, "5m":300, "15m":900, "1h":3600, "4h":14400};
+/* ---- Candles (OHLCV) ---- */
+const TF_SEC = {tick:1, "5s":5, "15s":15, "30s":30, "1m":60, "5m":300, "15m":900, "1h":3600, "4h":14400, "1d":86400};
 function aggregate(bars, sec){
   const out = [];
   for (const b of bars){
     const t = Math.floor(b.time / sec) * sec, l = out[out.length-1];
-    if (l && l.time === t){ l.high = Math.max(l.high, b.high); l.low = Math.min(l.low, b.low); l.close = b.close; }
-    else out.push({time:t, open:b.open, high:b.high, low:b.low, close:b.close});
+    if (l && l.time === t){ l.high = Math.max(l.high, b.high); l.low = Math.min(l.low, b.low); l.close = b.close; l.volume += b.volume || 0; }
+    else out.push({time:t, open:b.open, high:b.high, low:b.low, close:b.close, volume:b.volume || 0});
   }
   return out;
 }
 async function candles(sym, tf){
   const p = pairs.get(sym); const sec = TF_SEC[tf];
   if (p.type === "crypto"){
-    const k = r => ({time: Math.floor(r[0]/1000), open:+r[1], high:+r[2], low:+r[3], close:+r[4]});
+    const k = r => ({time: Math.floor(r[0]/1000), open:+r[1], high:+r[2], low:+r[3], close:+r[4], volume:+r[5]});
     if (sec < 60){
-      const pages = tf === "tick" ? 1 : tf === "5s" ? 1 : 2;
+      const pages = tf === "tick" || tf === "5s" ? 1 : tf === "15s" ? 2 : 3;
       let end = null, all = [];
       for (let i=0;i<pages;i++){
-        const rows = await binance(`/api/v3/klines?symbol=${sym}&interval=1s&limit=${tf==="tick"?400:1000}` + (end ? `&endTime=${end}` : ""));
+        const rows = await binance(`/api/v3/klines?symbol=${sym}&interval=1s&limit=1000` + (end ? `&endTime=${end}` : ""));
         all = rows.map(k).concat(all); if (!rows.length) break; end = rows[0][0] - 1;
       }
-      return aggregate(all, sec);
+      return aggregate(tf === "tick" ? all.slice(-600) : all, sec);
     }
-    const rows = await binance(`/api/v3/klines?symbol=${sym}&interval=${tf}&limit=300`);
+    const rows = await binance(`/api/v3/klines?symbol=${sym}&interval=${tf}&limit=500`);
     return rows.map(k);
   }
-  // forex / metals via biquote
-  const iv = {tick:"1m","5s":"1m","15s":"1m","30s":"1m","1m":"1m","5m":"5m","15m":"15m","1h":"1h","4h":"1h"}[tf];
-  const d = await getJSON(`${C.BIQUOTE}/api/${sym}/ohlc?interval=${iv}&limit=${tf==="4h"?500:200}`, 3);
-  let bars = (d.bars || []).map(b => ({time: Math.floor(Date.parse(b.openTime)/1000), open:+b.open, high:+b.high, low:+b.low, close:+b.close}))
+  const iv = sec < 60 ? "1m" : tf;
+  const d = await getJSON(`${C.BIQUOTE}/api/${sym}/ohlc?interval=${iv}&limit=300`, 3);
+  let bars = (d.bars || []).map(b => ({time: Math.floor(Date.parse(b.openTime)/1000), open:+b.open, high:+b.high, low:+b.low, close:+b.close, volume:+b.tickVolume || 0}))
     .filter(b => b.open > 0).sort((a,b) => a.time - b.time);
-  if (tf === "4h") bars = aggregate(bars, 14400);
   if (sec < 60){
-    // History from 1m bars, then the tick buffer collected since launch at the finer resolution
-    const ticks = (hist.get(sym) || []).map(x => ({time:Math.floor(x.t/1000), open:x.p, high:x.p, low:x.p, close:x.p}));
+    const ticks = (hist.get(sym) || []).map(x => ({time:Math.floor(x.t/1000), open:x.p, high:x.p, low:x.p, close:x.p, volume:1}));
     const cut = ticks.length ? ticks[0].time : Infinity;
     bars = bars.filter(b => b.time + 60 <= cut).concat(aggregate(ticks, sec));
   }
@@ -223,5 +234,5 @@ function fmtPx(p, v=p?.price){ return v == null ? "--" : U.fmt(v, p.dp ?? decima
 function start(){ loadCrypto(); pollFx(); startHub(); }
 window.addEventListener("online", () => { loadCrypto(); pollFx(); });
 
-window.M = {pairs, hist, status, get cryptoOrder(){ return cryptoOrder; }, start, candles, watchTrades, unwatchTrades, momentum, isStale, label, fmtPx, TF_SEC, get: s => pairs.get(s)};
+window.M = {pairs, hist, status, book, trades, get cryptoOrder(){ return cryptoOrder; }, start, candles, watchTrades, unwatchTrades, momentum, isStale, label, fmtPx, TF_SEC, get: s => pairs.get(s)};
 })();
