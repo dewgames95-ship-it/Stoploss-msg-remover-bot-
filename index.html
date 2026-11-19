@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>NovaTrade Demo · Binary Trading Simulator</title>
+<meta name="description" content="Mobile binary trading demo app for learning — live crypto, forex and gold prices, 10,000 USDT demo balance, no real money.">
+<meta name="theme-color" content="#F5F7FA">
+<meta property="og:title" content="NovaTrade Demo · Binary Trading Simulator">
+<meta property="og:description" content="Practice Up/Down trading on live markets with demo money. For learning only.">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="apple-touch-icon" href="favicon.svg">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+<script>try{var s=JSON.parse(localStorage.getItem("novatrade_v1")||"{}");document.documentElement.dataset.theme=(s.settings&&s.settings.theme)||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light")}catch(e){}</script>
+</head>
+<body>
+<div id="offline" class="offline hide" role="status">You are offline — reconnecting automatically…</div>
+<main class="app" id="view" aria-live="polite"></main>
+<nav class="bnav" id="bnav" aria-label="Primary"></nav>
+<div id="toasts" class="toasts" aria-live="assertive"></div>
+<div id="scrim" class="scrim hide"></div>
+<div id="sheet" class="sheet" role="dialog" aria-modal="true"></div>
+<div id="drawer" class="drawer" role="dialog" aria-modal="true" aria-label="Menu"></div>
+<div id="modal" class="modal" role="dialog" aria-modal="true"></div>
+<noscript><p style="padding:24px;text-align:center">Please enable JavaScript to use NovaTrade Demo.</p></noscript>
+<script src="assets/vendor/lightweight-charts.js"></script>
+<script src="assets/vendor/signalr.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/icons.js"></script>
+<script src="js/core.js"></script>
+<script src="js/market.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/chart.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/page-home.js"></script>
+<script src="js/page-trade.js"></script>
+<script src="js/page-more.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

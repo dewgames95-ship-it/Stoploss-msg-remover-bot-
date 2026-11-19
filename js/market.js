@@ -1,0 +1,227 @@
+/* ===== Market data: Binance (crypto) + biquote.io (forex/metals) ===== */
+(function(){
+const C = window.CONFIG, {bus} = U;
+const pairs = new Map();          // sym -> pair
+const hist = new Map();           // sym -> [{t,p}] recent ticks (for signals, short-tf candles)
+let cryptoOrder = [];             // top 100 by quote volume
+let restHost = 0, wsHost = 0;
+const status = {crypto:"loading", fx:"loading"};
+
+function decimalsFor(p){ if (p >= 1000) return 2; if (p >= 10) return 3; if (p >= 1) return 4; if (p >= 0.01) return 5; if (p >= 0.0001) return 6; return 8; }
+
+/* ---- Pair factory ---- */
+function addPair(o){
+  const p = Object.assign({price:null, chg:null, high:null, low:null, qv:null, closed:false, updated:0, dir:0}, o);
+  pairs.set(p.sym, p); return p;
+}
+C.FOREX.forEach(f => addPair({sym:f.s, type:"forex", base:f.s.slice(0,3), quote:f.s.slice(3), name:f.n, flags:f.f, tradable:true, dp:f.s.includes("JPY")?3:5}));
+C.METALS.forEach(m => addPair({sym:m.s, type:"metal", base:m.s.slice(0,3), quote:"USD", name:m.n, metal:m.m, tradable:true, dp:m.s==="XAUUSD"?2:3}));
+
+function pushHist(sym, price, t=Date.now()){
+  let h = hist.get(sym); if (!h) hist.set(sym, h = []);
+  const last = h[h.length-1];
+  if (last && t - last.t < 250){ last.p = price; return; }
+  h.push({t, p:price}); if (h.length > 2400) h.splice(0, h.length - 2400);
+}
+function setPrice(sym, price, extra){
+  const p = pairs.get(sym); if (!p || !(price > 0)) return;
+  const prev = p.price;
+  p.price = price; p.updated = Date.now();
+  if (prev != null && price !== prev) p.dir = price > prev ? 1 : -1;
+  if (extra) Object.assign(p, extra);
+  pushHist(sym, price);
+  bus.emit("tick", sym, price, prev);
+}
+
+/* ---- HTTP with host fallback + backoff ---- */
+async function getJSON(url, tries=3){
+  let err;
+  for (let i=0;i<tries;i++){
+    try { const r = await fetch(url, {cache:"no-store"}); if (!r.ok) throw new Error("HTTP "+r.status); return await r.json(); }
+    catch(e){ err = e; await U.sleep(400 * 2**i); }
+  }
+  throw err;
+}
+async function binance(path){
+  for (let k=0;k<C.BINANCE_REST.length;k++){
+    const h = C.BINANCE_REST[(restHost + k) % C.BINANCE_REST.length];
+    try { const r = await fetch(h + path, {cache:"no-store"}); if (!r.ok) throw new Error(r.status); restHost = (restHost + k) % C.BINANCE_REST.length; return await r.json(); }
+    catch(e){ /* try next host */ }
+  }
+  throw new Error("binance unreachable");
+}
+
+/* ---- Crypto list ---- */
+async function loadCrypto(attempt=0){
+  try {
+    const all = await binance("/api/v3/ticker/24hr");
+    const st = new Set(C.STABLES);
+    const rows = all.filter(x => x.symbol.endsWith("USDT") && !st.has(x.symbol.slice(0,-4)) && +x.quoteVolume > 0 && !/(UP|DOWN|BULL|BEAR)$/.test(x.symbol.slice(0,-4)) && /^[A-Z0-9]+$/.test(x.symbol.slice(0,-4)) && +x.count > 0)
+      .sort((a,b) => b.quoteVolume - a.quoteVolume);
+    const top = rows.slice(0, 100);
+    C.TRADABLE_CRYPTO.forEach(b => { if (!top.find(r => r.symbol === b+"USDT")){ const r = rows.find(r => r.symbol === b+"USDT"); if (r) top.push(r); } });
+    cryptoOrder = top.map(r => r.symbol);
+    top.forEach((r, i) => {
+      const base = r.symbol.slice(0,-4), price = +r.lastPrice;
+      const p = pairs.get(r.symbol) || addPair({sym:r.symbol, type:"crypto", base, quote:"USDT", name:base, tradable:C.TRADABLE_CRYPTO.includes(base)});
+      Object.assign(p, {rank:i+1, chg:+r.priceChangePercent, high:+r.highPrice, low:+r.lowPrice, qv:+r.quoteVolume, open:+r.openPrice, dp:p.dp ?? decimalsFor(price)});
+      if (p.price == null){ p.price = price; p.updated = Date.now(); pushHist(r.symbol, price); }
+    });
+    status.crypto = "live"; bus.emit("list"); bus.emit("status");
+    openCryptoWS();
+  } catch(e){
+    status.crypto = "retry"; bus.emit("status");
+    setTimeout(() => loadCrypto(attempt+1), Math.min(30000, 2000 * 2**attempt));
+  }
+}
+
+/* ---- Crypto websocket: all mini tickers ---- */
+let ws, wsRetry = 0, wsTimer;
+function openCryptoWS(){
+  try { ws?.close(); } catch {}
+  const url = C.BINANCE_WS[wsHost % C.BINANCE_WS.length] + "/ws/!miniTicker@arr";
+  ws = new WebSocket(url);
+  let gotMsg = false;
+  ws.onmessage = ev => {
+    gotMsg = true; wsRetry = 0;
+    let arr; try { arr = JSON.parse(ev.data); } catch { return; }
+    for (const m of arr){
+      const p = pairs.get(m.s); if (!p) continue;
+      const c = +m.c, o = +m.o;
+      if (p.sym === chartSym && Date.now() - tradeLast < 5000) { p.chg = o ? (c-o)/o*100 : p.chg; p.high=+m.h; p.low=+m.l; continue; } // chart pair priced by trade stream
+      setPrice(m.s, c, {chg: o ? (c-o)/o*100 : p.chg, high:+m.h, low:+m.l, qv:+m.q});
+    }
+    status.crypto = "live";
+  };
+  ws.onclose = () => {
+    if (!gotMsg) wsHost++;
+    clearTimeout(wsTimer); wsTimer = setTimeout(openCryptoWS, Math.min(30000, 1000 * 2**(wsRetry++)));
+  };
+  ws.onerror = () => { try { ws.close(); } catch {} };
+}
+
+/* ---- Per-chart fast trade stream (crypto) ---- */
+let tradeLast = 0;
+let tws, chartSym = null, twsRetry = 0, twsTimer;
+function watchTrades(sym){
+  chartSym = sym; clearTimeout(twsTimer);
+  try { tws && (tws.onclose = null, tws.close()); } catch {}
+  tws = null;
+  const p = pairs.get(sym); if (!p || p.type !== "crypto") { chartSym = null; return; }
+  const url = C.BINANCE_WS[wsHost % C.BINANCE_WS.length] + "/ws/" + sym.toLowerCase() + "@aggTrade";
+  const sock = tws = new WebSocket(url);
+  let lastEmit = 0, pending = null;
+  sock.onmessage = ev => {
+    twsRetry = 0; tradeLast = Date.now();
+    let m; try { m = JSON.parse(ev.data); } catch { return; }
+    pending = +m.p;
+    const now = Date.now();
+    if (now - lastEmit > 200){ lastEmit = now; setPrice(sym, pending); pending = null; }
+  };
+  const flush = setInterval(() => { if (pending != null){ setPrice(sym, pending); pending = null; } }, 300);
+  sock.onclose = () => { clearInterval(flush); if (tws !== sock) return; twsTimer = setTimeout(() => watchTrades(sym), Math.min(20000, 1000 * 2**(twsRetry++))); };
+  sock.onerror = () => { try { sock.close(); } catch {} };
+}
+function unwatchTrades(){ chartSym = null; clearTimeout(twsTimer); if (tws){ tws.onclose = null; try{ tws.close(); }catch{} tws = null; } }
+
+/* ---- biquote.io: forex + metals ---- */
+const FX_SYMS = [...C.FOREX.map(f => f.s), ...C.METALS.map(m => m.s)];
+function applyQuote(q){
+  if (!q || !q.symbol) return;
+  const p = pairs.get(q.symbol); if (!p) return;
+  const closed = String(q.marketState || "").toLowerCase() === "closed";
+  const mid = +q.mid || ((+q.bid + +q.ask) / 2);
+  const extra = {closed, high: +q.high || p.high, low: +q.low || p.low};
+  if (q.dayDiffPercent != null) extra.chg = +q.dayDiffPercent;
+  if (mid > 0 && mid !== p.price) setPrice(q.symbol, mid, extra);
+  else { Object.assign(p, extra); if (mid > 0) p.updated = Date.now(); bus.emit("meta", q.symbol); }
+}
+let pollTimer, pollFails = 0, hub = null, hubLive = false, lastHubTick = 0;
+async function pollFx(){
+  clearTimeout(pollTimer);
+  try {
+    const qs = FX_SYMS.map(s => "symbols=" + s).join("&");
+    const r = await fetch(C.BIQUOTE + "/api/latest?" + qs, {cache:"no-store"});
+    if (!r.ok) throw new Error(r.status);
+    const d = await r.json();
+    Object.values(d).forEach(applyQuote);
+    pollFails = 0; status.fx = "live"; bus.emit("status");
+  } catch { pollFails++; }
+  const hubFresh = hubLive && Date.now() - lastHubTick < 10000;
+  const delay = hubFresh ? 15000 : pollFails ? Math.min(30000, 2000 * 2**Math.min(pollFails,4)) : 2000;
+  pollTimer = setTimeout(pollFx, delay);
+}
+let hubRetry = 0;
+async function startHub(){
+  if (!window.signalR) return;
+  try {
+    hub = new signalR.HubConnectionBuilder().withUrl(C.BIQUOTE + "/hubs/tick", hubRetry % 2 === 0 ? {skipNegotiation:true, transport:signalR.HttpTransportType.WebSockets} : {withCredentials:false}).withAutomaticReconnect([0, 2000, 5000, 10000, 20000, 30000]).configureLogging(signalR.LogLevel.None).build();
+    hub.on("ReceiveTick", tk => { lastHubTick = Date.now(); applyQuote(tk); });
+    hub.onreconnected(async () => { hubLive = true; try { await hub.invoke("Subscribe", FX_SYMS); } catch {} });
+    hub.onreconnecting(() => { hubLive = false; });
+    hub.onclose(() => { hubLive = false; setTimeout(startHub, Math.min(60000, 3000 * 2**(hubRetry++))); });
+    await hub.start(); await hub.invoke("Subscribe", FX_SYMS); hubLive = true; hubRetry = 0; status.fx = "live";
+  } catch { hubLive = false; setTimeout(startHub, Math.min(60000, 3000 * 2**(hubRetry++))); }
+}
+
+/* ---- Candles ---- */
+const TF_SEC = {tick:1, "5s":5, "15s":15, "30s":30, "1m":60, "5m":300, "15m":900, "1h":3600, "4h":14400};
+function aggregate(bars, sec){
+  const out = [];
+  for (const b of bars){
+    const t = Math.floor(b.time / sec) * sec, l = out[out.length-1];
+    if (l && l.time === t){ l.high = Math.max(l.high, b.high); l.low = Math.min(l.low, b.low); l.close = b.close; }
+    else out.push({time:t, open:b.open, high:b.high, low:b.low, close:b.close});
+  }
+  return out;
+}
+async function candles(sym, tf){
+  const p = pairs.get(sym); const sec = TF_SEC[tf];
+  if (p.type === "crypto"){
+    const k = r => ({time: Math.floor(r[0]/1000), open:+r[1], high:+r[2], low:+r[3], close:+r[4]});
+    if (sec < 60){
+      const pages = tf === "tick" ? 1 : tf === "5s" ? 1 : 2;
+      let end = null, all = [];
+      for (let i=0;i<pages;i++){
+        const rows = await binance(`/api/v3/klines?symbol=${sym}&interval=1s&limit=${tf==="tick"?400:1000}` + (end ? `&endTime=${end}` : ""));
+        all = rows.map(k).concat(all); if (!rows.length) break; end = rows[0][0] - 1;
+      }
+      return aggregate(all, sec);
+    }
+    const rows = await binance(`/api/v3/klines?symbol=${sym}&interval=${tf}&limit=300`);
+    return rows.map(k);
+  }
+  // forex / metals via biquote
+  const iv = {tick:"1m","5s":"1m","15s":"1m","30s":"1m","1m":"1m","5m":"5m","15m":"15m","1h":"1h","4h":"1h"}[tf];
+  const d = await getJSON(`${C.BIQUOTE}/api/${sym}/ohlc?interval=${iv}&limit=${tf==="4h"?500:200}`, 3);
+  let bars = (d.bars || []).map(b => ({time: Math.floor(Date.parse(b.openTime)/1000), open:+b.open, high:+b.high, low:+b.low, close:+b.close}))
+    .filter(b => b.open > 0).sort((a,b) => a.time - b.time);
+  if (tf === "4h") bars = aggregate(bars, 14400);
+  if (sec < 60){
+    // History from 1m bars, then the tick buffer collected since launch at the finer resolution
+    const ticks = (hist.get(sym) || []).map(x => ({time:Math.floor(x.t/1000), open:x.p, high:x.p, low:x.p, close:x.p}));
+    const cut = ticks.length ? ticks[0].time : Infinity;
+    bars = bars.filter(b => b.time + 60 <= cut).concat(aggregate(ticks, sec));
+  }
+  return bars;
+}
+
+/* ---- Sentiment / signals from recent ticks ---- */
+function momentum(sym, windowMs=60000){
+  const h = hist.get(sym); if (!h || h.length < 3) return 0;
+  const now = Date.now(); const pts = h.filter(x => now - x.t <= windowMs); if (pts.length < 3) return 0;
+  let up=0, dn=0; for (let i=1;i<pts.length;i++){ const d = pts[i].p - pts[i-1].p; if (d>0) up++; else if (d<0) dn++; }
+  const drift = (pts[pts.length-1].p - pts[0].p) / pts[0].p;
+  const tot = up + dn || 1;
+  return U.clamp(((up - dn)/tot) * 0.6 + Math.sign(drift) * Math.min(1, Math.abs(drift)*400) * 0.4, -1, 1);
+}
+
+function isStale(p){ return !p || p.price == null || (Date.now() - p.updated > (p.type==="crypto" ? 30000 : 120000)); }
+function label(p){ return p.type === "crypto" ? p.base + "/USDT" : p.base + "/" + p.quote; }
+function fmtPx(p, v=p?.price){ return v == null ? "--" : U.fmt(v, p.dp ?? decimalsFor(v)); }
+
+function start(){ loadCrypto(); pollFx(); startHub(); }
+window.addEventListener("online", () => { loadCrypto(); pollFx(); });
+
+window.M = {pairs, hist, status, get cryptoOrder(){ return cryptoOrder; }, start, candles, watchTrades, unwatchTrades, momentum, isStale, label, fmtPx, TF_SEC, get: s => pairs.get(s)};
+})();
