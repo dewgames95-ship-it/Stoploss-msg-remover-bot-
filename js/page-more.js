@@ -298,7 +298,7 @@ Pages.bots = (params) => {
 Pages.auto = () => {
   const a = S().auto;
   const tradables = [...M.pairs.values()].filter(p => p.tradable);
-  const html = pwrap("Auto Trade", botTabs("auto") + `
+  const html = pwrap("Auto Trade", `<div class="tabs" style="gap:20px;margin:0 0 8px"><a class="tab" href="#/bots">Bots</a><button class="tab on">Auto Trade</button></div>` + `
     <div class="pm-strip"><div class="row between"><div><div class="lbl">Status</div><div class="big" id="as" style="font-size:20px"></div></div></div>
       <div class="pm-cols c3"><div><span>Trades placed</span><b class="num" id="ac">0</b></div><div><span>Auto PnL (USDT)</span><b class="num" id="ap">0.00</b></div><div><span>Win rate</span><b class="num" id="aw">0%</b></div></div></div>
     <section class="pm-sec"><h3 class="pm-st">Strategy settings</h3><form id="af" novalidate style="padding:6px 0 14px">
