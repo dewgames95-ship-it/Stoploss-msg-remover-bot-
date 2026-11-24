@@ -72,16 +72,9 @@ function sortHead(){ return `<div class="mkt-head"><span>Name / Vol</span><butto
 function bindSort(root, ml){ let st = {}; root.querySelectorAll("[data-sort]").forEach(b => b.onclick = () => { const k = b.dataset.sort; st[k] = st[k] === -1 ? 1 : st[k] === 1 ? 0 : -1; Object.keys(st).forEach(x => x !== k && (st[x] = 0)); ml.setSort(st[k] ? [k, st[k]] : null); }); }
 
 /* ---------- Illustrations ---------- */
-const ROBOT = `<svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="54" fill="rgba(46,107,255,.12)"/><path d="M60 14v10" stroke="#2E6BFF" stroke-width="4" stroke-linecap="round"/><circle cx="60" cy="12" r="5" fill="#5AA9FF"/>
-<rect x="28" y="26" width="64" height="48" rx="16" fill="#5AA9FF"/><rect x="36" y="36" width="48" height="26" rx="10" fill="#0F172A"/>
-<circle cx="50" cy="49" r="5" fill="#12B886"><animate attributeName="r" values="5;3;5" dur="2.4s" repeatCount="indefinite"/></circle><circle cx="70" cy="49" r="5" fill="#12B886"><animate attributeName="r" values="5;3;5" dur="2.4s" repeatCount="indefinite"/></circle>
-<rect x="20" y="42" width="8" height="18" rx="4" fill="#2E6BFF"/><rect x="92" y="42" width="8" height="18" rx="4" fill="#2E6BFF"/>
-<rect x="38" y="78" width="44" height="26" rx="10" fill="#2E6BFF"/><path d="M48 92l8-6 6 4 10-8" stroke="#0F172A" stroke-width="3.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-const ROCKET = `<svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="54" fill="rgba(14,203,129,.14)"/>
-<g transform="rotate(35 60 60)"><path d="M60 14c14 12 18 32 14 54H46c-4-22 0-42 14-54z" fill="#EAECEF"/><circle cx="60" cy="44" r="8" fill="#12B886" stroke="#0F172A" stroke-width="3"/>
-<path d="M46 60l-12 14 14-2zM74 60l12 14-14-2z" fill="#5AA9FF"/><path d="M50 70h20l-4 10h-12z" fill="#B7BDC6"/>
-<path d="M54 82c2 10 6 16 6 16s4-6 6-16z" fill="#F7931A"><animate attributeName="d" values="M54 82c2 10 6 16 6 16s4-6 6-16z;M54 82c2 14 6 22 6 22s4-8 6-22z;M54 82c2 10 6 16 6 16s4-6 6-16z" dur=".5s" repeatCount="indefinite"/></path></g></svg>`;
-const LEV = `<svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="54" fill="rgba(46,107,255,.16)"/><text x="60" y="72" text-anchor="middle" font-size="40" font-weight="800" fill="#5AA9FF" font-family="IBM Plex Sans">125x</text><path d="M22 92h76" stroke="#5AA9FF" stroke-width="3" stroke-linecap="round"/><path d="M30 86l14-10 12 6 18-16 16 6" fill="none" stroke="#12B886" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+const ROBOT = `<span class="sl-art" aria-hidden="true">${ic("bot",34,1.5)}</span>`;
+const ROCKET = `<span class="sl-art" aria-hidden="true">${ic("target",34,1.5)}</span>`;
+const LEV = `<span class="sl-art" aria-hidden="true">${ic("layers",34,1.5)}</span>`;
 
 const TILES = [
   ["Deposit","deposit","ic-b","#/deposit"],["Withdraw","withdraw","ic-b","#/withdraw"],["Futures","layers","ic-b","#/futures","125x"],["Options","target","ic-b","#/options","NEW"],
@@ -96,7 +89,6 @@ Pages.home = () => {
   <header class="topbar">
     <button class="avatar" data-menu aria-label="Open menu">${esc(s.profile.name[0])}</button>
     <label class="search"><span>${ic("search",16)}</span><span class="sr">Search markets</span><input id="q" type="search" placeholder="${esc(t("Search e.g., SOL"))}" autocomplete="off" enterkeyhint="search"></label>
-    <button class="icon-btn" data-lang aria-label="Language">${ic("globe",20)}</button>
     <button class="icon-btn" data-bell aria-label="Notifications">${ic("bell",20)}<span class="badge-dot hide" id="nb"></span></button>
     <a class="icon-btn" href="#/settings" aria-label="Settings">${ic("gear",20)}</a>
   </header>
@@ -183,7 +175,6 @@ Pages.home = () => {
     qi.addEventListener("input", () => ml.setQ(qi.value));
     root.querySelector("[data-menu]").onclick = UI.openMenu;
     root.querySelector("[data-more]").onclick = e => { e.preventDefault(); UI.openMenu(); };
-    root.querySelector("[data-lang]").onclick = UI.openLang;
     root.querySelector("[data-bell]").onclick = UI.openNotifs;
     root.querySelector("[data-eye]").onclick = e => { s.settings.hideBal = !s.settings.hideBal; store.save(); e.currentTarget.innerHTML = ic(s.settings.hideBal?"eyeoff":"eye",14); renderBal(); };
     const slides = root.querySelector("#slides"), dots = [...root.querySelectorAll("#dots i")];

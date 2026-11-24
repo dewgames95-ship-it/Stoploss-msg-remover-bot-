@@ -892,3 +892,181 @@ a,button,.mkt-row,.tile,.chips button{-webkit-user-select:none;user-select:none}
 @keyframes annc{to{transform:translateX(-100%)}}
 .tile .ic{color:var(--brand)}
 .tile .ic b{background:var(--brand)}
+
+/* =====================================================================
+   v5.2 — "Pro density": smaller type & icons, flat surfaces, hairlines,
+   gradients only on primary actions. Looks like a real exchange, not a template.
+   ===================================================================== */
+body{font-size:13.5px;line-height:1.4}
+.title{font-size:15px}.h1{font-size:18px}.label{font-size:11.5px}.sub{font-size:13px}
+.sec-h{margin:16px 0 8px}.sec-h .title{font-size:15px}
+.card,html[data-theme="light"] .card{border-radius:12px;box-shadow:none;padding:14px}
+.kpi,.mover,.stats-row,html[data-theme="light"] .kpi,html[data-theme="light"] .mover,html[data-theme="light"] .stats-row{border-radius:12px;box-shadow:none}
+.mover:hover{transform:none;box-shadow:none;border-color:var(--line-2)}
+.icon-btn{width:32px;height:32px;border-radius:10px}
+.icon-btn svg{width:19px;height:19px}
+.avatar{width:30px;height:30px;font-size:13px;box-shadow:none}
+.search{height:36px;border-radius:10px;font-size:13px}
+.search input{font-size:13px}
+
+/* buttons: flat, crisp; gradient kept only on the primary CTA */
+.btn{height:38px;border-radius:10px;font-size:13.5px;font-weight:600}
+.btn-sm{height:28px;font-size:12px;border-radius:8px;padding:0 10px}
+.btn-lg{height:44px;font-size:15px}
+.btn-primary{background:linear-gradient(180deg,#3B7BFF,#2563EB);box-shadow:none}
+html[data-theme="dark"] .btn-primary{background:linear-gradient(180deg,#4D86FF,#2F6BFF)}
+.btn-up,.fbtn2.l{background:var(--up);box-shadow:none}
+.btn-down,.fbtn2.s{background:var(--down);box-shadow:none}
+.btn:active,.fbtn2:active{transform:scale(.98);filter:brightness(.94)}
+.fbtn2{height:40px;font-size:14px;border-radius:10px;font-weight:600}
+.fbtn2 small{font-size:11px}
+.ud .btn,.bx .ud .btn{height:50px;font-size:16px;border-radius:12px}
+
+/* home */
+.bal{font-size:26px}
+.bal small{font-size:12px}
+.pnl-mini{border-radius:10px;padding:10px}
+.carousel{border-radius:14px;box-shadow:none}
+.slide{min-height:112px;padding:16px}
+.slide h3{font-size:16px}.slide p{font-size:11.5px}
+.slide svg{width:88px;height:88px}
+.slide .pill{padding:5px 12px;font-size:11.5px;box-shadow:none}
+.tiles{gap:14px 2px;padding:14px 2px}
+.tile{font-size:11px;font-weight:500;gap:5px}
+.tile .ic{width:40px;height:40px;border-radius:12px;border:0;background:var(--card-2);box-shadow:none}
+.tile .ic svg{width:20px;height:20px}
+.tile:hover .ic{transform:none;box-shadow:none}
+.tile .ic b{font-size:8.5px;padding:1px 4px;top:-5px;right:-8px}
+.annc{padding:9px 12px;border-radius:10px;font-size:12px}
+
+/* tabs */
+.tabs .tab{font-size:15px!important;padding:8px 0}
+.tab.on::after,.mode-sw button.on::after{height:2.5px}
+.ptabs button,.cp-tabs button{font-size:14px;padding:11px 0}
+.seg{border-radius:10px;padding:3px}.seg button{border-radius:8px;font-size:12.5px;padding:6px 8px}
+.chips button,.chip-s{font-size:12px;padding:5px 11px}
+
+/* market rows */
+.mkt-row{padding:10px 8px}
+.sym{font-size:14px}.sym em{font-size:11.5px}
+.px{font-size:14px}
+.sub2{font-size:11px}
+.chg{width:70px;padding:6px 0;font-size:12.5px;border-radius:8px}
+.coin,.letter{width:26px;height:26px}
+
+/* floating nav → flush exchange-style bar */
+.bnav{left:0;right:0;bottom:0;max-width:none;border-radius:0;border:0;border-top:1px solid var(--line);box-shadow:none;padding-bottom:env(safe-area-inset-bottom)}
+.bnav-in{height:56px;max-width:620px;margin:0 auto}
+.bnav a{font-size:10.5px;font-weight:500;gap:2px}
+.bnav a .ni{width:auto;height:24px;background:none!important;border-radius:0}
+.bnav a .ni svg{width:22px;height:22px}
+.app{padding-bottom:calc(56px + 20px + env(safe-area-inset-bottom))}
+@media (min-width:900px){.bnav{bottom:0}}
+
+/* trade headers */
+.fx-head .nm,.cp-head .nm{font-size:17px}
+.live-px{font-size:24px}
+.cp-price .lp,.bin-page .cp-price .lp{font-size:24px}
+.cp-price .k{font-size:11px;gap:2px 14px}
+.perp{font-size:10.5px;padding:0 5px;line-height:17px;border-radius:4px}
+.tfbar .tfs button{font-size:12.5px;padding:5px 7px}
+.tfbar .ti{width:30px;height:28px}
+.tfbar .ti svg{width:16px;height:16px}
+.indbar .il button{font-size:12.5px}
+.legend{font-size:10px}
+
+/* futures order panel */
+.fx-grid{gap:10px}
+.oc button{padding:6px 0;font-size:13px}
+.fx-row button{height:30px;font-size:12.5px}
+.fsel{height:36px;font-size:13px;border-radius:8px}
+.famt{height:40px;border-radius:8px}
+.famt input{font-size:14px}
+.famt span{font-size:12px}
+.fkv{font-size:11.5px;margin:3px 0}
+.fchk{font-size:12.5px}
+.fbook{font-size:11.5px}
+.fbook .mid b{font-size:17px}
+.fund{font-size:10.5px}
+.fbook .r{cursor:pointer;border-radius:3px}
+.fbook .r:active{background:var(--hover)}
+.fbook .r.me span:first-child::before{content:"";display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--brand);margin-right:4px;vertical-align:middle;box-shadow:0 0 0 2px var(--brand-soft)}
+.fbook .r.me{background:var(--brand-soft)}
+.ob-out{font-size:10.5px;color:var(--brand);margin-top:6px;display:flex;align-items:center;gap:4px}
+.ob-src{font-size:10px;color:var(--muted);margin-top:6px;text-align:right}
+
+/* position cards (Binance-like density) */
+.pc{padding:14px 0}
+.pc-h{margin-bottom:10px}
+.pc-h .sym{font-size:15px}
+.pc-big{margin-bottom:10px}
+.pc-big b{font-size:18px}
+.pc-big span,.pc-g span,.ph-g span{font-size:11.5px}
+.pc-g b,.ph-g b{font-size:14px}
+.pc-g{gap:10px 8px}
+.rpnl{width:100%;border-radius:8px;padding:8px 12px;margin:10px 0;font-size:12.5px;background:transparent;transition:background .15s}
+.rpnl:active{background:var(--hover)}
+.rpnl b{display:inline-flex;align-items:center;gap:4px}
+.pc-btns button{height:34px;border-radius:8px;font-size:13px;background:var(--input);border:0}
+.pc-btns button:active{background:var(--hover)}
+.rz-link{cursor:pointer}
+.rz-link span{display:flex;align-items:center;gap:2px}
+
+/* inline futures chart (no overlay, no indicator bar) */
+.fxc{margin:8px -16px 0;border-top:1px solid var(--line)}
+.fxc-bar{display:flex;align-items:center;justify-content:space-between;width:100%;padding:12px 16px;font-size:14px;font-weight:600}
+.fxc-i{display:grid;place-items:center;transition:transform .25s var(--ease);transform:rotate(180deg)}
+.fxc.open .fxc-i{transform:none}
+.fxc-body{display:none}
+.fxc.open .fxc-body{display:block}
+.fxc .tfbar{margin:0;border-top:1px solid var(--line)}
+.fxc .cp-chart{margin:0}
+.fxc .cp-chart .chart-wrap{height:clamp(240px,38vh,340px);min-height:0;max-height:none}
+.fxc .legend{display:none}
+
+/* realized PnL breakdown */
+.rz-top{text-align:center;padding:4px 0 14px;border-bottom:1px solid var(--line);margin-bottom:4px}
+.rz-top span{display:block;font-size:12px;color:var(--muted)}
+.rz-top b{display:block;font-size:26px;font-weight:800;margin:2px 0}
+.rz-top small{font-size:11.5px;color:var(--muted)}
+.rz-r{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
+.rz-r>div:first-child{min-width:0}
+.rz-r b{display:block;font-size:13.5px;font-weight:600}
+.rz-r small{display:block;font-size:11px;color:var(--muted);margin-top:1px}
+.rz-r .num{text-align:right;font-weight:700;font-size:14px;white-space:nowrap}
+.rz-r .num small{font-weight:500;font-size:11px;margin:1px 0 0}
+.rz-note{display:flex;gap:6px;font-size:11.5px;color:var(--muted);margin:12px 0 4px;line-height:1.45}
+.rz-note svg{flex-shrink:0;margin-top:2px}
+
+/* 2-step order confirmation */
+.cf-sub{display:flex;gap:6px;margin:-2px 0 10px}
+.cf-rows{border:1px solid var(--line);border-radius:12px;padding:4px 12px}
+.cf-rows div{display:flex;justify-content:space-between;gap:12px;padding:9px 0;font-size:13px;border-bottom:1px solid var(--line)}
+.cf-rows div:last-child{border-bottom:0}
+.cf-rows span{color:var(--muted)}
+.cf-rows b{font-weight:600;text-align:right}
+.cf-skip{display:flex;gap:10px;align-items:flex-start;margin:14px 2px;font-size:13px;cursor:pointer}
+.cf-skip input{width:18px;height:18px;accent-color:var(--brand);margin-top:1px;flex-shrink:0}
+.cf-skip small{display:block;font-size:11px;color:var(--muted);margin-top:2px}
+.cf-btns{display:grid;grid-template-columns:1fr 1.4fr;gap:10px;padding-bottom:4px}
+.cf-btns .btn{height:44px;font-size:15px}
+
+/* sheets & toasts: tighter */
+.sheet-h{padding:6px 16px 8px}.sheet-h .title{font-size:16px}
+.toast{font-size:12.5px;padding:10px 12px;border-radius:12px}
+.list-item{padding:12px 0}
+.list-item .ic{width:32px;height:32px;border-radius:10px}
+.list-item .ic svg{width:17px;height:17px}
+
+/* chart overlays: smaller, crisper labels */
+.pbox{font-size:10px;padding:1px 5px;border-radius:4px;min-width:56px;box-shadow:none}
+.xlab{font-size:10px}
+.plab{font-size:10px;border-radius:4px}
+.plab span{padding:1px 5px}
+.hl{font-size:10px}
+.exp-line span{font-size:9.5px}
+.chart-tools button,.fs-btn{width:28px;height:28px;border-radius:8px;box-shadow:none}
+.auto-btn{width:22px;height:22px;font-size:10px}
+.sl-art{width:76px;height:76px;border-radius:22px;display:grid;place-items:center;flex-shrink:0;color:var(--brand);background:var(--card);border:1px solid var(--line);position:relative}
+.sl-art::after{content:"";position:absolute;inset:-8px;border-radius:28px;border:1px dashed var(--line-2);opacity:.7}
+.sl-art svg{width:34px!important;height:34px!important}

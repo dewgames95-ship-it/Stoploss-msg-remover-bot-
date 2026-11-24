@@ -96,6 +96,14 @@ const defaults = () => ({
 let S;
 try { S = Object.assign(defaults(), JSON.parse(localStorage.getItem(KEY) || "{}")); } catch { S = defaults(); }
 S.settings = Object.assign(defaults().settings, S.settings || {});
+S.settings.lang = "en";
+const PREF_DEF = {
+  confirm: {market:true, limit:true, close:true, binary:true, option:true},       // 2-step order confirmation per order type
+  snd: {open:true, close:true, win:true, loss:true, alert:true, notify:true, err:true},
+  chart: {bs:true, pos:true, ord:true, hilo:true, cd:true},                     // B/S markers, position lines, order lines, high/low, candle countdown
+  hideSmall:false, pnlBasis:"24h"
+};
+for (const k in PREF_DEF){ const d = PREF_DEF[k]; S.settings[k] = typeof d === "object" ? Object.assign({}, d, S.settings[k] || {}) : (S.settings[k] ?? d); }
 if (!S.settings.v5){ Object.assign(S.settings, {v5:true, theme:"light", sound:true, haptic:true}); }
 if (S.profile && S.profile.name === "Demo Trader") S.profile.name = "Trader" + Math.floor(1000 + Math.random()*9000);
 ["fut","rewards","vault"].forEach(k => S[k] = Object.assign(defaults()[k], S[k] || {}));
@@ -127,7 +135,7 @@ const I18N = {
     "Up":"ऊपर","Down":"नीचे","Amount":"राशि","Balance":"बैलेंस","Live Positions":"लाइव पोज़ीशन","History":"इतिहास","Settings":"सेटिंग्स",
     "Search e.g., SOL":"खोजें जैसे SOL","Market closed":"बाज़ार बंद","Chart only":"केवल चार्ट","Notifications":"सूचनाएँ","Language":"भाषा","Payout (if win)":"भुगतान (जीत पर)","Payout Ratio":"भुगतान अनुपात"}
 };
-const t = k => (I18N[S.settings.lang]?.[k]) || k;
+const t = k => k; // English only
 
 /* ----- Toast ----- */
 function toast(msg, kind="info", ms=2600){
@@ -171,6 +179,20 @@ function modal(html, onMount){
   requestAnimationFrame(() => el.classList.add("show")); onMount?.(el);
   return el;
 }
+/* 2-step order confirmation (exchange style). kind ∈ market|limit|close|binary|option.
+   rows: [[label, valueHtml], ...]. Skips instantly if the user turned that confirmation off. */
+function confirmTrade({kind, title, sub = "", rows = [], okText = "Confirm", tone = "primary"}){
+  if (S.settings.confirm && S.settings.confirm[kind] === false) return Promise.resolve(true);
+  return new Promise(res => {
+    let done = false; const fin = v => { if (done) return; done = true; res(v); };
+    sheet(title, `${sub ? `<div class="cf-sub">${sub}</div>` : ""}<div class="cf-rows">${rows.map(([k, v]) => `<div><span>${esc(k)}</span><b class="num">${v}</b></div>`).join("")}</div>
+      <label class="cf-skip"><input type="checkbox" id="cfSkip"><span>Don't show again<small>You can turn it back on in Settings → Order confirmation</small></span></label>
+      <div class="cf-btns"><button class="btn btn-ghost" data-no>Cancel</button><button class="btn ${tone === "up" ? "btn-up" : tone === "down" ? "btn-down" : "btn-primary"}" data-yes>${esc(okText)}</button></div>`, el => {
+      el.querySelector("[data-no]").onclick = () => { fin(false); closeLayer(); };
+      el.querySelector("[data-yes]").onclick = () => { if (el.querySelector("#cfSkip").checked){ S.settings.confirm[kind] = false; store.save(); } fin(true); closeLayer(); };
+    }, () => fin(false));
+  });
+}
 function confirmBox(title, body, okText="Confirm", danger=false){
   return new Promise(res => {
     modal(`<div class="title" style="margin-bottom:8px">${esc(title)}</div><p class="sub" style="margin-bottom:20px">${esc(body)}</p>
@@ -189,8 +211,8 @@ let actx, master;
 function ac(){
   if (!actx){
     actx = new (window.AudioContext || window.webkitAudioContext)();
-    const comp = actx.createDynamicsCompressor(); comp.threshold.value = -18; comp.ratio.value = 4;
-    master = actx.createGain(); master.gain.value = 0.9;
+    const comp = actx.createDynamicsCompressor(); comp.threshold.value = -10; comp.ratio.value = 3; comp.attack.value = 0.002; comp.release.value = 0.12;
+    master = actx.createGain(); master.gain.value = 2.6;
     // short airy echo for a polished "chime" tail
     const dl = actx.createDelay(), fb = actx.createGain(), wet = actx.createGain();
     dl.delayTime.value = 0.11; fb.gain.value = 0.22; wet.gain.value = 0.18;
@@ -212,7 +234,7 @@ const SND = {
   tick:   [[1500,0,.035,.045,"sine"]]                                                              // countdown tick (last 5s)
 };
 function beep(kind="notify"){
-  if (!S.settings.sound || !SND[kind]) return;
+  if (!S.settings.sound || !SND[kind] || (S.settings.snd && S.settings.snd[kind] === false)) return;
   try {
     const A = ac();
     SND[kind].forEach(([f, d, dur, vol, wave]) => {
@@ -254,8 +276,12 @@ function copyText(txt, msg="Copied to clipboard"){
 }
 
 // No global tap feedback by design: sounds & haptics fire only on real events via U.fx().
+// Unlock audio on the first touch (silent) — mobile WebViews only allow sound after a user gesture.
+const unlock = () => { try { const A = ac(), b = A.createBuffer(1, 1, 22050), src = A.createBufferSource(); src.buffer = b; src.connect(A.destination); src.start(0); } catch {} };
+["pointerdown","touchend","keydown"].forEach(ev => document.addEventListener(ev, unlock, {once:true, passive:true}));
+document.addEventListener("visibilitychange", () => { if (!document.hidden && actx && actx.state !== "running") actx.resume().catch(() => {}); });
 // Page zoom is disabled; only the chart handles pinch / wheel zoom.
 document.addEventListener("gesturestart", e => { if (!e.target.closest?.("#chart")) e.preventDefault(); });
 addEventListener("wheel", e => { if (e.ctrlKey && !e.target.closest?.("#chart")) e.preventDefault(); }, {passive:false});
-window.U = {$, $$, esc, clamp, fmt, money, signed, pct, mmss, timeStr, dateStr, uid, sleep, ic, bus, store, t, toast, sheet, drawer, modal, closeLayer, confirmBox, beep, buzz, confetti, spark, copyText, fx};
+window.U = {$, $$, esc, clamp, fmt, money, signed, pct, mmss, timeStr, dateStr, uid, sleep, ic, bus, store, t, toast, sheet, drawer, modal, closeLayer, confirmBox, confirmTrade, beep, buzz, confetti, spark, copyText, fx};
 })();

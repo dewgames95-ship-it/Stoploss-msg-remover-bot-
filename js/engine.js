@@ -67,8 +67,23 @@ function settle(pos){
 setInterval(() => {
   const now = Date.now();
   [...S().positions].forEach(pos => { if (now >= pos.exp) settle(pos); });
+  fundingTick(now);
   bus.emit("sec");
 }, 250);
+/* Funding every 8h (00:00 / 08:00 / 16:00 UTC): longs pay shorts at FUND_RATE of notional */
+const FUND_MS = 8 * 3600e3, FUND_RATE = 0.0001;
+function fundingTick(now){
+  const ep = Math.floor(now / FUND_MS); let any = false;
+  (S().fut?.positions || []).forEach(pos => {
+    if (pos.fEp == null){ pos.fEp = ep; return; }
+    if (pos.fEp >= ep) return;
+    const px = M.get(pos.sym)?.price || pos.entry, pay = r2(pos.qty * px * FUND_RATE * (pos.side === "long" ? 1 : -1) * (ep - pos.fEp));
+    pos.fEp = ep; pos.realized = (pos.realized || 0) - pay;
+    pos.rz = pos.rz || {openFee:pos.fee || 0, closeFee:0, closePnl:0, funding:0}; pos.rz.funding -= pay;
+    store.setBalance(S().balance - pay, "funding"); any = true;
+  });
+  if (any){ store.save(); bus.emit("positions"); }
+}
 
 /* ---- Stats ---- */
 function stats(){
@@ -202,9 +217,10 @@ function addToPosition(sym, side, margin, lev, entry, fee, mode, tp, sl){
   if (pos){
     const nq = pos.qty + qty; pos.entry = (pos.entry * pos.qty + entry * qty) / nq; pos.qty = nq; pos.margin += margin; pos.fee += fee; pos.maxQty = Math.max(pos.maxQty || 0, nq);
     pos.realized = (pos.realized || 0) - fee; pos.lev = Math.round(pos.qty * pos.entry / pos.margin);
+    pos.rz = pos.rz || {openFee:pos.fee - fee, closeFee:0, closePnl:0, funding:0}; pos.rz.openFee += fee;
     if (tp) pos.tp = tp; if (sl) pos.sl = sl;
   } else {
-    pos = {id:uid(), sym, side, margin, lev, entry, qty, maxQty:qty, tp, sl, fee, realized:-fee, mode, open:Date.now()};
+    pos = {id:uid(), sym, side, margin, lev, entry, qty, maxQty:qty, tp, sl, fee, realized:-fee, mode, open:Date.now(), fEp: Math.floor(Date.now() / FUND_MS), rz:{openFee:fee, closeFee:0, closePnl:0, funding:0}};
     F().positions.push(pos);
   }
   pos.liq = liqPrice(side, pos.entry, pos.lev, mode, pos.qty, pos.margin);
@@ -249,6 +265,7 @@ function closeFut(id, reason="manual", atPx, frac=1){
   if (reason === "liquidated") pnl = -m;
   const back = Math.max(0, m + pnl - (reason === "liquidated" ? 0 : fee));
   pos.realized = (pos.realized || 0) + pnl - (reason === "liquidated" ? 0 : fee);
+  pos.rz = pos.rz || {openFee:pos.fee || 0, closeFee:0, closePnl:0, funding:0}; pos.rz.closePnl += pnl; pos.rz.closeFee += reason === "liquidated" ? 0 : fee;
   pos.closedQty = (pos.closedQty || 0) + q; pos.closeNotional = (pos.closeNotional || 0) + q * px;
   store.setBalance(S().balance + back, "futures");
   F().log = (F().log || []).concat({t:Date.now(), sym:pos.sym, side: pos.side === "long" ? "short" : "long", type: reason === "manual" ? "Market" : reason.toUpperCase(), price:px, qty:q, fee, pnl, status:"Filled"}).slice(-200);
@@ -257,7 +274,7 @@ function closeFut(id, reason="manual", atPx, frac=1){
     F().positions = F().positions.filter(x => x.id !== id);
     const avgClose = pos.closeNotional / pos.closedQty;
     F().history.unshift({id:pos.id, sym:pos.sym, side:pos.side, lev:pos.lev, mode:pos.mode || "isolated", entry:pos.entry, exit:avgClose, closedVol:pos.closedQty, maxQty:pos.maxQty || pos.closedQty,
-      margin:pos.margin, open:pos.open, closed:Date.now(), profit:r2(pos.realized), roi: pos.realized / (pos.margin || 1) * 100, reason, fee:pos.fee});
+      margin:pos.margin, open:pos.open, closed:Date.now(), profit:r2(pos.realized), roi: pos.realized / (pos.margin || 1) * 100, reason, fee:pos.fee, rz:pos.rz});
     F().history = F().history.slice(0, 300);
     profit = r2(pos.realized);
   } else { pos.qty -= q; pos.margin -= m; }

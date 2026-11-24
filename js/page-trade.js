@@ -25,29 +25,37 @@ function chartBlock(){
       <div class="chart-wrap"><div id="chart"></div><div class="legend" id="lg"></div><div class="chart-msg" id="cmsg"></div><button class="fs-btn" data-fs aria-label="Fullscreen">${ic("expand",15)}</button></div></div>
     <div class="indbar"><div class="il" id="inds">${INDS_MAIN.map(k => `<button data-ind="${k}">${k}</button>`).join("")}<span style="color:var(--line)">|</span>${INDS_SUB.map(k => `<button data-ind="${k}">${k}</button>`).join("")}</div><button class="ti" data-indinfo aria-label="Indicator guide">${ic("ind",18)}</button></div>`;
 }
-function bindChart(root, sym, tfKey, defTf, detailCb){
-  const $ = q => root.querySelector(q), offs = [];
+function bindChart(root, sym, tfKey, defTf, detailCb, opt={}){
+  const $ = q => root.querySelector(q), offs = [], on = (q, f) => { const e = $(q); if (e) e.onclick = f; };
   let tf = sessionStorage.getItem(tfKey) || defTf;
-  CH.mount($("#chart"), {legend:$("#lg"), msg:$("#cmsg"), mode: tfKey === "tf_binary" ? "bin" : "fut"}, detailCb);
+  if (opt.tfs && !opt.tfs.includes(tf)) tf = defTf;
+  CH.mount($("#chart"), {legend:$("#lg"), msg:$("#cmsg"), mode: tfKey === "tf_binary" ? "bin" : "fut", noInd: !!opt.mini}, detailCb);
   const renderInds = () => root.querySelectorAll("[data-ind]").forEach(b => b.classList.toggle("on", CH.inds.includes(b.dataset.ind)));
   const setTf = x => { tf = x; sessionStorage.setItem(tfKey, tf); root.querySelectorAll("#tfs [data-tf]").forEach(b => b.classList.toggle("on", b.dataset.tf === tf)); CH.load(sym, tf); };
   renderInds(); setTf(tf);
   root.querySelectorAll("#tfs [data-tf]").forEach(b => b.onclick = () => setTf(b.dataset.tf));
   root.querySelectorAll("[data-ind]").forEach(b => b.onclick = () => { const k = b.dataset.ind, l = CH.inds.includes(k) ? CH.inds.filter(x => x !== k) : [...CH.inds, k]; CH.setInds(l); renderInds(); if (l.length >= 3) E.award("ind"); });
-  $("[data-indinfo]").onclick = $("[data-indset]").onclick = () => indGuide(renderInds);
-  $("[data-ctype]").onclick = () => { CH.setType(CH.type === "line" ? "candle" : "line"); $("[data-ctype]").classList.toggle("on", CH.type === "line"); };
-  $("[data-ctype]").classList.toggle("on", CH.type === "line");
-  $("[data-drawt]").onclick = () => { const bar = $("#drawbar"); bar.classList.toggle("hide"); $("[data-drawt]").classList.toggle("on", !bar.classList.contains("hide")); if (bar.classList.contains("hide")) CH.setTool(null); };
+  on("[data-indinfo]", () => indGuide(renderInds)); on("[data-indset]", () => indGuide(renderInds));
+  on("[data-ctype]", () => { CH.setType(CH.type === "line" ? "candle" : "line"); $("[data-ctype]").classList.toggle("on", CH.type === "line"); });
+  $("[data-ctype]")?.classList.toggle("on", CH.type === "line");
+  on("[data-drawt]", () => { const bar = $("#drawbar"); bar.classList.toggle("hide"); $("[data-drawt]").classList.toggle("on", !bar.classList.contains("hide")); if (bar.classList.contains("hide")) CH.setTool(null); });
   root.querySelectorAll("[data-tool]").forEach(b => b.onclick = () => { const on = CH.tool === b.dataset.tool; CH.setTool(on ? null : b.dataset.tool); if (!on) toast(b.dataset.tool === "hline" ? "Tap the chart to place the line" : "Tap two points on the chart", "info", 1600); });
-  $("[data-undo]").onclick = () => CH.undoDraw(); $("[data-clear]").onclick = () => { CH.clearDraw(); toast("Drawings cleared", "ok", 1200); };
+  on("[data-undo]", () => CH.undoDraw()); on("[data-clear]", () => { CH.clearDraw(); toast("Drawings cleared", "ok", 1200); });
   offs.push(bus.on("drawtool", t => root.querySelectorAll("[data-tool]").forEach(b => b.classList.toggle("on", b.dataset.tool === t))));
   const fs = on => { const cc = $("#cc"); cc.classList.toggle("fs", on); document.body.classList.toggle("fs-on", on);
     if (on){ try { document.documentElement.requestFullscreen?.().then(() => screen.orientation?.lock?.("landscape").catch(() => {})).catch(() => {}); } catch {} } else if (document.fullscreenElement){ try { document.exitFullscreen(); } catch {} }
     setTimeout(CH.resize, 60); setTimeout(CH.resize, 400); };
-  $("[data-fs]").onclick = () => fs(!$("#cc").classList.contains("fs")); $("[data-fsx]").onclick = () => fs(false);
+  on("[data-fs]", () => fs(!$("#cc").classList.contains("fs"))); on("[data-fsx]", () => fs(false));
   const fsx = () => { if (!document.fullscreenElement && $("#cc")?.classList.contains("fs")) fs(false); };
   document.addEventListener("fullscreenchange", fsx); offs.push(() => document.removeEventListener("fullscreenchange", fsx));
   return () => { offs.forEach(f => f()); CH.destroy(); document.body.classList.remove("fs-on"); if (document.fullscreenElement) try { document.exitFullscreen(); } catch {} };
+}
+/* Compact chart used inside Futures (like the exchange's in-position chart): no indicator bar */
+const MINI_TFS = ["1m","5m","15m","1h","4h","1d"];
+function miniChartBlock(sym){
+  return `<div class="tfbar mini"><div class="tfs" id="tfs">${MINI_TFS.map(x => `<button data-tf="${x}">${TFL[x] || x}</button>`).join("")}</div>
+    <button class="ti" data-ctype aria-label="Line / candles">${ic("candle",16)}</button><a class="ti" href="#/chart/${sym}" aria-label="Full chart">${ic("expand",15)}</a></div>
+    <div class="cp-chart" id="cc"><div class="chart-wrap"><div id="chart"></div><div class="legend" id="lg"></div><div class="chart-msg" id="cmsg"></div></div></div>`;
 }
 function indGuide(cb){
   U.sheet("Indicators", IND.LIST.map(x => `<div class="list-item" style="align-items:flex-start"><div class="grow"><b>${x.name}</b><div class="sub" style="font-size:13px;margin-top:2px">${x.desc}</div></div><button class="switch ${CH.inds.includes(x.k)?"on":""}" data-ik="${x.k}" aria-label="${x.k}"></button></div>`).join("") + `<a class="more-btn" href="#/academy">Learn in Academy ${ic("chev",14)}</a>`, el => {
@@ -219,8 +227,8 @@ Pages.futures = (params) => {
   <div class="ptabs"><button data-pt="pos">Positions (<span id="pc">0</span>)</button><button data-pt="ord">Open Orders (<span id="oc">0</span>)</button><button data-pt="hist">Position History</button><span class="grow"></span><a href="#/history" aria-label="Trade history">${ic("clockh",22,1.6)}</a></div>
   <div class="ptools" id="ptools"><label class="fchk" style="margin:0"><input type="checkbox" id="hide"> Hide Other Symbols</label><button class="btn btn-ghost btn-sm" data-closeall>Close All</button></div>
   <div id="plist"></div>
-  <div style="height:60px"></div>
-  <div class="cchart" id="cch"><button class="bar" data-cch><span>${esc(fsym(P()))} Perp Chart</span><span id="cchi">${ic("chevd",18)}</span></button><div class="body">${chartBlock()}`;
+
+  <section class="fxc ${sessionStorage.getItem("fx_chart") === "0" ? "" : "open"}" id="cch"><button class="fxc-bar" data-cch><span>${esc(fsym(P()))} Perp Chart</span><span class="fxc-i">${ic("chevd",16)}</span></button><div class="fxc-body">${miniChartBlock(sym)}</div></section>`;
 
   /* --- order form --- */
   const inputs = () => { const p = P(), amt = parseFloat($("#amt").value) || 0, px = otype === "limit" ? (parseFloat($("#lp").value) || p.price) : p.price; return {p, amt, px}; };
@@ -243,10 +251,16 @@ Pages.futures = (params) => {
     renderSlider();
   }
   function renderSlider(){ const v = sliderPct; $("#sfl").style.width = v + "%"; $("#sth").style.left = v + "%"; root.querySelectorAll("[data-nd]").forEach(n => n.classList.toggle("on", +n.dataset.nd <= v)); }
-  function submit(side){
+  async function submit(side){
     const {p, amt} = inputs(), err = $("#ferr");
     const tp = tpsl ? parseFloat($("#tp").value) || null : null, sl = tpsl ? parseFloat($("#sl2").value) || null : null, lp = otype === "limit" ? parseFloat($("#lp").value) : null;
     if (otype === "limit" && !(lp > 0)){ err.textContent = "Please enter the price."; return toast("Please enter the price", "bad"); }
+    if (!(amt > 0)){ err.textContent = "Please enter the amount."; $("#af").classList.add("err"); return toast("Please enter the amount", "bad"); }
+    const px = lp || p.price, q = amt / px, liq = E.liqPrice(side, px, lev, mode, q, amt / lev);
+    const ok = await U.confirmTrade({kind: otype, title: `${fsym(p)} Perp · ${side === "long" ? "Open Long" : "Open Short"}`, tone: side === "long" ? "up" : "down", okText: side === "long" ? "Confirm Long" : "Confirm Short",
+      sub: `<span class="perp">${mode === "cross" ? "Cross" : "Isolated"} ${lev}x</span> <span class="perp">${otype === "market" ? "Market" : "Limit"}</span>`,
+      rows: [["Price", otype === "market" ? "Market" : M.fmtPx(p, lp)], ["Amount", money(amt) + " USDT"], ["Quantity", fmt(q, q < 1 ? 5 : 3) + " " + esc(p.base || "")], ["Margin", money(amt / lev) + " USDT"], ["Fee (est.)", money(amt * C.FEE) + " USDT"], ["Est. liq. price", liq > 0 ? M.fmtPx(p, liq) : "--"], ...(tp || sl ? [["TP / SL", `${tp ? M.fmtPx(p, tp) : "--"} / ${sl ? M.fmtPx(p, sl) : "--"}`]] : [])]});
+    if (!ok) return;
     const r = E.openFut({sym, side, margin: amt / lev, lev, type:otype, price:lp, tp, sl, mode});
     if (r.err){ err.textContent = r.err; $("#af").classList.toggle("err", /amount|balance|value/i.test(r.err)); return toast(r.err, "bad"); }
     err.textContent = ""; $("#af").classList.remove("err"); if (tp || sl) E.award("tpsl");
@@ -255,9 +269,11 @@ Pages.futures = (params) => {
     $("#amt").value = ""; sliderPct = 0; $("#sl").value = 0; renderForm();
     setPtab(r.order ? "ord" : "pos");
   }
-  function closeSide(side){
+  async function closeSide(side){
     const pos = s.fut.positions.find(x => x.sym === sym && x.side === side); if (!pos) return;
-    const pctv = parseFloat($("#amt").value) || sliderPct || 100;
+    const pctv = parseFloat($("#amt").value) || sliderPct || 100, est = E.futPnl(pos).pnl * U.clamp(pctv, 1, 100) / 100;
+    if (!await U.confirmTrade({kind:"close", title:`Close ${side === "long" ? "Long" : "Short"} · ${fsym(P())}`, tone: side === "long" ? "down" : "up", okText:"Confirm Close",
+      rows:[["Close", Math.round(U.clamp(pctv,1,100)) + "%"], ["Price", "Market"], ["Est. PNL", `<span class="${est >= 0 ? "up" : "down"}">${signed(est)} USDT</span>`]]})) return;
     const pr = E.closeFut(pos.id, "manual", null, U.clamp(pctv, 1, 100) / 100);
     if (pr != null){ U.fx("close"); toast(`Closed ${Math.round(U.clamp(pctv,1,100))}% · ${signed(pr)} USDT`, pr >= 0 ? "ok" : "bad"); }
     $("#amt").value = ""; sliderPct = 0; renderForm();
@@ -293,12 +309,18 @@ Pages.futures = (params) => {
     let bids = M.book.bids.slice(0, 6), asks = M.book.asks.slice(0, 6).reverse();
     if (p.type !== "crypto" && p.price){ const st = Math.pow(10, -p.dp); bids = [...Array(6)].map((_,i) => [p.price - st*(i+1), 0]); asks = [...Array(6)].map((_,i) => [p.price + st*(6-i), 0]).reverse().reverse(); }
     const val = r => +r[0] * +r[1], mx = Math.max(1, ...bids.map(val), ...asks.map(val)), v = x => x ? CH.fmtVol(x) : "--";
+    // mark rows where your own open limit orders sit (bucketed to the nearest visible level)
+    const myO = s.fut.orders.filter(o => o.sym === sym).map(o => o.price), all = [...asks, ...bids].map(r => +r[0]);
+    const lo = Math.min(...all), hi = Math.max(...all), half = all.length > 1 ? Math.abs(all[0] - all[1]) / 2 : 0;
+    const outside = myO.filter(x => !(x >= lo - half && x <= hi + half)).length;
+    const marked = new Set(myO.filter(x => x >= lo - half && x <= hi + half).map(x => all.reduce((b, y) => Math.abs(y - x) < Math.abs(b - x) ? y : b, all[0])));
+    const mine = r => marked.has(+r[0]);
     const tb = bids.reduce((a,b) => a + val(b), 0), ta = asks.reduce((a,b) => a + val(b), 0), bp = tb + ta ? tb/(tb+ta)*100 : 50;
     box.innerHTML = `<div class="fund">Funding (8h) / Countdown<br><b class="num">0.0100%/${String(Math.floor(left/3600)).padStart(2,"0")}:${String(Math.floor(left%3600/60)).padStart(2,"0")}:${String(Math.floor(left%60)).padStart(2,"0")}</b></div>
       <div class="fh"><span>Price<br>(USDT)</span><span>Amount<br>(USDT)</span></div>
-      ${asks.length ? asks.map(a => `<div class="r"><i style="width:${val(a)/mx*100}%;background:var(--down)"></i><span class="down">${M.fmtPx(p,+a[0])}</span><span>${v(val(a))}</span></div>`).join("") : '<div class="skel" style="height:110px"></div>'}
+      ${asks.length ? asks.map((a, i) => `<div class="r${mine(a, asks, i, true) ? " me" : ""}" data-bp="${+a[0]}"><i style="width:${val(a)/mx*100}%;background:var(--down)"></i><span class="down">${M.fmtPx(p,+a[0])}</span><span>${v(val(a))}</span></div>`).join("") : '<div class="skel" style="height:110px"></div>'}
       <div class="mid"><b class="num ${p.dir>=0?"up":"down"}">${M.fmtPx(p)}</b><small class="num">${M.fmtPx(p)}</small></div>
-      ${bids.map(b => `<div class="r"><i style="width:${val(b)/mx*100}%;background:var(--up)"></i><span class="up">${M.fmtPx(p,+b[0])}</span><span>${v(val(b))}</span></div>`).join("")}
+      ${bids.map((b, i) => `<div class="r${mine(b, bids, i, false) ? " me" : ""}" data-bp="${+b[0]}"><i style="width:${val(b)/mx*100}%;background:var(--up)"></i><span class="up">${M.fmtPx(p,+b[0])}</span><span>${v(val(b))}</span></div>`).join("")}${outside ? `<div class="ob-out">${ic("info",11)} ${outside} of your orders outside the visible book</div>` : ""}<div class="ob-src">Live order book · Binance</div>
       <div class="ratio num" style="margin:8px 0 0;font-size:11.5px"><span class="up">${bp.toFixed(2)}%</span><div class="bar" style="height:4px"><i style="width:${bp}%;background:var(--up)"></i><i style="flex:1;background:var(--down)"></i></div><span class="down">${(100-bp).toFixed(2)}%</span></div>`;
     const ch = $("#fchg"); ch.textContent = p.closed ? "Market closed" : p.chg == null ? "" : pct(p.chg); ch.className = "num " + (p.closed ? "brand-c" : (p.chg||0) < 0 ? "down" : "up");
   }
@@ -311,7 +333,7 @@ Pages.futures = (params) => {
       <div class="pc-g"><div><span>Size (USDT)</span><b class="num" data-size></b></div><div><span>Margin (USDT)</span><b class="num">${money(pos.margin)}</b></div><div><span>Margin Ratio</span><b class="num" data-mr></b></div>
         <div><span>Entry Price (USDT)</span><b class="num">${M.fmtPx(p, pos.entry)}</b></div><div><span>Mark Price (USDT)</span><b class="num" data-mark></b></div><div><span>Liq. Price (USDT)</span><b class="num" style="color:#F7931A">${pos.liq > 0 ? M.fmtPx(p, pos.liq) : "--"}</b></div></div>
       ${pos.tp || pos.sl ? `<div class="fkv" style="margin-top:10px"><span>TP/SL</span><b class="num">${pos.tp ? M.fmtPx(p,pos.tp) : "--"} / ${pos.sl ? M.fmtPx(p,pos.sl) : "--"}</b></div>` : ""}
-      <div class="rpnl"><span>Realized PNL (USDT)</span><b class="num ${(pos.realized||0)>=0?"up":"down"}">${signed(pos.realized || 0)}</b></div>
+      <button class="rpnl" data-rz="${pos.id}"><span>Realized PNL (USDT)</span><b class="num ${(pos.realized||0)>=0?"up":"down"}">${signed(pos.realized || 0)} ${ic("chev",13)}</b></button>
       <div class="pc-btns"><button data-plev="${pos.id}">Leverage</button><button data-tpsl="${pos.id}">TP/SL</button><button data-close="${pos.id}">Close</button></div></div>`;
   }
   function renderPositions(){
@@ -367,14 +389,28 @@ Pages.futures = (params) => {
     });
   }
   function toggleChart(){
-    chartOpen = !chartOpen; $("#cch").classList.toggle("open", chartOpen); $("#cchi").innerHTML = ic(chartOpen ? "chevd" : "chevd", 18); $("#cchi").style.transform = chartOpen ? "" : "rotate(180deg)";
-    if (chartOpen && !unChart) setTimeout(() => { unChart = bindChart(root, sym, "tf_fut", "15m", candleDetail(sym)); }, 280);
-    else setTimeout(CH.resize, 280);
+    chartOpen = !chartOpen; $("#cch").classList.toggle("open", chartOpen); sessionStorage.setItem("fx_chart", chartOpen ? "1" : "0");
+    if (chartOpen && !unChart) unChart = bindChart(root, sym, "tf_fut", "15m", candleDetail(sym), {mini:true, tfs:MINI_TFS});
+    else setTimeout(CH.resize, 60);
+  }
+  /* Realized PnL breakdown: where the money went and how much % of margin */
+  function rzSheet(id){
+    const pos = s.fut.positions.find(x => x.id === id) || s.fut.history.find(x => x.id === id); if (!pos) return;
+    const p = M.get(pos.sym) || {dp:2, base:pos.sym}, rz = pos.rz || {openFee: pos.fee || 0, closeFee:0, closePnl:0, funding:0};
+    const total = (pos.realized ?? pos.profit ?? 0), m = pos.margin || 1, pc = v => `<small class="${v >= 0 ? "up" : "down"}">${v >= 0 ? "+" : ""}${(v / m * 100).toFixed(2)}%</small>`;
+    const row = (k, d, v) => `<div class="rz-r"><div><b>${k}</b><small>${d}</small></div><div class="num ${v > 0 ? "up" : v < 0 ? "down" : ""}">${signed(v)}${pc(v)}</div></div>`;
+    U.sheet("Realized PNL", `<div class="rz-top"><span>Realized PNL (USDT)</span><b class="num ${total >= 0 ? "up" : "down"}">${signed(total)}</b><small class="num">${(total / m * 100).toFixed(2)}% of margin ${money(m)} USDT</small></div>
+      ${row("Closing PNL", "Profit / loss from the part of the position you closed", rz.closePnl)}
+      ${row("Opening fee", `Taker ${(C.FEE * 100).toFixed(3)}% of opening notional`, -rz.openFee)}
+      ${row("Closing fee", `Taker ${(C.FEE * 100).toFixed(3)}% of closing notional`, -rz.closeFee)}
+      ${row("Funding fee", "Paid / received every 8h (00:00, 08:00, 16:00 UTC)", rz.funding)}
+      <p class="rz-note">${ic("info",13)} Realized PNL = Closing PNL − Trading fees ± Funding fees. Fees are charged on notional value (margin × leverage), so they look large compared with margin at high leverage.</p>`);
   }
 
   return {html, title: fsym(P()) + " Futures", mount(r){
     root = r; M.watchTrades(sym);
-    renderForm(); renderBook(); setPtab(ptab); $("#cchi").style.transform = "rotate(180deg)";
+    renderForm(); renderBook(); setPtab(ptab);
+    if ($("#cch").classList.contains("open")){ chartOpen = false; toggleChart(); }
     $("[data-pick]").onclick = () => pickSheet(sym, x => location.hash = "#/futures/" + x);
     $("[data-menu]").onclick = () => U.sheet("", [["ring","Price alert", () => alertSheet(sym)],["candle","Chart", () => location.hash = "#/chart/" + sym],["history","Position history", () => location.hash = "#/history"],["percent","Futures calculator", calcSheet]].map(([i,n],k) => `<button class="list-item" style="width:100%" data-k="${k}"><span class="ic">${ic(i,18)}</span><span class="grow">${n}</span>${ic("chev",16)}</button>`).join(""), el => {
       const acts = [() => alertSheet(sym), () => location.hash = "#/chart/" + sym, () => location.hash = "#/history", calcSheet];
@@ -393,11 +429,13 @@ Pages.futures = (params) => {
     root.querySelectorAll("[data-cls]").forEach(b => b.onclick = () => closeSide(b.dataset.cls));
     root.querySelectorAll("[data-pt]").forEach(b => b.onclick = () => setPtab(b.dataset.pt));
     $("#hide").onchange = e => { hideOther = e.target.checked; renderPositions(); };
-    $("[data-closeall]").onclick = async () => { if (!s.fut.positions.length) return toast("No open positions", "info"); if (await U.confirmBox("Close All Positions", "All positions will be closed at market price.", "Confirm", true)){ [...s.fut.positions].filter(x => !hideOther || x.sym === sym).forEach(x => E.closeFut(x.id)); U.fx("open"); toast("All positions closed", "ok"); } };
+    $("[data-closeall]").onclick = async () => { if (!s.fut.positions.length) return toast("No open positions", "info"); if (await U.confirmTrade({kind:"close", title:"Close All Positions", tone:"down", okText:"Close All", rows:[["Positions", String(s.fut.positions.filter(x => !hideOther || x.sym === sym).length)], ["Price", "Market"], ["Total est. PNL", (() => { const v = s.fut.positions.filter(x => !hideOther || x.sym === sym).reduce((a, x) => a + E.futPnl(x).pnl, 0); return `<span class="${v >= 0 ? "up" : "down"}">${signed(v)} USDT</span>`; })()]]})){ [...s.fut.positions].filter(x => !hideOther || x.sym === sym).forEach(x => E.closeFut(x.id)); U.fx("open"); toast("All positions closed", "ok"); } };
     $("[data-cch]").onclick = toggleChart;
+    $("#fbook").addEventListener("click", e => { const r = e.target.closest("[data-bp]"); if (!r) return; otype = "limit"; $("#lp").value = r.dataset.bp; renderForm(); toast("Limit price set to " + M.fmtPx(P(), +r.dataset.bp), "info", 1200); });
     $("#plist").addEventListener("click", e => {
       const g = (k) => e.target.closest(`[data-${k}]`)?.dataset[k];
       if (g("open")) return location.hash = "#/futures/" + g("open");
+      if (g("rz")) return rzSheet(g("rz"));
       if (g("close")) return closeSheet(g("close")); if (g("tpsl")) return tpslSheet(g("tpsl")); if (g("plev")) return levSheet(g("plev")); if (g("share")) return shareCard(g("share"));
       if (g("cancel")){ E.cancelOrder(g("cancel")); toast("Order cancelled", "ok"); }
     });
@@ -427,7 +465,7 @@ function historyHtml(list){
   const ds = t => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")} ${d.toTimeString().slice(0,8)}`; };
   return list.map(x => { const p = M.get(x.sym) || {dp:2, type:"crypto", base:x.sym.replace("USDT",""), sym:x.sym}; const roi = x.roi ?? (x.profit / (x.margin || 1) * 100), base = p.type === "crypto" ? p.base : "";
     return `<div class="pc"><div class="pc-h"><span class="side-b ${x.side==="long"?"l":"s"}">${x.side==="long"?"B":"S"}</span><span class="sym">${esc(fsym(p))}</span><span class="perp">Perp</span><span class="perp">${x.mode === "isolated" ? "Isolated" : "Cross"} ${x.lev}x</span><span class="grow"></span><span class="label" style="font-size:13px">${x.reason === "liquidated" ? "Liquidated" : "Closed"}</span></div>
-      <div class="ph-g"><div><span>Realized PNL (USDT)</span><b class="num ${x.profit>=0?"up":"down"}">${signed(x.profit)}</b></div><div><span>ROI</span><b class="num ${roi>=0?"up":"down"}">${roi.toFixed(2)}%</b></div><div><span>Closed Vol.${base ? ` (${esc(base)})` : ""}</span><b class="num">${fmt(x.closedVol ?? x.qty ?? 0, 3)}</b></div>
+      <div class="ph-g"><div data-rz="${x.id}" class="rz-link"><span>Realized PNL (USDT) ${ic("chev",11)}</span><b class="num ${x.profit>=0?"up":"down"}">${signed(x.profit)}</b></div><div><span>ROI</span><b class="num ${roi>=0?"up":"down"}">${roi.toFixed(2)}%</b></div><div><span>Closed Vol.${base ? ` (${esc(base)})` : ""}</span><b class="num">${fmt(x.closedVol ?? x.qty ?? 0, 3)}</b></div>
         <div><span>Avg. Entry Price</span><b class="num">${M.fmtPx(p, x.entry)}</b></div><div><span>Avg. Close Price</span><b class="num">${M.fmtPx(p, x.exit)}</b></div><div><span>Max OI${base ? ` (${esc(base)})` : ""}</span><b class="num">${fmt(x.maxQty ?? x.qty ?? 0, 3)}</b></div></div>
       <div class="ph-t"><span>Opened</span><b class="num">${ds(x.open)}</b></div><div class="ph-t" style="margin-top:4px"><span>Closed (Lasting ${dur(x.closed - x.open)})</span><b class="num">${ds(x.closed)}</b></div></div>`; }).join("");
 }
@@ -482,9 +520,11 @@ Pages.trade = (params) => {
     else if (M.isStale(p)) note = `<div class="notice">${ic("info",14)}<span>Connecting to live prices…</span></div>`;
     $("#note").innerHTML = note; root.querySelectorAll("[data-dir]").forEach(b => b.disabled = !p.tradable || p.closed);
   }
-  function trade(dir){
+  async function trade(dir, skipConfirm){
     const a = parseFloat($("#amt").value), err = $("#err"), msg = E.validate(sym, a);
     if (msg){ err.textContent = msg; $("#af").classList.add("err"); toast(msg, "bad"); return; }
+    if (!skipConfirm && !await U.confirmTrade({kind:"binary", title:`${M.label(P())} · ${dir === "up" ? "Up" : "Down"}`, tone: dir === "up" ? "up" : "down", okText: dir === "up" ? "Confirm Up" : "Confirm Down",
+      rows:[["Amount", money(a) + " USDT"], ["Expiry", exp < 60 ? exp + "s" : exp/60 + " min"], ["Entry price", "Market (" + M.fmtPx(P()) + ")"], ["Payout if win", `<span class="up">+${money(a * E.RATIO)} USDT</span>`], ["If lose", `<span class="down">-${money(a)} USDT</span>`]]})) return;
     const r = E.place(sym, dir, a, exp); if (r.err){ err.textContent = r.err; return toast(r.err, "bad"); }
     err.textContent = ""; $("#af").classList.remove("err"); s.settings.defAmt = a; s.settings.defExp = exp; store.save();
     toast("Order placed successfully!", "ok"); U.fx("open"); setPtab("pos");

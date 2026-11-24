@@ -32,7 +32,7 @@ const fmtVol = v => v >= 1e9 ? (v/1e9).toFixed(2)+"B" : v >= 1e6 ? (v/1e6).toFix
 function mount(container, parts, detailCb){
   destroy();
   el = container; ui = parts || {}; onDetail = detailCb;
-  inds = (store.s.settings.inds || []).slice(); type = store.s.settings.chartType || "candle";
+  inds = ui.noInd ? [] : (store.s.settings.inds || []).slice(); type = store.s.settings.chartType || "candle";
   offs.push(bus.on("tick", onTick), bus.on("trade", onTrade), bus.on("theme", () => { if (chart){ build(); } }), bus.on("positions", syncLines), bus.on("history", syncLines));
   ro = new ResizeObserver(() => chart && chart.applyOptions({width: el.clientWidth, height: el.clientHeight}));
   ro.observe(el);
@@ -216,7 +216,7 @@ function crossBox(){
 function syncLines(){
   if (!S.main) return;
   const want = new Map(), s = store.s;
-  const bin = ui.mode !== "fut", fut = ui.mode !== "bin";
+  const cp = s.settings.chart || {}, bin = ui.mode !== "fut" && cp.pos !== false, fut = ui.mode !== "bin" && cp.pos !== false, ordOn = ui.mode !== "bin" && cp.ord !== false;
   if (bin) s.positions.filter(x => x.sym === sym).forEach(p => want.set("b"+p.id, {price:p.entry, color:"#2E6BFF", lineStyle:2}));
   if (fut) s.fut.positions.filter(x => x.sym === sym).forEach(p => {
     want.set("f"+p.id, {price:p.entry, color: p.side === "long" ? UP : DN, lineStyle:2});
@@ -224,7 +224,7 @@ function syncLines(){
     if (p.tp) want.set("t"+p.id, {price:p.tp, color:DN, lineStyle:2});
     if (p.sl) want.set("s"+p.id, {price:p.sl, color:DN, lineStyle:2});
   });
-  if (fut) s.fut.orders.filter(x => x.sym === sym).forEach(o => want.set("o"+o.id, {price:o.price, color:"#0EA5E9", lineStyle:2}));
+  if (ordOn) s.fut.orders.filter(x => x.sym === sym).forEach(o => want.set("o"+o.id, {price:o.price, color:"#0EA5E9", lineStyle:2}));
   for (const [k, l] of lines){ if (!want.has(k)){ try { S.main.removePriceLine(l); } catch {} lines.delete(k); } }
   for (const [k, o] of want){
     if (lines.has(k)) lines.get(k).applyOptions({price:o.price, color:o.color});
@@ -250,17 +250,18 @@ function xToTime(x){ const l = chart.timeScale().coordinateToLogical(x); if (l =
 function overlay(){
   const box = ui.ovl2; if (!box || !chart || !S.main || !bars.length) return;
   const s = store.s, p = M.get(sym), now = Date.now(), w = el.clientWidth, axisX = w - 64, L = bars.length - 1, last = bars[L];
+  const cp = s.settings.chart || {};
   let h = "";
   // current price box with candle countdown
   const y = S.main.priceToCoordinate(last.close);
   if (y != null){
-    const left = sec >= 60 ? Math.max(0, last.time + sec - now/1000) : null;
+    const left = sec >= 60 && cp.cd !== false ? Math.max(0, last.time + sec - now/1000) : null;
     const cd = left == null ? "" : left >= 3600 ? `${Math.floor(left/3600)}:${String(Math.floor(left%3600/60)).padStart(2,"0")}:${String(Math.floor(left%60)).padStart(2,"0")}` : mmss(left);
     h += `<div class="pbox" style="top:${y}px">${M.fmtPx(p, last.close)}${cd ? `<br>${cd}` : ""}</div>`;
   }
   // visible high / low
   const vr = chart.timeScale().getVisibleLogicalRange();
-  if (vr && tf !== "tick" && type !== "line"){
+  if (vr && tf !== "tick" && type !== "line" && cp.hilo !== false){
     let hi = -Infinity, lo = Infinity, hiI = -1, loI = -1;
     for (let i = Math.max(0, Math.ceil(vr.from)); i <= Math.min(L, Math.floor(vr.to)); i++){ if (bars[i].high > hi){ hi = bars[i].high; hiI = i; } if (bars[i].low < lo){ lo = bars[i].low; loI = i; } }
     const mark = (i, v, top) => { const x = chart.timeScale().logicalToCoordinate(i), yy = S.main.priceToCoordinate(v); if (x == null || yy == null) return "";
@@ -268,7 +269,7 @@ function overlay(){
     if (hiI >= 0) h += mark(hiI, hi, true);
     if (loI >= 0) h += mark(loI, lo, false);
   }
-  const bin = ui.mode !== "fut", fut = ui.mode !== "bin";
+  const bin = ui.mode !== "fut" && cp.pos !== false, fut = ui.mode !== "bin" && cp.pos !== false, ordOn = ui.mode !== "bin" && cp.ord !== false;
   // futures: entry label (PnL | size), TP/SL labels, liq
   if (fut) s.fut.positions.filter(x => x.sym === sym).forEach(pos => {
     const {pnl} = E.futPnl(pos), ye = S.main.priceToCoordinate(pos.entry), c = pnl >= 0 ? "g" : "r";
@@ -277,15 +278,15 @@ function overlay(){
       const est = E.futPnl(pos, pos[k]).pnl; h += `<div class="plab o ${est>=0?"g":"r"}" style="top:${yy}px;left:${Math.max(4, axisX/2 - 70)}px"><span>${n} Market ${M.fmtPx(p, pos[k])}</span><span>PnL ${signed(est)}</span></div>`; });
     if (pos.liq > 0){ const yl = S.main.priceToCoordinate(pos.liq); if (yl != null && yl > 0 && yl < el.clientHeight) h += `<div class="plab o liq" style="top:${yl}px;left:4px"><span>Liq. ${M.fmtPx(p, pos.liq)}</span></div>`; }
   });
-  if (fut) s.fut.orders.filter(x => x.sym === sym).forEach(o => { const yy = S.main.priceToCoordinate(o.price); if (yy != null) h += `<div class="plab o y" style="top:${yy}px;left:4px"><span>Limit ${o.side === "long" ? "Buy" : "Sell"} ${M.fmtPx(p, o.price)}</span><span>${money(o.margin * o.lev)}</span></div>`; });
+  if (ordOn) s.fut.orders.filter(x => x.sym === sym).forEach(o => { const yy = S.main.priceToCoordinate(o.price); if (yy != null) h += `<div class="plab o y" style="top:${yy}px;left:4px"><span>Limit ${o.side === "long" ? "Buy" : "Sell"} ${M.fmtPx(p, o.price)}</span><span>${money(o.margin * o.lev)}</span></div>`; });
   // B/S markers from trades on this symbol
-  const marks = !fut ? [] : [...s.fut.positions.filter(x => x.sym === sym).map(x => ({t:x.open, p:x.entry, s:x.side === "long" ? "B" : "S"})),
+  const marks = ui.mode === "bin" ? [] : [...s.fut.positions.filter(x => x.sym === sym).map(x => ({t:x.open, p:x.entry, s:x.side === "long" ? "B" : "S"})),
     ...s.fut.history.filter(x => x.sym === sym).slice(0, 40).flatMap(x => [{t:x.open, p:x.entry, s:x.side === "long" ? "B" : "S"}, {t:x.closed, p:x.exit, s:x.side === "long" ? "S" : "B"}])];
-  if (bin) marks.push(...s.positions.filter(x => x.sym === sym).map(x => ({t:x.open, p:x.entry, s:x.dir === "up" ? "B" : "S"})),
+  if (ui.mode !== "fut") marks.push(...s.positions.filter(x => x.sym === sym).map(x => ({t:x.open, p:x.entry, s:x.dir === "up" ? "B" : "S"})),
     ...s.history.filter(x => x.sym === sym).slice(0, 40).map(x => ({t:x.open, p:x.entry, s:x.dir === "up" ? "B" : "S"})));
   // small B/S tags snapped to the candle: Buy below the low, Sell above the high, arrow pointing at the wick
   const lineMode = tf === "tick" || type === "line", stack = {};
-  marks.forEach(m => {
+  if (cp.bs !== false) marks.forEach(m => {
     const t = Math.floor(m.t/1000); let x, yy, key;
     if (!lineMode){
       const bi = barAt(t); if (bi < 0) return; const b = bars[bi];
