@@ -30,7 +30,7 @@ Pages.assets = (params) => {
       ${pnl != null ? `<div class="label" style="font-size:14px"><span style="text-decoration:underline dotted">Today's PNL</span> <span class="num ${pnl>=0?"up":"down"}">${H(signed(pnl) + " (" + signed(pnl / Math.max(1, t.total - pnl) * 100) + "%)")}</span></div>` : ""}</div>
       <div style="width:110px;height:56px">${spark([C.START_BALANCE, ...s.balHist.map(x => x.b)].slice(-80), 110, 56, "#2E6BFF")}</div></div>`;
     if (tab === "overview"){
-      const parts = [["Trading",t.spot,"#5AA9FF"],["Futures",Math.max(0,t.fut),"#2E6BFF"],["Binary",t.bin,"#12B886"],["Earn",t.vault,"#7B61FF"]], sum = parts.reduce((a,p) => a + p[1], 0) || 1;
+      const parts = [["Trading",t.spot,"#5AA9FF"],["Futures",Math.max(0,t.fut),"#2E6BFF"],["Binary",t.bin,"#12B886"],["Earn",t.vault,"#5AA9FF"]], sum = parts.reduce((a,p) => a + p[1], 0) || 1;
       box.innerHTML = head("Est. Total Value", t.total, t.tp) + `
         <div class="as-acts"><a href="#/deposit"><span>${ic("down",22,1.8)}</span>Add Funds</a><a href="#/withdraw"><span>${ic("up",22,1.8)}</span>Send</a><a href="#/withdraw"><span>${ic("swap",22,1.8)}</span>Transfer</a><a href="#/withdraw"><span>${ic("earn",22,1.8)}</span>Earn</a></div>
         <section class="card" style="margin-bottom:12px"><div class="row between"><span class="label" style="font-size:15px">Allocation</span></div><div class="alloc">${parts.filter(p => p[1] > 0).map(([n,v,c]) => `<i style="flex:${v/sum};background:${c}"></i>`).join("")}</div>
@@ -39,7 +39,7 @@ Pages.assets = (params) => {
           <div class="coin-row"><div class="row">${UI.usdt(34)}<div class="grow"><b style="font-size:16px">USDT</b><div class="label">TetherUS</div></div><div style="text-align:right"><b class="num" style="font-size:16px;font-weight:500">${H(fmt(t.spot, 8))}</b><div class="label num">${H("$" + money(t.spot))}</div></div></div>
             <div class="row" style="justify-content:flex-end;margin-top:10px"><a class="btn btn-ghost btn-sm" style="width:90px" href="#/withdraw">Earn</a><a class="btn btn-ghost btn-sm" style="width:90px" href="#/futures">Trade</a></div></div>
           ${t.fut > 0 ? `<div class="coin-row"><div class="row"><span class="ic ic-y" style="width:34px;height:34px;border-radius:50%;background:var(--input);display:grid;place-items:center">${ic("nfut",18)}</span><div class="grow"><b style="font-size:16px">Futures (USDⓈ-M)</b><div class="label">Margin + unrealized PNL</div></div><div style="text-align:right"><b class="num" style="font-size:16px;font-weight:500">${H(money(t.fut))}</b><div class="label num ${t.up>=0?"up":"down"}">${H("Unrealized " + signed(t.up))}</div></div></div></div>` : ""}
-          ${t.vault > 0 ? `<div class="coin-row"><div class="row"><span class="ic" style="width:34px;height:34px;border-radius:50%;background:var(--input);display:grid;place-items:center;color:#7B61FF">${ic("vault",18)}</span><div class="grow"><b style="font-size:16px">Earn Vault</b><div class="label">${Math.round(E.APR*100)}% APR · accruing</div></div><div style="text-align:right"><b class="num" style="font-size:16px;font-weight:500">${H(fmt(t.vault, 4))}</b></div></div></div>` : ""}
+          ${t.vault > 0 ? `<div class="coin-row"><div class="row"><span class="ic" style="width:34px;height:34px;border-radius:50%;background:var(--input);display:grid;place-items:center;color:#5AA9FF">${ic("vault",18)}</span><div class="grow"><b style="font-size:16px">Earn Vault</b><div class="label">${Math.round(E.APR*100)}% APR · accruing</div></div><div style="text-align:right"><b class="num" style="font-size:16px;font-weight:500">${H(fmt(t.vault, 4))}</b></div></div></div>` : ""}
         </section>
         <section class="card" style="margin-bottom:12px">${calendar()}</section>
         <section class="card"><div class="row between" style="margin-bottom:4px"><span class="label" style="font-size:15px">Transactions</span><a class="link" href="#/history">Trade history</a></div>${txList()}</section>`;
@@ -48,7 +48,7 @@ Pages.assets = (params) => {
       box.innerHTML = head("Margin Balance", t.fut + t.spot, t.up) + `<div class="kpis" style="margin:16px 0"><div class="kpi"><span class="label">Wallet balance</span><b class="num">${H(money(t.spot + s.fut.positions.reduce((a,p) => a + p.margin, 0)))}</b></div><div class="kpi"><span class="label">Unrealized PNL</span><b class="num ${t.up>=0?"up":"down"}">${H(signed(t.up))}</b></div><div class="kpi"><span class="label">Realized PNL</span><b class="num ${net>=0?"up":"down"}">${signed(net)}</b></div><div class="kpi"><span class="label">Win rate</span><b class="num">${h.length ? (w/h.length*100).toFixed(1) : "0.0"}%</b></div></div>
         <a class="btn btn-primary btn-block" href="#/futures">Trade USDⓈ-M Futures</a><div class="sec-h"><span class="title">Position history</span><a href="#/history">All</a></div>${UI.historyHtml(h.slice(0, 5))}`;
     } else if (tab === "earn"){
-      box.innerHTML = head("Earn Balance", t.vault, null) + `<section class="card" style="margin:16px 0"><div class="row"><span class="ic" style="width:40px;height:40px;border-radius:50%;background:var(--input);display:grid;place-items:center;color:#7B61FF">${ic("vault",20)}</span><div class="grow"><b>USDT Flexible Vault</b><div class="label">Interest accrues every second · redeem anytime</div></div><b class="up">${Math.round(E.APR*100)}% APR</b></div><a class="btn btn-primary btn-block" href="#/withdraw" style="margin-top:14px">Subscribe / Redeem</a></section>`;
+      box.innerHTML = head("Earn Balance", t.vault, null) + `<section class="card" style="margin:16px 0"><div class="row"><span class="ic" style="width:40px;height:40px;border-radius:50%;background:var(--input);display:grid;place-items:center;color:#5AA9FF">${ic("vault",20)}</span><div class="grow"><b>USDT Flexible Vault</b><div class="label">Interest accrues every second · redeem anytime</div></div><b class="up">${Math.round(E.APR*100)}% APR</b></div><a class="btn btn-primary btn-block" href="#/withdraw" style="margin-top:14px">Subscribe / Redeem</a></section>`;
     } else {
       const st = E.stats();
       box.innerHTML = head("Binary Options", t.bin + st.net * 0, null) + `<div class="kpis" style="margin:16px 0"><div class="kpi"><span class="label">Open stake</span><b class="num">${money(t.bin)}</b></div><div class="kpi"><span class="label">Net PNL</span><b class="num ${st.net>=0?"up":"down"}">${signed(st.net)}</b></div><div class="kpi"><span class="label">Trades</span><b class="num">${st.trades}</b></div><div class="kpi"><span class="label">Win rate</span><b class="num">${st.winRate.toFixed(1)}%</b></div></div><a class="btn btn-primary btn-block" href="#/trade">Trade Binary Options</a>`;
@@ -75,7 +75,7 @@ const NETS = {
   BNB:[["BSC","BNB Smart Chain (BEP20)","bnb",0.00001,1]], SOL:[["SOL","Solana","sol",0.001,1]], TRX:[["TRX","Tron (TRC20)","trx",0.1,1]]
 };
 const netsFor = c => NETS[c] || [["BSC","BNB Smart Chain (BEP20)","bnb",0.01,1],[c,(window.COIN_NAMES[c] || c) + " Network",c.toLowerCase(),0.01,2]];
-const coinIcon = (c, size=36) => { const k = c.toLowerCase(), ext = (window.LOCAL_ICONS || {})[k]; return ext ? `<img class="coin" src="assets/coins/${k}.${ext}" alt="" style="width:${size}px;height:${size}px">` : UI.letter(c, size); };
+const coinIcon = (c, size=36) => UI.coinImg(c, size);
 function paperAddr(coin, net){ let h = 0; const seed = S().profile.uid + coin + net; for (const ch of seed) h = (h * 131 + ch.charCodeAt(0)) >>> 0; let hex = ""; for (let i=0;i<8;i++){ h = (h * 1103515245 + 12345) >>> 0; hex += h.toString(16).padStart(8,"0"); } return "PAPER" + net.slice(0,3) + hex.slice(0, 33); }
 Pages.deposit = (params) => {
   const coin = (params[0] || "").toUpperCase(), net = (params[1] || "").toUpperCase();
@@ -151,7 +151,7 @@ function depositPage(coin, net){
             S().tx.unshift({id, kind:"deposit", amount:usd, coin, coinAmt:v, method: net + " network", t:Date.now()});
             store.setBalance(S().balance + usd, "deposit");
             store.notify("Deposit successful", `${fmt(v,6)} ${coin} (≈ ${money(usd)} USDT) has been credited`, "ok");
-            U.beep("claim"); U.buzz([20,40,20]);
+            U.fx("claim");
             if (r.isConnected) r.querySelector("#pend").innerHTML = `<div class="card row" style="margin-top:8px"><span class="ic ic-g" style="border-radius:50%;background:var(--up-bg)">${ic("check",18)}</span><div class="grow"><b>Deposit successful</b><div class="label">${fmt(v,6)} ${coin} · ≈ ${money(usd)} USDT credited</div></div><a class="btn btn-ghost btn-sm" href="#/assets">View</a></div>`;
             toast("Deposit successful", "ok");
           }, 3200);
@@ -184,7 +184,7 @@ Pages.copy = () => {
       r.querySelector("#cc").textContent = n; r.querySelector("#ca").textContent = money(a); const cp = r.querySelector("#cp"); cp.textContent = signed(pl); cp.className = "num " + (pl >= 0 ? "up" : "down");
       r.querySelector("#ll").innerHTML = LEADS.slice().sort((x,y) => y[sort] - x[sort]).map((l,i) => { const c = cps[l.id], seed = [...l.n].reduce((a,ch) => a + ch.charCodeAt(0), 0);
         const curve = [...Array(30)].map((_,k) => 100 + l.roi * (k/29) + Math.sin(k*1.3 + seed) * l.roi * 0.06);
-        return `<div class="lead"><div class="row"><span class="avatar" style="background:${["#2E6BFF","#12B886","#5AA9FF","#7B61FF","#F0435A","#14B8C9"][i%6]};color:#fff">${esc(l.n[0])}</span><div class="grow"><b>${esc(l.n)}</b><div class="label">${esc(l.style)} · ${fmt(l.f,0)} copiers</div></div>
+        return `<div class="lead"><div class="row"><span class="avatar" style="background:${["#2E6BFF","#12B886","#5AA9FF","#5AA9FF","#F0435A","#14B8C9"][i%6]};color:#fff">${esc(l.n[0])}</span><div class="grow"><b>${esc(l.n)}</b><div class="label">${esc(l.style)} · ${fmt(l.f,0)} copiers</div></div>
           ${c?.on ? `<button class="btn btn-ghost btn-sm" data-stop="${l.id}">Stop</button>` : `<button class="btn btn-primary btn-sm" data-copy="${l.id}">Copy</button>`}</div>
           <div class="row" style="margin-top:10px;align-items:flex-end"><div class="grow"><div class="label">30D ROI</div><b class="num up" style="font-size:20px">+${l.roi.toFixed(2)}%</b><div class="label num">PNL +${fmt(l.pnl,0)} · Win ${l.wr}% · AUM $${CH.fmtVol(l.aum)}</div></div><div style="width:110px;height:44px">${spark(curve, 110, 44, "#12B886")}</div></div>
           ${c?.on ? `<div class="fkv" style="margin-top:8px"><span>Your copy · ${money(c.amt)} USDT</span><b class="num ${cpnl(l,c)>=0?"up":"down"}">${signed(cpnl(l,c))} USDT</b></div>` : ""}</div>`; }).join("");
@@ -201,7 +201,7 @@ Pages.copy = () => {
             const err = !(v >= 10) ? "Minimum 10 USDT." : v > S().balance ? "Insufficient balance." : !p?.price || M.isStale(p) ? "Market data offline. Try again shortly." : p.closed ? "Lead trader's market is closed now." : "";
             if (err){ el.querySelector("#cpe").textContent = err; return; }
             S2()[l.id] = {on:true, amt:v, start:p.price, since:Date.now(), dir: M.momentum(l.pair) >= 0 ? 1 : -1};
-            store.setBalance(S().balance - v, "copy"); store.notify("Copy trading started", `Copying ${l.n} with ${money(v)} USDT`, "ok"); U.closeLayer(); U.beep("open"); toast("Copy trading started", "ok"); render(); };
+            store.setBalance(S().balance - v, "copy"); store.notify("Copy trading started", `Copying ${l.n} with ${money(v)} USDT`, "ok"); U.closeLayer(); U.fx("open"); toast("Copy trading started", "ok"); render(); };
         }); }
       if (sb && await U.confirmBox("Stop copying?", "Your allocation plus PNL returns to your balance.", "Stop", true)){
         const l = LEADS.find(x => x.id === sb.dataset.stop), c = S2()[l.id], pl = cpnl(l, c);

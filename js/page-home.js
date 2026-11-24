@@ -57,7 +57,7 @@ function marketList(box, o = {}){
     dirty.clear();
   }
   box.addEventListener("click", e => {
-    const f = e.target.closest("[data-fav]"); if (f){ e.stopPropagation(); const i = S().favs.indexOf(f.dataset.fav); if (i >= 0) S().favs.splice(i,1); else S().favs.push(f.dataset.fav); store.save(); f.classList.toggle("on", i < 0); U.buzz(6); if (tab === "fav") render(); return; }
+    const f = e.target.closest("[data-fav]"); if (f){ e.stopPropagation(); const i = S().favs.indexOf(f.dataset.fav); if (i >= 0) S().favs.splice(i,1); else S().favs.push(f.dataset.fav); store.save(); f.classList.toggle("on", i < 0); if (tab === "fav") render(); return; }
     const r = e.target.closest(".mkt-row"); if (r) location.hash = "#/chart/" + r.dataset.sym; });
   box.addEventListener("keydown", e => { const r = e.target.closest(".mkt-row"); if (r && e.key === "Enter") r.click(); });
   offs.push(bus.on("tick", s => dirty.add(s)), bus.on("meta", s => dirty.add(s)), bus.on("list", render));
@@ -72,21 +72,20 @@ function sortHead(){ return `<div class="mkt-head"><span>Name / Vol</span><butto
 function bindSort(root, ml){ let st = {}; root.querySelectorAll("[data-sort]").forEach(b => b.onclick = () => { const k = b.dataset.sort; st[k] = st[k] === -1 ? 1 : st[k] === 1 ? 0 : -1; Object.keys(st).forEach(x => x !== k && (st[x] = 0)); ml.setSort(st[k] ? [k, st[k]] : null); }); }
 
 /* ---------- Illustrations ---------- */
-const ROBOT = `<svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="54" fill="rgba(46,107,255,.12)"/><path d="M60 14v10" stroke="#2E6BFF" stroke-width="4" stroke-linecap="round"/><circle cx="60" cy="12" r="5" fill="#7B61FF"/>
-<rect x="28" y="26" width="64" height="48" rx="16" fill="#7B61FF"/><rect x="36" y="36" width="48" height="26" rx="10" fill="#0F172A"/>
+const ROBOT = `<svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="54" fill="rgba(46,107,255,.12)"/><path d="M60 14v10" stroke="#2E6BFF" stroke-width="4" stroke-linecap="round"/><circle cx="60" cy="12" r="5" fill="#5AA9FF"/>
+<rect x="28" y="26" width="64" height="48" rx="16" fill="#5AA9FF"/><rect x="36" y="36" width="48" height="26" rx="10" fill="#0F172A"/>
 <circle cx="50" cy="49" r="5" fill="#12B886"><animate attributeName="r" values="5;3;5" dur="2.4s" repeatCount="indefinite"/></circle><circle cx="70" cy="49" r="5" fill="#12B886"><animate attributeName="r" values="5;3;5" dur="2.4s" repeatCount="indefinite"/></circle>
 <rect x="20" y="42" width="8" height="18" rx="4" fill="#2E6BFF"/><rect x="92" y="42" width="8" height="18" rx="4" fill="#2E6BFF"/>
 <rect x="38" y="78" width="44" height="26" rx="10" fill="#2E6BFF"/><path d="M48 92l8-6 6 4 10-8" stroke="#0F172A" stroke-width="3.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 const ROCKET = `<svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="54" fill="rgba(14,203,129,.14)"/>
 <g transform="rotate(35 60 60)"><path d="M60 14c14 12 18 32 14 54H46c-4-22 0-42 14-54z" fill="#EAECEF"/><circle cx="60" cy="44" r="8" fill="#12B886" stroke="#0F172A" stroke-width="3"/>
-<path d="M46 60l-12 14 14-2zM74 60l12 14-14-2z" fill="#7B61FF"/><path d="M50 70h20l-4 10h-12z" fill="#B7BDC6"/>
+<path d="M46 60l-12 14 14-2zM74 60l12 14-14-2z" fill="#5AA9FF"/><path d="M50 70h20l-4 10h-12z" fill="#B7BDC6"/>
 <path d="M54 82c2 10 6 16 6 16s4-6 6-16z" fill="#F7931A"><animate attributeName="d" values="M54 82c2 10 6 16 6 16s4-6 6-16z;M54 82c2 14 6 22 6 22s4-8 6-22z;M54 82c2 10 6 16 6 16s4-6 6-16z" dur=".5s" repeatCount="indefinite"/></path></g></svg>`;
-const LEV = `<svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="54" fill="rgba(155,107,255,.16)"/><text x="60" y="72" text-anchor="middle" font-size="40" font-weight="800" fill="#7B61FF" font-family="IBM Plex Sans">125x</text><path d="M22 92h76" stroke="#7B61FF" stroke-width="3" stroke-linecap="round"/><path d="M30 86l14-10 12 6 18-16 16 6" fill="none" stroke="#12B886" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+const LEV = `<svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="54" fill="rgba(46,107,255,.16)"/><text x="60" y="72" text-anchor="middle" font-size="40" font-weight="800" fill="#5AA9FF" font-family="IBM Plex Sans">125x</text><path d="M22 92h76" stroke="#5AA9FF" stroke-width="3" stroke-linecap="round"/><path d="M30 86l14-10 12 6 18-16 16 6" fill="none" stroke="#12B886" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 
 const TILES = [
-  ["Deposit","deposit","ic-y","#/deposit"],["Withdraw","withdraw","ic-b","#/withdraw"],["Activate Auto Trading","auto","ic-g","#/auto"],["Refer and Earn","gift","ic-p","#/referral"],
-  ["Get VIP Signals","crown","ic-y","#/vip"],["Join Community","users","ic-c","#/community"],["About Us","info","ic-b","#/about"],["Contact Support","headset","ic-g","#/support"],
-  ["Futures","layers","ic-r","#/futures","125x"],["Rewards Hub","gift","ic-y","#/rewards","NEW"],["Academy","book","ic-p","#/academy"],["Copy Trading","users","ic-c","#/copy","HOT"]
+  ["Deposit","deposit","ic-b","#/deposit"],["Withdraw","withdraw","ic-b","#/withdraw"],["Futures","layers","ic-b","#/futures","125x"],["Options","target","ic-b","#/options","NEW"],
+  ["Copy Trading","users","ic-b","#/copy"],["Trading Bots","bot","ic-b","#/bots"],["Earn","earn","ic-b","#/withdraw"],["More","grid","ic-b","#more"]
 ];
 
 /* ---------- Home ---------- */
@@ -114,17 +113,18 @@ Pages.home = () => {
       </div>
       <div class="row" style="margin-top:14px"><a class="btn btn-primary grow" href="#/deposit">${esc(t("Deposit"))}</a><a class="btn btn-ghost grow" href="#/trade">${esc(t("Trade"))}</a><a class="btn btn-ghost grow" href="#/futures">Futures</a></div>
     </section>
+    <a class="annc" href="#/options">${ic("volume",15)}<span class="annc-t"><span>Options trading is now live — BTC, ETH, BNB, SOL, XRP & DOGE calls and puts, cash-settled in USDT.</span></span>${ic("chev",14)}</a>
     <section class="card row" id="ck" style="padding:12px 14px"></section>
     <section class="carousel" aria-label="Featured">
       <div class="slides" id="slides">
         <div class="slide" data-go="#/bots"><div class="grow"><h3>Future Combo Bot</h3><p>Automate futures strategies with smart hedging.</p><span class="pill">Start now</span></div>${ROBOT}</div>
-        <div class="slide s2" data-go="#/auto"><div class="grow"><h3>Auto Trading</h3><p>Let the engine trade Up/Down on live markets.</p><span class="pill">Activate</span></div>${ROCKET}</div>
+        <div class="slide s2" data-go="#/options"><div class="grow"><h3>Options are live</h3><p>Buy calls & puts on BTC, ETH and more. Max loss = premium.</p><span class="pill">Trade options</span></div>${ROCKET}</div>
         <div class="slide s3" data-go="#/futures"><div class="grow"><h3>Futures up to 125x</h3><p>Long or short with TP/SL and live liquidation price.</p><span class="pill">Trade futures</span></div>${LEV}</div>
       </div>
       <div class="dots" id="dots"><i class="on"></i><i></i><i></i></div>
     </section>
     <nav class="card tiles" aria-label="Quick actions">
-      ${TILES.map(([n,i,c,h,b]) => `<a class="tile" href="${h}"><span class="ic ${c}">${ic(i,22)}${b?`<b>${b}</b>`:""}</span><span>${esc(t(n))}</span></a>`).join("")}
+      ${TILES.map(([n,i,c,h,b]) => `<a class="tile" href="${h}" ${h === "#more" ? "data-more" : ""}><span class="ic ${c}">${ic(i,22)}${b?`<b>${b}</b>`:""}</span><span>${esc(t(n))}</span></a>`).join("")}
     </nav>
     <div>
       <div class="sec-h"><span class="title">Top movers</span><a href="#/markets">More ${ic("chev",12)}</a></div>
@@ -137,8 +137,7 @@ Pages.home = () => {
       ${sortHead()}
       <div id="mlist"></div>
     </section>
-  </div>
-  ${UI.endcap()}`;
+  </div>`;
 
   function renderBal(){
     const b = document.getElementById("bal"); if (!b) return;
@@ -155,7 +154,7 @@ Pages.home = () => {
     el.innerHTML = `<span class="ic ic-y" style="width:36px;height:36px;border-radius:10px;display:grid;place-items:center;background:var(--brand-soft)">${ic("flame",18)}</span>
       <div class="grow"><b style="font-size:14px">${done ? `Checked in · ${st}-day streak` : "Daily check-in"}</b><div class="label">${done ? "Come back tomorrow for a bigger reward" : `Claim +${amt} USDT · Day ${st % 7 + 1} of 7`}</div></div>
       ${done ? `<a class="btn btn-ghost btn-sm" href="#/rewards">Rewards</a>` : `<button class="btn btn-primary btn-sm" data-ci>Check in</button>`}`;
-    el.querySelector("[data-ci]")?.addEventListener("click", () => { const r = E.checkIn(); if (r){ U.toast(`Checked in! +${r.amt} USDT`, "ok"); U.beep("claim"); U.confetti(); renderCheck(); } });
+    el.querySelector("[data-ci]")?.addEventListener("click", () => { const r = E.checkIn(); if (r){ U.toast(`Checked in! +${r.amt} USDT`, "ok"); U.fx("claim"); U.confetti(); renderCheck(); } });
   }
   async function renderMovers(){
     const box = document.getElementById("mv"); if (!box) return;
@@ -183,6 +182,7 @@ Pages.home = () => {
     const qi = root.querySelector("#q");
     qi.addEventListener("input", () => ml.setQ(qi.value));
     root.querySelector("[data-menu]").onclick = UI.openMenu;
+    root.querySelector("[data-more]").onclick = e => { e.preventDefault(); UI.openMenu(); };
     root.querySelector("[data-lang]").onclick = UI.openLang;
     root.querySelector("[data-bell]").onclick = UI.openNotifs;
     root.querySelector("[data-eye]").onclick = e => { s.settings.hideBal = !s.settings.hideBal; store.save(); e.currentTarget.innerHTML = ic(s.settings.hideBal?"eyeoff":"eye",14); renderBal(); };

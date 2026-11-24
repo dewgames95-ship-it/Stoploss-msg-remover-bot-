@@ -7,7 +7,7 @@ const RATIO = 1 + C.PAYOUT;
 function validate(sym, amount){
   const p = M.get(sym);
   if (!p) return "Unknown pair.";
-  if (!p.tradable) return "Binary options are not available for this pair. Switch to Futures or pick a top-10 crypto, forex or metal pair.";
+  if (!p.tradable) return "Binary options are not available for this pair. Switch to Futures or pick a popular crypto, forex or metal pair.";
   if (p.closed) return "Market closed for " + M.label(p) + ". Trading resumes when the market opens.";
   if (M.isStale(p)) return "Market data offline. Reconnecting… please try again in a moment.";
   if (!(amount > 0) || isNaN(amount)) return "Enter a valid amount.";
@@ -292,7 +292,7 @@ bus.on("tick", (sym, px) => {
       addToPosition(sym, o.side, o.margin, o.lev, o.price, o.fee, o.mode || "cross", o.tp, o.sl); refreshLiq();
       F().log = (F().log || []).concat({t:Date.now(), sym, side:o.side, type:"Limit", price:o.price, qty:o.margin*o.lev/o.price, fee:o.fee, status:"Filled"}).slice(-200);
       store.notify("Limit order filled", `${M.label(M.get(sym))} ${o.side === "long" ? "Open Long" : "Open Short"} @ ${M.fmtPx(M.get(sym), o.price)}`, "ok");
-      U.toast("Limit order filled", "ok"); U.beep("open"); U.buzz(20); bus.emit("positions");
+      U.toast("Limit order filled", "ok"); U.fx("open"); bus.emit("positions");
     }
   });
   F().positions.filter(p => p.sym === sym).forEach(p => {
@@ -309,7 +309,7 @@ bus.on("tick", (sym, px) => {
       a.done = true; a.hit = Date.now();
       const lbl = M.label(M.get(sym));
       store.notify("Price alert 🔔", `${lbl} reached ${M.fmtPx(M.get(sym), a.price)}`, "info");
-      U.toast(`${lbl} hit ${M.fmtPx(M.get(sym), a.price)}`, "info", 4000); U.beep("alert"); U.buzz([60,40,60]);
+      U.toast(`${lbl} hit ${M.fmtPx(M.get(sym), a.price)}`, "info", 4000); U.fx("alert");
       store.save(); bus.emit("alerts");
     }
     a.last = px;

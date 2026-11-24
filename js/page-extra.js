@@ -27,7 +27,7 @@ Pages.assets = () => {
       const day0 = new Date().setHours(0,0,0,0), tp = E.stats().todayPnl + s.fut.history.filter(x => x.closed >= day0).reduce((a,x) => a + x.profit, 0);
       $("#at").innerHTML = hide ? "******" : `${money(total)}<small>USDT</small>`;
       const t = $("#atp"); t.textContent = hide ? "****" : signed(tp) + " USDT"; t.className = "num " + (tp >= 0 ? "up" : "down");
-      const parts = [["Trading (available)", s.balance, "#2E6BFF"], ["Binary positions", bin, "#5AA9FF"], ["Futures margin + PnL", Math.max(0, fm + up), "#7B61FF"], ["Vault", vault, "#12B886"]];
+      const parts = [["Trading (available)", s.balance, "#2E6BFF"], ["Binary positions", bin, "#5AA9FF"], ["Futures margin + PnL", Math.max(0, fm + up), "#5AA9FF"], ["Vault", vault, "#12B886"]];
       const sum = parts.reduce((a,p) => a + p[1], 0) || 1; let acc = 0;
       const R = 46, Cc = 2*Math.PI*R;
       $("#donut").innerHTML = `<svg class="donut" viewBox="0 0 120 120"><circle cx="60" cy="60" r="${R}" fill="none" stroke="var(--input)" stroke-width="14"/>${parts.map(([,v,c]) => { const len = v/sum*Cc, el = `<circle cx="60" cy="60" r="${R}" fill="none" stroke="${c}" stroke-width="14" stroke-dasharray="${len} ${Cc-len}" stroke-dashoffset="${-acc}" transform="rotate(-90 60 60)"/>`; acc += len; return el; }).join("")}<text x="60" y="58" text-anchor="middle" font-size="10" fill="var(--muted)">Total</text><text x="60" y="73" text-anchor="middle" font-size="12" font-weight="600" fill="var(--text)">${hide ? "***" : CH.fmtVol(total)}</text></svg>`;
@@ -55,7 +55,7 @@ Pages.assets = () => {
 /* ---------- Rewards Hub ---------- */
 Pages.rewards = () => {
   const html = wrap("Rewards Hub", `<div class="two-col"><div class="stack">
-    <div class="hero"><svg class="deco" viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="48" fill="rgba(46,107,255,.18)"/><path d="M60 22l11 22 24 4-17 17 4 24-22-11-22 11 4-24-17-17 24-4z" fill="#7B61FF"/></svg>
+    <div class="hero"><svg class="deco" viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="48" fill="rgba(46,107,255,.18)"/><path d="M60 22l11 22 24 4-17 17 4 24-22-11-22 11 4-24-17-17 24-4z" fill="#5AA9FF"/></svg>
       <div class="label">Your level</div><div class="h1" id="lv"></div><div class="xp" style="margin:10px 0 6px;max-width:220px"><i id="xpb"></i></div><div class="label" id="xpl"></div></div>
     <section class="card"><div class="row between" style="margin-bottom:10px"><span class="title">Daily check-in</span><span class="label" id="stk"></span></div><div class="days" id="days"></div><button class="btn btn-primary btn-block" id="ci" style="margin-top:12px"></button></section>
     <section class="card"><div class="title" style="margin-bottom:10px">Badges</div><div class="badges" id="bdg"></div></section>
@@ -76,15 +76,15 @@ Pages.rewards = () => {
           ${cl ? `<span class="pill-s run">Claimed</span>` : ok ? `<button class="btn btn-primary btn-sm" data-cl="${tk.k}">Claim</button>` : `<span class="pill-s stop">To do</span>`}</div>`; }).join("");
     };
     render();
-    $("#ci").onclick = () => { const x = E.checkIn(); if (x){ toast(`Day ${x.day} check-in: +${x.amt} USDT`, "ok"); U.beep("claim"); U.confetti(); render(); } };
-    $("#tasks").addEventListener("click", e => { const b = e.target.closest("[data-cl]"); if (!b) return; const tk = E.claim(b.dataset.cl); if (tk){ toast(`Claimed +${tk.reward} USDT · +${tk.xp} XP`, "ok"); U.beep("claim"); U.confetti(); render(); } });
+    $("#ci").onclick = () => { const x = E.checkIn(); if (x){ toast(`Day ${x.day} check-in: +${x.amt} USDT`, "ok"); U.fx("claim"); U.confetti(); render(); } };
+    $("#tasks").addEventListener("click", e => { const b = e.target.closest("[data-cl]"); if (!b) return; const tk = E.claim(b.dataset.cl); if (tk){ toast(`Claimed +${tk.reward} USDT · +${tk.xp} XP`, "ok"); U.fx("claim"); U.confetti(); render(); } });
     this.unmount = bus.on("rewards", render);
   }};
 };
 
 /* ---------- Academy ---------- */
 const thumb = (kind) => {
-  const c = {up:"#12B886", dn:"#F0435A", y:"#2E6BFF", b:"#5AA9FF", p:"#7B61FF"};
+  const c = {up:"#12B886", dn:"#F0435A", y:"#2E6BFF", b:"#5AA9FF", p:"#5AA9FF"};
   const candles = `<g>${[[8,22,14,c.up],[18,18,12,c.dn],[28,14,16,c.up],[38,20,10,c.dn],[48,10,18,c.up]].map(([x,y,h,col]) => `<line x1="${x+3}" x2="${x+3}" y1="${y-4}" y2="${y+h+4}" stroke="${col}"/><rect x="${x}" y="${y}" width="6" height="${h}" rx="1" fill="${col}"/>`).join("")}</g>`;
   const m = {
     binary:`<path d="M6 30l10-6 8 4 10-12 10 6 10-10" stroke="${c.y}" stroke-width="2" fill="none"/><path d="M32 6v36" stroke="${c.y}" stroke-dasharray="3 2"/><text x="44" y="12" font-size="8" fill="${c.up}">▲</text><text x="44" y="40" font-size="8" fill="${c.dn}">▼</text>`,
@@ -110,7 +110,7 @@ const LESSONS = [
   {k:"risk", t:"Risk management rules", lvl:"All levels", body:["Risk 1–2% of your balance per trade. Always use a stop loss on Futures.","Don't chase losses. Keep a journal: your Assets page shows 7-day PnL and win rate to review your edge."], q:["A sensible risk per trade is…",["1–2% of balance","25% of balance","All-in"],0]}
 ];
 Pages.academy = () => {
-  const html = wrap("Academy", `<div class="hero" style="margin-bottom:12px"><svg class="deco" viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="48" fill="rgba(155,107,255,.2)"/><path d="M30 50l30-14 30 14-30 14z" fill="#7B61FF"/><path d="M42 56v14c0 6 36 6 36 0V56" fill="none" stroke="#7B61FF" stroke-width="4"/></svg>
+  const html = wrap("Academy", `<div class="hero" style="margin-bottom:12px"><svg class="deco" viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="48" fill="rgba(46,107,255,.2)"/><path d="M30 50l30-14 30 14-30 14z" fill="#5AA9FF"/><path d="M42 56v14c0 6 36 6 36 0V56" fill="none" stroke="#5AA9FF" stroke-width="4"/></svg>
     <div class="title">Learn to trade like a pro</div><div class="sub" style="margin:4px 0 10px">Short lessons with a quiz. Earn XP for each one.</div><div class="xp" style="max-width:220px"><i id="ap"></i></div><div class="label" id="apl" style="margin-top:6px"></div></div>
     <section class="card"><div id="ll"></div></section>`);
   return {html, title:"Academy", mount(r){
@@ -129,11 +129,11 @@ Pages.academy = () => {
         el.querySelector("#qz").addEventListener("click", ev => {
           const a = ev.target.closest("[data-a]"); if (!a) return;
           if (+a.dataset.a === l.q[2]){
-            a.style.background = "var(--up)"; a.style.color = "#fff"; U.beep("win");
+            a.style.background = "var(--up)"; a.style.color = "#fff"; U.fx("win");
             if (!read(l.k)){ S().rewards.used["lesson:" + l.k] = Date.now(); S().rewards.xp += 25; store.save(); bus.emit("rewards"); toast("Correct! +25 XP", "ok"); }
             else toast("Correct!", "ok");
             render();
-          } else { a.style.background = "var(--down)"; a.style.color = "#fff"; U.beep("loss"); U.buzz(80); toast("Not quite — try again", "bad"); }
+          } else { a.style.background = "var(--down)"; a.style.color = "#fff"; U.fx("loss"); toast("Not quite — try again", "bad"); }
         });
       });
     });

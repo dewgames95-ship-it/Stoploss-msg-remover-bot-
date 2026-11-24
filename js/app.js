@@ -3,7 +3,7 @@
 const C = window.CONFIG, {$, ic, t, store, bus, toast, signed} = U;
 const S = store.s;
 let current = null, curName = "";
-const DESC = {home:"Live crypto, forex and gold prices, binary options and futures.", markets:"Live prices for 100+ crypto pairs, forex and metals.", trade:"Trade Up or Down on live charts with 30s–5m expiries.", futures:"USDT-margined futures up to 125x with TP/SL.", assets:"Your balances, PnL and transactions.", bots:"Automated trading bots on live prices.", referral:"Invite friends and earn commission.", profile:"Your trading stats and account.", deposit:"Add USDT to your trading account instantly.", withdraw:"Move funds to your Vault and earn interest.", auto:"Activate automatic trading.", vip:"Momentum signals for every tradable pair.", community:"Chat with other traders.", about:"About NovaTrade.", support:"Contact NovaTrade support by phone, email or ticket.", settings:"Theme, language, sounds and defaults.", rewards:"Daily check-in, tasks and badges.", academy:"Learn trading, indicators and risk management.", alerts:"Price alerts for any market."};
+const DESC = {home:"Live crypto, forex and gold prices, binary options and futures.", markets:"Live prices for 100+ crypto pairs, forex and metals.", trade:"Trade Up or Down on live charts with 30s–5m expiries.", futures:"USDT-margined futures up to 125x with TP/SL.", assets:"Your balances, PnL and transactions.", bots:"Automated trading bots on live prices.", referral:"Invite friends and earn commission.", profile:"Your trading stats and account.", deposit:"Add USDT to your trading account instantly.", withdraw:"Move funds to your Vault and earn interest.", auto:"Activate automatic trading.", vip:"Momentum signals for every tradable pair.", community:"Chat with other traders.", about:"About NovaTrade.", support:"Contact NovaTrade support by phone, email or ticket.", settings:"Theme, language, sounds and defaults.", rewards:"Daily check-in, tasks and badges.", academy:"Learn trading, indicators and risk management.", alerts:"Price alerts for any market.", options:"Buy BTC, ETH and altcoin call & put options, cash-settled in USDT."};
 const NAV = [["home","Home","nhome"],["markets","Markets","nmkt"],["trade","Trade","ntrade"],["futures","Futures","nfut"],["assets","Assets","nasset"]];
 
 function setTheme(th){ S.settings.theme = th; document.documentElement.dataset.theme = th; document.querySelector('meta[name="theme-color"]').content = th === "dark" ? "#0B1220" : "#F5F7FB"; store.save(); bus.emit("theme"); }
@@ -27,7 +27,7 @@ function route(){
   document.title = (page.title || "Page") + " · " + C.APP_NAME;
   document.querySelector('meta[name="description"]').content = DESC[name] || "Binary options and futures trading on live markets.";
   document.body.classList.remove("no-nav");
-  renderNav(name === "chart" ? "futures" : name);
+  renderNav(name === "chart" || name === "options" ? "futures" : name);
   view.querySelectorAll("[data-back]").forEach(b => b.onclick = () => history.length > 1 ? history.back() : (location.hash = "#/home"));
   try { page.mount?.call(page, view); } catch(e){ console.error(e); toast("Something went wrong loading this page", "bad"); }
   window.scrollTo(0, 0);
@@ -36,7 +36,7 @@ bus.on("settled", rec => {
   if (curName === "trade") return;
   const w = rec.result === "win";
   toast(`${M.label(M.get(rec.sym))}: ${w ? "Won" : rec.result === "loss" ? "Lost" : "Refunded"} ${signed(rec.profit)} USDT`, w ? "ok" : rec.result === "loss" ? "bad" : "info", 3500);
-  U.beep(w ? "win" : rec.result === "loss" ? "loss" : "tick");
+  U.fx(w ? "win" : rec.result === "loss" ? "loss" : "notify");
 });
 bus.on("futClosed", ({pos, profit, reason}) => { if (curName === "futures") return; toast(`${M.label(M.get(pos.sym))} ${reason === "liquidated" ? "liquidated" : "closed"}: ${signed(profit)} USDT`, profit >= 0 ? "ok" : "bad", 3500); });
 bus.on("lang", () => route());

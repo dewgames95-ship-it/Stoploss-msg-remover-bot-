@@ -28,11 +28,11 @@ function chartBlock(){
 function bindChart(root, sym, tfKey, defTf, detailCb){
   const $ = q => root.querySelector(q), offs = [];
   let tf = sessionStorage.getItem(tfKey) || defTf;
-  CH.mount($("#chart"), {legend:$("#lg"), msg:$("#cmsg")}, detailCb);
+  CH.mount($("#chart"), {legend:$("#lg"), msg:$("#cmsg"), mode: tfKey === "tf_binary" ? "bin" : "fut"}, detailCb);
   const renderInds = () => root.querySelectorAll("[data-ind]").forEach(b => b.classList.toggle("on", CH.inds.includes(b.dataset.ind)));
   const setTf = x => { tf = x; sessionStorage.setItem(tfKey, tf); root.querySelectorAll("#tfs [data-tf]").forEach(b => b.classList.toggle("on", b.dataset.tf === tf)); CH.load(sym, tf); };
   renderInds(); setTf(tf);
-  root.querySelectorAll("#tfs [data-tf]").forEach(b => b.onclick = () => { U.buzz(5); setTf(b.dataset.tf); });
+  root.querySelectorAll("#tfs [data-tf]").forEach(b => b.onclick = () => setTf(b.dataset.tf));
   root.querySelectorAll("[data-ind]").forEach(b => b.onclick = () => { const k = b.dataset.ind, l = CH.inds.includes(k) ? CH.inds.filter(x => x !== k) : [...CH.inds, k]; CH.setInds(l); renderInds(); if (l.length >= 3) E.award("ind"); });
   $("[data-indinfo]").onclick = $("[data-indset]").onclick = () => indGuide(renderInds);
   $("[data-ctype]").onclick = () => { CH.setType(CH.type === "line" ? "candle" : "line"); $("[data-ctype]").classList.toggle("on", CH.type === "line"); };
@@ -164,7 +164,7 @@ Pages.chart = (params) => {
     M.watchTrades(sym);
     unChart = bindChart(root, sym, "tf_chart", "15m", candleDetail(sym));
     root.querySelector("[data-pick]").onclick = () => pickSheet(sym, s => location.hash = "#/chart/" + s);
-    root.querySelector("[data-star]").onclick = () => { const i = S().favs.indexOf(sym); if (i >= 0) S().favs.splice(i,1); else S().favs.push(sym); store.save(); renderStar(); U.buzz(8); toast(i >= 0 ? "Removed from Favorites" : "Added to Favorites", "ok", 1200); };
+    root.querySelector("[data-star]").onclick = () => { const i = S().favs.indexOf(sym); if (i >= 0) S().favs.splice(i,1); else S().favs.push(sym); store.save(); renderStar(); toast(i >= 0 ? "Removed from Favorites" : "Added to Favorites", "ok", 1200); };
     root.querySelector("[data-alert]").onclick = () => alertSheet(sym);
     root.querySelector("[data-share]").onclick = () => U.copyText(location.href, "Link copied");
     root.querySelector("[data-more]").onclick = () => U.sheet("More", [["ring","Price alerts","#/alerts"],["book","Academy","#/academy"],["users","Copy Trading","#/copy"],["crown","VIP Signals","#/vip"],["chart","Markets","#/markets"]].map(([i,n,h]) => `<a class="list-item" href="${h}"><span class="ic">${ic(i,18)}</span><span class="grow">${n}</span>${ic("chev",16)}</a>`).join(""));
@@ -187,7 +187,7 @@ Pages.futures = (params) => {
   let root, offs = [], timers = [], oc = "open", otype = "market", lev = Math.min(s.settings.lev || 20, E.maxLev(P())), mode = s.settings.marginMode || "cross", tpsl = false, ptab = sessionStorage.getItem("fx_ptab") || "pos", hideOther = false, chartOpen = false, unChart = null, sliderPct = 0;
   const $ = q => root.querySelector(q);
   const html = `
-  <div class="tabs" style="gap:20px;margin:0 -16px;padding:4px 16px 0;border:0"><button class="tab on" style="font-size:17px">USDⓈ-M</button><a class="tab" href="#/trade/${sym}" style="font-size:17px">Binary</a><a class="tab" href="#/copy" style="font-size:17px">Copy</a><a class="tab" href="#/bots" style="font-size:17px">Bots</a></div>
+  <div class="tabs" style="gap:20px;margin:0 -16px;padding:4px 16px 0;border:0"><button class="tab on" style="font-size:17px">USDⓈ-M</button><a class="tab" href="#/trade/${sym}" style="font-size:17px">Binary</a><a class="tab" href="#/options" style="font-size:17px">Options</a><a class="tab" href="#/copy" style="font-size:17px">Copy</a><a class="tab" href="#/bots" style="font-size:17px">Bots</a></div>
   <header class="fx-head"><div class="grow"><button class="nm" data-pick>${esc(fsym(P()))} <span class="perp">Perp</span>${ic("chevd",16)}</button><div class="num" id="fchg" style="font-size:13px"></div></div>
     <a class="icon-btn" href="#/chart/${sym}" aria-label="Chart">${ic("candle",22,1.6)}</a><button class="icon-btn" data-menu aria-label="More">${ic("dots",22)}</button></header>
   <div class="fx-grid">
@@ -248,9 +248,9 @@ Pages.futures = (params) => {
     const tp = tpsl ? parseFloat($("#tp").value) || null : null, sl = tpsl ? parseFloat($("#sl2").value) || null : null, lp = otype === "limit" ? parseFloat($("#lp").value) : null;
     if (otype === "limit" && !(lp > 0)){ err.textContent = "Please enter the price."; return toast("Please enter the price", "bad"); }
     const r = E.openFut({sym, side, margin: amt / lev, lev, type:otype, price:lp, tp, sl, mode});
-    if (r.err){ err.textContent = r.err; $("#af").classList.toggle("err", /amount|balance|value/i.test(r.err)); U.buzz([25,40,25]); return toast(r.err, "bad"); }
+    if (r.err){ err.textContent = r.err; $("#af").classList.toggle("err", /amount|balance|value/i.test(r.err)); return toast(r.err, "bad"); }
     err.textContent = ""; $("#af").classList.remove("err"); if (tp || sl) E.award("tpsl");
-    s.settings.lev = lev; store.save(); U.beep("open"); U.buzz(18);
+    s.settings.lev = lev; store.save(); U.fx("open");
     toast(r.order ? "Order placed" : "Order filled", "ok");
     $("#amt").value = ""; sliderPct = 0; $("#sl").value = 0; renderForm();
     setPtab(r.order ? "ord" : "pos");
@@ -259,7 +259,7 @@ Pages.futures = (params) => {
     const pos = s.fut.positions.find(x => x.sym === sym && x.side === side); if (!pos) return;
     const pctv = parseFloat($("#amt").value) || sliderPct || 100;
     const pr = E.closeFut(pos.id, "manual", null, U.clamp(pctv, 1, 100) / 100);
-    if (pr != null){ U.beep(pr >= 0 ? "win" : "loss"); toast(`Closed ${Math.round(U.clamp(pctv,1,100))}% · ${signed(pr)} USDT`, pr >= 0 ? "ok" : "bad"); }
+    if (pr != null){ U.fx("close"); toast(`Closed ${Math.round(U.clamp(pctv,1,100))}% · ${signed(pr)} USDT`, pr >= 0 ? "ok" : "bad"); }
     $("#amt").value = ""; sliderPct = 0; renderForm();
   }
   function levSheet(posId){
@@ -271,7 +271,7 @@ Pages.futures = (params) => {
       <div class="err-msg" id="le"></div><button class="btn btn-primary btn-block btn-lg" data-ok>Confirm</button>`, el => {
       const upd = () => { el.querySelector("#lv").textContent = v + "x"; el.querySelector("#lr").value = v; el.querySelector("#lmx").textContent = money(Math.min(5e6, s.balance * v)) + " USDT"; };
       upd();
-      el.querySelector("#lr").oninput = e => { v = +e.target.value; upd(); if (marks.includes(v)) U.buzz(6); };
+      el.querySelector("#lr").oninput = e => { v = +e.target.value; upd();  };
       el.querySelector("[data-m]").onclick = () => { v = Math.max(1, v-1); upd(); }; el.querySelector("[data-p]").onclick = () => { v = Math.min(mx, v+1); upd(); };
       el.querySelector("[data-ok]").onclick = () => { if (pos){ const e = E.setPosLev(pos.id, v); if (e){ el.querySelector("#le").textContent = e; return; } } lev = v; s.settings.lev = v; store.save(); U.closeLayer(); renderForm(); toast(`Leverage changed to ${v}x`, "ok", 1400); };
     });
@@ -352,7 +352,7 @@ Pages.futures = (params) => {
       <div class="kv" style="margin-bottom:16px"><span>Est. PNL</span><b class="num" id="ep"></b></div><button class="btn btn-primary btn-block btn-lg" data-ok>Confirm</button>`, el => {
       const upd = () => { const v = E.futPnl(pos).pnl * f / 100; const e = el.querySelector("#ep"); e.textContent = signed(v) + " USDT"; e.className = "num " + (v >= 0 ? "up" : "down"); }; upd();
       el.querySelectorAll("[data-f]").forEach(b => b.onclick = () => { f = +b.dataset.f; el.querySelectorAll("[data-f]").forEach(x => x.classList.toggle("on", x===b)); upd(); });
-      el.querySelector("[data-ok]").onclick = () => { U.closeLayer(); const pr = E.closeFut(id, "manual", null, f/100); if (pr != null){ U.beep(pr >= 0 ? "win" : "loss"); U.buzz(18); toast(`Position closed: ${signed(pr)} USDT`, pr >= 0 ? "ok" : "bad"); } };
+      el.querySelector("[data-ok]").onclick = () => { U.closeLayer(); const pr = E.closeFut(id, "manual", null, f/100); if (pr != null){ U.fx("close"); toast(`Position closed: ${signed(pr)} USDT`, pr >= 0 ? "ok" : "bad"); } };
     });
   }
   function shareCard(id){
@@ -384,7 +384,7 @@ Pages.futures = (params) => {
     $("[data-otype]").onclick = () => U.sheet("Order type", [["market","Market","Executes immediately at the best available price."],["limit","Limit","Executes at your price or better."]].map(([k,n,d]) => `<button class="list-item" style="width:100%" data-ot="${k}"><div class="grow"><b>${n}</b><div class="label">${d}</div></div>${otype===k?`<span class="brand-c">${ic("check",18)}</span>`:""}</button>`).join(""), el => el.querySelectorAll("[data-ot]").forEach(b => b.onclick = () => { otype = b.dataset.ot; if (otype === "limit" && !$("#lp").value) $("#lp").value = +P().price.toFixed(P().dp); U.closeLayer(); renderForm(); }));
     const sl = $("#sl");
     sl.oninput = () => { const v = +sl.value, snap = [0,25,50,75,100].find(x => Math.abs(x - v) <= 2); sliderPct = snap ?? v; if (snap != null && snap !== v) sl.value = snap;
-      if (snap != null) U.buzz(5);
+      
       $("#amt").value = sliderPct ? (oc === "open" ? Math.floor(s.balance / (1/lev + C.FEE) * sliderPct) / 100 : sliderPct) : ""; renderForm(); };
     $("#amt").addEventListener("input", () => { $("#ferr").textContent = ""; $("#af").classList.remove("err"); const v = parseFloat($("#amt").value) || 0; sliderPct = oc === "open" ? U.clamp(v / (s.balance / (1/lev + C.FEE)) * 100, 0, 100) : U.clamp(v, 0, 100); renderForm(); });
     $("#lp").addEventListener("input", renderForm);
@@ -393,7 +393,7 @@ Pages.futures = (params) => {
     root.querySelectorAll("[data-cls]").forEach(b => b.onclick = () => closeSide(b.dataset.cls));
     root.querySelectorAll("[data-pt]").forEach(b => b.onclick = () => setPtab(b.dataset.pt));
     $("#hide").onchange = e => { hideOther = e.target.checked; renderPositions(); };
-    $("[data-closeall]").onclick = async () => { if (!s.fut.positions.length) return toast("No open positions", "info"); if (await U.confirmBox("Close All Positions", "All positions will be closed at market price.", "Confirm", true)){ [...s.fut.positions].filter(x => !hideOther || x.sym === sym).forEach(x => E.closeFut(x.id)); U.beep("open"); toast("All positions closed", "ok"); } };
+    $("[data-closeall]").onclick = async () => { if (!s.fut.positions.length) return toast("No open positions", "info"); if (await U.confirmBox("Close All Positions", "All positions will be closed at market price.", "Confirm", true)){ [...s.fut.positions].filter(x => !hideOther || x.sym === sym).forEach(x => E.closeFut(x.id)); U.fx("open"); toast("All positions closed", "ok"); } };
     $("[data-cch]").onclick = toggleChart;
     $("#plist").addEventListener("click", e => {
       const g = (k) => e.target.closest(`[data-${k}]`)?.dataset[k];
@@ -404,7 +404,7 @@ Pages.futures = (params) => {
     let tT = 0, bT = 0;
     offs.push(bus.on("tick", x => { if (x === sym && performance.now() - tT > 250){ tT = performance.now(); renderForm(); } }), bus.on("depth", x => { if (x === sym && performance.now() - bT > 400){ bT = performance.now(); renderBook(); } }),
       bus.on("sec", tickPositions), bus.on("balance", renderForm), bus.on("positions", () => { renderPositions(); renderForm(); }), bus.on("history", () => ptab === "hist" && renderPositions()),
-      bus.on("futClosed", ({profit, reason}) => { if (reason !== "manual"){ U.beep(profit >= 0 ? "win" : "loss"); U.buzz(profit >= 0 ? [30,40,60] : 120); toast(`${reason === "liquidated" ? "Liquidated" : reason === "tp" ? "Take profit triggered" : "Stop loss triggered"}: ${signed(profit)} USDT`, profit >= 0 ? "ok" : "bad", 3500); } }));
+      bus.on("futClosed", ({profit, reason}) => { if (reason !== "manual"){ U.fx(profit >= 0 ? "win" : "loss"); toast(`${reason === "liquidated" ? "Liquidated" : reason === "tp" ? "Take profit triggered" : "Stop loss triggered"}: ${signed(profit)} USDT`, profit >= 0 ? "ok" : "bad", 3500); } }));
     const iv = setInterval(renderBook, 1000); timers.push(() => clearInterval(iv));
   }, unmount(){ offs.forEach(f => f()); timers.forEach(f => f()); unChart?.(); M.unwatchTrades(); }};
 };
@@ -441,26 +441,27 @@ Pages.trade = (params) => {
   const s = S(), P = () => M.get(sym);
   let root, offs = [], timers = [], unChart, exp = s.settings.defExp || 30, ptab = "pos", cdLast = {};
   const $ = q => root.querySelector(q);
-  const html = `
-  <div class="tabs" style="gap:20px;margin:0 -16px;padding:4px 16px 0;border:0"><a class="tab" href="#/futures/${sym}" style="font-size:17px">USDⓈ-M</a><button class="tab on" style="font-size:17px">Binary</button><a class="tab" href="#/copy" style="font-size:17px">Copy</a><a class="tab" href="#/bots" style="font-size:17px">Bots</a></div>
+  const html = `<div class="bin-page">
+  <div class="tabs" style="gap:20px;margin:0 -16px;padding:4px 16px 0;border:0"><a class="tab" href="#/futures/${sym}" style="font-size:17px">USDⓈ-M</a><button class="tab on" style="font-size:17px">Binary</button><a class="tab" href="#/options" style="font-size:17px">Options</a><a class="tab" href="#/copy" style="font-size:17px">Copy</a><a class="tab" href="#/bots" style="font-size:17px">Bots</a></div>
   <header class="fx-head"><div class="grow"><button class="nm" data-pick>${esc(M.label(P()))} ${P().tradable ? `<span class="perp" style="color:var(--brand-2)">+92%</span>` : `<span class="perp">Chart only</span>`}${ic("chevd",16)}</button></div>
     <button class="icon-btn" data-alert aria-label="Price alert">${ic("bell",22)}</button><a class="icon-btn" href="#/chart/${sym}" aria-label="Full chart">${ic("candle",22,1.6)}</a></header>
   <div class="cp-price" style="border:0;padding-top:6px"><div><div class="lp" id="lp">--</div><div class="row num" style="gap:6px;font-size:13px"><b id="lusd"></b><span id="lc"></span></div></div>
     <div class="k"><span>24h High</span><b id="hi"></b><span>24h Low</span><b id="lo"></b><span>Sentiment</span><b id="sen"></b></div></div>
   ${chartBlock()}
-  <section style="padding:14px 0">
-    <div class="row between" style="margin-bottom:8px"><span class="label">Amount</span><span class="label">Avbl <b class="num" id="ob" style="color:var(--text);font-weight:400"></b> USDT <a href="#/deposit" class="brand-c">${ic("plus",12,3)}</a></span></div>
-    <div class="famt" id="af"><span style="margin-right:8px">${UI.usdt(20)}</span><input id="amt" type="number" inputmode="decimal" min="1" step="1" aria-label="Amount in USDT"><button class="fbtn" data-half>1/2</button><button class="fbtn" data-dbl style="margin-left:6px">2X</button></div>
-    <div class="chips" id="qa">${[10,25,50,100,500].map(v => `<button data-v="${v}">${v}</button>`).join("")}<button data-v="max">Max</button></div>
-    <div class="label" style="margin:14px 0 6px">Time</div>
-    <div class="row" id="exps">${C.EXPIRIES.map(x => `<button class="exp-chip" data-e="${x}"><b>${x<60?x+"s":x/60+"m"}</b><small>+${Math.round(C.PAYOUT*100)}%</small></button>`).join("")}</div>
-    <div class="fkv" style="margin-top:12px"><span>${esc(t("Payout (if win)"))}</span><b class="up num" id="po" style="font-size:15px"></b></div>
-    <div class="fkv"><span>${esc(t("Payout Ratio"))}</span><b class="num">${E.RATIO.toFixed(2)}X</b></div>
-    <div id="note" style="margin-top:10px"></div><div class="err-msg" id="err" role="alert"></div>
-    <div class="ud" style="margin-top:12px"><button class="btn btn-up" data-dir="up"><span class="row" style="gap:4px">${ic("up",18,3)} ${esc(t("Up"))}</span><small id="upP"></small></button><button class="btn btn-down" data-dir="down"><span class="row" style="gap:4px">${ic("down",18,3)} ${esc(t("Down"))}</span><small id="dnP"></small></button></div>
+  <section class="bx">
+    <div class="bx-ctl">
+      <div class="bx-amt" id="af"><button class="bx-step" data-minus aria-label="Decrease amount">${ic("minus",16,2.4)}</button>
+        <label class="bx-in"><small>Amount (USDT)</small><input id="amt" type="number" inputmode="decimal" min="1" step="1" aria-label="Amount in USDT"></label>
+        <button class="bx-step" data-plus aria-label="Increase amount">${ic("plus",16,2.4)}</button></div>
+      <div class="bx-time" id="exps">${C.EXPIRIES.map(x => `<button class="exp-chip" data-e="${x}"><b>${x<60?x+"s":x/60+"m"}</b></button>`).join("")}</div>
+    </div>
+    <div class="ud"><button class="btn btn-up" data-dir="up"><span class="row" style="gap:4px">${ic("up",18,3)} ${esc(t("Up"))}</span><small id="upP"></small></button><button class="btn btn-down" data-dir="down"><span class="row" style="gap:4px">${ic("down",18,3)} ${esc(t("Down"))}</span><small id="dnP"></small></button></div>
+    <div class="bx-meta"><span>${esc(t("Payout (if win)"))} <b class="up num" id="po"></b></span><span>Avbl <b class="num" id="ob"></b> USDT <a href="#/deposit" class="brand-c" aria-label="Deposit">${ic("plus",12,3)}</a></span></div>
+    <div class="chips bx-q" id="qa">${[10,25,50,100,500].map(v => `<button data-v="${v}">${v}</button>`).join("")}<button data-v="max">Max</button><button data-half>½</button><button data-dbl>2×</button></div>
+    <div id="note" style="margin-top:8px"></div><div class="err-msg" id="err" role="alert"></div>
   </section>
   <div class="ptabs" style="margin-top:0"><button class="on" data-pt="pos">Positions (<span id="pc">0</span>)</button><button data-pt="hist">History</button></div>
-  <div id="plist"></div>`;
+  <div id="plist"></div></div>`;
 
   function renderPx(){
     const p = P(), el = $("#lp"); if (!el) return;
@@ -474,7 +475,7 @@ Pages.trade = (params) => {
     const p = P(), a = parseFloat($("#amt").value) || 0;
     $("#ob").textContent = money(s.balance); $("#po").textContent = "+" + money(a * E.RATIO) + " USDT";
     root.querySelectorAll("[data-e]").forEach(b => b.classList.toggle("on", +b.dataset.e === exp));
-    $("#upP").textContent = $("#dnP").textContent = "+92% · " + (exp < 60 ? exp + "s" : exp/60 + "m");
+    $("#upP").textContent = $("#dnP").textContent = "+" + Math.round(C.PAYOUT*100) + "% · " + (exp < 60 ? exp + "s" : exp/60 + "m");
     let note = "";
     if (!p.tradable) note = `<div class="notice">${ic("lock",14)}<span>Binary is not available for ${esc(M.label(p))}. <a href="#/futures/${sym}" style="text-decoration:underline">Trade on USDⓈ-M</a></span></div>`;
     else if (p.closed) note = `<div class="notice">${ic("clock",14)}<span>Market closed. Forex & metals reopen Monday.</span></div>`;
@@ -483,10 +484,10 @@ Pages.trade = (params) => {
   }
   function trade(dir){
     const a = parseFloat($("#amt").value), err = $("#err"), msg = E.validate(sym, a);
-    if (msg){ err.textContent = msg; $("#af").classList.add("err"); U.buzz([25,40,25]); toast(msg, "bad"); return; }
+    if (msg){ err.textContent = msg; $("#af").classList.add("err"); toast(msg, "bad"); return; }
     const r = E.place(sym, dir, a, exp); if (r.err){ err.textContent = r.err; return toast(r.err, "bad"); }
     err.textContent = ""; $("#af").classList.remove("err"); s.settings.defAmt = a; s.settings.defExp = exp; store.save();
-    toast("Order placed successfully!", "ok"); U.beep("open"); U.buzz(18); setPtab("pos");
+    toast("Order placed successfully!", "ok"); U.fx("open"); setPtab("pos");
   }
   function setPtab(k){ ptab = k; root.querySelectorAll("[data-pt]").forEach(b => b.classList.toggle("on", b.dataset.pt === k)); renderPositions(); }
   function renderPositions(){
@@ -513,7 +514,7 @@ Pages.trade = (params) => {
   }
   function result(rec){
     const p = M.get(rec.sym), w = rec.result === "win", l = rec.result === "loss";
-    if (w){ U.confetti(); U.beep("win"); U.buzz([40,40,80]); } else if (l){ U.beep("loss"); U.buzz(150); }
+    if (w){ U.confetti(); U.fx("win"); } else if (l) U.fx("loss");
     U.modal(`<div class="res-ic ${w?"w":l?"l":"d"}">${ic(w?"trophy":l?"x":"reset",32)}</div><div class="h1" style="margin-bottom:4px">${w ? "You won!" : l ? "Trade lost" : "Draw — refunded"}</div>
       <div class="num ${w?"up":l?"down":""}" style="font-size:30px;font-weight:700;margin:8px 0">${signed(rec.profit)} USDT</div>
       <div class="sub" style="margin-bottom:16px;font-size:13px">${esc(M.label(p))} · ${rec.dir==="up"?"Up":"Down"} · ${money(rec.amount)} USDT<br>Entry ${M.fmtPx(p, rec.entry)} → Close ${M.fmtPx(p, rec.exit)}</div>
@@ -527,6 +528,9 @@ Pages.trade = (params) => {
     unChart = bindChart(root, sym, "tf_binary", "tick", candleDetail(sym, {html:`<button class="btn btn-up" data-q="up">Up</button><button class="btn btn-down" data-q="down">Down</button>`, bind: el => el.querySelectorAll("[data-q]").forEach(x => x.onclick = () => { U.closeLayer(); trade(x.dataset.q); })}));
     const amt = $("#amt");
     amt.addEventListener("input", () => { $("#err").textContent = ""; $("#af").classList.remove("err"); renderOrder(); });
+    const stepOf = v => v < 20 ? 1 : v < 100 ? 5 : v < 1000 ? 10 : 100;
+    $("[data-minus]").onclick = () => { const v = parseFloat(amt.value) || 0; amt.value = Math.max(1, v - stepOf(v - 0.01)); renderOrder(); };
+    $("[data-plus]").onclick = () => { const v = parseFloat(amt.value) || 0; amt.value = Math.min(Math.floor(s.balance), v + stepOf(v)) || 1; renderOrder(); };
     $("[data-half]").onclick = () => { amt.value = Math.max(1, Math.floor((parseFloat(amt.value)||0) / 2 * 100) / 100); renderOrder(); };
     $("[data-dbl]").onclick = () => { amt.value = Math.min(Math.floor(s.balance*100)/100, Math.round((parseFloat(amt.value)||0) * 2 * 100) / 100) || 1; renderOrder(); };
     root.querySelectorAll("#qa [data-v]").forEach(b => b.onclick = () => { amt.value = b.dataset.v === "max" ? Math.floor(Math.min(s.balance, 50000)*100)/100 : b.dataset.v; renderOrder(); });

@@ -5,7 +5,7 @@
 const LW = window.LightweightCharts, {bus, store, money, mmss, signed} = U;
 const TZ = -new Date().getTimezoneOffset() * 60;
 const UP = "#12B886", DN = "#F0435A";
-const COL = {m7:"#F59E0B", m25:"#D946EF", m99:"#2E6BFF", boll:"#7B61FF", bollMid:"#5AA9FF", rsi:"#7B61FF", macd:"#2E6BFF", sig:"#F59E0B", sar:"#E6A23C", vwap:"#4FC3F7"};
+const COL = {m7:"#F59E0B", m25:"#0EA5E9", m99:"#64748B", boll:"#0EA5E9", bollMid:"#F59E0B", rsi:"#2E6BFF", macd:"#2E6BFF", sig:"#F59E0B", sar:"#E6A23C", vwap:"#4FC3F7"};
 let chart, el, sym, tf = "15m", sec = 900, bars = [], S = {}, inds = [], type = "candle", loadSeq = 0, offs = [], ro, ui = {}, dirty = false, raf, lastRender = 0, onDetail = null, hover = null, hoverPt = null, lines = new Map(), cache = {}, pctMode = false;
 let draw = {tool:null, temp:null}, drawEl = null;
 
@@ -40,7 +40,7 @@ function mount(container, parts, detailCb){
   el.insertAdjacentHTML("afterend", `<svg class="draw-svg" id="drawSvg"></svg><div class="ovl2" id="ovl2"></div><div class="cbox hide" id="cbox"></div><button class="auto-btn hide" id="autoBtn" aria-label="Auto scale">A</button>`);
   drawEl = el.parentElement.querySelector("#drawSvg");
   ui.ovl2 = el.parentElement.querySelector("#ovl2"); ui.cbox = el.parentElement.querySelector("#cbox"); ui.auto = el.parentElement.querySelector("#autoBtn");
-  ui.auto.onclick = () => { chart?.priceScale("right").applyOptions({autoScale:true}); ui.auto.classList.add("hide"); U.buzz(8); };
+  ui.auto.onclick = () => { chart?.priceScale("right").applyOptions({autoScale:true}); ui.auto.classList.add("hide"); };
   bindDraw(); bindAxisTap();
   loop();
 }
@@ -216,14 +216,15 @@ function crossBox(){
 function syncLines(){
   if (!S.main) return;
   const want = new Map(), s = store.s;
-  s.positions.filter(x => x.sym === sym).forEach(p => want.set("b"+p.id, {price:p.entry, color:"#2E6BFF", lineStyle:2}));
-  s.fut.positions.filter(x => x.sym === sym).forEach(p => {
+  const bin = ui.mode !== "fut", fut = ui.mode !== "bin";
+  if (bin) s.positions.filter(x => x.sym === sym).forEach(p => want.set("b"+p.id, {price:p.entry, color:"#2E6BFF", lineStyle:2}));
+  if (fut) s.fut.positions.filter(x => x.sym === sym).forEach(p => {
     want.set("f"+p.id, {price:p.entry, color: p.side === "long" ? UP : DN, lineStyle:2});
     if (p.liq > 0) want.set("l"+p.id, {price:p.liq, color:"#F7931A", lineStyle:2});
     if (p.tp) want.set("t"+p.id, {price:p.tp, color:DN, lineStyle:2});
     if (p.sl) want.set("s"+p.id, {price:p.sl, color:DN, lineStyle:2});
   });
-  s.fut.orders.filter(x => x.sym === sym).forEach(o => want.set("o"+o.id, {price:o.price, color:"#7B61FF", lineStyle:2}));
+  if (fut) s.fut.orders.filter(x => x.sym === sym).forEach(o => want.set("o"+o.id, {price:o.price, color:"#0EA5E9", lineStyle:2}));
   for (const [k, l] of lines){ if (!want.has(k)){ try { S.main.removePriceLine(l); } catch {} lines.delete(k); } }
   for (const [k, o] of want){
     if (lines.has(k)) lines.get(k).applyOptions({price:o.price, color:o.color});
@@ -240,6 +241,8 @@ function timeToX(t){
   const i = lo, prevT = i ? bars[i-1].time : bars[0].time - sec, frac = (t - prevT) / Math.max(1, bars[i].time - prevT);
   return lx(i - 1 + frac);
 }
+function barAt(t){ if (!bars.length) return -1; const L = bars.length - 1; if (t < bars[0].time || t >= bars[L].time + sec) return -1;
+  let lo = 0, hi = L; while (lo < hi){ const m = (lo + hi + 1) >> 1; if (bars[m].time <= t) lo = m; else hi = m - 1; } return lo; }
 function xToTime(x){ const l = chart.timeScale().coordinateToLogical(x); if (l == null || !bars.length) return null; const L = bars.length - 1, i = Math.floor(l);
   if (i >= L) return bars[L].time + (l - L) * sec; if (i < 0) return bars[0].time + l * sec; return bars[i].time + (l - i) * (bars[i+1].time - bars[i].time); }
 
@@ -265,25 +268,36 @@ function overlay(){
     if (hiI >= 0) h += mark(hiI, hi, true);
     if (loI >= 0) h += mark(loI, lo, false);
   }
+  const bin = ui.mode !== "fut", fut = ui.mode !== "bin";
   // futures: entry label (PnL | size), TP/SL labels, liq
-  s.fut.positions.filter(x => x.sym === sym).forEach(pos => {
+  if (fut) s.fut.positions.filter(x => x.sym === sym).forEach(pos => {
     const {pnl} = E.futPnl(pos), ye = S.main.priceToCoordinate(pos.entry), c = pnl >= 0 ? "g" : "r";
     if (ye != null) h += `<div class="plab ${c}" style="top:${ye}px;left:0"><span>PnL ${signed(pnl)}</span><span>${money(pos.qty * pos.entry)}</span></div>`;
     [["tp","TP"],["sl","SL"]].forEach(([k, n]) => { if (!pos[k]) return; const yy = S.main.priceToCoordinate(pos[k]); if (yy == null) return;
       const est = E.futPnl(pos, pos[k]).pnl; h += `<div class="plab o ${est>=0?"g":"r"}" style="top:${yy}px;left:${Math.max(4, axisX/2 - 70)}px"><span>${n} Market ${M.fmtPx(p, pos[k])}</span><span>PnL ${signed(est)}</span></div>`; });
     if (pos.liq > 0){ const yl = S.main.priceToCoordinate(pos.liq); if (yl != null && yl > 0 && yl < el.clientHeight) h += `<div class="plab o liq" style="top:${yl}px;left:4px"><span>Liq. ${M.fmtPx(p, pos.liq)}</span></div>`; }
   });
-  s.fut.orders.filter(x => x.sym === sym).forEach(o => { const yy = S.main.priceToCoordinate(o.price); if (yy != null) h += `<div class="plab o y" style="top:${yy}px;left:4px"><span>Limit ${o.side === "long" ? "Buy" : "Sell"} ${M.fmtPx(p, o.price)}</span><span>${money(o.margin * o.lev)}</span></div>`; });
+  if (fut) s.fut.orders.filter(x => x.sym === sym).forEach(o => { const yy = S.main.priceToCoordinate(o.price); if (yy != null) h += `<div class="plab o y" style="top:${yy}px;left:4px"><span>Limit ${o.side === "long" ? "Buy" : "Sell"} ${M.fmtPx(p, o.price)}</span><span>${money(o.margin * o.lev)}</span></div>`; });
   // B/S markers from trades on this symbol
-  const marks = [...s.fut.positions.filter(x => x.sym === sym).map(x => ({t:x.open, p:x.entry, s:x.side === "long" ? "B" : "S"})),
-    ...s.fut.history.filter(x => x.sym === sym).slice(0, 40).flatMap(x => [{t:x.open, p:x.entry, s:x.side === "long" ? "B" : "S"}, {t:x.closed, p:x.exit, s:x.side === "long" ? "S" : "B"}]),
-    ...s.positions.filter(x => x.sym === sym).map(x => ({t:x.open, p:x.entry, s:x.dir === "up" ? "B" : "S"})),
-    ...s.history.filter(x => x.sym === sym).slice(0, 40).map(x => ({t:x.open, p:x.entry, s:x.dir === "up" ? "B" : "S"}))];
-  marks.forEach(m => { const x = timeToX(Math.floor(m.t/1000)), yy = S.main.priceToCoordinate(m.p); if (x == null || yy == null || x < 0 || x > axisX) return;
-    h += `<div class="bs ${m.s === "B" ? "b" : "s"}" style="left:${x}px;top:${yy + (m.s === "B" ? 14 : -14)}px">${m.s}</div>`; });
+  const marks = !fut ? [] : [...s.fut.positions.filter(x => x.sym === sym).map(x => ({t:x.open, p:x.entry, s:x.side === "long" ? "B" : "S"})),
+    ...s.fut.history.filter(x => x.sym === sym).slice(0, 40).flatMap(x => [{t:x.open, p:x.entry, s:x.side === "long" ? "B" : "S"}, {t:x.closed, p:x.exit, s:x.side === "long" ? "S" : "B"}])];
+  if (bin) marks.push(...s.positions.filter(x => x.sym === sym).map(x => ({t:x.open, p:x.entry, s:x.dir === "up" ? "B" : "S"})),
+    ...s.history.filter(x => x.sym === sym).slice(0, 40).map(x => ({t:x.open, p:x.entry, s:x.dir === "up" ? "B" : "S"})));
+  // small B/S tags snapped to the candle: Buy below the low, Sell above the high, arrow pointing at the wick
+  const lineMode = tf === "tick" || type === "line", stack = {};
+  marks.forEach(m => {
+    const t = Math.floor(m.t/1000); let x, yy, key;
+    if (!lineMode){
+      const bi = barAt(t); if (bi < 0) return; const b = bars[bi];
+      x = chart.timeScale().logicalToCoordinate(bi); yy = S.main.priceToCoordinate(m.s === "B" ? b.low : b.high); key = bi + m.s;
+    } else { x = timeToX(t); yy = S.main.priceToCoordinate(m.p); key = Math.round((x || 0) / 6) + m.s; }
+    if (x == null || yy == null || x < 0 || x > axisX) return;
+    const n = stack[key] = (stack[key] || 0) + 1; if (n > 3) return;
+    const off = (n - 1) * 16;
+    h += `<div class="bs ${m.s === "B" ? "b" : "s"}" style="left:${x}px;top:${m.s === "B" ? yy + off : yy - off}px">${m.s}</div>`; });
   // binary: tag + start/expiry lines
   const used = [];
-  s.positions.filter(x => x.sym === sym).forEach(pos => {
+  if (bin) s.positions.filter(x => x.sym === sym).forEach(pos => {
     let yy = S.main.priceToCoordinate(pos.entry); if (yy == null) return;
     while (used.some(u => Math.abs(u - yy) < 20)) yy += 20; used.push(yy);
     const {win, pnl} = E.livePnl(pos), lft = (pos.exp - now) / 1000;
@@ -302,7 +316,7 @@ function bindAxisTap(){
   el.addEventListener("pointerup", e => {
     const r = el.getBoundingClientRect(), x = e.clientX - r.left;
     if (Math.hypot(e.clientX - sx, e.clientY - sy) < 6 && Date.now() - st < 300 && x > el.clientWidth - 62 && e.clientY - r.top < el.clientHeight - 26){
-      pctMode = !pctMode; chart.priceScale("right").applyOptions({mode: pctMode ? 2 : 0}); U.buzz(8);
+      pctMode = !pctMode; chart.priceScale("right").applyOptions({mode: pctMode ? 2 : 0});
       U.toast(pctMode ? "Price axis: percentage" : "Price axis: price", "info", 1000);
     }
     setTimeout(checkAuto, 50);
@@ -325,9 +339,9 @@ function bindDraw(){
   drawEl.addEventListener("pointerdown", e => {
     if (!draw.tool || !chart) return; e.preventDefault();
     const q = pt(e); if (q.t == null || q.p == null) return;
-    if (draw.tool === "hline"){ const a = drawings(); a.push({k:"hline", p:q.p}); saveDrawings(a); U.buzz(10); setTool(null); return; }
+    if (draw.tool === "hline"){ const a = drawings(); a.push({k:"hline", p:q.p}); saveDrawings(a); setTool(null); return; }
     if (!draw.temp){ draw.temp = {k:draw.tool, a:{t:q.t, p:q.p}, b:{t:q.t, p:q.p}}; return; }
-    draw.temp.b = {t:q.t, p:q.p}; const a = drawings(); a.push(draw.temp); saveDrawings(a); U.buzz(10); setTool(null);
+    draw.temp.b = {t:q.t, p:q.p}; const a = drawings(); a.push(draw.temp); saveDrawings(a); setTool(null);
   });
   drawEl.addEventListener("pointermove", e => { if (draw.temp){ const q = pt(e); if (q.t != null && q.p != null) draw.temp.b = {t:q.t, p:q.p}; } });
 }

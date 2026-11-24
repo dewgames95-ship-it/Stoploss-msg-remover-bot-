@@ -44,7 +44,7 @@ Pages.deposit = () => {
       S().tx.unshift({id:U.uid(), kind:"deposit", amount:a, method:"Instant top-up", t:Date.now()});
       store.setBalance(S().balance + a, "deposit");
       store.notify("Deposit successful", `+${money(a)} USDT credited to your account`, "ok");
-      toast(`Deposit successful! +${money(a)} USDT`, "ok"); U.beep("claim"); render();
+      toast(`Deposit successful! +${money(a)} USDT`, "ok"); U.fx("claim"); render();
     };
     this.unmount = bus.on("balance", render);
   }};
@@ -53,7 +53,7 @@ Pages.deposit = () => {
 /* ---------- Withdraw (to Vault / Earn) ---------- */
 Pages.withdraw = () => {
   const html = wrap("Withdraw", `<div class="two-col"><div class="stack">
-    <div class="hero"><svg class="deco" viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="50" fill="rgba(46,107,255,.15)"/><rect x="32" y="34" width="56" height="52" rx="8" fill="#2E6BFF"/><circle cx="60" cy="60" r="12" fill="#0F172A"/><circle cx="60" cy="60" r="5" fill="#7B61FF"/></svg>
+    <div class="hero"><svg class="deco" viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="50" fill="rgba(46,107,255,.15)"/><rect x="32" y="34" width="56" height="52" rx="8" fill="#2E6BFF"/><circle cx="60" cy="60" r="12" fill="#0F172A"/><circle cx="60" cy="60" r="5" fill="#5AA9FF"/></svg>
       <div class="label">Vault balance · ${Math.round(E.APR*100)}% APR</div><div class="bal num" id="vb"></div><div class="sub" style="font-size:12px">Withdraw profits from trading into your Vault — it earns interest every second.</div></div>
     <section class="card"><form id="wf" novalidate>
       <div class="seg" style="margin-bottom:14px"><button type="button" class="on" data-d="in">Trading → Vault</button><button type="button" data-d="out">Vault → Trading</button></div>
@@ -82,7 +82,7 @@ Pages.withdraw = () => {
       await processing(e.submitter || $("[type=submit]"), 700);
       const err = E.vaultMove(a, dir); if (err) return toast(err, "bad");
       S().tx.unshift({id:U.uid(), kind:"withdraw", amount:a, method: dir === "in" ? "To Vault" : "From Vault", t:Date.now()}); store.save();
-      toast(dir === "in" ? `Withdrawn ${money(a)} USDT to Vault` : `${money(a)} USDT moved to trading`, "ok"); U.beep("claim");
+      toast(dir === "in" ? `Withdrawn ${money(a)} USDT to Vault` : `${money(a)} USDT moved to trading`, "ok"); U.fx("claim");
       $("#wm").value = ""; calc(); render();
     };
     const iv = setInterval(() => $("#vb").textContent = fmt(E.vaultValue(), 4) + " USDT", 1000);
@@ -269,9 +269,9 @@ Pages.settings = () => {
     ${row("sun","ic-y","Theme",`<div class="seg" style="width:150px"><button data-th="light" class="${st.theme==="light"?"on":""}">Light</button><button data-th="dark" class="${st.theme==="dark"?"on":""}">Dark</button></div>`)}
     ${row("globe","ic-b","Language",`<button class="btn btn-ghost btn-sm" data-lang>${st.lang==="hi"?"हिन्दी":"English"} ${ic("chev",14)}</button>`)}
     <div class="title" style="margin:16px 0 4px">Trading</div>
-    ${row("volume","ic-g","Sounds",sw(st.sound,"sound"),"Order, win / loss & alert sounds")}
-    ${row("volume","ic-b","Tap sounds",sw(st.tapSound,"tapSound"),"Soft click on every tap")}
-    ${row("vibrate","ic-p","Vibration",sw(st.haptic,"haptic"),"Haptic feedback on taps & orders (Android)")}
+    ${row("volume","ic-g","Sounds",sw(st.sound,"sound"),"Order open / close, win, loss, alerts")}
+    ${row("vibrate","ic-p","Vibration",sw(st.haptic,"haptic"),"Haptics on orders, results & alerts (Android)")}
+    ${row("bell","ic-b","Preview feedback",`<button class="btn btn-ghost btn-sm" data-prev>Play</button>`,"Hear each event sound")}
     ${row("wallet","ic-c","Default amount",`<div class="field" style="width:110px;height:40px"><input type="number" min="1" id="sda" value="${st.defAmt}" aria-label="Default amount"></div>`,"USDT per trade")}
     ${row("clock","ic-y","Default expiry",`<div class="seg" style="width:150px">${C.EXPIRIES.map(x => `<button data-de="${x}" class="${st.defExp===x?"on":""}">${x<60?x+"s":x/60+"m"}</button>`).join("")}</div>`)}
   </section>
@@ -284,6 +284,7 @@ Pages.settings = () => {
   return {html, title:"Settings", mount(r){
     r.querySelectorAll("[data-th]").forEach(b => b.onclick = () => { App.setTheme(b.dataset.th); r.querySelectorAll("[data-th]").forEach(x => x.classList.toggle("on", x===b)); toast("Theme updated", "ok"); });
     r.querySelector("[data-lang]").onclick = UI.openLang;
+    r.querySelector("[data-prev]").onclick = () => U.sheet("Sounds & haptics", `<div class="chips" style="gap:8px">${[["open","Order opened"],["close","Position closed"],["win","Trade won"],["loss","Trade lost"],["notify","Notification"],["alert","Price alert"],["claim","Reward / deposit"],["err","Error"]].map(([k,n]) => `<button data-k="${k}">${n}</button>`).join("")}</div>`, el => el.querySelectorAll("[data-k]").forEach(b => b.onclick = () => U.fx(b.dataset.k)));
     r.querySelectorAll("[data-sw]").forEach(b => b.onclick = () => { const k = b.dataset.sw; st[k] = !st[k]; b.classList.toggle("on", st[k]); b.setAttribute("aria-checked", st[k]); store.save(); toast("Saved", "ok", 1200); });
     r.querySelector("#sda").onchange = e => { const v = parseFloat(e.target.value); if (!(v >= 1)){ toast("Default amount must be at least 1 USDT", "bad"); e.target.value = st.defAmt; return; } st.defAmt = v; store.save(); toast("Default amount saved", "ok"); };
     r.querySelectorAll("[data-de]").forEach(b => b.onclick = () => { st.defExp = +b.dataset.de; store.save(); r.querySelectorAll("[data-de]").forEach(x => x.classList.toggle("on", x===b)); toast("Default expiry saved", "ok", 1200); });
