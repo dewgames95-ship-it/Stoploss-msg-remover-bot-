@@ -203,64 +203,94 @@ Pages.withdraw = () => {
 };
 Pages.earn = Pages.withdraw;
 
-/* ---------- Bots ---------- */
-const BOT_TABS = [["spot", "Spot Grid", ["grid"]], ["futures", "Futures Grid", ["combo", "gold", "fx"]], ["dca", "DCA", ["dca"]], ["auto", "Auto Trade", []]];
-const BOT_TAG = {grid:"Spot Grid", combo:"Futures Combo", gold:"Futures Grid", fx:"Futures Grid", dca:"DCA"};
-const botTabs = active => `<nav class="pm-tabs" aria-label="Strategy type">${BOT_TABS.map(([k, n]) => `<a href="${k === "auto" ? "#/auto" : "#/bots/" + k}" class="${k === active ? "on" : ""}" ${k === active ? 'aria-current="page"' : ""}>${n}</a>`).join("")}</nav>`;
+/* ---------- Bots (BingX style) ---------- */
+const BOT_TAG = {grid:"Spot Grid", combo:"Futures Martingale", gold:"Futures Grid", fx:"Futures Grid", dca:"DCA"};
+const STRATS = [
+  {k:"fgrid", name:"Futures Grid", def:"gold", hot:true, desc:"Profit from price swings inside a range, with leverage"},
+  {k:"fmart", name:"Futures Martingale", def:"combo", hot:true, desc:"Scale into dips to lower your average entry price"},
+  {k:"sgrid", name:"Spot Grid", def:"grid", hot:false, desc:"Buy low and sell high automatically, 24/7"},
+  {k:"sinf", name:"Spot Infinity Grid", def:"grid", hot:false, desc:"A grid with no upper limit, built for uptrends"},
+  {k:"dca", name:"DCA", def:"dca", hot:false, desc:"Average into a coin at regular intervals with safety orders"},
+  {k:"auto", name:"Auto Trade", href:"#/auto", hot:true, desc:"Let signals place binary trades for you automatically"}
+];
+const demoInv = k => { const h = HM.hash(k); return fmt2(1e9 + (h % 4e9) + (h % 100) / 100); };
+const fmt2 = v => v.toLocaleString("en-US", {minimumFractionDigits:2, maximumFractionDigits:2});
+const demoUsers = k => (20000 + HM.hash(k + "u") % 980000).toLocaleString("en-US");
+const avs = k => `<span class="bt-avs">${[0,1,2].map(i => `<span>${HM.avatar(k + i, 22)}</span>`).join("")}</span>`;
 
 Pages.bots = (params) => {
-  const tab = BOT_TABS.find(x => x[0] === (params && params[0])) || BOT_TABS[0];
-  const defs = E.BOTS.filter(d => tab[2].includes(d.id));
-  const html = pwrap("Trading Bots", botTabs(tab[0]) + `
-    <div class="pm-strip"><div class="pm-cols"><div><span>Running bots</span><b class="num" data-br>0</b></div><div><span>Invested (USDT)</span><b class="num" data-bi>0.00</b></div><div><span>Total PnL (USDT)</span><b class="num" data-bp>0.00</b></div></div></div>
-    <section class="pm-sec" id="pmRun"></section>
-    <section class="pm-sec"><h3 class="pm-st">${esc(tab[1])} strategies</h3><div id="pmList"></div></section>
-    <p class="pm-risk">Bots are simulated on live prices with demo funds. Past performance does not guarantee future results.</p>`);
+  let view = "bots", tab = "create";
+  const html = `<div class="bt-page"><header class="bt-head"><button class="icon-btn" data-back aria-label="Go back">${ic("back",22)}</button><h1>Bots</h1><button class="icon-btn" data-dots aria-label="More">${ic("dots",22)}</button></header>
+    <section class="bt-sum"><button class="bt-lbl" data-eye>Total Assets (USDT) <span data-ey>${ic(S().settings.hideBal ? "eyeoff" : "eye",15)}</span></button><div class="bt-big num" data-ta></div><div class="bt-pn"><u>Today's PnL</u> <b class="num" data-tp></b></div></section>
+    <div id="btBody"></div>
+    <nav class="bt-pill" aria-label="Bots sections"><button data-v="bots" class="on">${ic("bot",18)}<span>Bots</span></button><button data-v="inv">${ic("wallet",18)}<span>My Investment</span></button></nav></div>`;
   return {html, title:"Trading Bots", mount(r){
     const $ = q => r.querySelector(q);
     const pnlCls = v => v >= 0 ? "up" : "down";
-    const renderLists = () => {
-      const running = E.BOTS.filter(d => S().bots[d.id]?.running);
-      $("#pmRun").innerHTML = `<h3 class="pm-st">Running (${running.length})</h3>` + (running.length ? running.map(d => { const b = S().bots[d.id], p = M.get(d.pair);
-        return `<div class="pm-pos" data-bot="${d.id}"><div class="pm-pos-h">${UI.pairIcon(p, 30)}<div class="grow"><div class="pm-nm">${esc(d.name)}</div><div class="pm-s">${esc(M.label(p || {type:"crypto", base:d.pair}))} · <span class="pm-pill">${BOT_TAG[d.id]}</span></div></div><div class="pm-spk" data-sp></div></div>
-          <div class="pm-pos-g"><div><span>PnL (USDT)</span><b class="num" data-pnl>--</b></div><div><span>Invested</span><b class="num">${money(b.invest)}</b></div><div><span>Runtime</span><b data-rt>--</b></div></div>
-          <div class="pm-acts" style="margin-top:12px"><button class="pm-btn dn" style="flex:1;height:36px" data-stop>Stop bot</button></div></div>`; }).join("") : pemp("No running bots", "Create a bot from the strategies below."));
-      $("#pmList").innerHTML = defs.map(d => { const b = S().bots[d.id], p = M.get(d.pair), on = b?.running;
-        return `<div class="pm-prod" data-def="${d.id}">${UI.pairIcon(p, 32)}<div class="grow"><div class="pm-nm">${esc(d.name)}</div>
-          <div class="pm-s">${esc(M.label(p || {type:"crypto", base:d.pair}))} · <span class="pm-pill ${d.risk === "High" ? "r" : d.risk === "Low" ? "g" : ""}">${d.risk} risk</span></div>
-          <div class="pm-s" style="margin-top:3px">${esc(d.desc)}${b && !on ? ` Last run <b class="${pnlCls(b.pnl)}">${signed(b.pnl)} USDT</b>.` : ""}</div></div>
-          <div class="pm-apr"><b class="num">${esc(d.apy)}</b><span>Est. APY</span>${on ? `<span class="pm-pill g" style="margin-top:6px">Running</span>` : `<button class="pm-btn" style="margin-top:6px" data-create="${d.id}">Create</button>`}</div></div>`; }).join("");
+    const defOf = id => E.BOTS.find(x => x.id === id);
+    const sum = () => {
+      let inv = 0, tot = 0; E.BOTS.forEach(d => { const b = S().bots[d.id]; if (b?.running){ inv += b.invest; tot += E.botPnl(d.id); } });
+      const hide = S().settings.hideBal;
+      $("[data-ta]").textContent = hide ? "******" : money(S().balance + inv + tot);
+      const tp = $("[data-tp]"); tp.textContent = hide ? "****" : signed(tot) + " USDT"; tp.className = "num " + (tot > 0 ? "up" : tot < 0 ? "down" : "");
+    };
+    const card = s => { const d = s.def && defOf(s.def), on = d && S().bots[d.id]?.running;
+      return `<div class="bt-card"><div class="bt-ch"><b>${esc(s.name)}</b>${s.hot ? `<span class="bt-hot">Hot</span>` : ""}</div><p>${esc(s.desc)}</p>
+        <div class="bt-ti"><span>Total Investment</span><b class="num">${demoInv(s.k)} USDT</b></div>
+        <div class="bt-cf"><div><span>Users</span><div class="bt-us">${avs(s.k)}<b class="num">${demoUsers(s.k)}</b></div></div>${on ? `<span class="bt-run">Running</span>` : `<button class="bt-cb" data-create="${s.k}">Create</button>`}</div></div>`; };
+    const recCard = s => { const d = s.def && defOf(s.def); if (!d) return card(s); const p = M.get(d.pair), on = S().bots[d.id]?.running;
+      return `<div class="bt-card"><div class="bt-ch">${UI.pairIcon(p, 26)}<b>${esc(s.name)}</b><span class="bt-pill ${d.risk === "High" ? "r" : ""}">${d.risk} risk</span></div><p>${esc(d.desc)}</p>
+        <div class="bt-cf"><div><span>Est. APY</span><b class="num up" style="font-size:20px">${esc(d.apy)}</b></div>${on ? `<span class="bt-run">Running</span>` : `<button class="bt-cb" data-create="${s.k}">Create</button>`}</div></div>`; };
+    const drawBots = () => {
+      $("#btBody").innerHTML = `<div class="bt-tabs"><button data-t="create" class="${tab === "create" ? "on" : ""}">Create a strategy</button><button data-t="rec" class="${tab === "rec" ? "on" : ""}">Recommended</button></div>
+        <div class="bt-list">${tab === "create" ? STRATS.map(card).join("") : STRATS.filter(s => s.def).sort((a,b) => parseFloat(defOf(b.def).apy.split("–")[1]) - parseFloat(defOf(a.def).apy.split("–")[1])).map(recCard).join("")}</div>
+        <p class="pm-risk" style="margin-top:12px">Bots are simulated on live prices with demo funds. Past performance does not guarantee future results.</p>`;
+    };
+    const drawInv = () => {
+      const run = E.BOTS.filter(d => S().bots[d.id]?.running), hist = E.BOTS.filter(d => { const b = S().bots[d.id]; return b && !b.running && b.stopped; }).sort((a,b) => S().bots[b.id].stopped - S().bots[a.id].stopped);
+      $("#btBody").innerHTML = `<h3 class="bt-h">Running (${run.length})</h3>` + (run.length ? run.map(d => { const b = S().bots[d.id], p = M.get(d.pair);
+        return `<div class="bt-card" data-bot="${d.id}"><div class="bt-ch">${UI.pairIcon(p, 26)}<b>${esc(d.name)}</b><span class="bt-pill">${BOT_TAG[d.id]}</span><span class="bt-sp" data-sp></span></div>
+          <div class="bt-g"><div><span>PnL (USDT)</span><b class="num" data-pnl>--</b></div><div><span>Invested</span><b class="num">${money(b.invest)}</b></div><div><span>Runtime</span><b data-rt>--</b></div></div>
+          <button class="bt-stop" data-stop>Stop</button></div>`; }).join("") : pemp("No running bots", "Create a bot from the Bots tab."))
+        + `<h3 class="bt-h">History</h3>` + (hist.length ? hist.map(d => { const b = S().bots[d.id];
+        return `<div class="bt-card"><div class="bt-ch">${UI.pairIcon(M.get(d.pair), 26)}<b>${esc(d.name)}</b><span class="bt-pill">${BOT_TAG[d.id]}</span></div>
+          <div class="bt-g"><div><span>PnL (USDT)</span><b class="num ${pnlCls(b.pnl)}">${signed(b.pnl)}</b></div><div><span>Invested</span><b class="num">${money(b.invest)}</b></div><div><span>Stopped</span><b>${fdate(b.stopped)}</b></div></div></div>`; }).join("") : pemp("No history yet", "Stopped bots show up here."));
       tick();
     };
-    const tick = () => {
-      let run = 0, inv = 0, tot = 0;
-      E.BOTS.forEach(d => { const b = S().bots[d.id]; if (!b?.running) return; run++; inv += b.invest; const v = E.botPnl(d.id); tot += v;
-        const c = r.querySelector(`#pmRun [data-bot="${d.id}"]`); if (!c) return;
+    const tick = () => { sum();
+      if (view !== "inv") return;
+      E.BOTS.forEach(d => { const b = S().bots[d.id]; if (!b?.running) return; const c = r.querySelector(`[data-bot="${d.id}"]`); if (!c) return; const v = E.botPnl(d.id);
         const el = c.querySelector("[data-pnl]"); el.textContent = signed(v) + " (" + pct(v / b.invest * 100) + ")"; el.className = "num " + pnlCls(v);
-        c.querySelector("[data-rt]").textContent = runtime(b.since); c.querySelector("[data-sp]").innerHTML = spark(b.series.concat(v), 84, 30); });
-      $("[data-br]").textContent = run; $("[data-bi]").textContent = money(inv); const bp = $("[data-bp]"); bp.textContent = signed(tot); bp.className = "num " + pnlCls(tot);
+        c.querySelector("[data-rt]").textContent = runtime(b.since); c.querySelector("[data-sp]").innerHTML = spark(b.series.concat(v), 72, 26); });
     };
-    renderLists();
+    const draw = () => { r.querySelectorAll("[data-v]").forEach(b => b.classList.toggle("on", b.dataset.v === view)); view === "bots" ? drawBots() : drawInv(); sum(); };
+    draw();
+    $("[data-dots]").onclick = () => U.sheet("About Bots", `<p class="pm-s" style="font-size:13px;line-height:1.6;margin:0 0 12px">Trading bots follow a fixed strategy on live prices. Funds are returned to your Trading account with PnL when you stop a bot. All results here are simulated.</p><a class="btn btn-primary pm-cta" href="#/academy" data-x>Learn more</a>`, el => el.querySelector("[data-x]").addEventListener("click", () => U.closeLayer()));
+    $("[data-eye]").onclick = () => { S().settings.hideBal = !S().settings.hideBal; store.save(); $("[data-ey]").innerHTML = ic(S().settings.hideBal ? "eyeoff" : "eye", 15); sum(); };
     r.addEventListener("click", async e => {
+      const vb = e.target.closest("[data-v]"); if (vb){ view = vb.dataset.v; return draw(); }
+      const tb = e.target.closest("[data-t]"); if (tb){ tab = tb.dataset.t; return draw(); }
       const cr = e.target.closest("[data-create]");
       if (cr){
-        const d = E.BOTS.find(x => x.id === cr.dataset.create), p = M.get(d.pair);
-        return U.sheet("Create " + d.name, `<div class="pm-kv" style="padding-top:2px"><span>Strategy</span><b>${BOT_TAG[d.id]}</b></div><div class="pm-kv"><span>Pair</span><b>${esc(M.label(p || {type:"crypto", base:d.pair}))}</b></div><div class="pm-kv"><span>Risk</span><b>${d.risk}</b></div><div class="pm-kv"><span>Est. APY</span><b class="num up">${esc(d.apy)}</b></div>
-          <p class="pm-s" style="margin:6px 0 0">${esc(d.desc)}</p>
+        const s = STRATS.find(x => x.k === cr.dataset.create);
+        if (s.href){ location.hash = s.href; return; }
+        const d = defOf(s.def), p = M.get(d.pair);
+        return U.sheet("Create " + s.name, `<div class="pm-kv" style="padding-top:2px"><span>Strategy</span><b>${esc(s.name)}</b></div><div class="pm-kv"><span>Pair</span><b>${esc(M.label(p || {type:"crypto", base:d.pair}))}</b></div><div class="pm-kv"><span>Risk</span><b>${d.risk}</b></div><div class="pm-kv"><span>Est. APY</span><b class="num up">${esc(d.apy)}</b></div>
+          <p class="pm-s" style="margin:6px 0 0">${esc(s.desc)}</p>
           <span class="pm-lbl">Investment</span><div class="pm-fld" id="pmBf"><input id="pmBa" type="number" inputmode="decimal" min="10" value="100" aria-label="Investment amount"><span class="u">USDT</span><button type="button" class="mx" data-max>Max</button></div>
           <div class="pm-kv" style="margin-top:8px"><span>Available</span><b class="num">${money(S().balance)} USDT</b></div><div class="pm-kv"><span>Minimum</span><b class="num">10 USDT</b></div>
           <div class="pm-err" id="pmBe"></div><button class="btn btn-primary pm-cta" data-ok>Start bot</button>`, el => {
           el.querySelector("[data-max]").onclick = () => el.querySelector("#pmBa").value = Math.floor(S().balance * 100) / 100;
           el.querySelector("[data-ok]").onclick = () => { const err = E.startBot(d.id, parseFloat(el.querySelector("#pmBa").value));
             el.querySelector("#pmBe").textContent = err || ""; el.querySelector("#pmBf").classList.toggle("err", !!err); if (err) return;
-            U.closeLayer(); toast("Bot started", "ok"); renderLists(); };
+            U.closeLayer(); toast("Bot started", "ok"); view = "inv"; draw(); };
         });
       }
       const st = e.target.closest("[data-stop]"), c = st && st.closest("[data-bot]");
-      if (c && await U.confirmBox("Stop bot?", "Your investment plus PnL will be returned to your Trading account.", "Stop bot", true)){ const v = E.stopBot(c.dataset.bot); toast(`Bot stopped: ${signed(v)} USDT`, v >= 0 ? "ok" : "info"); renderLists(); }
+      if (c && await U.confirmBox("Stop bot?", "Your investment plus PnL will be returned to your Trading account.", "Stop bot", true)){ const v = E.stopBot(c.dataset.bot); toast(`Bot stopped: ${signed(v)} USDT`, v >= 0 ? "ok" : "info"); draw(); }
     });
-    const iv = setInterval(tick, 2000), off = bus.on("bots", tick);
-    this.unmount = () => { clearInterval(iv); off(); };
+    const iv = setInterval(tick, 2000), off = bus.on("bots", tick), off2 = bus.on("balance", sum);
+    this.unmount = () => { clearInterval(iv); off(); off2(); };
   }};
 };
 
@@ -352,40 +382,47 @@ Pages.referral = () => {
   }};
 };
 
-/* ---------- Profile ---------- */
+/* ---------- Profile (BingX style) ---------- */
 Pages.profile = () => {
-  const mi = (i, n, h, extra="") => { const inner = `<span class="pm-ico">${ic(i, 18)}</span><span class="pm-main pm-t">${n}</span>${extra}<span class="chev">${ic("chev", 16)}</span>`; return h.startsWith("#") ? `<a class="pm-row tap" href="${h}">${inner}</a>` : `<button class="pm-row tap" data-act="${h}">${inner}</button>`; };
-  const html = pwrap("Profile", `
-    <section class="pm-sec"><div class="pm-pad row" style="gap:14px"><span class="pm-av" id="pa"></span>
-      <div class="grow"><div class="row" style="gap:6px"><b class="ellipsis" id="pn" style="font-size:17px;font-weight:600"></b><button class="icon-btn" data-edit aria-label="Edit name" style="width:32px;height:32px">${ic("edit", 16)}</button></div>
-      <button class="row pm-s" data-uid style="gap:4px">UID <span id="pu"></span> ${ic("copy", 12)}</button></div><span class="pm-pill b">VIP 1</span></div></section>
-    <div class="pm-strip"><div class="lbl">Trading balance (USDT)</div><div class="big num" id="pb"></div><div class="pm-spk" id="pbs" style="width:100%;height:44px;margin-top:8px"></div></div>
-    <div class="pm-stats" id="pk"></div>
-    <section class="pm-sec">${mi("deposit", "Deposit", "#/deposit")}${mi("earn", "Earn", "#/earn")}${mi("wallet", "Transactions", "tx")}${mi("history", "Trade history", "th")}${mi("gift", "Refer and Earn", "#/referral")}${mi("gear", "Settings", "#/settings")}${mi("headset", "Contact Support", "#/support")}${mi("info", "About Us", "#/about")}</section>
-    <section class="pm-sec"><div class="pm-row" data-rsw><span class="pm-ico">${ic("moon", 18)}</span><div class="pm-main pm-t">Dark mode</div>${swb("theme", false)}</div>
-      <button class="pm-row tap" data-reset><span class="pm-ico pm-danger">${ic("reset", 18)}</span><span class="pm-main pm-t pm-danger">Reset demo account</span><span class="pm-s">${money(C.START_BALANCE)} USDT</span></button></section>`);
+  const L = (icon, name, right, attrs) => `<${attrs.startsWith("href") ? "a" : "button"} class="pf-row" ${attrs}><span class="pf-ic">${ic(icon, 20, 1.7)}</span><span class="pf-n">${name}</span>${right ? `<span class="pf-r">${right}</span>` : ""}${ic("chev", 16)}</${attrs.startsWith("href") ? "a" : "button"}>`;
+  const scan = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M4 12h16"/></svg>`;
+  const tile = (icon, n, attrs) => `<${attrs.startsWith("href") ? "a" : "button"} class="pf-tile" ${attrs}>${ic(icon, 22, 1.7)}<span>${n}</span></${attrs.startsWith("href") ? "a" : "button"}>`;
+  const dark = () => document.documentElement.dataset.theme === "dark";
+  const html = `<div class="pf-page"><header class="pf-top"><button class="pf-circ" data-back aria-label="Go back">${ic("back",20)}</button><span class="grow"></span><button class="pf-ib" data-scan aria-label="Scan">${scan}</button><button class="pf-ib" data-th aria-label="Toggle theme"></button></header>
+    <section class="pf-id"><span class="pf-av" id="pa"></span><div class="grow" style="min-width:0"><div class="row" style="gap:8px;flex-wrap:nowrap"><button class="pf-nm ellipsis" id="pn" data-edit></button><button class="pf-lv" data-lv>Regular user ${ic("chev",12)}</button></div>
+      <div class="row" style="gap:8px;margin-top:6px"><button class="pf-uid" data-uid>UID:<span id="pu"></span> ${ic("copy",13)}</button><span class="pf-main">Main Account</span></div></div></section>
+    <div class="pf-tiles">${tile("share","Refer",'href="#/referral"')}${tile("gift","Vouchers",'data-vou')}${tile("cal","Events",'href="#/rewards"')}</div>
+    <h3 class="pf-h">Settings</h3>
+    <section class="pf-list">${L("shield","Verification",'<span class="pf-ok">Verified</span>',"data-ver")}${L("lock","Security Center","","data-sec")}${L("gear","Preferences","",'href="#/settings"')}${L("grid","Practical Functions","","data-prac")}</section>
+    <h3 class="pf-h">Others</h3>
+    <section class="pf-list">${L("headset","Contact Support","",'href="#/support"')}${L("book","Help Center","",'href="#/academy"')}${L("chat","Feedback","","data-fb")}${L("info","About NovaTrade","",'href="#/about"')}</section>
+    <button class="pf-sw" data-switch>Switch Account</button></div>`;
   return {html, title:"Profile", mount(r){
     const $ = q => r.querySelector(q);
-    const isDark = () => document.documentElement.dataset.theme === "dark";
-    const syncSw = () => { const s = $("[data-sw=theme]"); s.classList.toggle("on", isDark()); s.setAttribute("aria-checked", isDark()); };
-    const render = () => {
-      const p = S().profile, st = E.stats();
-      $("#pa").textContent = p.name[0]; $("#pn").textContent = p.name; $("#pu").textContent = p.uid;
-      $("#pb").textContent = money(S().balance);
-      $("#pbs").innerHTML = spark([C.START_BALANCE, ...S().balHist.map(x => x.b)].slice(-120), 300, 44, "var(--brand)");
-      $("#pk").innerHTML = pstat("Total trades", st.trades) + pstat("Win rate", st.winRate.toFixed(1) + "%") + pstat("Net PnL", signed(st.net), st.net >= 0 ? "up" : "down") + pstat("Best win", "+" + money(st.best), "up") + pstat("Volume", money(st.vol)) + pstat("Wins / Losses", st.wins + " / " + st.losses) + pstat("Win streak", st.streak) + pstat("Open positions", S().positions.length);
-    };
-    render(); syncSw();
+    const render = () => { const p = S().profile; $("#pa").innerHTML = HM.avatar(p.name, 64); $("#pn").textContent = p.name; $("#pu").textContent = p.uid; };
+    const syncTh = () => { $("[data-th]").innerHTML = ic(dark() ? "sun" : "moon", 22, 1.7); };
+    render(); syncTh();
+    $("[data-th]").onclick = () => { App.setTheme(dark() ? "light" : "dark"); syncTh(); };
+    $("[data-scan]").onclick = () => toast("Scanner is not available in the demo", "info");
     $("[data-uid]").onclick = () => U.copyText(S().profile.uid, "UID copied");
+    $("[data-switch]").onclick = () => toast("Demo account", "info");
+    $("[data-lv]").onclick = () => { const lv = E.level(); U.sheet("Account level", `<div class="pm-kv"><span>Level</span><b>Lv.${lv.lvl}</b></div><div class="pm-kv"><span>XP to next level</span><b class="num">${Math.max(0, lv.need - lv.cur)}</b></div><div class="pm-bar"><i style="width:${Math.min(100, lv.cur / lv.need * 100)}%"></i></div><p class="pm-s" style="margin-top:12px">Trade, complete tasks and check in daily to level up.</p>`); };
     $("[data-edit]").onclick = () => U.sheet("Edit nickname", `<input class="pm-in" id="nn" maxlength="20" value="${esc(S().profile.name)}" aria-label="Nickname"><div class="pm-err" id="nne"></div><button class="btn btn-primary pm-cta" data-sv>Save</button>`, el => {
       el.querySelector("[data-sv]").onclick = () => { const v = el.querySelector("#nn").value.trim(); if (v.length < 2){ el.querySelector("#nne").textContent = "Nickname must be at least 2 characters."; return; } S().profile.name = v; store.save(); U.closeLayer(); render(); toast("Nickname updated", "ok"); };
     });
-    r.querySelectorAll("[data-act]").forEach(a => { const k = a.dataset.act;
-      if (k === "tx") a.onclick = () => U.sheet("Transactions", txList());
-      if (k === "th") a.onclick = () => { const h = S().history.slice(0, 100); U.sheet("Trade history", h.length ? h.map(x => { const p = M.get(x.sym); return `<div class="pm-row">${UI.pairIcon(p, 28)}<div class="pm-main"><div class="pm-t">${esc(p ? M.label(p) : x.sym)} · ${x.dir === "up" ? "Up" : "Down"}</div><div class="pm-s">${U.dateStr(x.closed)} · ${money(x.amount)} USDT</div></div><b class="mono ${x.profit > 0 ? "up" : x.profit < 0 ? "down" : ""}">${signed(x.profit)}</b></div>`; }).join("") : pemp("No trades yet")); }; });
-    $("[data-rsw]").onclick = () => { const to = isDark() ? "light" : "dark"; S().settings.theme = to; App.setTheme(to); syncSw(); };
-    $("[data-reset]").onclick = async () => { if (await U.confirmBox("Reset demo account?", `Balance returns to ${money(C.START_BALANCE)} USDT. Open positions, history and bots are cleared. Your settings are kept.`, "Reset", true)){ if (S().auto.on) E.stopAuto("Account reset."); store.reset(); render(); toast(`Balance reset to ${money(C.START_BALANCE)} USDT`, "ok"); } };
-    const offs = [bus.on("balance", render), bus.on("history", render), bus.on("theme", syncSw)]; this.unmount = () => offs.forEach(f => f());
+    $("[data-vou]").onclick = () => U.sheet("Vouchers", [["Trading fee coupon","5 USDT","Valid for 30 days"],["Futures bonus voucher","20 USDT","Valid for 14 days"]].map(([n,v,e]) => `<div class="pf-vou"><div><b>${n}</b><span>${e}</span></div><b class="num">${v}</b></div>`).join("") + `<p class="pm-s" style="margin-top:10px">Demo vouchers. They cannot be redeemed.</p>`);
+    $("[data-ver]").onclick = () => U.sheet("Verification", `<div class="pm-kv" style="padding-top:2px"><span>Identity (KYC)</span><b class="up">Verified</b></div><div class="pm-kv"><span>Address proof</span><b class="up">Verified</b></div><div class="pm-kv"><span>Withdrawal limit</span><b>Unlimited (demo)</b></div>`);
+    $("[data-sec]").onclick = () => U.sheet("Security Center", `<div class="pm-kv" style="padding-top:2px"><span>Two-factor authentication</span><b class="up">Enabled</b></div><div class="pm-kv"><span>Anti-phishing code</span><b>Not set</b></div><div class="pm-kv"><span>Login password</span><b>Last changed 30 days ago</b></div><p class="pm-s" style="margin-top:10px">Demo only. No real credentials are stored in NovaTrade.</p>`);
+    $("[data-fb]").onclick = () => U.sheet("Feedback", `<textarea class="pm-ta" id="fbt" placeholder="Tell us what to improve" aria-label="Feedback"></textarea><div class="pm-err" id="fbe"></div><button class="btn btn-primary pm-cta" data-sv>Submit</button>`, el => {
+      el.querySelector("[data-sv]").onclick = () => { if (el.querySelector("#fbt").value.trim().length < 3){ el.querySelector("#fbe").textContent = "Please write a few words."; return; } U.closeLayer(); toast("Thanks for your feedback", "ok"); };
+    });
+    $("[data-prac]").onclick = () => { U.sheet("Practical Functions", `<div class="pf-list" style="margin:0">${L("ring","Price alerts","",'href="#/alerts" data-x')}${L("history","Trade history","","data-th2")}${L("wallet","Transactions","","data-tx")}${L("trophy","Rewards Hub","",'href="#/rewards" data-x')}${L("reset","Reset demo account","","data-reset")}</div>`, el => {
+      el.querySelectorAll("[data-x]").forEach(a => a.addEventListener("click", () => U.closeLayer()));
+      el.querySelector("[data-tx]").onclick = () => U.sheet("Transactions", txList());
+      el.querySelector("[data-th2]").onclick = () => { const h = S().history.slice(0, 100); U.sheet("Trade history", h.length ? h.map(x => { const p = M.get(x.sym); return `<div class="pm-row">${UI.pairIcon(p, 28)}<div class="pm-main"><div class="pm-t">${esc(p ? M.label(p) : x.sym)} · ${x.dir === "up" ? "Up" : "Down"}</div><div class="pm-s">${U.dateStr(x.closed)} · ${money(x.amount)} USDT</div></div><b class="mono ${x.profit > 0 ? "up" : x.profit < 0 ? "down" : ""}">${signed(x.profit)}</b></div>`; }).join("") : pemp("No trades yet")); };
+      el.querySelector("[data-reset]").onclick = async () => { if (await U.confirmBox("Reset demo account?", `Balance returns to ${money(C.START_BALANCE)} USDT. Open positions, history and bots are cleared. Your settings are kept.`, "Reset", true)){ if (S().auto.on) E.stopAuto("Account reset."); store.reset(); render(); toast(`Balance reset to ${money(C.START_BALANCE)} USDT`, "ok"); } };
+    }); };
+    const offs = [bus.on("theme", syncTh)]; this.unmount = () => offs.forEach(f => f());
   }};
 };
 

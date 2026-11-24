@@ -1,210 +1,206 @@
-/* ===== Home + Markets ===== */
+/* ===== Home + Markets (BingX style) ===== */
 (function(){
-const C = window.CONFIG, {esc, ic, t, store, bus, money, signed, pct, spark} = U;
+const C = window.CONFIG, {esc, ic, t, store, bus, money, signed, pct} = U;
 window.Pages = window.Pages || {};
 const S = () => store.s;
+/* make sure the stylesheet is present even if index.html was not updated */
+if (!document.querySelector('link[href*="css/home.css"]')){ const l = document.createElement("link"); l.rel = "stylesheet"; l.href = "css/home.css?v=5.3"; document.head.appendChild(l); }
+
+/* ---------- Inline art (prefix-local, no dependencies) ---------- */
+let gid = 0;
+function hash(s){ let h = 2166136261; for (const c of String(s)) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return h >>> 0; }
+function avatar(name, size = 34){
+  const h = hash(name), hue = h % 360, hue2 = (hue + 40 + (h >> 8) % 60) % 360, id = "hav" + (++gid), kind = (h >> 4) % 3;
+  const hair = kind === 0 ? `<path d="M30 40c0-12 8-18 20-18s20 6 20 18c-6-6-12-8-20-8s-14 2-20 8z" fill="hsl(${hue2} 30% 22%)"/>` : kind === 1 ? `<circle cx="50" cy="26" r="9" fill="hsl(${hue2} 30% 22%)"/>` : `<path d="M30 44c0-14 8-22 20-22 14 0 20 8 20 22-4-8-8-12-20-12s-16 4-20 12z" fill="hsl(${hue2} 30% 22%)"/>`;
+  return `<svg viewBox="0 0 100 100" width="${size}" height="${size}" aria-hidden="true"><defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="hsl(${hue} 70% 62%)"/><stop offset="1" stop-color="hsl(${hue2} 70% 48%)"/></linearGradient></defs><rect width="100" height="100" fill="url(#${id})"/><path d="M14 100c2-22 16-30 36-30s34 8 36 30z" fill="rgba(255,255,255,.88)"/><circle cx="50" cy="46" r="17" fill="#FBD9B8"/>${hair}</svg>`;
+}
+function art(kind, size = 104){
+  const i = ++gid, g = n => `${n}${i}`;
+  const defs = {
+    gold:`<linearGradient id="${g("a")}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFE08A"/><stop offset="1" stop-color="#E49B13"/></linearGradient>`,
+    blue:`<linearGradient id="${g("b")}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7FA8FF"/><stop offset="1" stop-color="#2E55D8"/></linearGradient>`,
+    silver:`<linearGradient id="${g("s")}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F4F6FA"/><stop offset="1" stop-color="#A9B3C6"/></linearGradient>`
+  };
+  const A = `url(#${g("a")})`, B = `url(#${g("b")})`, Sv = `url(#${g("s")})`;
+  const body = {
+    trophy:`<ellipse cx="60" cy="108" rx="30" ry="6" fill="rgba(0,0,0,.12)"/><rect x="40" y="92" width="40" height="12" rx="3" fill="${B}"/><rect x="54" y="74" width="12" height="20" fill="${A}"/><path d="M34 22h52v26c0 16-12 28-26 28S34 64 34 48z" fill="${A}"/><path d="M34 30H20c0 14 6 22 18 24M86 30h14c0 14-6 22-18 24" fill="none" stroke="#E49B13" stroke-width="5" stroke-linecap="round"/><path d="M46 28v22c0 8 4 14 10 18" stroke="rgba(255,255,255,.55)" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M60 34l4 8 9 1-6.500 6 2 9-8.500-4.500L51.500 58l2-9-6.500-6 9-1z" fill="#fff" opacity=".85"/>`,
+    coins:`<ellipse cx="60" cy="108" rx="40" ry="6" fill="rgba(0,0,0,.12)"/><rect x="22" y="70" width="76" height="30" rx="8" fill="${B}"/><rect x="22" y="70" width="76" height="8" rx="4" fill="rgba(255,255,255,.3)"/><circle cx="60" cy="42" r="26" fill="${A}"/><circle cx="60" cy="42" r="19" fill="none" stroke="rgba(255,255,255,.6)" stroke-width="3"/><text x="60" y="51" text-anchor="middle" font-size="26" font-weight="800" fill="#fff" font-family="Manrope,sans-serif">$</text><circle cx="94" cy="28" r="9" fill="${Sv}"/><circle cx="26" cy="36" r="7" fill="${Sv}"/><rect x="34" y="84" width="52" height="6" rx="3" fill="rgba(255,255,255,.35)"/>`,
+    shield:`<ellipse cx="60" cy="110" rx="28" ry="5" fill="rgba(0,0,0,.12)"/><path d="M60 8l38 14v32c0 26-16 44-38 54C38 98 22 80 22 54V22z" fill="${B}"/><path d="M60 8l38 14v32c0 26-16 44-38 54z" fill="rgba(255,255,255,.14)"/><path d="M42 58l13 13 24-26" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>`,
+    rocket:`<ellipse cx="60" cy="110" rx="26" ry="5" fill="rgba(0,0,0,.1)"/><path d="M60 8c16 10 24 30 22 54H38C36 38 44 18 60 8z" fill="${Sv}"/><path d="M60 8c16 10 24 30 22 54H60z" fill="rgba(0,0,0,.08)"/><circle cx="60" cy="40" r="9" fill="${B}"/><path d="M38 52L22 72l18-4zM82 52l16 20-18-4z" fill="${B}"/><path d="M48 66h24l-6 24h-12z" fill="${A}"/><path d="M54 70h12l-3 30h-6z" fill="#FFD36B"/>`,
+    gift:`<ellipse cx="60" cy="108" rx="34" ry="6" fill="rgba(0,0,0,.12)"/><rect x="24" y="52" width="72" height="52" rx="6" fill="${B}"/><rect x="18" y="36" width="84" height="20" rx="6" fill="${B}"/><rect x="18" y="36" width="84" height="8" rx="4" fill="rgba(255,255,255,.25)"/><rect x="53" y="36" width="14" height="68" fill="${A}"/><path d="M60 36c-8-18-26-18-26-8s16 8 26 8c10 0 26 2 26-8s-18-10-26 8z" fill="none" stroke="#E49B13" stroke-width="5" stroke-linejoin="round"/>`,
+    podium:`<ellipse cx="60" cy="108" rx="44" ry="6" fill="rgba(0,0,0,.12)"/><rect x="12" y="70" width="32" height="34" rx="4" fill="${Sv}"/><rect x="44" y="52" width="32" height="52" rx="4" fill="${A}"/><rect x="76" y="80" width="32" height="24" rx="4" fill="${B}"/><g font-family="Manrope,sans-serif" font-weight="800" font-size="18" fill="#fff" text-anchor="middle"><text x="28" y="94">2</text><text x="60" y="84">1</text><text x="92" y="98">3</text></g><path d="M60 14l5 11 12 1.500-9 8 2.500 12L60 40l-10.500 6.500L52 34.500l-9-8 12-1.500z" fill="${A}"/>`
+  }[kind];
+  const used = kind === "trophy" || kind === "podium" || kind === "coins" || kind === "rocket" || kind === "gift" ? defs.gold + defs.blue + defs.silver : defs.blue + defs.gold + defs.silver;
+  return `<svg class="art" viewBox="0 0 120 120" aria-hidden="true"><defs>${used}</defs>${body}</svg>`;
+}
+window.HM = {avatar, art, hash};
 
 /* ---------- Reusable live market list ---------- */
-const TABS = [["fav","Favorites"],["popular","Popular"],["gainers","Gainers"],["losers","Losers"],["crypto","Crypto"],["forex","Forex"],["commodities","Commodities"]];
+const CHIPS = [["fav","Favorites"],["hot","Hot"],["gainers","Gainers"],["losers","Losers"],["new","New"],["forex","Forex"],["metals","Metals"]];
 function marketList(box, o = {}){
-  let tab = o.tab || sessionStorage.getItem("mktTab") || "popular", q = "", limit = o.limit || 0, sort = null, rows = new Map(), dirty = new Set();
-  const offs = [];
+  let chip = o.tab || sessionStorage.getItem("mktChip") || "hot", sub = sessionStorage.getItem("mktSub") || "perp", q = "", limit = o.limit || 0;
+  const rows = new Map(), dirty = new Set(), offs = [];
   const crypto = () => M.cryptoOrder.map(s => M.get(s)).filter(Boolean);
   function list(){
-    const all = [...M.pairs.values()];
-    const qq = q.trim().toUpperCase().replace("/","");
+    const all = [...M.pairs.values()], qq = q.trim().toUpperCase().replace("/","");
+    const moving = () => [...crypto(), ...all.filter(p => p.type !== "crypto" && !p.closed)];
+    if (qq) return all.filter(p => p.sym.includes(qq) || p.name.toUpperCase().includes(qq) || M.label(p).replace("/","").includes(qq)).sort((a,b) => (b.tradable - a.tradable) || ((a.rank||999) - (b.rank||999)));
     let l;
-    if (qq) l = all.filter(p => p.sym.includes(qq) || p.name.toUpperCase().includes(qq) || M.label(p).replace("/","").includes(qq)).sort((a,b) => (b.tradable - a.tradable) || ((a.rank||999) - (b.rank||999)));
-    else if (tab === "fav") l = S().favs.map(s => M.get(s)).filter(Boolean);
-    else if (tab === "crypto") l = crypto();
-    else if (tab === "gainers") l = [...crypto(), ...all.filter(p => p.type !== "crypto" && !p.closed)].filter(p => p.chg > 0).sort((a,b) => b.chg - a.chg);
-    else if (tab === "losers") l = [...crypto(), ...all.filter(p => p.type !== "crypto" && !p.closed)].filter(p => p.chg < 0).sort((a,b) => a.chg - b.chg);
-    else if (tab === "forex") l = all.filter(p => p.type === "forex");
-    else if (tab === "commodities") l = all.filter(p => p.type === "metal");
-    else { const top = crypto().filter(p => p.tradable); l = [...top.slice(0,5), M.get("XAUUSD"), M.get("EURUSD"), ...top.slice(5), M.get("GBPUSD"), M.get("XAGUSD")].filter(Boolean); }
-    if (sort){ const [k, d] = sort; l = l.slice().sort((a,b) => ((a[k] ?? -1e18) - (b[k] ?? -1e18)) * d); }
+    if (chip === "fav") l = S().favs.map(s => M.get(s)).filter(Boolean);
+    else if (chip === "gainers") l = moving().filter(p => p.chg > 0).sort((a,b) => b.chg - a.chg);
+    else if (chip === "losers") l = moving().filter(p => p.chg < 0).sort((a,b) => a.chg - b.chg);
+    else if (chip === "new") l = crypto().slice(-40).reverse();
+    else if (chip === "forex") l = all.filter(p => p.type === "forex");
+    else if (chip === "metals") l = all.filter(p => p.type === "metal");
+    else { const top = crypto(); l = [...top.slice(0,5), M.get("XAUUSD"), M.get("EURUSD"), ...top.slice(5), M.get("GBPUSD"), M.get("XAGUSD")].filter(Boolean); }
+    if (sub === "spot") l = l.filter(p => p.type === "crypto");
     return l;
   }
   const vol = p => p.qv ? "Vol " + CH.fmtVol(p.qv) : p.type === "forex" ? "Forex · " + p.quote : "Spot metal";
-  function badge(p){
-    if (p.closed) return `<span class="tag">Closed</span>`;
-    if (p.type === "crypto") return p.tradable ? `<span class="tag t-y">Binary</span>` : `<span class="tag">Perp</span>`;
-    return `<span class="tag t-y">${p.type === "forex" ? "FX" : "Metal"}</span>`;
-  }
-  const chgTxt = p => p.closed ? '<span class="label">Closed</span>' : p.chg == null ? "--" : `<span class="${p.chg < 0 ? "down" : "up"}">${pct(p.chg)}</span>`;
-  const chgHtml = p => p.closed ? `<span class="chg closed">Closed</span>` : p.chg == null ? `<span class="chg closed">--</span>` : `<span class="chg ${p.chg < 0 ? "neg" : ""}">${pct(p.chg)}</span>`;
+  const tag = p => p.type === "crypto" ? (sub === "spot" ? "" : `<em>Perp</em>`) : `<em class="t">24/7</em>`;
+  const chgHtml = p => p.closed ? `<span class="hm-chg cl">Closed</span>` : p.chg == null ? `<span class="hm-chg cl">--</span>` : `<span class="hm-chg ${p.chg < 0 ? "neg" : ""}">${p.chg >= 0 ? "+" : ""}${p.chg.toFixed(2)}%</span>`;
+  const usd = p => "$" + M.fmtPx(p, p.quote === "JPY" ? p.price / (M.get("USDJPY")?.price || 1) : p.price);
   function render(){
     let l = list(); rows.clear();
     const more = limit && l.length > limit; if (limit) l = l.slice(0, limit);
-    if (!M.cryptoOrder.length && ["popular","crypto","gainers","losers"].includes(tab) && !q){ box.innerHTML = Array(6).fill('<div class="skel"></div>').join(""); return; }
-    if (!l.length){ box.innerHTML = UI.emptyState(tab === "fav" ? "star" : "search", q ? `No results for “${q}”` : tab === "fav" ? "No favorites yet. Tap ☆ on a trading screen to add one." : "No markets here right now."); return; }
-    box.innerHTML = l.map(p => o.plain ? `<div class="mkt-row" data-sym="${p.sym}" role="button" tabindex="0" style="grid-template-columns:minmax(0,1.6fr) minmax(0,1fr)">
-      <div class="row" style="gap:10px;min-width:0"><button class="star ${S().favs.includes(p.sym)?"on":""}" data-fav="${p.sym}" aria-label="Favorite">${ic("star",16)}</button>${UI.pairIcon(p,30)}<div class="grow"><div class="sym ellipsis">${esc(p.type === "crypto" ? p.base + "USDT" : p.sym)} <span class="perp">Perp</span></div><div class="sub2"><span class="ellipsis">${esc(UI.fullName(p))}</span>${p.qv ? `<span style="color:var(--line)">|</span>${CH.fmtVol(p.qv)}` : ""}</div></div></div>
-      <div style="text-align:right;min-width:0"><div class="px num" data-px>${M.fmtPx(p)}</div><div data-chg class="num" style="font-size:13px;font-weight:500">${chgTxt(p)}</div></div></div>`
-    : `<div class="mkt-row" data-sym="${p.sym}" role="button" tabindex="0" aria-label="Open ${esc(M.label(p))}">
-      <div class="row" style="gap:10px;min-width:0">${UI.pairIcon(p)}<div class="grow"><div class="sym ellipsis">${esc(p.type === "crypto" ? p.base + "USDT" : p.sym)}</div><div class="sub2"><span class="ellipsis">${esc(UI.fullName(p))}</span></div></div></div>
-      <div style="min-width:0"><div class="px num" data-px>${M.fmtPx(p)}</div><div class="sub2 num" style="justify-content:flex-end">$${M.fmtPx(p, p.quote === "JPY" ? p.price/ (M.get("USDJPY")?.price||1) : p.price)}</div></div><div data-chg>${chgHtml(p)}</div></div>`).join("")
-      + (more ? `<a class="more-btn" href="#/markets">View all markets ${ic("chev",14)}</a>` : "");
-    box.querySelectorAll(".mkt-row").forEach(r => rows.set(r.dataset.sym, {px:r.querySelector("[data-px]"), chg:r.querySelector("[data-chg]")}));
+    if (!M.cryptoOrder.length && !q && !["forex","metals","fav"].includes(chip)){ box.innerHTML = Array(6).fill('<div class="skel"></div>').join(""); return; }
+    if (!l.length){ box.innerHTML = UI.emptyState(chip === "fav" ? "star" : "search", q ? `No results for “${q}”` : chip === "fav" ? "No favorites yet. Tap the star on a trading screen to add one." : "No markets here right now."); return; }
+    box.innerHTML = `<div class="hm-hd"><span>Name / Vol</span><span>Last Price</span><span>24h Chg%</span></div>` + l.map(p => `<div class="hm-row" data-sym="${p.sym}" role="button" tabindex="0" aria-label="Open ${esc(M.label(p))}">
+      <div class="hm-nm">${UI.pairIcon(p, 32)}<div style="min-width:0"><div class="hm-sym"><span class="ellipsis">${esc(p.type === "crypto" ? p.base + "USDT" : p.sym)}</span>${tag(p)}</div><div class="hm-s2">${esc(UI.fullName(p))} · ${vol(p)}</div></div></div>
+      <div class="hm-px"><b class="num" data-px>${M.fmtPx(p)}</b><span class="num" data-usd>${usd(p)}</span></div><div data-chg>${chgHtml(p)}</div></div>`).join("")
+      + (more ? `<a class="hm-more" href="#/markets">View all markets</a>` : "");
+    box.querySelectorAll(".hm-row").forEach(r => rows.set(r.dataset.sym, {px:r.querySelector("[data-px]"), usd:r.querySelector("[data-usd]"), chg:r.querySelector("[data-chg]")}));
   }
   function flush(){
-    dirty.forEach(sym => {
-      const r = rows.get(sym), p = M.get(sym); if (!r || !p) return;
+    dirty.forEach(sym => { const r = rows.get(sym), p = M.get(sym); if (!r || !p) return;
       const txt = M.fmtPx(p);
-      if (r.px.textContent !== txt){ r.px.textContent = txt; r.px.classList.remove("fu","fd"); void r.px.offsetWidth; r.px.classList.add(p.dir >= 0 ? "fu" : "fd"); setTimeout(() => r.px.classList.remove("fu","fd"), 300); }
-      r.chg.innerHTML = o.plain ? chgTxt(p) : chgHtml(p);
-    });
+      if (r.px.textContent !== txt){ r.px.textContent = txt; r.usd.textContent = usd(p); r.px.classList.remove("fu","fd"); void r.px.offsetWidth; r.px.classList.add(p.dir >= 0 ? "fu" : "fd"); setTimeout(() => r.px.classList.remove("fu","fd"), 300); }
+      r.chg.innerHTML = chgHtml(p); });
     dirty.clear();
   }
-  box.addEventListener("click", e => {
-    const f = e.target.closest("[data-fav]"); if (f){ e.stopPropagation(); const i = S().favs.indexOf(f.dataset.fav); if (i >= 0) S().favs.splice(i,1); else S().favs.push(f.dataset.fav); store.save(); f.classList.toggle("on", i < 0); if (tab === "fav") render(); return; }
-    const r = e.target.closest(".mkt-row"); if (r) location.hash = "#/chart/" + r.dataset.sym; });
-  box.addEventListener("keydown", e => { const r = e.target.closest(".mkt-row"); if (r && e.key === "Enter") r.click(); });
+  box.addEventListener("click", e => { const r = e.target.closest(".hm-row"); if (!r) return;
+    const p = M.get(r.dataset.sym); location.hash = (sub === "spot" && p && p.type === "crypto" ? "#/spot/" : "#/futures/") + r.dataset.sym; });
+  box.addEventListener("keydown", e => { const r = e.target.closest(".hm-row"); if (r && e.key === "Enter") r.click(); });
   offs.push(bus.on("tick", s => dirty.add(s)), bus.on("meta", s => dirty.add(s)), bus.on("list", render));
   const iv = setInterval(flush, 500);
   render();
-  return {render, setTab(k){ tab = k; sessionStorage.setItem("mktTab", k); render(); }, setQ(v){ q = v; render(); }, setSort(s){ sort = s; render(); }, get tab(){ return tab; }, destroy(){ offs.forEach(f => f()); clearInterval(iv); }};
+  return {render, setTab(k){ chip = k; sessionStorage.setItem("mktChip", k); render(); }, setSub(k){ sub = k; sessionStorage.setItem("mktSub", k); render(); }, setQ(v){ q = v; render(); }, get tab(){ return chip; }, get sub(){ return sub; }, destroy(){ offs.forEach(f => f()); clearInterval(iv); }};
 }
 window.UI.marketList = marketList;
-const tabsHtml = cur => `<div class="tabs" role="tablist">${TABS.map(([k,n]) => `<button class="tab ${cur===k?"on":""}" data-tab="${k}" role="tab">${esc(t(n))}</button>`).join("")}</div>`;
-function bindTabs(root, ml){ root.querySelectorAll("[data-tab]").forEach(b => b.onclick = () => { root.querySelectorAll("[data-tab]").forEach(x => x.classList.toggle("on", x===b)); ml.setTab(b.dataset.tab); }); }
-function sortHead(){ return `<div class="mkt-head"><span>Name / Vol</span><button data-sort="price">Last Price ⇅</button><button data-sort="chg" style="text-align:right">24h Chg% ⇅</button></div>`; }
-function bindSort(root, ml){ let st = {}; root.querySelectorAll("[data-sort]").forEach(b => b.onclick = () => { const k = b.dataset.sort; st[k] = st[k] === -1 ? 1 : st[k] === 1 ? 0 : -1; Object.keys(st).forEach(x => x !== k && (st[x] = 0)); ml.setSort(st[k] ? [k, st[k]] : null); }); }
-
-/* ---------- Illustrations ---------- */
-const ROBOT = `<span class="sl-art" aria-hidden="true">${ic("bot",34,1.5)}</span>`;
-const ROCKET = `<span class="sl-art" aria-hidden="true">${ic("target",34,1.5)}</span>`;
-const LEV = `<span class="sl-art" aria-hidden="true">${ic("layers",34,1.5)}</span>`;
-
-const TILES = [
-  ["Deposit","deposit","ic-b","#/deposit"],["Withdraw","withdraw","ic-b","#/withdraw"],["Futures","layers","ic-b","#/futures","125x"],["Options","target","ic-b","#/options","NEW"],
-  ["Copy Trading","users","ic-b","#/copy"],["Trading Bots","bot","ic-b","#/bots"],["Earn","earn","ic-b","#/withdraw"],["More","grid","ic-b","#more"]
-];
+const curChip = () => sessionStorage.getItem("mktChip") || "hot", curSub = () => sessionStorage.getItem("mktSub") || "perp";
+const chipsHtml = () => `<div class="hm-chips" role="tablist">${CHIPS.map(([k,n]) => `<button data-chip="${k}" role="tab" class="${curChip()===k?"on":""}">${esc(n)}</button>`).join("")}</div>
+  <div class="hm-sub"><button data-sub="perp" class="${curSub()==="perp"?"on":""}">Perp Futures</button><button data-sub="spot" class="${curSub()==="spot"?"on":""}">Spot</button></div>`;
+function bindChips(root, ml){
+  root.querySelectorAll("[data-chip]").forEach(b => b.onclick = () => { root.querySelectorAll("[data-chip]").forEach(x => x.classList.toggle("on", x === b)); ml.setTab(b.dataset.chip); });
+  root.querySelectorAll("[data-sub]").forEach(b => b.onclick = () => { root.querySelectorAll("[data-sub]").forEach(x => x.classList.toggle("on", x === b)); ml.setSub(b.dataset.sub); });
+}
 
 /* ---------- Home ---------- */
+const SHORT = [
+  ["Copy Trading","users","#/copy"],["Rewards Hub","gift","#/rewards"],["Futures","layers","#/futures"],["Spot","chart","#/spot"],["Options","target","#/options"],
+  ["Trading Bots","bot","#/bots"],["Earn","earn","#/earn"],["Refer","share","#/referral"],["More","grid","#more"]
+];
+const SLIDES = [
+  ["Join the Rewards Hub and claim up to 500 USDT","Daily check-in, tasks and badges","#/rewards","trophy"],
+  ["Earn up to 12% APR on idle USDT","Flexible and locked Earn products","#/earn","coins"],
+  ["Futures Trading Competition: share 100,000 USDT","Trade perpetuals and climb the board","#/futures","podium"],
+  ["Copy top traders with a single tap","Follow verified strategies","#/copy","rocket"],
+  ["Options are live: calls and puts on BTC, ETH and more","Max loss is limited to the premium","#/options","shield"],
+  ["Invite friends and earn up to 40% commission","Both of you receive a bonus","#/referral","gift"]
+];
+const HOT = ["BTC","SOL","ETH","XRP","DOGE","BNB"];
+const STRIP = {
+  academy:[["Candlestick patterns for beginners","#/academy","5 min"],["How leverage and liquidation work","#/academy","7 min"],["Risk management: sizing a position","#/academy","6 min"]],
+  events:[["Futures Trading Competition: 100,000 USDT pool","#/rewards","Live"],["Daily check-in streak bonus","#/rewards","Daily"],["Invite friends, share 40% fees","#/rewards","Ongoing"]],
+  announce:[["Options trading now supports 6 underlying assets","#/options","New"],["Scheduled maintenance for demo servers: none planned","#/home",""],["New: Spot markets available from the Home tabs","#/markets","New"]]
+};
+
 Pages.home = () => {
-  let offs = [], timers = [], ml, slide = 0;
+  let offs = [], timers = [], ml;
   const s = S();
   const html = `
-  <header class="topbar">
-    <button class="avatar" data-menu aria-label="Open menu">${esc(s.profile.name[0])}</button>
-    <label class="search"><span>${ic("search",16)}</span><span class="sr">Search markets</span><input id="q" type="search" placeholder="${esc(t("Search e.g., SOL"))}" autocomplete="off" enterkeyhint="search"></label>
-    <button class="icon-btn" data-bell aria-label="Notifications">${ic("bell",20)}<span class="badge-dot hide" id="nb"></span></button>
-    <a class="icon-btn" href="#/settings" aria-label="Settings">${ic("gear",20)}</a>
+  <header class="hm-top">
+    <button class="hm-av" data-menu aria-label="Open menu">${avatar(s.profile.name, 34)}</button>
+    <label class="hm-search" id="hs">${ic("flame",16)}<span class="hm-rot"><span class="hm-rot-in" id="rot">${[...HOT, HOT[0]].map(x => `<span>${x} Hot Searched</span>`).join("")}</span></span><input id="q" type="search" aria-label="Search markets" autocomplete="off" enterkeyhint="search"></label>
+    <a class="hm-ib" href="#/support" aria-label="Support">${ic("headset",21)}<i></i></a>
+    <a class="hm-ib" href="#/rewards" aria-label="Rewards">${ic("gift",21)}</a>
+    <button class="hm-ib" data-bell aria-label="Notifications">${ic("bell",21)}<b class="hide" id="nb"></b></button>
   </header>
-  <div class="home-grid">
-   <div class="stack">
-    <section class="card" aria-label="Total assets">
-      <div class="assets-top">
-        <div>
-          <div class="row label">Est. ${esc(t("Total Assets"))} <button class="eye" data-eye aria-label="Show or hide balance">${ic(s.settings.hideBal?"eyeoff":"eye",14)}</button></div>
-          <div class="bal num" id="bal"></div>
-          <div class="row label" style="gap:6px">${esc(t("Today's PnL"))} <b id="tp" class="num"></b> <a href="#/assets" class="chev">${ic("chev",14)}</a></div>
-        </div>
-        <a class="pnl-mini" href="#/assets" aria-label="Assets overview"><div class="grow"><div class="label">Balance trend</div><div class="label" id="tpn"></div></div><div id="tps"></div></a>
-      </div>
-      <div class="row" style="margin-top:14px"><a class="btn btn-primary grow" href="#/deposit">${esc(t("Deposit"))}</a><a class="btn btn-ghost grow" href="#/trade">${esc(t("Trade"))}</a><a class="btn btn-ghost grow" href="#/futures">Futures</a></div>
-    </section>
-    <a class="annc" href="#/options">${ic("volume",15)}<span class="annc-t"><span>Options trading is now live — BTC, ETH, BNB, SOL, XRP & DOGE calls and puts, cash-settled in USDT.</span></span>${ic("chev",14)}</a>
-    <section class="card row" id="ck" style="padding:12px 14px"></section>
-    <section class="carousel" aria-label="Featured">
-      <div class="slides" id="slides">
-        <div class="slide" data-go="#/bots"><div class="grow"><h3>Future Combo Bot</h3><p>Automate futures strategies with smart hedging.</p><span class="pill">Start now</span></div>${ROBOT}</div>
-        <div class="slide s2" data-go="#/options"><div class="grow"><h3>Options are live</h3><p>Buy calls & puts on BTC, ETH and more. Max loss = premium.</p><span class="pill">Trade options</span></div>${ROCKET}</div>
-        <div class="slide s3" data-go="#/futures"><div class="grow"><h3>Futures up to 125x</h3><p>Long or short with TP/SL and live liquidation price.</p><span class="pill">Trade futures</span></div>${LEV}</div>
-      </div>
-      <div class="dots" id="dots"><i class="on"></i><i></i><i></i></div>
-    </section>
-    <nav class="card tiles" aria-label="Quick actions">
-      ${TILES.map(([n,i,c,h,b]) => `<a class="tile" href="${h}" ${h === "#more" ? "data-more" : ""}><span class="ic ${c}">${ic(i,22)}${b?`<b>${b}</b>`:""}</span><span>${esc(t(n))}</span></a>`).join("")}
-    </nav>
-    <div>
-      <div class="sec-h"><span class="title">Top movers</span><a href="#/markets">More ${ic("chev",12)}</a></div>
-      <div class="movers" id="mv"></div>
+  <section class="hm-assets" aria-label="Total assets">
+    <div style="min-width:0">
+      <button class="hm-al" data-eye>Total Assets (USDT) <span id="ey">${ic("chevd",14)}</span></button>
+      <div class="hm-bal num" id="bal"></div>
+      <div class="hm-pnl"><u>Today's PnL</u><b class="num" id="tp"></b></div>
     </div>
-   </div>
-    <section class="card" aria-label="Markets" style="padding:6px 14px 10px">
-      <div class="sec-h" style="margin:8px 0 0"><h2 class="title">${esc(t("Markets"))}</h2><span class="label" id="mstat"></span></div>
-      ${tabsHtml(sessionStorage.getItem("mktTab") || "popular")}
-      ${sortHead()}
-      <div id="mlist"></div>
-    </section>
-  </div>`;
+    <a class="hm-dep" href="#/deposit">Deposit</a>
+  </section>
+  <nav class="hm-sc" aria-label="Shortcuts">${SHORT.map(([n,i,h]) => `<a href="${h}" ${h === "#more" ? "data-more" : ""}>${ic(i,22,1.7)}<span>${esc(n).replace(" ", "<br>")}${n.includes(" ") ? "" : "<br>&nbsp;"}</span></a>`).join("")}</nav>
+  <section class="hm-ban" aria-label="Featured"><div class="hm-bs" id="bs">${SLIDES.map(([h,p,l,a]) => `<a class="hm-sl" href="${l}"><div class="g"><h3>${esc(h)}</h3><p>${esc(p)}</p></div>${art(a)}</a>`).join("")}</div><span class="hm-cnt" id="cnt">1/${SLIDES.length}</span></section>
+  <section aria-label="Markets">${chipsHtml()}<div id="mlist"></div></section>
+  <div class="hm-strip" id="strip"><div class="hm-st-t"><button data-st="academy" class="on">Academy</button><button data-st="events">Events</button><button data-st="announce">Announcement</button><span class="x" data-sx role="button" aria-label="Expand">${ic("chevd",16)}</span></div><div class="hm-st-b" id="stb"></div></div>`;
 
   function renderBal(){
     const b = document.getElementById("bal"); if (!b) return;
     const hide = s.settings.hideBal, total = s.balance + E.earnValue() + s.fut.positions.reduce((a,p) => a + p.margin + E.futPnl(p).pnl, 0) + s.positions.reduce((a,p) => a + p.amount, 0);
-    b.innerHTML = hide ? "******" : `${money(total)}<small>USDT</small>`;
+    b.textContent = hide ? "******" : money(total);
     const st = E.stats(), fToday = s.fut.history.filter(x => x.closed >= new Date().setHours(0,0,0,0)).reduce((a,x) => a + x.profit, 0), tp = st.todayPnl + fToday;
-    const el = document.getElementById("tp"); el.textContent = hide ? "****" : `${signed(tp)} (${signed(tp / U.store.s.balance * 100 || 0)}%)`; el.className = "num " + (tp > 0 ? "up" : tp < 0 ? "down" : "");
-    document.getElementById("tpn").textContent = `${st.today.length} trades today`;
-    document.getElementById("tps").innerHTML = spark([C.START_BALANCE, ...s.balHist.map(x => x.b)].slice(-60), 96, 34);
-  }
-  function renderCheck(){
-    const el = document.getElementById("ck"); if (!el) return;
-    const done = s.rewards.checkins.includes(E.dayKey()), st = E.streak(), amt = E.CHECKIN[st % 7];
-    el.innerHTML = `<span class="ic ic-y" style="width:36px;height:36px;border-radius:10px;display:grid;place-items:center;background:var(--brand-soft)">${ic("flame",18)}</span>
-      <div class="grow"><b style="font-size:14px">${done ? `Checked in · ${st}-day streak` : "Daily check-in"}</b><div class="label">${done ? "Come back tomorrow for a bigger reward" : `Claim +${amt} USDT · Day ${st % 7 + 1} of 7`}</div></div>
-      ${done ? `<a class="btn btn-ghost btn-sm" href="#/rewards">Rewards</a>` : `<button class="btn btn-primary btn-sm" data-ci>Check in</button>`}`;
-    el.querySelector("[data-ci]")?.addEventListener("click", () => { const r = E.checkIn(); if (r){ U.toast(`Checked in! +${r.amt} USDT`, "ok"); U.fx("claim"); U.confetti(); renderCheck(); } });
-  }
-  async function renderMovers(){
-    const box = document.getElementById("mv"); if (!box) return;
-    const c = M.cryptoOrder.map(x => M.get(x)).filter(p => p && p.chg != null);
-    if (!c.length){ box.innerHTML = Array(3).fill('<div class="skel" style="height:96px"></div>').join(""); return; }
-    const pick = [...c.slice().sort((a,b) => b.chg - a.chg).slice(0,3), ...c.slice().sort((a,b) => a.chg - b.chg).slice(0,3)];
-    box.innerHTML = pick.map(p => `<div class="mover" data-s="${p.sym}"><div class="row">${UI.pairIcon(p,20)}<b style="font-size:13px" class="ellipsis">${esc(p.base)}<span class="label">/USDT</span></b></div>
-      <div class="num" style="font-weight:600;font-size:15px;margin-top:6px">${M.fmtPx(p)}</div><b class="num ${p.chg>=0?"up":"down"}" style="font-size:12px">${pct(p.chg)}</b><div data-sp></div></div>`).join("");
-    box.querySelectorAll("[data-s]").forEach(m => m.onclick = () => location.hash = "#/chart/" + m.dataset.s);
-    for (const p of pick){
-      try {
-        const key = "spk_" + p.sym; let v = JSON.parse(sessionStorage.getItem(key) || "null");
-        if (!v){ const k = await M.candles(p.sym, "15m"); v = k.slice(-48).map(b => b.close); sessionStorage.setItem(key, JSON.stringify(v)); }
-        const el = box.querySelector(`[data-s="${p.sym}"] [data-sp]`); if (el) el.innerHTML = spark(v, 140, 32);
-      } catch {}
-    }
+    const el = document.getElementById("tp"); el.textContent = hide ? "****" : `${signed(tp)} USDT (${signed(tp / (s.balance || 1) * 100 || 0)}%)`; el.className = "num " + (tp > 0 ? "up" : tp < 0 ? "down" : "");
   }
   function renderNotif(){ const n = document.getElementById("nb"); if (!n) return; n.textContent = s.unread > 9 ? "9+" : s.unread; n.classList.toggle("hide", !s.unread); }
-  function renderStatus(){ const el = document.getElementById("mstat"); if (!el) return; const ok = M.status.crypto === "live"; el.innerHTML = `<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${ok?"var(--up)":"var(--warn)"};margin-right:5px;vertical-align:middle"></span>${ok ? "Live" : "Connecting"}`; }
-
   return {html, title:"Home", mount(root){
-    renderBal(); renderCheck(); renderNotif(); renderStatus(); renderMovers();
+    renderBal(); renderNotif();
     ml = marketList(root.querySelector("#mlist"), {limit:15});
-    bindTabs(root, ml); bindSort(root, ml);
-    const qi = root.querySelector("#q");
-    qi.addEventListener("input", () => ml.setQ(qi.value));
+    bindChips(root, ml);
+    const qi = root.querySelector("#q"), hs = root.querySelector("#hs");
+    qi.addEventListener("input", () => { hs.classList.toggle("has", !!qi.value); ml.setQ(qi.value); });
+    qi.addEventListener("focus", () => hs.classList.add("has"));
+    qi.addEventListener("blur", () => hs.classList.toggle("has", !!qi.value));
+    qi.addEventListener("keydown", e => { if (e.key === "Enter") root.querySelector("#mlist").scrollIntoView({behavior:"smooth", block:"start"}); });
+    /* rotating placeholder */
+    const rot = root.querySelector("#rot"); let ri = 0;
+    const rv = setInterval(() => { ri++; rot.classList.add("anim"); rot.style.transform = `translateY(-${ri * 36}px)`;
+      if (ri === HOT.length) setTimeout(() => { rot.classList.remove("anim"); rot.style.transform = "translateY(0)"; ri = 0; }, 480); }, 3000);
+    timers.push(() => clearInterval(rv));
     root.querySelector("[data-menu]").onclick = UI.openMenu;
     root.querySelector("[data-more]").onclick = e => { e.preventDefault(); UI.openMenu(); };
     root.querySelector("[data-bell]").onclick = UI.openNotifs;
-    root.querySelector("[data-eye]").onclick = e => { s.settings.hideBal = !s.settings.hideBal; store.save(); e.currentTarget.innerHTML = ic(s.settings.hideBal?"eyeoff":"eye",14); renderBal(); };
-    const slides = root.querySelector("#slides"), dots = [...root.querySelectorAll("#dots i")];
-    const go = i => { slide = (i + 3) % 3; slides.style.transform = `translateX(-${slide*100}%)`; dots.forEach((d,k) => d.classList.toggle("on", k === slide)); };
-    let auto = setInterval(() => go(slide+1), 4500); timers.push(() => clearInterval(auto));
-    let sx = null;
-    slides.addEventListener("touchstart", e => { sx = e.touches[0].clientX; clearInterval(auto); }, {passive:true});
-    slides.addEventListener("touchend", e => { if (sx == null) return; const dx = e.changedTouches[0].clientX - sx; if (Math.abs(dx) > 40) go(slide + (dx < 0 ? 1 : -1)); sx = null; auto = setInterval(() => go(slide+1), 4500); }, {passive:true});
-    slides.querySelectorAll("[data-go]").forEach(sl => sl.onclick = () => location.hash = sl.dataset.go);
-    offs.push(bus.on("balance", renderBal), bus.on("history", renderBal), bus.on("notifs", renderNotif), bus.on("status", renderStatus), bus.on("rewards", renderCheck), bus.on("list", renderMovers));
-    const bi = setInterval(renderBal, 3000); timers.push(() => clearInterval(bi));
+    root.querySelector("[data-eye]").onclick = () => { s.settings.hideBal = !s.settings.hideBal; store.save(); root.querySelector("#ey").style.transform = s.settings.hideBal ? "rotate(180deg)" : ""; renderBal(); };
+    root.querySelector("#ey").style.display = "inline-flex";
+    /* banner */
+    const bs = root.querySelector("#bs"), cnt = root.querySelector("#cnt"); let bi = 0, bt;
+    const upd = () => { bi = Math.round(bs.scrollLeft / bs.clientWidth); cnt.textContent = `${bi + 1}/${SLIDES.length}`; };
+    bs.addEventListener("scroll", upd, {passive:true});
+    const auto = () => { clearInterval(bt); bt = setInterval(() => bs.scrollTo({left:((bi + 1) % SLIDES.length) * bs.clientWidth, behavior:"smooth"}), 4500); };
+    auto(); timers.push(() => clearInterval(bt));
+    ["touchstart","pointerdown"].forEach(ev => bs.addEventListener(ev, () => clearInterval(bt), {passive:true}));
+    ["touchend","pointerup"].forEach(ev => bs.addEventListener(ev, auto, {passive:true}));
+    /* strip */
+    const strip = root.querySelector("#strip"), stb = root.querySelector("#stb"); let stTab = "academy";
+    const drawStrip = () => { stb.innerHTML = STRIP[stTab].map(([n,h,tg]) => `<a href="${h}"><span>${esc(n)}</span><small>${esc(tg)}</small>${ic("chev",14)}</a>`).join(""); };
+    drawStrip();
+    strip.querySelectorAll("[data-st]").forEach(b => b.onclick = () => { stTab = b.dataset.st; strip.querySelectorAll("[data-st]").forEach(x => x.classList.toggle("on", x === b)); drawStrip(); strip.classList.add("open"); });
+    strip.querySelector("[data-sx]").onclick = () => strip.classList.toggle("open");
+    offs.push(bus.on("balance", renderBal), bus.on("history", renderBal), bus.on("notifs", renderNotif));
+    const bv = setInterval(renderBal, 3000); timers.push(() => clearInterval(bv));
   }, unmount(){ offs.forEach(f => f()); timers.forEach(f => f()); ml?.destroy(); }};
 };
 
 /* ---------- Markets ---------- */
 Pages.markets = () => {
   let ml;
-  const html = `<header class="page-head"><h1 class="h1">Markets</h1><a class="icon-btn" href="#/alerts" aria-label="Price alerts">${ic("bell",20)}</a></header>
-    <label class="search" style="margin-bottom:8px"><span>${ic("search",16)}</span><span class="sr">Search</span><input id="mq" type="search" placeholder="Search coin, forex or metal" autocomplete="off"></label>
-    <div class="kpis" id="ov" style="margin:12px 0"></div>
-    <div>${tabsHtml(sessionStorage.getItem("mktTab") || "popular")}<div class="mkt-head" style="grid-template-columns:1fr auto"><span>Name / Vol</span><span><button data-sort="price">Last Price ⇅</button> / <button data-sort="chg">24h Chg ⇅</button></span></div><div id="ml"></div></div>`;
+  const html = `<header class="hm-pg"><h1>Markets</h1><a class="hm-ib" href="#/alerts" aria-label="Price alerts">${ic("bell",21)}</a></header>
+    <label class="hm-search" id="hs"><span class="hm-sr" style="display:contents">${ic("search",16)}</span><input id="mq" type="search" placeholder="Search coin, forex or metal" aria-label="Search markets" autocomplete="off"></label>
+    <div class="hm-kp" id="ov" style="margin-top:12px"></div>
+    <section>${chipsHtml()}<div id="ml"></div></section>`;
   return {html, title:"Markets", mount(r){
-    ml = marketList(r.querySelector("#ml"), {plain:true});
-    bindTabs(r, ml); bindSort(r, ml);
+    ml = marketList(r.querySelector("#ml"));
+    bindChips(r, ml);
     r.querySelector("#mq").addEventListener("input", e => ml.setQ(e.target.value));
     const ov = () => {
       const c = M.cryptoOrder.map(x => M.get(x)).filter(Boolean); if (!c.length) return;
       const up = c.filter(p => p.chg > 0).length, vol = c.reduce((a,p) => a + (p.qv||0), 0), btc = M.get("BTCUSDT"), g = M.get("XAUUSD");
-      r.querySelector("#ov").innerHTML = `<div class="kpi"><span class="label">24h Volume (Top 100)</span><b class="num">$${CH.fmtVol(vol)}</b></div><div class="kpi"><span class="label">Advancers / Decliners</span><b class="num"><span class="up">${up}</span> / <span class="down">${c.length-up}</span></b></div>
-        <div class="kpi"><span class="label">BTC</span><b class="num ${btc?.chg>=0?"up":"down"}">${M.fmtPx(btc)}</b></div><div class="kpi"><span class="label">Gold (XAU)</span><b class="num ${g?.chg>=0?"up":"down"}">${M.fmtPx(g)}</b></div>`;
+      r.querySelector("#ov").innerHTML = `<div><span>24h Volume</span><b class="num">$${CH.fmtVol(vol)}</b></div><div><span>Up / Down</span><b class="num"><span class="up" style="display:inline">${up}</span> / <span class="down" style="display:inline">${c.length-up}</span></b></div>
+        <div><span>BTC</span><b class="num ${btc?.chg>=0?"up":"down"}">${M.fmtPx(btc)}</b></div><div><span>Gold</span><b class="num ${g?.chg>=0?"up":"down"}">${M.fmtPx(g)}</b></div>`;
     };
     ov(); const iv = setInterval(ov, 3000); const off = bus.on("list", ov);
     this.unmount = () => { ml.destroy(); clearInterval(iv); off(); };
