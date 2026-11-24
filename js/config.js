@@ -25,7 +25,7 @@ window.CONFIG = {
   STABLES: ["USDC","FDUSD","TUSD","BUSD","USDP","DAI","EUR","AEUR","USDE","PYUSD","USD1","XUSD","EURI","BFUSD","RLUSD","USDS","UST","USTC","GBP","TRY","BRL","U","RWUSD","XAUT","PAXG","WBTC","WBETH","BNSOL"],
   // Tokenized stock / ETF pairs are hidden from the crypto list (base = TICKER + "B")
   STOCKS: ["NVDA","SOXL","SPCX","CRCL","MU","MSTR","SNDK","SKHY","SOXS","GOOGL","GOOG","SNXX","QQQ","KORU","TQQQ","SQQQ","INTC","NBIS","AVGO","MRVL","EWY","TSLA","AMD","AMZN","BNC","AAPL","META","MSFT","COIN","HOOD","PLTR","SPY","NFLX","ORCL","ARM","SMCI","TSM","IWM","DIA","GLD","SLV","USO","UVXY","BABA","UBER","SHOP","MARA","RIOT","CRWV","TLT","XLF","IBIT","BMNR","SBET","CRWD","PYPL","DIS","NKE","JPM","V","MA","WMT","COST","LLY","UNH","XOM","BA","GME","AMC","RDDT","APP","ASTS","OKLO","IONQ","RGTI","QBTS","SOFI","CRM","ADBE","QCOM","TXN","MCD","KO","PEP"],
-  LEVERAGE_MAX: {crypto:125, forex:500, metal:200},
+  LEVERAGE_MAX: {crypto:125, forex:500, metal:200, stock:20, index:100, commodity:100},
   FEE: 0.0005, MMR: 0.004,
   BINANCE_REST: ["https://api.binance.com","https://data-api.binance.vision"],
   BINANCE_WS: ["wss://stream.binance.com:9443","wss://data-stream.binance.vision"],

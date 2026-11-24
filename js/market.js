@@ -14,8 +14,8 @@ function addPair(o){
   const p = Object.assign({price:null, chg:null, high:null, low:null, qv:null, closed:false, updated:0, dir:0}, o);
   pairs.set(p.sym, p); return p;
 }
-C.FOREX.forEach(f => addPair({sym:f.s, type:"forex", base:f.s.slice(0,3), quote:f.s.slice(3), name:f.n, flags:f.f, tradable:true, dp:f.s.includes("JPY")?3:5}));
-C.METALS.forEach(m => addPair({sym:m.s, type:"metal", base:m.s.slice(0,3), quote:"USD", name:m.n, metal:m.m, tradable:true, dp:m.s==="XAUUSD"?2:3}));
+C.FOREX.forEach(f => addPair({fixed:true, sym:f.s, type:"forex", base:f.s.slice(0,3), quote:f.s.slice(3), name:f.n, flags:f.f, tradable:true, dp:f.s.includes("JPY")?3:5}));
+C.METALS.forEach(m => addPair({fixed:true, sym:m.s, type:"metal", base:m.s.slice(0,3), quote:"USD", name:m.n, metal:m.m, tradable:true, dp:m.s==="XAUUSD"?2:3}));
 
 function pushHist(sym, price, t=Date.now()){
   let h = hist.get(sym); if (!h) hist.set(sym, h = []);
@@ -51,28 +51,36 @@ async function binance(path){
   throw new Error("binance unreachable");
 }
 
-/* ---- Crypto list ---- */
+/* ---- Crypto list: ALL Binance USDT pairs, auto-refreshed (new listings appear, delisted ones disappear) ---- */
+const MIN_QV = 100e3, BINARY_QV = 1e6;   // list pairs with >= $100K 24h volume; binary on >= $1M (highly liquid)
+let wsOpen = false, cryptoTimer;
+const inUse = sym => { const s = U.store.s; return s.positions.some(x => x.sym === sym) || s.fut.positions.some(x => x.sym === sym) || s.fut.orders.some(x => x.sym === sym) || (s.favs || []).includes(sym); };
 async function loadCrypto(attempt=0){
+  clearTimeout(cryptoTimer);
   try {
     const all = await binance("/api/v3/ticker/24hr");
     const st = new Set(C.STABLES), stocks = new Set(C.STOCKS);
     const isStock = b => b.length > 2 && b.endsWith("B") && stocks.has(b.slice(0,-1));
-    const rows = all.filter(x => x.symbol.endsWith("USDT") && !st.has(x.symbol.slice(0,-4)) && +x.quoteVolume > 0 && !/(UP|DOWN|BULL|BEAR)$/.test(x.symbol.slice(0,-4)) && /^[A-Z0-9]+$/.test(x.symbol.slice(0,-4)) && +x.count > 0 && !isStock(x.symbol.slice(0,-4)))
+    const rows = all.filter(x => x.symbol.endsWith("USDT") && !st.has(x.symbol.slice(0,-4)) && !/(UP|DOWN|BULL|BEAR)$/.test(x.symbol.slice(0,-4)) && /^[A-Z0-9]+$/.test(x.symbol.slice(0,-4)) && +x.count > 0 && !isStock(x.symbol.slice(0,-4))
+        && (+x.quoteVolume >= MIN_QV || C.TRADABLE_CRYPTO.includes(x.symbol.slice(0,-4))))
       .sort((a,b) => b.quoteVolume - a.quoteVolume);
-    const top = rows.slice(0, 100);
-    C.TRADABLE_CRYPTO.forEach(b => { if (!top.find(r => r.symbol === b+"USDT")){ const r = rows.find(r => r.symbol === b+"USDT"); if (r) top.push(r); } });
-    cryptoOrder = top.map(r => r.symbol);
-    top.forEach((r, i) => {
-      const base = r.symbol.slice(0,-4), price = +r.lastPrice;
-      const p = pairs.get(r.symbol) || addPair({sym:r.symbol, type:"crypto", base, quote:"USDT", name:base, tradable:C.TRADABLE_CRYPTO.includes(base)});
-      Object.assign(p, {rank:i+1, chg:+r.priceChangePercent, high:+r.highPrice, low:+r.lowPrice, qv:+r.quoteVolume, open:+r.openPrice, dp:p.dp ?? decimalsFor(price)});
+    const live = new Set(rows.map(r => r.symbol));
+    // delisted / dead pairs drop out automatically (kept only while you still hold or watch them)
+    [...pairs.values()].filter(p => p.type === "crypto" && !live.has(p.sym) && !inUse(p.sym)).forEach(p => pairs.delete(p.sym));
+    cryptoOrder = rows.map(r => r.symbol);
+    rows.forEach((r, i) => {
+      const base = r.symbol.slice(0,-4), price = +r.lastPrice, qv = +r.quoteVolume;
+      const p = pairs.get(r.symbol) || addPair({sym:r.symbol, type:"crypto", base, quote:"USDT", name:base, listed:Date.now()});
+      Object.assign(p, {rank:i+1, chg:+r.priceChangePercent, high:+r.highPrice, low:+r.lowPrice, qv, open:+r.openPrice, dp:p.dp ?? decimalsFor(price),
+        tradable: C.TRADABLE_CRYPTO.includes(base) || qv >= BINARY_QV});
       if (p.price == null){ p.price = price; p.updated = Date.now(); pushHist(r.symbol, price); }
     });
     status.crypto = "live"; bus.emit("list"); bus.emit("status");
-    openCryptoWS();
+    if (!wsOpen){ wsOpen = true; openCryptoWS(); }
+    cryptoTimer = setTimeout(() => loadCrypto(0), 10 * 60e3);   // re-sync listings every 10 min
   } catch(e){
     status.crypto = "retry"; bus.emit("status");
-    setTimeout(() => loadCrypto(attempt+1), Math.min(30000, 2000 * 2**attempt));
+    cryptoTimer = setTimeout(() => loadCrypto(attempt+1), Math.min(30000, 2000 * 2**attempt));
   }
 }
 
@@ -138,11 +146,39 @@ function watchTrades(sym){
 }
 function unwatchTrades(){ chartSym = null; book.sym = null; clearTimeout(twsTimer); if (tws){ tws.onclose = null; try{ tws.close(); }catch{} tws = null; } }
 
-/* ---- biquote.io: forex + metals ---- */
-const FX_SYMS = [...C.FOREX.map(f => f.s), ...C.METALS.map(m => m.s)];
+/* ---- biquote.io: stocks, indices, forex, metals, commodities (auto catalogue) ---- */
+let FX_SYMS = [...C.FOREX.map(f => f.s), ...C.METALS.map(m => m.s)];
+const CCY = {USD:"us",EUR:"eu",GBP:"gb",JPY:"jp",CHF:"ch",AUD:"au",NZD:"nz",CAD:"ca",SGD:"sg",HKD:"hk",NOK:"no",SEK:"se",DKK:"dk",MXN:"mx",ZAR:"za",TRY:"tr",PLN:"pl",CNH:"cn",HUF:"hu",CZK:"cz",INR:"in"};
+const IDX_FLAG = {US30:"us",USTEC:"us",US500:"us",SPX500:"us",NAS100:"us",US2000:"us",DXY:"us",VIX:"us",UK100:"gb",DE30:"de",GER40:"de",FR40:"fr",FRA40:"fr",JP225:"jp",JPN225:"jp",AUS200:"au",HK50:"hk",STOXX50:"eu",ESTX50:"eu",CHINA50:"cn"};
+const METAL = {XAUUSD:"gold",XAGUSD:"silver",XPTUSD:"platinum",XPDUSD:"palladium"};
+const COMMOD = {USOIL:"WTI Crude Oil",UKOIL:"Brent Crude Oil",XNGUSD:"Natural Gas",NATGASUSDT:"Natural Gas",COPPERUSDT:"Copper",XALUSD:"Aluminium",XPBUSD:"Lead"};
+function classify(x){
+  const n = x.name; if (!x.isActive || !x.hasData || n.includes("_")) return null;
+  if (x.type === "Stock" && n.endsWith("USDT") && n.length > 4) return {sym:n, type:"stock", base:n.slice(0,-4), quote:"USDT", name:x.description || n.slice(0,-4)};
+  if (x.type === "Index" && IDX_FLAG[n]) return {sym:n, type:"index", base:n, quote:"", name:x.description || n, flag:IDX_FLAG[n]};
+  if (METAL[n]) return {sym:n, type:"metal", base:n.slice(0,3), quote:"USD", name:x.description || n, metal:METAL[n]};
+  if (COMMOD[n]) return {sym:n, type:"commodity", base:n, quote:"", name:COMMOD[n]};
+  if (x.type === "Forex" && /^[A-Z]{6}$/.test(n) && CCY[n.slice(0,3)] && CCY[n.slice(3)]) return {sym:n, type:"forex", base:n.slice(0,3), quote:n.slice(3), name:x.description || n, flags:[CCY[n.slice(0,3)], CCY[n.slice(3)]]};
+  return null;
+}
+async function loadCatalog(){
+  try {
+    let list; const key = "bq_cat_v1";
+    try { const c = JSON.parse(localStorage.getItem(key) || "null"); if (c && Date.now() - c.t < 6 * 3600e3) list = c.d; } catch {}
+    if (!list){ const r = await fetch(C.BIQUOTE + "/api/symbols"); if (!r.ok) throw 0; list = (await r.json()).map(classify).filter(Boolean); try { localStorage.setItem(key, JSON.stringify({t:Date.now(), d:list})); } catch {} }
+    const live = new Set(list.map(x => x.sym));
+    [...pairs.values()].filter(p => ["stock","index","commodity","forex","metal"].includes(p.type) && !p.fixed && !live.has(p.sym) && !inUse(p.sym)).forEach(p => pairs.delete(p.sym));
+    list.forEach(x => { if (!pairs.has(x.sym)) addPair(Object.assign({tradable:true, dp:5, listed:Date.now()}, x)); });
+    FX_SYMS = [...pairs.values()].filter(p => p.type !== "crypto").map(p => p.sym);
+    bus.emit("list"); pollFx();
+    if (hub && hubLive) try { await hub.invoke("Subscribe", FX_SYMS); } catch {}
+  } catch {}
+  setTimeout(loadCatalog, 6 * 3600e3);
+}
 function applyQuote(q){
   if (!q || !q.symbol) return;
   const p = pairs.get(q.symbol); if (!p) return;
+  if (!p.dpSet && q.mid){ const t = String(q.bid ?? q.mid).split(".")[1]; if (t){ p.dp = Math.min(6, Math.max(2, t.replace(/0+$/, "").length || 2)); p.dpSet = true; } }
   const closed = String(q.marketState || "").toLowerCase() === "closed";
   const mid = +q.mid || ((+q.bid + +q.ask) / 2);
   const extra = {closed, high: +q.high || p.high, low: +q.low || p.low};
@@ -154,11 +190,12 @@ let pollTimer, pollFails = 0, hub = null, hubLive = false, lastHubTick = 0;
 async function pollFx(){
   clearTimeout(pollTimer);
   try {
-    const qs = FX_SYMS.map(s => "symbols=" + s).join("&");
-    const r = await fetch(C.BIQUOTE + "/api/latest?" + qs, {cache:"no-store"});
-    if (!r.ok) throw new Error(r.status);
-    const d = await r.json();
-    Object.values(d).forEach(applyQuote);
+    for (let i = 0; i < FX_SYMS.length; i += 80){
+      const qs = FX_SYMS.slice(i, i + 80).map(s => "symbols=" + encodeURIComponent(s)).join("&");
+      const r = await fetch(C.BIQUOTE + "/api/latest?" + qs, {cache:"no-store"});
+      if (!r.ok) throw new Error(r.status);
+      Object.values(await r.json()).forEach(applyQuote);
+    }
     pollFails = 0; status.fx = "live"; bus.emit("status");
   } catch { pollFails++; }
   const hubFresh = hubLive && Date.now() - lastHubTick < 10000;
@@ -228,10 +265,10 @@ function momentum(sym, windowMs=60000){
 }
 
 function isStale(p){ return !p || p.price == null || (Date.now() - p.updated > (p.type==="crypto" ? 30000 : 120000)); }
-function label(p){ return p.type === "crypto" ? p.base + "/USDT" : p.base + "/" + p.quote; }
+function label(p){ return p.type === "crypto" ? p.base + "/USDT" : p.quote ? p.base + "/" + p.quote : p.base; }
 function fmtPx(p, v=p?.price){ return v == null ? "--" : U.fmt(v, p.dp ?? decimalsFor(v)); }
 
-function start(){ loadCrypto(); pollFx(); startHub(); }
+function start(){ loadCrypto(); pollFx(); startHub(); loadCatalog(); }
 window.addEventListener("online", () => { loadCrypto(); pollFx(); });
 
 window.M = {pairs, hist, status, book, trades, get cryptoOrder(){ return cryptoOrder; }, start, candles, watchTrades, unwatchTrades, momentum, isStale, label, fmtPx, TF_SEC, get: s => pairs.get(s)};

@@ -14,9 +14,11 @@ const METAL_SVG = {
 function pairIcon(p, size=28){
   if (!p) return letter("?", size);
   if (p.type === "metal") return `<span style="width:${size}px;height:${size}px;display:block;flex-shrink:0">${METAL_SVG[p.metal]}</span>`;
-  if (p.type === "forex") return `<span style="position:relative;width:${size}px;height:${size}px;flex-shrink:0;display:block">
-    <img class="coin" src="assets/flags/${p.flags[0]}.webp" alt="" loading="lazy" style="width:${size*.78}px;height:${size*.78}px;position:absolute;left:0;top:0">
-    <img class="coin" src="assets/flags/${p.flags[1]}.webp" alt="" loading="lazy" style="width:${size*.55}px;height:${size*.55}px;position:absolute;right:0;bottom:0;border:1.5px solid var(--card)"></span>`;
+  const flag = (cc, sz, extra="") => `<img class="coin" src="assets/flags/${cc}.webp" onerror="this.onerror=null;this.src='https://flagcdn.com/w80/${cc}.png'" alt="" loading="lazy" style="width:${sz}px;height:${sz}px;${extra}">`;
+  if (p.type === "forex") return `<span style="position:relative;width:${size}px;height:${size}px;flex-shrink:0;display:block">${flag(p.flags[0], size*.78, "position:absolute;left:0;top:0")}${flag(p.flags[1], size*.55, "position:absolute;right:0;bottom:0;border:1.5px solid var(--card)")}</span>`;
+  if (p.type === "index") return `<span class="ix-ic" style="width:${size}px;height:${size}px">${flag(p.flag || "us", size)}</span>`;
+  if (p.type === "commodity") return `<span class="cm-ic" style="width:${size}px;height:${size}px;font-size:${Math.round(size*.36)}px">${/OIL/.test(p.sym) ? "OIL" : /GAS/.test(p.sym) ? "GAS" : esc(p.base.slice(0,3))}</span>`;
+  if (p.type === "stock") return `<img class="coin st-ic" src="https://financialmodelingprep.com/image-stock/${encodeURIComponent(p.base)}.png" alt="${esc(p.base)}" loading="lazy" style="width:${size}px;height:${size}px" onerror="this.outerHTML=UI.letter('${esc(p.base)}', ${size})">`;
   return coinImg(p.base, size);
 }
 /* Official coin logo: bundled file → CoinCap CDN → lettered fallback */
@@ -95,5 +97,5 @@ function openMenu(){
     <div style="height:24px"></div>`, el => el.querySelectorAll("a").forEach(a => a.addEventListener("click", () => U.closeLayer())));
 }
 
-window.UI = {pairIcon, coinImg, icoErr, letter, usdt, logo, endcap, footer: () => "", fullName: p => p.type === "crypto" ? (window.COIN_NAMES[p.base] || p.base) : p.name, pageHead, emptyState, openNotifs, openLang, openMenu};
+window.UI = {pairIcon, coinImg, icoErr, letter, usdt, logo, endcap, footer: () => "", fullName: p => p.type === "crypto" ? (window.COIN_NAMES[p.base] || p.base) : (p.name || p.base), pageHead, emptyState, openNotifs, openLang, openMenu};
 })();

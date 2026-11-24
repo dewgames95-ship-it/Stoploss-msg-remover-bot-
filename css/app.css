@@ -1242,3 +1242,9 @@ html[data-theme="dark"] .toast{background:#1C1F26;border-color:#2D323B}
 .rz-top{padding:2px 0 10px}.rz-top b{font-size:22px}
 .rz-r{padding:10px 0}.rz-r span{font-size:13px;color:var(--text-2)}
 .rz-r b{font-size:14px;font-weight:700}.rz-r small{font-size:11px;font-weight:500;margin-left:4px}
+
+/* market classes: index flag, commodity badge, stock logo */
+.ix-ic{display:block;border-radius:50%;overflow:hidden;flex-shrink:0;box-shadow:0 0 0 1px var(--line)}
+.ix-ic .coin{width:100%!important;height:100%!important;object-fit:cover}
+.cm-ic{display:grid;place-items:center;border-radius:50%;flex-shrink:0;font-weight:800;color:#fff;background:linear-gradient(160deg,#3B3F48,#16181D);letter-spacing:-.02em}
+.st-ic{background:#fff;object-fit:contain;padding:2px;box-shadow:0 0 0 1px var(--line)}

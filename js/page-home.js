@@ -36,7 +36,7 @@ function art(kind, size = 104){
 window.HM = {avatar, art, hash};
 
 /* ---------- Reusable live market list ---------- */
-const CHIPS = [["fav","Favorites"],["hot","Hot"],["gainers","Gainers"],["losers","Losers"],["new","New"],["forex","Forex"],["metals","Metals"]];
+const CHIPS = [["fav","Favorites"],["hot","Hot"],["gainers","Gainers"],["losers","Losers"],["new","New"],["stocks","Stocks"],["indices","Indices"],["forex","Forex"],["metals","Metals"],["commod","Commodities"]];
 function marketList(box, o = {}){
   let chip = o.tab || sessionStorage.getItem("mktChip") || "hot", sub = sessionStorage.getItem("mktSub") || "perp", q = "", limit = o.limit || 0;
   const rows = new Map(), dirty = new Set(), offs = [];
@@ -49,21 +49,24 @@ function marketList(box, o = {}){
     if (chip === "fav") l = S().favs.map(s => M.get(s)).filter(Boolean);
     else if (chip === "gainers") l = moving().filter(p => p.chg > 0).sort((a,b) => b.chg - a.chg);
     else if (chip === "losers") l = moving().filter(p => p.chg < 0).sort((a,b) => a.chg - b.chg);
-    else if (chip === "new") l = crypto().slice(-40).reverse();
+    else if (chip === "new") l = all.filter(p => p.listed).sort((a,b) => b.listed - a.listed || (a.rank||999) - (b.rank||999)).slice(0, 40);
     else if (chip === "forex") l = all.filter(p => p.type === "forex");
     else if (chip === "metals") l = all.filter(p => p.type === "metal");
+    else if (chip === "stocks") l = all.filter(p => p.type === "stock").sort((a,b) => (a.closed - b.closed) || Math.abs(b.chg||0) - Math.abs(a.chg||0));
+    else if (chip === "indices") l = all.filter(p => p.type === "index");
+    else if (chip === "commod") l = all.filter(p => p.type === "commodity");
     else { const top = crypto(); l = [...top.slice(0,5), M.get("XAUUSD"), M.get("EURUSD"), ...top.slice(5), M.get("GBPUSD"), M.get("XAGUSD")].filter(Boolean); }
     if (sub === "spot") l = l.filter(p => p.type === "crypto");
     return l;
   }
-  const vol = p => p.qv ? "Vol " + CH.fmtVol(p.qv) : p.type === "forex" ? "Forex · " + p.quote : "Spot metal";
-  const tag = p => p.type === "crypto" ? (sub === "spot" ? "" : `<em>Perp</em>`) : `<em class="t">24/7</em>`;
+  const vol = p => p.qv ? "Vol " + CH.fmtVol(p.qv) : ({forex:"Forex", metal:"Spot metal", stock:"Stock", index:"Index", commodity:"Commodity"})[p.type] || "";
+  const tag = p => p.type === "crypto" ? (sub === "spot" ? "" : `<em>Perp</em>`) : (p.type === "stock" ? `<em class="t">Stock</em>` : `<em class="t">24/5</em>`);
   const chgHtml = p => p.closed ? `<span class="hm-chg cl">Closed</span>` : p.chg == null ? `<span class="hm-chg cl">--</span>` : `<span class="hm-chg ${p.chg < 0 ? "neg" : ""}">${p.chg >= 0 ? "+" : ""}${p.chg.toFixed(2)}%</span>`;
   const usd = p => "$" + M.fmtPx(p, p.quote === "JPY" ? p.price / (M.get("USDJPY")?.price || 1) : p.price);
   function render(){
     let l = list(); rows.clear();
     const more = limit && l.length > limit; if (limit) l = l.slice(0, limit);
-    if (!M.cryptoOrder.length && !q && !["forex","metals","fav"].includes(chip)){ box.innerHTML = Array(6).fill('<div class="skel"></div>').join(""); return; }
+    if (!M.cryptoOrder.length && !q && !["forex","metals","fav","stocks","indices","commod"].includes(chip)){ box.innerHTML = Array(6).fill('<div class="skel"></div>').join(""); return; }
     if (!l.length){ box.innerHTML = UI.emptyState(chip === "fav" ? "star" : "search", q ? `No results for “${q}”` : chip === "fav" ? "No favorites yet. Tap the star on a trading screen to add one." : "No markets here right now."); return; }
     box.innerHTML = `<div class="hm-hd"><span>Name / Vol</span><span>Last Price</span><span>24h Chg%</span></div>` + l.map(p => `<div class="hm-row" data-sym="${p.sym}" role="button" tabindex="0" aria-label="Open ${esc(M.label(p))}">
       <div class="hm-nm">${UI.pairIcon(p, 32)}<div style="min-width:0"><div class="hm-sym"><span class="ellipsis">${esc(p.type === "crypto" ? p.base + "USDT" : p.sym)}</span>${tag(p)}</div><div class="hm-s2">${esc(UI.fullName(p))} · ${vol(p)}</div></div></div>
@@ -189,7 +192,7 @@ Pages.home = () => {
 Pages.markets = () => {
   let ml;
   const html = `<header class="hm-pg"><h1>Markets</h1><a class="hm-ib" href="#/alerts" aria-label="Price alerts">${ic("bell",21)}</a></header>
-    <label class="hm-search" id="hs"><span class="hm-sr" style="display:contents">${ic("search",16)}</span><input id="mq" type="search" placeholder="Search coin, forex or metal" aria-label="Search markets" autocomplete="off"></label>
+    <label class="hm-search" id="hs"><span class="hm-sr" style="display:contents">${ic("search",16)}</span><input id="mq" type="search" placeholder="Search crypto, stocks, indices, forex" aria-label="Search markets" autocomplete="off"></label>
     <div class="hm-kp" id="ov" style="margin-top:12px"></div>
     <section>${chipsHtml()}<div id="ml"></div></section>`;
   return {html, title:"Markets", mount(r){
