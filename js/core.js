@@ -143,10 +143,13 @@ function toast(msg, kind="info", ms=2600){
   const icn = {ok:"check", bad:"x", warn:"info", info:"info"}[kind];
   el.className = "toast " + kind; el.setAttribute("role","status");
   if (kind === "bad") fx("err");
-  el.innerHTML = `<span class="ti">${ic(icn,12,3.5)}</span><span>${esc(msg)}</span>`;
+  // exchange-style notice card: bold title + optional detail line (split on ": " or " · ")
+  let ti = String(msg), sub = "";
+  const m = ti.match(/^(.{3,40}?)(?::\s| · )(.+)$/); if (m){ ti = m[1]; sub = m[2]; }
+  el.innerHTML = `<span class="ti">${ic(icn,14,3)}</span><span class="tx"><b>${esc(ti)}</b>${sub ? `<small>${esc(sub)}</small>` : ""}</span>`;
   box.appendChild(el);
   setTimeout(() => { el.classList.add("out"); setTimeout(() => el.remove(), 300); }, ms);
-  while (box.children.length > 3) box.firstChild.remove();
+  while (box.children.length > 2) box.firstChild.remove();
 }
 
 /* ----- Scrim / sheet / drawer / modal ----- */

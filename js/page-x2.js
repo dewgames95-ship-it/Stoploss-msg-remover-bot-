@@ -1,28 +1,83 @@
-/* ===== Assets (wallet overview), Deposit flow, Copy Trading ===== */
+/* ===== Assets (wallet overview), Deposit flow, Copy Trading + generated SVG art (window.ART) ===== */
 (function(){
 const C = window.CONFIG, {esc, ic, store, bus, money, signed, toast, spark, fmt} = U;
 const S = () => store.s;
 const head = (title, right) => `<header class="px-hd"><button class="icon-btn" data-back aria-label="Back">${ic("back",20)}</button><h1>${esc(title)}</h1>${right || `<span style="width:40px"></span>`}</header>`;
 const empty = (icon, text) => `<div class="px-empty">${ic(icon,28,1.5)}<p>${esc(text)}</p></div>`;
-const PAL = ["#2E6BFF","#1F8FE5","#0E9AA7","#3E7BD9","#4C8DF0","#1C7ED6","#2A9D8F","#5B7FD1"];
 const hash = s => { let h = 2166136261; for (const c of String(s)){ h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; };
 const hash01 = s => hash(s) / 4294967296;
 const rngFor = seed => { let a = hash(seed); return () => { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; };
 const compact = v => { const a = Math.abs(v); return a >= 1e9 ? (v/1e9).toFixed(2) + "B" : a >= 1e6 ? (v/1e6).toFixed(2) + "M" : a >= 1e3 ? (v/1e3).toFixed(1) + "K" : v.toFixed(0); };
 const sgnPct = v => (v >= 0 ? "+" : "") + v.toFixed(2) + "%";
 const cls = v => v >= 0 ? "up" : "down";
+const sgnUsd = v => (v >= 0 ? "+$" : "-$") + money(Math.abs(v));
+
+/* ======================= GENERATED ART ======================= */
+let artN = 0;
+const AVP = [["#E6EEFF","#A9C1F5","#2E6BFF"],["#F0F2F6","#C5CCD8","#667487"],["#E4F1FA","#A9CFEA","#1F8FE5"],["#EEF0F3","#BAC1CC","#3F4A5C"],["#E1F3F1","#A6D6D1","#0E9AA7"],["#E9EEF8","#B4C4E6","#3E5FA8"],["#F3F4F6","#D3D8DF","#1E2A3D"],["#E3EEFF","#92B2F5","#1B4FD6"]];
+function avatarSVG(seed, size = 40){
+  const r = rngFor("av" + seed), pal = AVP[Math.floor(r() * AVP.length)], fam = hash(seed) % 8, [lt, md, dk] = pal, id = "av" + hash(seed) + "_" + fam;
+  const rn = (a, b) => a + r() * (b - a), tone = [lt, md, dk, "#fff"];
+  let g = "";
+  if (fam === 0){ // bust
+    const hx = rn(28, 36);
+    g = `<ellipse cx="32" cy="66" rx="25" ry="22" fill="${dk}"/><ellipse cx="32" cy="66" rx="25" ry="22" fill="url(#${id}s)"/><rect x="27" y="34" width="10" height="12" rx="4" fill="${md}"/><circle cx="32" cy="27" r="11" fill="#fff" opacity=".92"/><path d="M20.5 27a11.5 11.5 0 0 1 23 0c-4-5-9-6.5-12-6.5S24.500 22 20.500 27z" fill="${dk}"/><circle cx="${hx}" cy="${rn(24, 28)}" r="1.4" fill="${dk}" opacity=".0"/>`;
+  } else if (fam === 1){ // rings
+    const cx = rn(24, 40), cy = rn(24, 40);
+    g = [30, 23, 16, 9, 4].map((rad, i) => `<circle cx="${cx}" cy="${cy}" r="${rad}" fill="${tone[i % 3]}" opacity="${.35 + i * .13}"/>`).join("");
+  } else if (fam === 2){ // mosaic triangles
+    for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++){ const c1 = tone[Math.floor(r() * 4)], c2 = tone[Math.floor(r() * 4)];
+      g += `<path d="M${x*16} ${y*16}h16l-16 16z" fill="${c1}" opacity=".85"/><path d="M${x*16+16} ${y*16}v16h-16z" fill="${c2}" opacity=".7"/>`; }
+  } else if (fam === 3){ // blob face
+    const w = rn(20, 25), h = rn(20, 25);
+    g = `<path d="M32 ${32-h}c${w*.9} 0 ${w} ${h*.5} ${w} ${h}s-${w*.2} ${h}-${w} ${h}-${w}-${h*.5}-${w}-${h}S${32-w} ${32-h} 32 ${32-h}z" fill="${md}"/><path d="M32 ${32-h}c${w*.9} 0 ${w} ${h*.5} ${w} ${h}s-${w*.2} ${h}-${w} ${h}-${w}-${h*.5}-${w}-${h}S${32-w} ${32-h} 32 ${32-h}z" fill="url(#${id}s)"/><circle cx="25" cy="29" r="2.6" fill="#fff"/><circle cx="39" cy="29" r="2.6" fill="#fff"/><circle cx="25.6" cy="29.4" r="1.2" fill="${dk}"/><circle cx="39.6" cy="29.4" r="1.2" fill="${dk}"/><path d="M25 38q7 ${rn(4, 8)} 14 0" stroke="${dk}" stroke-width="2.2" fill="none" stroke-linecap="round"/>`;
+  } else if (fam === 4){ // stripes + disc
+    const a = Math.floor(rn(4, 8));
+    for (let i = -4; i < 12; i++) g += `<path d="M${i*a*1.8} 64l${28} -${28}h${a}l-28 28z" fill="${tone[i & 1 ? 1 : 0]}" opacity=".7"/>`;
+    g += `<circle cx="32" cy="32" r="13" fill="${dk}"/><circle cx="32" cy="32" r="13" fill="url(#${id}s)"/><circle cx="32" cy="32" r="5" fill="#fff" opacity=".9"/>`;
+  } else if (fam === 5){ // hex facets
+    const pts = [...Array(6)].map((_, i) => { const a = Math.PI / 3 * i - Math.PI / 6; return [32 + 25 * Math.cos(a), 32 + 25 * Math.sin(a)]; });
+    g = pts.map((p, i) => { const q = pts[(i + 1) % 6]; return `<path d="M32 32L${p[0].toFixed(1)} ${p[1].toFixed(1)}L${q[0].toFixed(1)} ${q[1].toFixed(1)}z" fill="${tone[(i + Math.floor(r() * 3)) % 4]}" opacity="${rn(.65, 1).toFixed(2)}"/>`; }).join("");
+  } else if (fam === 6){ // waves + sun
+    g = `<circle cx="${rn(20, 44)}" cy="${rn(16, 26)}" r="8" fill="#fff" opacity=".85"/>` + [0, 1, 2].map(i => { const y = 34 + i * 9, a = rn(3, 7); return `<path d="M0 ${y}q16 -${a*2} 32 0t32 0V64H0z" fill="${tone[i]}" opacity="${.55 + i * .2}"/>`; }).join("");
+  } else { // dot grid
+    for (let y = 0; y < 5; y++) for (let x = 0; x < 5; x++) g += `<circle cx="${8 + x*12}" cy="${8 + y*12}" r="${rn(1.5, 5.2).toFixed(1)}" fill="${tone[(x + y) % 3]}" opacity=".85"/>`;
+    g += `<circle cx="32" cy="32" r="${rn(9, 13)}" fill="#fff" opacity=".9"/><circle cx="32" cy="32" r="5" fill="${dk}"/>`;
+  }
+  return `<svg class="px-avs" width="${size}" height="${size}" viewBox="0 0 64 64" style="border-radius:50%;display:block;flex-shrink:0" role="img" aria-label="Trader avatar"><defs><linearGradient id="${id}b" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${lt}"/><stop offset="1" stop-color="${md}"/></linearGradient><linearGradient id="${id}s" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".28"/><stop offset="1" stop-color="#000" stop-opacity=".16"/></linearGradient></defs><rect width="64" height="64" fill="url(#${id}b)"/>${g}</svg>`;
+}
+const artWrap = (w, h, defs, body) => { const n = ++artN; return `<svg width="${w}" height="${h}" viewBox="0 0 120 120" aria-hidden="true" focusable="false"><defs>${defs.replace(/\{n\}/g, n)}</defs>${body.replace(/\{n\}/g, n)}</svg>`; };
+const SIL = n => `<linearGradient id="sl{n}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFFFFF"/><stop offset=".5" stop-color="#D5DBE6"/><stop offset="1" stop-color="#9AA5B8"/></linearGradient><linearGradient id="bl{n}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6E9BFF"/><stop offset="1" stop-color="#2352D8"/></linearGradient><linearGradient id="bk{n}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4B5568"/><stop offset="1" stop-color="#262D3B"/></linearGradient>`;
+const ART = {
+  avatar: avatarSVG,
+  trophy: (size = 96) => artWrap(size, size, SIL(), `<ellipse cx="60" cy="108" rx="30" ry="6" fill="#000" opacity=".12"/><rect x="42" y="92" width="36" height="12" rx="4" fill="url(#bk{n})"/><rect x="50" y="76" width="20" height="18" fill="url(#sl{n})"/><path d="M30 20h60v26c0 18-13 31-30 31S30 64 30 46z" fill="url(#sl{n})"/><path d="M30 28H16c0 14 7 22 18 24M90 28h14c0 14-7 22-18 24" fill="none" stroke="url(#sl{n})" stroke-width="6" stroke-linecap="round"/><path d="M38 24h14v30c-9-4-14-12-14-20z" fill="#fff" opacity=".55"/><path d="M60 30l5.200 10.500 11.600 1.700-8.400 8.200 2 11.600L60 56.500 49.600 62l2-11.600-8.400-8.200 11.600-1.700z" fill="url(#bl{n})"/>`),
+  podium: (size = 96) => artWrap(size, size, SIL(), `<ellipse cx="60" cy="108" rx="48" ry="6" fill="#000" opacity=".1"/><rect x="8" y="66" width="32" height="40" rx="5" fill="url(#sl{n})"/><rect x="80" y="76" width="32" height="30" rx="5" fill="url(#sl{n})"/><rect x="40" y="48" width="40" height="58" rx="5" fill="url(#bl{n})"/><path d="M40 53a5 5 0 0 1 5-5h30a5 5 0 0 1 5 5v8H40z" fill="#fff" opacity=".22"/><text x="60" y="88" text-anchor="middle" font-size="26" font-weight="800" fill="#fff" font-family="Manrope,sans-serif">1</text><text x="24" y="92" text-anchor="middle" font-size="20" font-weight="800" fill="#6B7789" font-family="Manrope,sans-serif">2</text><text x="96" y="99" text-anchor="middle" font-size="18" font-weight="800" fill="#6B7789" font-family="Manrope,sans-serif">3</text><path d="M60 14l4.500 9.200 10 1.500-7.300 7.100 1.800 10-9-4.800-9 4.800 1.800-10-7.300-7.100 10-1.500z" fill="url(#sl{n})" stroke="#9AA5B8" stroke-width="1"/>`),
+  coins: (size = 96) => artWrap(size, size, SIL(), `<ellipse cx="60" cy="106" rx="38" ry="7" fill="#000" opacity=".12"/>` + [[78,0],[66,8],[54,-4]].map(([y, dx], i) => `<g transform="translate(${dx} 0)"><ellipse cx="54" cy="${y+10}" rx="30" ry="11" fill="#7C8798"/><rect x="24" y="${y-2}" width="60" height="12" fill="#B4BDCB"/><ellipse cx="54" cy="${y-2}" rx="30" ry="11" fill="url(#sl{n})"/><ellipse cx="54" cy="${y-2}" rx="21" ry="7" fill="none" stroke="#9AA5B8" stroke-width="1.500"/></g>`).join("") + `<g transform="translate(0 -6)"><ellipse cx="62" cy="38" rx="26" ry="26" fill="url(#bl{n})"/><ellipse cx="62" cy="38" rx="20" ry="20" fill="none" stroke="#fff" stroke-opacity=".5" stroke-width="2"/><text x="62" y="47" text-anchor="middle" font-size="26" font-weight="800" fill="#fff" font-family="Manrope,sans-serif">$</text></g>`),
+  shield: (size = 96) => artWrap(size, size, SIL(), `<ellipse cx="60" cy="110" rx="28" ry="5" fill="#000" opacity=".12"/><path d="M60 8l40 14v32c0 28-17 46-40 56C37 100 20 82 20 54V22z" fill="url(#sl{n})"/><path d="M60 16l33 11.500V54c0 23-14 38-33 46C41 92 27 77 27 54V27.500z" fill="url(#bl{n})"/><path d="M60 16l33 11.500V54c0 3-.2 6-.7 8.800L60 16z" fill="#fff" opacity=".14"/><path d="M44 58l11 11 22-24" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>`),
+  growth: (size = 96) => artWrap(size, size, SIL(), `<ellipse cx="58" cy="108" rx="44" ry="6" fill="#000" opacity=".1"/><rect x="16" y="72" width="20" height="32" rx="4" fill="url(#sl{n})"/><rect x="42" y="56" width="20" height="48" rx="4" fill="url(#sl{n})"/><rect x="68" y="38" width="20" height="66" rx="4" fill="url(#bl{n})"/><path d="M16 56L48 34l20 10 34-28" fill="none" stroke="url(#bk{n})" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><path d="M90 14h16v16" fill="none" stroke="url(#bk{n})" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="48" cy="34" r="5" fill="#fff" stroke="#2352D8" stroke-width="3"/>`)
+};
+window.ART = ART;
 
 /* ======================= ASSETS ======================= */
+const NAMES = c => c === "USDT" ? "TetherUS" : (window.COIN_NAMES && window.COIN_NAMES[c]) || c;
+function spotHoldings(){
+  try { const h = window.SPOT?.holdings?.() || []; return (Array.isArray(h) ? h : []).map(x => {
+    const coin = String(x.coin || x.base || x.asset || x.symbol || x.sym || "").replace(/USDT$/, "").toUpperCase(), amt = +(x.amount ?? x.qty ?? x.free ?? x.balance ?? 0), m = M.get(coin + "USDT"), px = m?.price ?? +x.price ?? 0, val = +(x.value ?? amt * px), chg = m?.chg ?? 0;
+    return {coin, amt, val, pnl: val - val / (1 + chg / 100), pct: chg}; }).filter(x => x.coin && x.amt > 0); } catch { return []; }
+}
+const copyNow = () => cstate().active.reduce((a, c) => a + c.amt * (1 + copyPct(c) / 100), 0);
 Pages.assets = (params) => {
-  let tab = params[0] || "overview"; if (tab === "binary") tab = "spot";
-  const TABS = [["overview","Overview"],["spot","Spot"],["futures","Futures"],["earn","Earn"],["funding","Funding"]];
-  const html = `<div class="px-page">${head("Assets", `<a class="icon-btn" href="#/history" aria-label="History">${ic("clockh",20,1.7)}</a>`)}
-    <div class="px-tabs">${TABS.map(([k,n]) => `<button data-at="${k}" class="${tab===k?"on":""}">${n}</button>`).join("")}</div><div id="ab"></div></div>`;
+  let tab = params[0] || "overview"; if (tab === "binary") tab = "spot"; if (tab === "funding") tab = "fund"; if (tab === "copying") tab = "copy";
+  let view = "crypto", q = "", showQ = false, sortBy = "value";
+  const TABS = [["overview","Overview"],["fund","Fund"],["spot","Spot"],["futures","Futures"],["copy","Copy"],["earn","Earn"]];
+  const html = `<div class="px-page px-as"><div class="px-tabs" id="atabs">${TABS.map(([k,n]) => `<button data-at="${k}" class="${tab===k?"on":""}">${n}</button>`).join("")}</div><div id="ab"></div></div>`;
   function totals(){
     const s = S(), bin = s.positions.reduce((a,p) => a + p.amount, 0), fm = s.fut.positions.reduce((a,p) => a + p.margin, 0) + s.fut.orders.reduce((a,o) => a + o.margin + o.fee, 0);
-    const up = s.fut.positions.reduce((a,p) => a + E.futPnl(p).pnl, 0), vault = E.earnValue();
-    const d0 = new Date().setHours(0,0,0,0), tp = E.stats().todayPnl + s.fut.history.filter(x => x.closed >= d0).reduce((a,x) => a + x.profit, 0) + up;
-    return {spot:s.balance, bin, fm, up, fut: fm + up, vault, total: s.balance + bin + fm + up + vault, tp};
+    const up = s.fut.positions.reduce((a,p) => a + E.futPnl(p).pnl, 0), vault = E.earnValue(), hold = spotHoldings(), hv = hold.reduce((a,x) => a + x.val, 0), hp = hold.reduce((a,x) => a + x.pnl, 0);
+    const act = cstate().active, cv = act.reduce((a,c) => a + c.amt * (1 + copyPct(c) / 100), 0), cinv = act.reduce((a,c) => a + c.amt, 0);
+    const d0 = new Date().setHours(0,0,0,0), usdtPnl = E.stats().todayPnl + s.fut.history.filter(x => x.closed >= d0).reduce((a,x) => a + x.profit, 0) + up;
+    const fut = fm + up, total = s.balance + bin + fut + vault + hv + cv;
+    return {fund:s.balance, bin, fm, up, fut, vault, hold, hv, hp, cv, cinv, cpn: cv - cinv, usdtPnl, tp: usdtPnl + hp, total, spot: bin + hv};
   }
   function calendar(){
     const now = new Date(), y = now.getFullYear(), m = now.getMonth(), first = new Date(y, m, 1), days = new Date(y, m+1, 0).getDate(), off = (first.getDay() + 6) % 7;
@@ -34,52 +89,70 @@ Pages.assets = (params) => {
       cells += `<div class="d ${d === now.getDate() ? "t" : ""} ${v == null ? "" : v >= 0 ? "u" : "l"}">${d}${v != null ? `<small>${v >= 0 ? "+" : ""}${Math.abs(v) >= 1000 ? (v/1000).toFixed(1) + "K" : v.toFixed(0)}</small>` : ""}</div>`; }
     return `<div class="px-sec-h"><h2>${now.toLocaleString([], {month:"long", year:"numeric"})} PnL</h2><b class="num ${cls(tot)}" style="font-size:13px">${signed(tot)} USDT</b></div><div class="px-cal">${cells}</div>`;
   }
-  function txList(list){
-    return list.length ? list.map(x => { const dep = x.kind === "deposit";
-      return `<div class="px-row"><span class="px-ico ${dep ? "g" : "n"}">${ic(dep ? "down" : "up",16)}</span><div class="grow"><b>${dep ? "Deposit" : "Transfer"} ${esc(x.coin || "USDT")}</b><div class="px-mut">${U.dateStr(x.t)} · ${esc(x.method || "")}</div></div><div class="r"><b class="num ${dep?"up":""}">${dep?"+":""}${fmt(x.coinAmt ?? x.amount, x.coinAmt ? 6 : 2)}</b><span class="px-mut">Completed</span></div></div>`; }).join("") : empty("file","No transactions yet");
+  const txList = list => list.length ? list.map(x => { const dep = x.kind === "deposit";
+      return `<div class="px-row"><span class="px-ico n">${ic(dep ? "down" : "up",16)}</span><div class="grow"><b>${dep ? "Deposit" : "Transfer"} ${esc(x.coin || "USDT")}</b><div class="px-mut">${U.dateStr(x.t)} · ${esc(x.method || "")}</div></div><div class="r"><b class="num ${dep?"up":""}">${dep?"+":""}${fmt(x.coinAmt ?? x.amount, x.coinAmt ? 6 : 2)}</b><span class="px-mut">Completed</span></div></div>`; }).join("") : empty("file","No transactions yet");
+  /* rows: {coin, amt, val, pnl, sub} */
+  function rowsFor(t){
+    const usdt = (val, sub, pnl, amt) => ({coin:"USDT", amt: amt ?? val, val, pnl, sub});
+    const hold = t.hold.map(x => ({coin:x.coin, amt:x.amt, val:x.val, pnl:x.pnl, sub:null}));
+    if (tab === "fund") return [usdt(t.fund, "Trading balance", 0)];
+    if (tab === "spot") return [...hold, ...(t.bin > 0 ? [usdt(t.bin, "Open binary stake", 0)] : [])];
+    if (tab === "futures") return [usdt(t.fut, "Margin + unrealized PnL", t.up)];
+    if (tab === "copy") return [usdt(t.cv, "Copy trading", t.cpn)];
+    if (tab === "earn") return [usdt(t.vault, "Flexible vault", 0)];
+    return [usdt(t.fund + t.bin + t.fut + t.cv + t.vault, "Fund, Futures, Copy, Earn", t.usdtPnl + t.cpn), ...hold];
+  }
+  const coinRow = (x, H) => { const base = x.val - x.pnl, pc = base > 0 ? x.pnl / base * 100 : 0;
+    return `<div class="px-coin">${UI.coinImg(x.coin, 38)}<div class="grow"><b>${esc(x.coin)}</b><div class="px-mut">${esc(x.sub || NAMES(x.coin))}</div></div><div class="r"><b class="num">${H(fmt(x.amt, x.coin === "USDT" ? 2 : 6))}</b><span class="px-mut num">${H("$" + money(x.val))}</span></div>
+      <div class="pl"><span>Today's PnL</span><b class="num ${cls(x.pnl)}">${H(sgnUsd(x.pnl) + " (" + sgnPct(pc) + ")")}</b></div></div>`; };
+  function pnlSheet(t){
+    const pts = [C.START_BALANCE, ...S().balHist.map(x => x.b)].slice(-120), delta = pts[pts.length-1] - pts[0];
+    U.sheet("PnL analysis", `<div class="px-pnl"><div class="px-mut">Cumulative balance change</div><div class="big num ${cls(delta)}">${signed(delta)} <small>USDT</small></div><div class="px-big">${spark(pts, 320, 110)}</div></div>
+      <div class="px-kpis" style="margin:12px 0 16px"><div><span>Today's PnL</span><b class="num ${cls(t.tp)}">${signed(t.tp)}</b></div><div><span>Unrealized (Futures)</span><b class="num ${cls(t.up)}">${signed(t.up)}</b></div><div><span>Realized trades</span><b class="num">${S().history.length + S().fut.history.length}</b></div><div><span>Win rate</span><b class="num">${E.stats().winRate.toFixed(1)}%</b></div></div>${calendar()}`);
   }
   function render(r){
     const s = S(), t = totals(), hide = !!s.settings.hideBal, H = v => hide ? "******" : v, box = r.querySelector("#ab");
-    const total = (label, val, pnl) => `<div class="px-total"><div class="row" style="align-items:flex-start"><div class="grow">
-        <div class="lb">${label}<button data-eye aria-label="${hide ? "Show" : "Hide"} balance">${ic(hide?"eyeoff":"eye",16)}</button></div>
-        <div class="big num">${H(money(val))}<small>USDT</small></div><div class="eq num">${H("≈ $" + money(val))}</div>
-        ${pnl != null ? `<div class="pl">Today's PnL <span class="num ${cls(pnl)}">${H(signed(pnl) + " (" + signed(pnl / Math.max(1, t.total - pnl) * 100) + "%)")}</span></div>` : ""}</div>
-        <div class="sp">${spark([C.START_BALANCE, ...s.balHist.map(x => x.b)].slice(-80), 96, 44, "var(--brand)")}</div></div></div>`;
-    const acts = `<div class="px-acts"><a href="#/deposit"><span>${ic("down",20,1.8)}</span>Deposit</a><a href="#/withdraw"><span>${ic("up",20,1.8)}</span>Withdraw</a><a href="#/withdraw"><span>${ic("swap",20,1.8)}</span>Transfer</a><a href="#/history"><span>${ic("clockh",20,1.8)}</span>History</a></div>`;
-    const rowOf = (name, sub, amt, val, tail) => `<div class="px-row">${UI.coinImg("USDT", 36)}<div class="grow"><b>USDT</b><div class="px-mut">${name}${sub ? " · " + sub : ""}</div></div><div class="r"><b class="num">${H(fmt(amt, 4))}</b><span class="px-mut num">${H("$" + money(val))}</span></div></div>`;
-    const rows = (list) => { const l = s.settings.hideSmall ? list.filter(x => x[3] >= 1) : list; return l.length ? l.map(x => rowOf(...x)).join("") : empty("wallet", s.settings.hideSmall ? "No balances above 1 USDT" : "No assets"); };
-    const small = `<label class="px-chk"><input type="checkbox" data-small ${s.settings.hideSmall ? "checked" : ""}><span>Hide small balances</span></label>`;
-    if (tab === "overview"){
-      const parts = [["Spot",t.spot,"#2E6BFF"],["Futures",Math.max(0,t.fut),"#5AA9FF"],["Binary",t.bin,"#0E9AA7"],["Earn",t.vault,"#A9B8D4"]], sum = parts.reduce((a,p) => a + p[1], 0) || 1;
-      box.innerHTML = total("Total Balance", t.total, t.tp) + acts + `
-        <div class="px-sec"><div class="px-sec-h"><h2>Allocation</h2></div><div class="px-alloc">${parts.filter(p => p[1] > 0).map(([n,v,c]) => `<i style="flex:${v/sum};background:${c}"></i>`).join("")}</div>
-          <div class="px-leg">${parts.map(([n,v,c]) => `<div><i style="background:${c}"></i>${n}<b class="num">${hide ? "**" : (v/sum*100).toFixed(1) + "%"}</b></div>`).join("")}</div></div>
-        <div class="px-sec"><div class="px-sec-h"><h2>Assets</h2>${small}</div>${rows([["Spot","Available",t.spot,t.spot],["Binary","Open stake",t.bin,t.bin],["Futures","Margin + PnL",t.fut,t.fut],["Earn",Math.round(E.APR*100) + "% APR",t.vault,t.vault]].filter((x,i) => i === 0 || x[2] > 0))}</div>
-        <div class="px-sec">${calendar()}</div>
-        <div class="px-sec"><div class="px-sec-h"><h2>Recent transactions</h2><a href="#/history">Trade history</a></div>${txList(s.tx.slice(0, 6))}</div>`;
-    } else if (tab === "spot"){
-      const st = E.stats();
-      box.innerHTML = total("Spot Balance", t.spot + t.bin, null) + `<div class="px-sec"><div class="px-sec-h"><h2>Assets</h2>${small}</div>${rows([["Spot","Available",t.spot,t.spot],["Binary","Open stake",t.bin,t.bin]])}</div>
-        <div class="px-sec"><div class="px-kpis"><div><span>Open stake</span><b class="num">${H(money(t.bin))}</b></div><div><span>Net PnL</span><b class="num ${cls(st.net)}">${signed(st.net)}</b></div><div><span>Trades</span><b class="num">${st.trades}</b></div><div><span>Win rate</span><b class="num">${st.winRate.toFixed(1)}%</b></div></div>
-        <a class="px-btn pri blk" style="margin-top:14px" href="#/trade">Trade</a></div>`;
-    } else if (tab === "futures"){
-      const h = s.fut.history, net = h.reduce((a,x) => a + x.profit, 0), w = h.filter(x => x.profit > 0).length;
-      box.innerHTML = total("Margin Balance", t.fut, t.up) + `<div class="px-sec"><div class="px-kpis"><div><span>In positions</span><b class="num">${H(money(t.fm))}</b></div><div><span>Unrealized PnL</span><b class="num ${cls(t.up)}">${H(signed(t.up))}</b></div><div><span>Realized PnL</span><b class="num ${cls(net)}">${signed(net)}</b></div><div><span>Win rate</span><b class="num">${h.length ? (w/h.length*100).toFixed(1) : "0.0"}%</b></div></div>
-        <a class="px-btn pri blk" style="margin-top:14px" href="#/futures">Trade Futures</a></div>
-        <div class="px-sec"><div class="px-sec-h"><h2>Position history</h2><a href="#/history">All</a></div>${h.length ? UI.historyHtml(h.slice(0, 5)) : empty("file","No closed positions")}</div>`;
-    } else if (tab === "earn"){
-      box.innerHTML = total("Earn Balance", t.vault, null) + `<div class="px-sec"><div class="px-row" style="border:0"><span class="px-ico">${ic("vault",18)}</span><div class="grow"><b>USDT Flexible Vault</b><div class="px-mut">Interest accrues every second, redeem anytime</div></div><b class="up num">${Math.round(E.APR*100)}% APR</b></div>
-        <a class="px-btn pri blk" style="margin-top:12px" href="#/withdraw">Subscribe / Redeem</a></div>`;
+    const label = {overview:"Total Assets", fund:"Fund Account", spot:"Spot Account", futures:"Futures Account", copy:"Copy Trading", earn:"Earn Account"}[tab];
+    const val = {overview:t.total, fund:t.fund, spot:t.spot, futures:t.fut, copy:t.cv, earn:t.vault}[tab];
+    const pnl = {overview:t.tp, fund:null, spot:t.hp, futures:t.up, copy:t.cpn, earn:null}[tab];
+    const pc = pnl == null ? 0 : pnl / Math.max(1, val - pnl) * 100;
+    const acts = `<div class="px-acts"><a href="#/deposit" class="pri"><span>${ic("down",24,1.8)}</span>Deposit</a><a href="#/withdraw"><span>${ic("up",24,1.8)}</span>Withdraw</a><a href="#/withdraw"><span>${ic("swap",24,1.8)}</span>Transfer</a><a href="#/trade"><span>${ic("reset",24,1.8)}</span>Convert</a></div>`;
+    const promo = `<a class="px-promo" href="#/earn"><div class="tx"><b>Earn up to 12% APR on USDT</b><span>Flexible and locked plans, redeem anytime</span></div>${ART.coins(84)}<i class="arr">${ic("chev",14,2)}</i></a>`;
+    let body = "";
+    if (tab === "overview" && view === "account"){
+      const parts = [["Fund","fund",t.fund,"#2E6BFF"],["Spot","spot",t.spot,"#7FA6FF"],["Futures","futures",Math.max(0,t.fut),"#5B6575"],["Copy Trading","copy",t.cv,"#A8B3C4"],["Earn","earn",t.vault,"#D3D9E2"]], sum = parts.reduce((a,p) => a + p[2], 0) || 1;
+      body = `<div class="px-alloc">${parts.filter(p => p[2] > 0).map(p => `<i style="flex:${p[2]/sum};background:${p[3]}"></i>`).join("")}</div>
+        ${parts.map(([n,k,v,c]) => `<button class="px-acc" data-go="${k}"><i style="background:${c}"></i><div class="grow"><b>${n}</b><span class="px-mut">${hide ? "**" : (v/sum*100).toFixed(1) + "% of total"}</span></div><div class="r"><b class="num">${H(money(v))}</b><span class="px-mut">USDT</span></div><span class="ch">${ic("chev",14)}</span></button>`).join("")}`;
     } else {
-      box.innerHTML = total("Funding Balance", t.spot, null) + acts + `<div class="px-sec"><div class="px-sec-h"><h2>Deposit and transfer history</h2><span class="px-mut">${s.tx.length} total</span></div>${txList(s.tx.slice(0, 20))}</div>`;
+      let rows = rowsFor(t); if (s.settings.hideSmall) rows = rows.filter(x => x.val >= 1);
+      if (q) rows = rows.filter(x => (x.coin + NAMES(x.coin)).toUpperCase().includes(q.toUpperCase()));
+      rows.sort(sortBy === "name" ? (a,b) => a.coin.localeCompare(b.coin) : sortBy === "pnl" ? (a,b) => b.pnl - a.pnl : (a,b) => b.val - a.val);
+      body = (tab === "overview" ? `<div class="px-chips2"><div class="px-chip-g"><button data-v="crypto" class="on">Crypto</button><button data-v="account">Account</button></div><span class="sp"></span><button class="icon-btn" data-sq aria-label="Search">${ic("search",18,1.7)}</button><button class="icon-btn" data-filter aria-label="Sort">${ic("sort",18,1.7)}</button></div>` : "")
+        + (showQ ? `<label class="px-search" style="margin:0 0 8px">${ic("search",16)}<input id="aq" value="${esc(q)}" placeholder="Search coins" autocomplete="off" aria-label="Search coins"></label>` : "")
+        + `<label class="px-chk" style="margin:4px 0"><input type="checkbox" data-small ${s.settings.hideSmall ? "checked" : ""}><span>Hide small balances</span></label>`
+        + (rows.length ? rows.map(x => coinRow(x, H)).join("") : empty("wallet", s.settings.hideSmall ? "No balances above 1 USDT" : "No assets"));
+      if (tab === "spot") body += `<a class="px-btn blk" style="margin-top:12px" href="#/trade">Trade</a>`;
+      if (tab === "futures") body += `<div class="px-sec"><div class="px-sec-h"><h2>Position history</h2><a href="#/history">All</a></div>${s.fut.history.length ? UI.historyHtml(s.fut.history.slice(0, 5)) : empty("file","No closed positions")}</div>`;
+      if (tab === "copy"){ const act = cstate().active; body += `<div class="px-sec-h" style="margin-top:14px"><h2>Active copies (${act.length})</h2><a href="#/copy/my">My data</a></div>` + (act.length ? act.map(c => { const p = copyPct(c), pn = c.amt * p / 100; return `<a class="px-row" href="#/copy/my">${ART.avatar(c.lid, 36)}<div class="grow"><b>${esc(c.name)}</b><div class="px-mut">Invested ${H(money(c.amt))} USDT</div></div><div class="r"><b class="num ${cls(pn)}">${H(signed(pn))}</b><span class="px-mut num">${H(sgnPct(p))}</span></div></a>`; }).join("") : empty("users","No active copies")) + `<a class="px-btn pri blk" style="margin-top:12px" href="#/copy">Find traders</a>`; }
+      if (tab === "earn") body += `<a class="px-btn pri blk" style="margin-top:12px" href="#/earn">Go to Earn</a>`;
+      if (tab === "fund" || tab === "overview") body += `<div class="px-sec"><div class="px-sec-h"><h2>Recent transactions</h2><a href="#/history">Trade history</a></div>${txList(s.tx.slice(0, tab === "fund" ? 20 : 5))}</div>`;
     }
-    box.querySelector("[data-eye]").onclick = () => { s.settings.hideBal = !s.settings.hideBal; store.save(); render(r); };
+    box.innerHTML = `<div class="px-ah"><div class="top"><div class="lb">${label}<button data-eye aria-label="${hide ? "Show" : "Hide"} balance">${ic(hide?"eyeoff":"eye",16)}</button></div><span class="sp"></span><button class="icon-btn" data-pnl aria-label="PnL analysis">${ic("chart",20,1.7)}</button><a class="icon-btn" href="#/history" aria-label="History">${ic("clockh",20,1.7)}</a></div>
+      <div class="big num">${H(money(val))}<small>USDT ${ic("chevd",12,2)}</small></div><div class="eq num">${H("≈ $" + money(val))}</div>
+      ${pnl != null ? `<button class="pl" data-pnl>Today's PnL <b class="num ${cls(pnl)}">${H(sgnUsd(pnl) + " (" + sgnPct(pc) + ")")}</b>${ic("chev",12,2)}</button>` : ""}</div>${acts}${promo}<div id="alist">${body}</div>`;
+    box.querySelectorAll("[data-eye]").forEach(b => b.onclick = () => { s.settings.hideBal = !s.settings.hideBal; store.save(); render(r); });
+    box.querySelectorAll("[data-pnl]").forEach(b => b.onclick = () => pnlSheet(t));
     const sm = box.querySelector("[data-small]"); if (sm) sm.onchange = () => { s.settings.hideSmall = sm.checked; store.save(); render(r); };
+    box.querySelectorAll("[data-v]").forEach(b => { b.classList.toggle("on", b.dataset.v === view); b.onclick = () => { view = b.dataset.v; render(r); }; });
+    box.querySelectorAll("[data-go]").forEach(b => b.onclick = () => { tab = b.dataset.go; r.querySelectorAll("[data-at]").forEach(x => x.classList.toggle("on", x.dataset.at === tab)); render(r); });
+    const sq = box.querySelector("[data-sq]"); if (sq) sq.onclick = () => { showQ = !showQ; if (!showQ) q = ""; render(r); if (showQ) r.querySelector("#aq")?.focus(); };
+    const aq = box.querySelector("#aq"); if (aq) aq.oninput = () => { q = aq.value; const p = aq.selectionStart; render(r); const n = r.querySelector("#aq"); if (n){ n.focus(); n.setSelectionRange(p, p); } };
+    const fl = box.querySelector("[data-filter]"); if (fl) fl.onclick = () => U.sheet("Sort by", [["value","Value (high to low)"],["pnl","Today's PnL"],["name","Name (A-Z)"]].map(([k,n]) => `<button class="px-opt ${sortBy===k?"on":""}" data-k="${k}">${n}${sortBy===k ? ic("check",18,2) : ""}</button>`).join(""), el => el.querySelectorAll("[data-k]").forEach(b => b.onclick = () => { sortBy = b.dataset.k; U.closeLayer(); render(r); }));
   }
   return {html, title:"Assets", mount(r){
     render(r);
-    r.querySelectorAll("[data-at]").forEach(b => b.onclick = () => { tab = b.dataset.at; r.querySelectorAll("[data-at]").forEach(x => x.classList.toggle("on", x===b)); render(r); });
-    const iv = setInterval(() => { if (r.isConnected) render(r); }, 4000), offs = [bus.on("balance", () => render(r))];
+    r.querySelectorAll("[data-at]").forEach(b => b.onclick = () => { tab = b.dataset.at; r.querySelectorAll("[data-at]").forEach(x => x.classList.toggle("on", x===b)); q = ""; showQ = false; render(r); });
+    const iv = setInterval(() => { if (r.isConnected && document.activeElement?.id !== "aq") render(r); }, 4000), offs = [bus.on("balance", () => { if (document.activeElement?.id !== "aq") render(r); })];
     this.unmount = () => { clearInterval(iv); offs.forEach(f => f()); };
   }};
 };
@@ -178,8 +251,9 @@ function depositPage(coin, net){
   }};
 }
 
+
 /* ======================= COPY TRADING ======================= */
-const CAP = 1000;
+const CAP = 2000;
 /* [id, nickname, style, symbol, roi[7D,30D,90D], pnl30, winRate, maxDD, aum, followers, tradingDays] */
 const LEADS = [
   ["l1","CryptoWhale_88","BTC trend, low drawdown","BTCUSDT",[11.8,48.2,131.4],92410,68,9.4,1.2e6,872,214],
@@ -193,8 +267,18 @@ const LEADS = [
   ["l9","Delta Neutral","BTC basis, market neutral","BTCUSDT",[1.2,6.8,19.9],51200,82,2.4,3.4e6,963,611],
   ["l10","SwingKing","AVAX 4h swing","AVAXUSDT",[-1.8,31.1,84.6],16920,55,18.5,240e3,327,143],
   ["l11","TrendRider","LINK breakout trend","LINKUSDT",[6.4,24.9,66.7],14380,59,13.1,198e3,276,119],
-  ["l12","Basis Hunter","ETH funding arbitrage","ETHUSDT",[0.9,5.2,16.4],33660,85,1.9,2.6e6,1000,498]
-].map(a => ({id:a[0], name:a[1], style:a[2], sym:a[3], roi:a[4], pnl30:a[5], wr:a[6], mdd:a[7], aum:a[8], f:a[9], days:a[10], ini:a[1].replace(/[^A-Za-z ]/g," ").split(/\s+|(?=[A-Z])/).filter(Boolean).slice(0,2).map(w => w[0]).join("").toUpperCase() || a[1].slice(0,2).toUpperCase(), col:PAL[hash(a[0]) % PAL.length]}));
+  ["l12","Basis Hunter","ETH funding arbitrage","ETHUSDT",[0.9,5.2,16.4],33660,85,1.9,2.6e6,1000,498],
+  ["l13","Aurora Bull","ETH range breakouts","ETHUSDT",[8.4,29.3,0],12840,64,9.8,96e3,194,4],
+  ["l14","Lumen FX","Majors, London session","EURUSD",[1.1,6.4,0],8120,72,4.2,140e3,121,9],
+  ["l15","BlockSage","BTC macro swing","BTCUSDT",[5.9,22.7,0],17660,60,11.6,310e3,236,12],
+  ["l16","Nimbus","SOL momentum scalper","SOLUSDT",[12.5,44.1,0],9930,56,19.4,74e3,158,17],
+  ["l17","TokenTamer","BNB grid and swing","BNBUSDT",[3.2,14.8,0],6240,67,6.7,88e3,203,21],
+  ["l18","Orbit Quant","XRP statistical arbitrage","XRPUSDT",[4.7,18.2,0],11050,69,8.1,204e3,176,26],
+  ["l19","Zen Scalper","DOGE 5m scalping","DOGEUSDT",[6.8,33.5,0],7480,53,23.7,52e3,311,33],
+  ["l20","PolarEdge","LINK trend following","LINKUSDT",[2.9,16.9,0],5410,61,10.3,63e3,142,38]
+].map(a => { const roi = a[4].slice(); if (!roi[2]) roi[2] = +(roi[1] * (2.2 + hash01(a[0]) * .8)).toFixed(1);
+  return {id:a[0], name:a[1], style:a[2], sym:a[3], roi, pnl30:a[5], wr:a[6], mdd:a[7], aum:a[8], f:a[9], days:a[10], ai: hash01(a[0] + "ai") > .5,
+    ini:a[1].replace(/[^A-Za-z ]/g," ").split(/\s+|(?=[A-Z])/).filter(Boolean).slice(0,2).map(w => w[0]).join("").toUpperCase() || a[1].slice(0,2).toUpperCase()}; });
 const PRICE_FB = {BTC:67000, ETH:3300, SOL:160, BNB:600, XRP:.55, DOGE:.15, AVAX:35, LINK:15, XAU:2350, EUR:1.08};
 const PERS = [["7D",0],["30D",1],["90D",2]];
 const baseOf = sym => sym.replace(/USDT$/, "").replace(/USD$/, "");
@@ -251,59 +335,108 @@ function stopCopy(c, reason){
   U.fx("close"); return {pnl, pct};
 }
 
+
+/* ---- derived leader metrics ---- */
+const sharpe = l => +(.4 + Math.max(0, l.roi[1]) / Math.max(4, l.mdd) * .32 + hash01(l.id + "sh") * .6).toFixed(2);
+const score = l => l.roi[1] * .35 + l.wr * .3 + (30 - l.mdd) * .8 + sharpe(l) * 6;
+const favs = () => (S().copyFavs ||= []);
+const POSTS = [
+  ["Closed {s} {d} for {p}. Stuck to the plan and let the trade breathe.", 1],
+  ["Reduced exposure on {s} ahead of the data release. Capital protection first.", 0],
+  ["Opened a small {d} on {s}. Risk is capped at 1.5% of the account.", 1],
+  ["Funding is turning on {s}. Watching for a clean break before adding.", 0],
+  ["Thanks for the support, followers. Month is {p} so far, drawdown still under control.", 1],
+  ["Took a stop on {s}. Part of the game, size was small and the plan is intact.", 0],
+  ["Scaling into {s} {d}. Entries are laddered, target is above the last swing high.", 1],
+  ["Market is choppy. Sitting in cash on most pairs and waiting for a setup.", 0]
+];
+function feed(){
+  const r = rngFor("feed"), out = [];
+  for (let i = 0; i < 16; i++){
+    const l = LEADS[Math.floor(r() * LEADS.length)], [tpl] = POSTS[Math.floor(r() * POSTS.length)], p = (r() * 6 + .6).toFixed(1) + "%";
+    out.push({l, text: tpl.replace("{s}", symLabel(l.sym)).replace("{d}", r() > .35 ? "long" : "short").replace("{p}", "+" + p), ago: Math.floor(10 + i * (20 + r() * 40)), likes: Math.floor(r() * 480) + 12, cm: Math.floor(r() * 60) + 1, sym: l.sym});
+  }
+  return out;
+}
+const agoStr = m => m < 60 ? m + "m ago" : m < 1440 ? Math.floor(m / 60) + "h ago" : Math.floor(m / 1440) + "d ago";
+const SORTS = [["comp","Comprehensive"],["roi","30D ROI"],["pnl","30D PnL"],["wr","Win rate"],["mdd","Lowest drawdown"],["aum","AUM"],["f","Followers"]];
+const CHIPS = [["star","Star Traders", l => l.wr >= 66 && l.aum >= 4e5],["soar","Soaring ROI", l => l.roi[1] >= 30],["dd","Low Drawdown", l => l.mdd <= 9],["aum","High AUM", l => l.aum >= 1e6]];
+
 Pages.copy = (params) => {
-  let tab = params && params[0] === "my" ? "my" : params && params[0] === "spot" ? "spot" : "futures", sort = "roi", per = 1;
-  const SORTS = [["roi","ROI"],["pnl","PnL"],["wr","Win rate"],["f","Followers"],["aum","AUM"]];
-  const html = `<div class="px-page">${head("Copy Trading")}
-    <div class="px-tabs" id="ctabs"></div>
-    <div id="cbody"></div></div>`;
-  const leaderCard = (l, mk) => { const s = lstats(l, per, mk), full = l.f >= CAP;
-    return `<div class="px-ld" data-ld="${l.id}"><div class="row" style="gap:10px"><span class="px-av" style="background:${l.col}">${esc(l.ini)}</span>
-      <div class="grow"><div class="nm"><span class="ellipsis">${esc(l.name)}</span></div><div class="px-cap"><span class="num">${fmt(l.f,0)}/${fmt(CAP,0)}</span><i><b style="width:${l.f / CAP * 100}%"></b></i></div></div>
-      <button class="px-btn ol sm" data-cp="${l.id}" ${full ? "disabled" : ""}>${full ? "Full" : "Copy"}</button></div>
-      <div class="mid"><div><div class="roi-l">${PERS[per][0]} ROI</div><div class="roi num ${cls(s.roi)}">${sgnPct(s.roi)}</div></div><div class="spk">${spark(curve(l, per, mk, 30), 112, 40, s.roi >= 0 ? "var(--up)" : "var(--down)")}</div></div>
-      <div class="px-st"><div><span>${PERS[per][0]} PnL</span><b class="num ${cls(s.pnl)}">${s.pnl >= 0 ? "+" : "-"}$${compact(Math.abs(s.pnl))}</b></div><div><span>Win rate</span><b class="num">${s.wr.toFixed(1)}%</b></div><div><span>Max DD</span><b class="num">${s.mdd.toFixed(1)}%</b></div><div><span>AUM</span><b class="num">$${compact(s.aum)}</b></div></div></div>`; };
+  let seg = params && params[0] === "spot" ? "spot" : params && params[0] === "ai" ? "ai" : "futures", view = params && params[0] === "my" ? "my" : "plaza", ltab = "lead", chip = null, sort = "comp", q = "", showQ = false;
+  const html = `<div class="px-page px-cp-pg">${head("Copy Trading", `<button class="icon-btn" data-menu aria-label="Menu">${ic("dots",20,1.8)}</button>`)}<div id="cbody"></div>
+    <div class="px-subnav"><div class="pill" id="snav"></div><button class="rnd" data-sq aria-label="Search traders">${ic("search",20,1.8)}</button></div></div>`;
+  const mkOf = () => seg === "spot" ? "spot" : "futures";
+  const pool = () => LEADS.filter(l => seg !== "ai" || l.ai);
+  const tagOf = () => seg === "spot" ? "Spot" : seg === "ai" ? "AI" : "Perp";
+  const ldCard = l => { const mk = mkOf(), s = lstats(l, 1, mk), sh = sharpe(l) * (mk === "spot" ? .9 : 1), full = l.f >= CAP, fav = favs().includes(l.id);
+    return `<div class="px-lc" data-ld="${l.id}"><div class="h">${ART.avatar(l.id, 44)}<div class="grow"><div class="nm"><span class="ellipsis">${esc(l.name)}</span><button class="star ${fav ? "on" : ""}" data-fav="${l.id}" aria-label="${fav ? "Unfollow" : "Favourite"}">${ic("star",16,1.7)}</button></div><div class="px-mut mt">${tagOf()} <i class="sepv"></i> ${ic("users",13,1.7)} <span class="num">${l.f} / ${fmt(CAP,0)}</span></div></div><button class="cpy" data-cp="${l.id}" ${full ? "disabled" : ""}>${full ? "Full" : "Copy"}</button></div>
+      <div class="m"><div><div class="px-mut">30D PnL</div><div class="roi num ${cls(s.roi)}">${sgnPct(s.roi)}</div></div><div class="spk">${spark(curve(l, 1, mk, 36), 130, 52, s.roi >= 0 ? "var(--up)" : "var(--down)")}</div></div>
+      <div class="b"><div><span>30D Max Drawdown</span><b class="num">${s.mdd.toFixed(2)}%</b></div><div><span>30D Sharpe Ratio</span><b class="num">${sh.toFixed(2)}</b></div><div><span>AUM</span><b class="num">${compact(s.aum)} USDT</b></div></div></div>`; };
   return {html, title:"Copy Trading", mount(r){
-    const $ = q => r.querySelector(q);
-    const tabs = () => { const n = cstate().active.length; $("#ctabs").innerHTML = [["futures","Futures"],["spot","Spot"],["my","My Copy" + (n ? ` (${n})` : "")]].map(([k,t]) => `<button data-t="${k}" class="${tab===k?"on":""}">${t}</button>`).join(""); };
-    function renderLeaders(){
-      const mk = tab, key = {roi:l => lstats(l,per,mk).roi, pnl:l => lstats(l,per,mk).pnl, wr:l => lstats(l,per,mk).wr, f:l => l.f, aum:l => lstats(l,per,mk).aum}[sort];
-      $("#cbody").innerHTML = `<div class="row between" style="padding:12px 0 10px"><div class="px-seg" id="pseg">${PERS.map(([n,i]) => `<button data-p="${i}" class="${per===i?"on":""}">${n}</button>`).join("")}</div><span class="px-mut">${LEADS.length} lead traders</span></div>
-        <div class="px-chips" id="sseg" style="margin-bottom:4px">${SORTS.map(([k,n]) => `<button data-s="${k}" class="${sort===k?"on":""}">${n}</button>`).join("")}</div>
-        <div id="ll">${LEADS.slice().sort((a,b) => key(b) - key(a)).map(l => leaderCard(l, mk)).join("")}</div>`;
-      $("#pseg").onclick = e => { const b = e.target.closest("[data-p]"); if (b){ per = +b.dataset.p; renderLeaders(); } };
-      $("#sseg").onclick = e => { const b = e.target.closest("[data-s]"); if (b){ sort = b.dataset.s; renderLeaders(); } };
-      $("#ll").onclick = e => { const b = e.target.closest("[data-cp]"), c = e.target.closest("[data-ld]"); if (c) detail(LEADS.find(x => x.id === c.dataset.ld), mk, !!b); };
+    const $ = x => r.querySelector(x), body = $("#cbody");
+    const nav = () => { const n = cstate().active.length; $("#snav").innerHTML = [["plaza","Copy Trading"],["my","My data" + (n ? ` (${n})` : "")],["say","Traders say"]].map(([k,t]) => `<button data-sv="${k}" class="${view===k?"on":""}">${t}</button>`).join(""); };
+    const list = () => { const mk = mkOf(); let a = pool();
+      if (ltab === "follow") a = a.filter(l => favs().includes(l.id));
+      const ch = CHIPS.find(c => c[0] === chip); if (ch) a = a.filter(ch[2]);
+      if (q) a = a.filter(l => l.name.toLowerCase().includes(q.toLowerCase()));
+      const key = sort === "comp" ? (ltab === "smart" ? score : l => l.roi[1]) : {roi:l => l.roi[1], pnl:l => l.pnl30, wr:l => l.wr, mdd:l => -l.mdd, aum:l => l.aum, f:l => l.f}[sort];
+      return a.sort((x, y) => key(y) - key(x)); };
+    function renderList(){
+      const a = list();
+      $("#lst").innerHTML = `<div class="px-chips2"><div class="chs">${CHIPS.map(([k,n]) => `<button data-c="${k}" class="${chip===k?"on":""}">${n}</button>`).join("")}</div></div>
+        <div class="row between" style="padding:2px 0 10px"><span class="px-mut">${a.length} traders</span><button class="px-sortb" data-sort>${SORTS.find(x => x[0] === sort)[1]} ${ic("chevd",12,2)}</button></div>
+        ${showQ ? `<label class="px-search" style="margin-bottom:10px">${ic("search",16)}<input id="tq" value="${esc(q)}" placeholder="Search traders" autocomplete="off" aria-label="Search traders"></label>` : ""}
+        ${a.length ? a.map(ldCard).join("") : empty(ltab === "follow" ? "star" : "users", ltab === "follow" ? "Tap the star on a trader to follow them here" : "No traders match")}`;
+      $("#lst").querySelectorAll("[data-c]").forEach(b => b.onclick = () => { chip = chip === b.dataset.c ? null : b.dataset.c; renderList(); });
+      $("#lst [data-sort]").onclick = () => U.sheet("Sort by", SORTS.map(([k,n]) => `<button class="px-opt ${sort===k?"on":""}" data-k="${k}">${n}${sort===k ? ic("check",18,2) : ""}</button>`).join(""), el => el.querySelectorAll("[data-k]").forEach(b => b.onclick = () => { sort = b.dataset.k; U.closeLayer(); renderList(); }));
+      const tq = $("#tq"); if (tq) tq.oninput = () => { q = tq.value; const p = tq.selectionStart; renderList(); const n = $("#tq"); if (n){ n.focus(); n.setSelectionRange(p, p); } };
+    }
+    function renderPlaza(){
+      const mk = mkOf(), fresh = pool().slice().sort((a, b) => a.days - b.days).slice(0, 8);
+      body.innerHTML = `<a class="px-hero" href="#/copy/my"><div class="tx"><b>Copy top traders with one tap</b><span>Mirror proven strategies, stop any time</span><i class="go">${ic("chev",14,2)}</i></div>${ART.trophy(88)}</a>
+        <div class="px-sg" id="seg">${[["futures","Futures"],["spot","Spot"],["ai","AI Strategies"]].map(([k,n]) => `<button data-s="${k}" class="${seg===k?"on":""}">${n}</button>`).join("")}</div>
+        <div class="px-sec-h" style="margin:16px 0 10px"><h2>New Traders</h2></div>
+        <div class="px-newr">${fresh.map(l => { const s = lstats(l, 1, mk); return `<div class="px-nt" data-ld="${l.id}">${ART.avatar(l.id, 56)}<b class="ellipsis">${esc(l.name)}</b><span class="px-mut">Joined ${l.days}d ago</span><span class="roi num ${cls(s.roi)}">${sgnPct(s.roi)}</span><span class="px-mut dot">30D ROI</span></div>`; }).join("")}</div>
+        <div class="px-tabs" id="lt" style="margin-top:6px">${[["lead","Leaderboard"],["smart","Smart Ranking"],["follow","Following"]].map(([k,n]) => `<button data-t="${k}" class="${ltab===k?"on":""}">${n}</button>`).join("")}</div>
+        <div id="lst" style="padding-top:12px"></div>`;
+      $("#seg").onclick = e => { const b = e.target.closest("[data-s]"); if (b){ seg = b.dataset.s; renderPlaza(); } };
+      $("#lt").onclick = e => { const b = e.target.closest("[data-t]"); if (b){ ltab = b.dataset.t; renderPlaza(); } };
+      renderList();
+    }
+    function renderSay(){
+      body.innerHTML = `<div class="px-sec-h" style="margin:8px 0 4px"><h2>Traders say</h2><span class="px-mut"><i class="px-pulse"></i> Live</span></div>` + feed().map(p => `<div class="px-post" data-ld="${p.l.id}"><div class="h">${ART.avatar(p.l.id, 40)}<div class="grow"><b>${esc(p.l.name)}</b><div class="px-mut">${agoStr(p.ago)}</div></div><span class="px-tag">${esc(symLabel(p.sym))}</span></div><p>${esc(p.text)}</p><div class="f"><span>${ic("heart",14,1.7)} ${p.likes}</span><span>${ic("chat",14,1.7)} ${p.cm}</span><span>${ic("share",14,1.7)}</span></div></div>`).join("");
     }
     function renderMy(){
       const st = cstate(), now = Date.now();
       const act = st.active.map(c => ({c, pct:copyPct(c, now)})), inv = act.reduce((a,x) => a + x.c.amt, 0), pl = act.reduce((a,x) => a + x.c.amt * x.pct / 100, 0);
       const histPl = st.history.reduce((a,x) => a + x.pnl, 0);
-      $("#cbody").innerHTML = `<div class="px-sum"><div><span>Invested (USDT)</span><b class="num">${money(inv)}</b></div><div><span>Current value</span><b class="num">${money(inv + pl)}</b></div><div><span>Unrealized PnL</span><b class="num ${cls(pl)}">${signed(pl)}</b></div></div>
+      body.innerHTML = `<div class="px-sum"><div><span>Invested (USDT)</span><b class="num">${money(inv)}</b></div><div><span>Current value</span><b class="num">${money(inv + pl)}</b></div><div><span>Unrealized PnL</span><b class="num ${cls(pl)}">${signed(pl)}</b></div></div>
         <div class="px-sec-h" style="margin-top:16px"><h2>Active (${act.length})</h2></div>
         ${act.length ? act.map(({c, pct}) => { const pn = c.amt * pct / 100, pts = [...Array(24)].map((_,i) => copyPct(c, c.since + (now - c.since) * i / 23));
-          return `<div class="px-cp"><div class="row" style="gap:10px"><span class="px-av sm" style="background:${(LEADS.find(x => x.id === c.lid) || {}).col || PAL[0]}">${esc(c.ini)}</span><div class="grow"><div class="nm" style="font-size:14px;font-weight:700">${esc(c.name)} <span class="px-tag br">${c.mk === "spot" ? "Spot" : "Futures"}</span></div><div class="px-mut">Running ${dur(now - c.since)}</div></div><button class="px-btn dn sm" data-stop="${c.id}">Stop</button></div>
-          <div class="px-ld" style="border:0;padding:0"><div class="mid"><div><div class="roi-l">PnL (USDT)</div><div class="roi num ${cls(pn)}">${signed(pn)}</div><div class="num ${cls(pn)}" style="font-size:12px">${sgnPct(pct)}</div></div><div class="spk">${spark(pts, 112, 40, pn >= 0 ? "var(--up)" : "var(--down)")}</div></div></div>
-          <div class="px-st"><div><span>Invested</span><b class="num">${money(c.amt)}</b></div><div><span>Value</span><b class="num">${money(c.amt + pn)}</b></div><div><span>Stop-loss</span><b class="num">${c.sl ? "-" + c.sl + "%" : "Off"}</b></div><div><span>Take-profit</span><b class="num">${c.tp ? "+" + c.tp + "%" : "Off"}</b></div></div></div>`; }).join("") : empty("users","No active copies. Pick a lead trader to start.")}
+          return `<div class="px-lc"><div class="h">${ART.avatar(c.lid, 40)}<div class="grow"><div class="nm"><span class="ellipsis">${esc(c.name)}</span> <span class="px-tag">${c.mk === "spot" ? "Spot" : "Perp"}</span></div><div class="px-mut mt">Running ${dur(now - c.since)}</div></div><button class="px-btn dn sm" data-stop="${c.id}">Stop</button></div>
+          <div class="m"><div><div class="px-mut">PnL (USDT)</div><div class="roi num ${cls(pn)}" style="font-size:24px">${signed(pn)}</div><div class="num ${cls(pn)}" style="font-size:12px">${sgnPct(pct)}</div></div><div class="spk">${spark(pts, 130, 52, pn >= 0 ? "var(--up)" : "var(--down)")}</div></div>
+          <div class="b four"><div><span>Invested</span><b class="num">${money(c.amt)}</b></div><div><span>Value</span><b class="num">${money(c.amt + pn)}</b></div><div><span>Stop-loss</span><b class="num">${c.sl ? "-" + c.sl + "%" : "Off"}</b></div><div><span>Take-profit</span><b class="num">${c.tp ? "+" + c.tp + "%" : "Off"}</b></div></div></div>`; }).join("") : `${empty("users","No active copies yet")}<button class="px-btn pri blk" data-find>Find traders</button>`}
         <div class="px-sec-h" style="margin-top:20px"><h2>History</h2>${st.history.length ? `<span class="px-mut">Realized <b class="num ${cls(histPl)}">${signed(histPl)}</b></span>` : ""}</div>
-        ${st.history.length ? st.history.slice(0, 20).map(h => `<div class="px-row"><span class="px-av sm" style="background:${(LEADS.find(x => x.id === h.lid) || {}).col || PAL[0]}">${esc(h.ini)}</span><div class="grow"><b>${esc(h.name)}</b><div class="px-mut">${U.dateStr(h.end)} · ${dur(h.end - h.since)} · ${esc(h.reason)}</div></div><div class="r"><b class="num ${cls(h.pnl)}">${signed(h.pnl)}</b><span class="px-mut num">${sgnPct(h.pct)} on ${money(h.amt)}</span></div></div>`).join("") : empty("file","No history yet")}`;
-      $("#cbody").querySelectorAll("[data-stop]").forEach(b => b.onclick = async () => {
+        ${st.history.length ? st.history.slice(0, 20).map(h => `<div class="px-row">${ART.avatar(h.lid, 36)}<div class="grow"><b>${esc(h.name)}</b><div class="px-mut">${U.dateStr(h.end)} · ${dur(h.end - h.since)} · ${esc(h.reason)}</div></div><div class="r"><b class="num ${cls(h.pnl)}">${signed(h.pnl)}</b><span class="px-mut num">${sgnPct(h.pct)} on ${money(h.amt)}</span></div></div>`).join("") : empty("file","No history yet")}`;
+      const f = body.querySelector("[data-find]"); if (f) f.onclick = () => { view = "plaza"; show(); };
+      body.querySelectorAll("[data-stop]").forEach(b => b.onclick = async () => {
         const c = cstate().active.find(x => x.id === b.dataset.stop); if (!c) return;
         if (await U.confirmBox("Stop copying?", `Your investment plus PnL (${signed(c.amt * copyPct(c) / 100)} USDT) returns to your balance and ${c.name}'s positions are no longer copied.`, "Stop", true)){
           if (!cstate().active.find(x => x.id === c.id)) return;
-          const x = stopCopy(c); toast(`Copy stopped: ${signed(x.pnl)} USDT`, x.pnl >= 0 ? "ok" : "bad"); tabs(); renderMy();
+          const x = stopCopy(c); toast(`Copy stopped: ${signed(x.pnl)} USDT`, x.pnl >= 0 ? "ok" : "bad"); nav(); renderMy();
         }
       });
     }
-    const show = () => { tabs(); tab === "my" ? renderMy() : renderLeaders(); };
+    const show = () => { nav(); view === "my" ? renderMy() : view === "say" ? renderSay() : renderPlaza(); };
     function detail(l, mk, focus){
-      let dp = per;
+      let dp = 1;
       const full = l.f >= CAP, bal = () => S().balance;
       const body = () => { const s = lstats(l, dp, mk);
-        return `<div class="row" style="gap:12px;padding:2px 0 4px"><span class="px-av lg" style="background:${l.col}">${esc(l.ini)}</span><div class="grow"><b style="font-size:16px">${esc(l.name)}</b><div class="px-mut">${esc(l.style)}</div><div class="px-cap"><span class="num">${fmt(l.f,0)}/${fmt(CAP,0)} followers</span><i><b style="width:${l.f / CAP * 100}%"></b></i></div></div></div>
+        return `<div class="row" style="gap:12px;padding:2px 0 4px">${ART.avatar(l.id, 56)}<div class="grow"><b style="font-size:16px">${esc(l.name)}</b><div class="px-mut">${esc(l.style)}</div><div class="px-mut mt">${ic("users",13,1.7)} <span class="num">${fmt(l.f,0)} / ${fmt(CAP,0)}</span> followers</div></div></div>
         <div class="row between" style="margin-top:10px"><div class="px-seg" id="dseg">${PERS.map(([n,i]) => `<button data-p="${i}" class="${dp===i?"on":""}">${n}</button>`).join("")}</div><span class="px-mut">${l.days} trading days</span></div>
         <div class="px-grid3"><div><span>${PERS[dp][0]} ROI</span><b class="num ${cls(s.roi)}" style="font-size:20px">${sgnPct(s.roi)}</b></div><div><span>${PERS[dp][0]} PnL</span><b class="num ${cls(s.pnl)}">${s.pnl >= 0 ? "+" : "-"}$${fmt(Math.abs(s.pnl),0)}</b></div><div><span>Win rate</span><b class="num">${s.wr.toFixed(1)}%</b></div><div><span>Max drawdown</span><b class="num">${s.mdd.toFixed(1)}%</b></div><div><span>AUM</span><b class="num">$${compact(s.aum)}</b></div><div><span>Avg. leverage</span><b class="num">${mk === "spot" ? "1x" : Math.round(3 + hash01(l.id) * 9) + "x"}</b></div></div>
-        <div class="px-sec-h" style="margin-bottom:0"><h2>ROI</h2></div><div class="px-big">${spark(curve(l, dp, mk, 60), 320, 110, s.roi >= 0 ? "var(--up)" : "var(--down)")}</div>`; };
+        <div class="px-sec-h" style="margin:4px 0 0"><h2>ROI</h2><span class="px-mut"><i class="px-pulse"></i> Live</span></div><div class="px-big">${spark(curve(l, dp, mk, 60), 320, 110, s.roi >= 0 ? "var(--up)" : "var(--down)")}</div>`; };
       const form = `<div class="px-sec" id="pf" style="margin-top:12px"><div class="px-sec-h"><h2>Copy settings</h2><span class="px-mut">Avbl <b class="num" style="color:var(--text)">${money(bal())}</b> USDT</span></div>
         <div class="px-fld"><label><span>Investment</span><span class="px-mut">Min 10 USDT</span></label><div class="px-inp" id="fi"><input id="inv" type="number" inputmode="decimal" value="${Math.min(500, Math.floor(bal() / 10) * 10 || 100)}"><span>USDT</span></div></div>
         <div class="px-chips" style="margin-bottom:14px">${[100,500,1000,5000].map(v => `<button data-v="${v}">${fmt(v,0)}</button>`).join("")}<button data-v="max">Max</button></div>
@@ -340,15 +473,23 @@ Pages.copy = (params) => {
           cstate().active.unshift(newCopy(l, {mk, amt:inv, mode, modeVal:mv, maxOrder:mo, sl, tp}));
           store.setBalance(S().balance - inv, "copy"); store.save();
           store.notify("Copy trading started", `Copying ${l.name} with ${money(inv)} USDT`, "ok"); U.fx("open"); toast("Copy trading started", "ok");
-          tab = "my"; show();
+          view = "my"; show();
         };
       });
     }
-    $("#ctabs").onclick = e => { const b = e.target.closest("[data-t]"); if (b){ tab = b.dataset.t; show(); } };
+
+    r.addEventListener("click", e => {
+      const f = e.target.closest("[data-fav]"), c = e.target.closest("[data-cp]"), d = e.target.closest("[data-ld]"), sv = e.target.closest("[data-sv]");
+      if (f){ e.stopPropagation(); const id = f.dataset.fav, a = favs(), i = a.indexOf(id); i < 0 ? a.push(id) : a.splice(i, 1); store.save(); if (ltab === "follow") renderList(); else { f.classList.toggle("on", i < 0); } toast(i < 0 ? "Added to Following" : "Removed from Following", "info", 1500); return; }
+      if (sv){ view = sv.dataset.sv; show(); window.scrollTo(0, 0); return; }
+      if (e.target.closest("[data-sq]")){ view = "plaza"; showQ = !showQ; if (!showQ) q = ""; show(); if (showQ) $("#tq")?.focus(); return; }
+      if (e.target.closest("[data-menu]")){ U.sheet("Copy Trading", `<button class="px-opt" data-m="my">My data${ic("chev",16)}</button><button class="px-opt" data-m="say">Traders say${ic("chev",16)}</button><button class="px-opt" data-m="follow">Following${ic("chev",16)}</button><div class="px-notice" style="margin-top:12px">${ic("info",14)}<span>Past performance does not guarantee future results. Copy trading is simulated with paper funds.</span></div>`, el => el.querySelectorAll("[data-m]").forEach(b => b.onclick = () => { U.closeLayer(); if (b.dataset.m === "follow"){ view = "plaza"; ltab = "follow"; } else view = b.dataset.m; show(); })); return; }
+      if (c || d){ const l = LEADS.find(x => x.id === (c || d).dataset[c ? "cp" : "ld"]); if (l) detail(l, mkOf(), !!c); }
+    });
     show();
     const check = () => { cstate().active.slice().forEach(c => { const p = copyPct(c); if (c.sl && p <= -c.sl){ stopCopy(c, "Stop-loss"); toast(`${c.name}: stop-loss reached`, "bad"); } else if (c.tp && p >= c.tp){ stopCopy(c, "Take-profit"); toast(`${c.name}: take-profit reached`, "ok"); } }); };
     check();
-    const iv = setInterval(() => { if (!r.isConnected) return; check(); if (tab === "my" && !document.querySelector("#sheet.show")){ tabs(); renderMy(); } }, 3000);
+    const iv = setInterval(() => { if (!r.isConnected) return; check(); if (view === "my" && !document.querySelector("#sheet.show")){ nav(); renderMy(); } }, 3000);
     this.unmount = () => clearInterval(iv);
   }};
 };

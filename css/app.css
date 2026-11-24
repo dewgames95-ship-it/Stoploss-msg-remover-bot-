@@ -1191,3 +1191,38 @@ html[data-theme="dark"] .seg button.on,html[data-theme="dark"] .oc button.on{bac
 .ci-desc.clamp{display:-webkit-box;-webkit-line-clamp:5;-webkit-box-orient:vertical;overflow:hidden}
 .link{color:var(--brand);font-size:13px;font-weight:600;padding:4px 0}
 :root{--nav-h:56px}
+
+/* ===== v5.3b: softer dark, tasteful gradients, polished icon cards, centred notice cards ===== */
+html[data-theme="dark"]{
+  --bg:#0F1115; --card:#0F1115; --card-2:#181B21; --input:#1F232A; --hover:#272B33; --panel:#181B21; --chart-bg:#0F1115;
+  --line:#22262E; --line-2:#2D323B; --text:#F2F4F7; --text-2:#B3B8C2; --muted:#7D8490;
+  --glass:rgba(15,17,21,.92); --sky-soft:#181B21; --grad-soft:#181B21;
+}
+:root{--cta:linear-gradient(135deg,#3A7BFF 0%,#1F5CFF 55%,#1748D6 100%)}
+html[data-theme="dark"]{--cta:linear-gradient(135deg,#4A86FF 0%,#2B66FF 55%,#1F52E0 100%)}
+.btn-primary,html[data-theme="dark"] .btn-primary{background:var(--cta);box-shadow:0 6px 16px -8px rgba(31,92,255,.7)}
+.fbtn2.l,.btn-up{background:linear-gradient(180deg,#2BC47C,#1BA563)}
+.fbtn2.s,.btn-down{background:linear-gradient(180deg,#F55C61,#E23B41)}
+/* banners & promo cards: soft tinted gradients instead of flat grey */
+.slide,html[data-theme="light"] .slide{background:linear-gradient(120deg,#EEF4FF 0%,#F6F9FF 55%,#EAF7F1 100%)}
+.slide.s2,html[data-theme="light"] .slide.s2{background:linear-gradient(120deg,#FFF6E8 0%,#FBFBFE 60%,#EEF4FF 100%)}
+.slide.s3,html[data-theme="light"] .slide.s3{background:linear-gradient(120deg,#EAF7F1 0%,#F6F9FF 60%,#EEF4FF 100%)}
+html[data-theme="dark"] .slide{background:linear-gradient(120deg,#14213F 0%,#181B21 60%,#132A22 100%)}
+html[data-theme="dark"] .slide.s2{background:linear-gradient(120deg,#2A2213 0%,#181B21 60%,#14213F 100%)}
+html[data-theme="dark"] .slide.s3{background:linear-gradient(120deg,#132A22 0%,#181B21 60%,#14213F 100%)}
+/* polished icon cards (shortcut tiles, action buttons, list icons) */
+.tile .ic,.as-acts span{background:linear-gradient(160deg,#FFFFFF 0%,#F0F3F8 100%);border:1px solid #E7EBF2;box-shadow:0 1px 0 #fff inset,0 4px 10px -6px rgba(16,24,40,.18);color:var(--text)}
+html[data-theme="dark"] .tile .ic,html[data-theme="dark"] .as-acts span{background:linear-gradient(160deg,#252A33 0%,#1A1D23 100%);border:1px solid #2D323B;box-shadow:0 1px 0 rgba(255,255,255,.05) inset,0 6px 14px -8px rgba(0,0,0,.6)}
+.tile .ic svg{stroke-width:1.7}
+.list-item .ic{background:linear-gradient(160deg,var(--card-2),var(--input))}
+/* centred notice card toasts (top of screen) */
+.toasts{top:calc(10px + env(safe-area-inset-top));width:auto;max-width:min(340px,calc(100% - 48px));align-items:center}
+.toast{min-width:240px;max-width:340px;padding:14px 18px;border-radius:16px;gap:12px;align-items:center;background:var(--card);border:1px solid var(--line);box-shadow:0 18px 40px -14px rgba(0,0,0,.35);backdrop-filter:none;-webkit-backdrop-filter:none;animation:tin2 .32s cubic-bezier(.2,.9,.3,1.2)}
+html[data-theme="dark"] .toast{background:#1C1F26;border-color:#2D323B}
+.toast .ti{width:26px;height:26px;background:transparent!important;border:2px solid var(--text);color:var(--text)}
+.toast.ok .ti{border-color:var(--up);color:var(--up)}
+.toast.bad .ti{border-color:var(--down);color:var(--down)}
+.toast .tx{display:flex;flex-direction:column;min-width:0}
+.toast .tx b{font-size:15px;font-weight:700;line-height:1.25}
+.toast .tx small{font-size:12.5px;color:var(--muted);font-weight:500;margin-top:2px;line-height:1.35}
+@keyframes tin2{from{opacity:0;transform:translateY(-14px) scale(.96)}to{opacity:1;transform:none}}

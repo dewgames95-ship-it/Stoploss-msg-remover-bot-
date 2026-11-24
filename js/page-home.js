@@ -137,7 +137,7 @@ Pages.home = () => {
   <nav class="hm-sc" aria-label="Shortcuts">${SHORT.map(([n,i,h]) => `<a href="${h}" ${h === "#more" ? "data-more" : ""}>${ic(i,22,1.7)}<span>${esc(n).replace(" ", "<br>")}${n.includes(" ") ? "" : "<br>&nbsp;"}</span></a>`).join("")}</nav>
   <section class="hm-ban" aria-label="Featured"><div class="hm-bs" id="bs">${SLIDES.map(([h,p,l,a]) => `<a class="hm-sl" href="${l}"><div class="g"><h3>${esc(h)}</h3><p>${esc(p)}</p></div>${art(a)}</a>`).join("")}</div><span class="hm-cnt" id="cnt">1/${SLIDES.length}</span></section>
   <section aria-label="Markets">${chipsHtml()}<div id="mlist"></div></section>
-  <div class="hm-strip" id="strip"><div class="hm-st-t"><button data-st="academy" class="on">Academy</button><button data-st="events">Events</button><button data-st="announce">Announcement</button><span class="x" data-sx role="button" aria-label="Expand">${ic("chevd",16)}</span></div><div class="hm-st-b" id="stb"></div></div>`;
+  <div class="hm-strip-sp"></div><div class="hm-strip" id="strip"><div class="hm-st-t"><button data-st="academy" class="on">Academy</button><button data-st="events">Events</button><button data-st="announce">Announcement</button><span class="x" data-sx role="button" aria-label="Expand">${ic("chevd",16)}</span></div><div class="hm-st-b" id="stb"></div></div>`;
 
   function renderBal(){
     const b = document.getElementById("bal"); if (!b) return;

@@ -223,7 +223,7 @@ Pages.bots = (params) => {
   const html = `<div class="bt-page"><header class="bt-head"><button class="icon-btn" data-back aria-label="Go back">${ic("back",22)}</button><h1>Bots</h1><button class="icon-btn" data-dots aria-label="More">${ic("dots",22)}</button></header>
     <section class="bt-sum"><button class="bt-lbl" data-eye>Total Assets (USDT) <span data-ey>${ic(S().settings.hideBal ? "eyeoff" : "eye",15)}</span></button><div class="bt-big num" data-ta></div><div class="bt-pn"><u>Today's PnL</u> <b class="num" data-tp></b></div></section>
     <div id="btBody"></div>
-    <nav class="bt-pill" aria-label="Bots sections"><button data-v="bots" class="on">${ic("bot",18)}<span>Bots</span></button><button data-v="inv">${ic("wallet",18)}<span>My Investment</span></button></nav></div>`;
+    <nav class="bt-fnav" aria-label="Bots sections"><button data-v="bots" class="on">${ic("bot",18)}<span>Bots</span></button><button data-v="inv">${ic("wallet",18)}<span>My Investment</span></button></nav></div>`;
   return {html, title:"Trading Bots", mount(r){
     const $ = q => r.querySelector(q);
     const pnlCls = v => v >= 0 ? "up" : "down";
