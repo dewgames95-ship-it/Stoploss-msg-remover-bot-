@@ -1,83 +1,44 @@
-/* ===== Assets, Rewards, Academy, Alerts ===== */
+/* ===== Rewards Hub, Academy, Price Alerts (Pages.assets / Pages.deposit live in page-x2.js) ===== */
 (function(){
 const C = window.CONFIG, {esc, ic, store, bus, money, signed, toast, spark, fmt} = U;
 const S = () => store.s;
-const wrap = (title, body, opts) => UI.pageHead(title, opts) + body + UI.footer();
-
-/* ---------- Assets ---------- */
-Pages.assets = () => {
-  const html = `<header class="page-head"><h1 class="h1">Assets</h1><a class="icon-btn" href="#/profile" aria-label="Profile">${ic("user",20)}</a></header>
-  <div class="two-col"><div class="stack">
-    <section class="card"><div class="row label">Est. Total Value <button class="eye" data-eye aria-label="Hide balance">${ic("eye",14)}</button></div>
-      <div class="bal num" id="at"></div><div class="row label" style="gap:6px">Today's PnL <b class="num" id="atp"></b></div>
-      <div class="row" style="margin-top:14px"><a class="btn btn-primary grow" href="#/deposit">Deposit</a><a class="btn btn-ghost grow" href="#/withdraw">Withdraw</a><a class="btn btn-ghost grow" href="#/withdraw">Transfer</a></div></section>
-    <section class="card"><div class="title" style="margin-bottom:10px">Allocation</div><div class="row" style="gap:18px"><div id="donut"></div><div class="legend-l grow" id="lgd"></div></div></section>
-    <section class="card"><div class="row between"><span class="title">Balance history</span><span class="label">Last ${Math.min(120, S().balHist.length)} changes</span></div><div class="spark" id="bh" style="height:90px;margin-top:10px"></div></section>
-  </div><div class="stack">
-    <section class="card"><div class="title" style="margin-bottom:10px">PnL analysis · 7 days</div><div id="bars"></div><div class="kpis" id="pk" style="margin-top:12px"></div></section>
-    <section class="card"><div class="title" style="margin-bottom:4px">Accounts</div><div id="acc"></div></section>
-    <section class="card"><div class="row between"><span class="title">Transactions</span><span class="label" id="txc"></span></div><div id="tx"></div></section>
-  </div></div>${UI.footer()}`;
-  return {html, title:"Assets", mount(r){
-    const $ = q => r.querySelector(q);
-    const render = () => {
-      const s = S(), hide = s.settings.hideBal;
-      const bin = s.positions.reduce((a,p) => a + p.amount, 0), fm = s.fut.positions.reduce((a,p) => a + p.margin, 0) + s.fut.orders.reduce((a,o) => a + o.margin, 0);
-      const up = s.fut.positions.reduce((a,p) => a + E.futPnl(p).pnl, 0), vault = E.vaultValue(), total = s.balance + bin + fm + up + vault;
-      const day0 = new Date().setHours(0,0,0,0), tp = E.stats().todayPnl + s.fut.history.filter(x => x.closed >= day0).reduce((a,x) => a + x.profit, 0);
-      $("#at").innerHTML = hide ? "******" : `${money(total)}<small>USDT</small>`;
-      const t = $("#atp"); t.textContent = hide ? "****" : signed(tp) + " USDT"; t.className = "num " + (tp >= 0 ? "up" : "down");
-      const parts = [["Trading (available)", s.balance, "#2E6BFF"], ["Binary positions", bin, "#5AA9FF"], ["Futures margin + PnL", Math.max(0, fm + up), "#5AA9FF"], ["Vault", vault, "#12B886"]];
-      const sum = parts.reduce((a,p) => a + p[1], 0) || 1; let acc = 0;
-      const R = 46, Cc = 2*Math.PI*R;
-      $("#donut").innerHTML = `<svg class="donut" viewBox="0 0 120 120"><circle cx="60" cy="60" r="${R}" fill="none" stroke="var(--input)" stroke-width="14"/>${parts.map(([,v,c]) => { const len = v/sum*Cc, el = `<circle cx="60" cy="60" r="${R}" fill="none" stroke="${c}" stroke-width="14" stroke-dasharray="${len} ${Cc-len}" stroke-dashoffset="${-acc}" transform="rotate(-90 60 60)"/>`; acc += len; return el; }).join("")}<text x="60" y="58" text-anchor="middle" font-size="10" fill="var(--muted)">Total</text><text x="60" y="73" text-anchor="middle" font-size="12" font-weight="600" fill="var(--text)">${hide ? "***" : CH.fmtVol(total)}</text></svg>`;
-      $("#lgd").innerHTML = parts.map(([n,v,c]) => `<div><i style="background:${c}"></i><span class="grow">${n}</span><b class="num">${hide ? "***" : (v/sum*100).toFixed(1) + "%"}</b></div>`).join("");
-      $("#bh").innerHTML = spark([C.START_BALANCE, ...s.balHist.map(x => x.b)].slice(-120), 320, 90);
-      // 7-day PnL bars
-      const days = [...Array(7)].map((_,i) => { const d = new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate() - (6-i)); return d.getTime(); });
-      const all = [...s.history.map(x => ({t:x.closed, p:x.profit})), ...s.fut.history.map(x => ({t:x.closed, p:x.profit}))];
-      const vals = days.map((d,i) => all.filter(x => x.t >= d && x.t < (days[i+1] || Infinity)).reduce((a,x) => a + x.p, 0));
-      const mx = Math.max(1, ...vals.map(Math.abs));
-      $("#bars").innerHTML = `<svg viewBox="0 0 280 110" style="width:100%;height:110px"><line x1="0" x2="280" y1="55" y2="55" stroke="var(--line)"/>${vals.map((v,i) => { const h = Math.abs(v)/mx*48, x = 12 + i*38; return `<rect x="${x}" y="${v>=0?55-h:55}" width="22" height="${Math.max(1,h)}" rx="3" fill="${v>=0?"var(--up)":"var(--down)"}"/><text x="${x+11}" y="108" text-anchor="middle" font-size="9" fill="var(--muted)">${new Date(days[i]).toLocaleDateString([], {weekday:"short"})}</text>`; }).join("")}</svg>`;
-      const st = E.stats(), fnet = s.fut.history.reduce((a,x) => a + x.profit, 0);
-      $("#pk").innerHTML = `<div class="kpi"><span class="label">7-day PnL</span><b class="num ${vals.reduce((a,b)=>a+b,0)>=0?"up":"down"}">${signed(vals.reduce((a,b)=>a+b,0))}</b></div><div class="kpi"><span class="label">Binary net</span><b class="num ${st.net>=0?"up":"down"}">${signed(st.net)}</b></div><div class="kpi"><span class="label">Futures net</span><b class="num ${fnet>=0?"up":"down"}">${signed(fnet)}</b></div><div class="kpi"><span class="label">Win rate</span><b class="num">${st.winRate.toFixed(1)}%</b></div>`;
-      $("#acc").innerHTML = [["wallet","Trading account",s.balance,"#/deposit","ic-y"],["candle","Binary options",bin,"#/trade","ic-b"],["layers","Futures (USDT-M)",fm+up,"#/futures","ic-p"],["vault","Vault · "+Math.round(E.APR*100)+"% APR",vault,"#/withdraw","ic-g"]].map(([i,n,v,h,c]) => `<a class="list-item" href="${h}"><span class="ic ${c}">${ic(i,18)}</span><span class="grow" style="font-weight:500">${n}</span><b class="num">${hide ? "***" : money(v)}</b><span class="chev">${ic("chev",16)}</span></a>`).join("");
-      const tx = s.tx.slice(0, 15); $("#txc").textContent = s.tx.length + " total";
-      $("#tx").innerHTML = tx.length ? tx.map(x => `<div class="list-item"><span class="ic ${x.kind==="deposit"?"ic-g":"ic-y"}">${ic(x.kind==="deposit"?"deposit":"swap",16)}</span><div class="grow"><b style="font-size:14px">${x.kind==="deposit"?"Deposit":"Transfer"} · ${esc(x.method)}</b><div class="label">${U.dateStr(x.t)}</div></div><b class="num ${x.kind==="deposit"?"up":""}">${x.kind==="deposit"?"+":""}${money(x.amount)}</b></div>`).join("") : UI.emptyState("file","No transactions yet.");
-    };
-    render();
-    $("[data-eye]").onclick = () => { S().settings.hideBal = !S().settings.hideBal; store.save(); render(); };
-    const iv = setInterval(render, 3000), offs = [bus.on("balance", render), bus.on("positions", render)];
-    this.unmount = () => { clearInterval(iv); offs.forEach(f => f()); };
-  }};
-};
+const hd = (title, right) => `<header class="px-hd"><button class="icon-btn" data-back aria-label="Back">${ic("back",20)}</button><h1>${esc(title)}</h1>${right || `<span style="width:40px"></span>`}</header>`;
+const empty = (icon, text) => `<div class="px-empty">${ic(icon,28,1.5)}<p>${esc(text)}</p></div>`;
 
 /* ---------- Rewards Hub ---------- */
+const BADGE_IC = {first:"rocket", win3:"trophy", futures:"zap", tpsl:"shield", ind:"chart", alert:"ring", bot:"bot", streak:"flame"};
+function taskProg(k){
+  const s = S(), lessons = Object.keys(s.rewards.used).filter(x => x.startsWith("lesson:")).length;
+  if (k === "win3") return [Math.min(3, s.history.filter(x => x.result === "win").length), 3];
+  if (k === "ind") return [Math.min(3, (s.settings.inds || []).length), 3];
+  if (k === "learn") return [Math.min(2, lessons), 2];
+  return [E.taskDone(k) ? 1 : 0, 1];
+}
 Pages.rewards = () => {
-  const html = wrap("Rewards Hub", `<div class="two-col"><div class="stack">
-    <div class="hero"><svg class="deco" viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="48" fill="rgba(46,107,255,.18)"/><path d="M60 22l11 22 24 4-17 17 4 24-22-11-22 11 4-24-17-17 24-4z" fill="#5AA9FF"/></svg>
-      <div class="label">Your level</div><div class="h1" id="lv"></div><div class="xp" style="margin:10px 0 6px;max-width:220px"><i id="xpb"></i></div><div class="label" id="xpl"></div></div>
-    <section class="card"><div class="row between" style="margin-bottom:10px"><span class="title">Daily check-in</span><span class="label" id="stk"></span></div><div class="days" id="days"></div><button class="btn btn-primary btn-block" id="ci" style="margin-top:12px"></button></section>
-    <section class="card"><div class="title" style="margin-bottom:10px">Badges</div><div class="badges" id="bdg"></div></section>
-  </div>
-  <section class="card"><div class="title" style="margin-bottom:4px">Tasks</div><div id="tasks"></div></section></div>`);
+  const html = `<div class="px-page">${hd("Rewards Hub")}
+    <div class="px-lv"><div class="a">Your level</div><div class="b" id="lv"></div><div class="px-bar"><i id="xpb"></i></div><div class="c" id="xpl"></div></div>
+    <div class="px-sec"><div class="px-sec-h"><h2>Daily check-in</h2><span class="px-mut" id="stk"></span></div><div class="px-strip" id="days"></div><button class="px-btn br blk" id="ci" style="margin-top:12px"></button></div>
+    <div class="px-sec"><div class="px-sec-h"><h2>Tasks</h2><span class="px-mut" id="tcnt"></span></div><div id="tasks"></div></div>
+    <div class="px-sec"><div class="px-sec-h"><h2>Badges</h2></div><div class="px-badges" id="bdg"></div></div></div>`;
   return {html, title:"Rewards Hub", mount(r){
     const $ = q => r.querySelector(q);
     const render = () => {
       const lv = E.level(), s = S(), st = E.streak(), done = s.rewards.checkins.includes(E.dayKey());
-      $("#lv").textContent = "Lv." + lv.lvl + " Trader"; $("#xpb").style.width = (lv.cur/lv.need*100) + "%"; $("#xpl").textContent = `${lv.cur} / ${lv.need} XP to Lv.${lv.lvl+1} · ${lv.xp} XP total`;
-      $("#stk").textContent = `🔥 ${st}-day streak`;
+      $("#lv").textContent = "Lv." + lv.lvl + " Trader"; $("#xpb").style.width = (lv.cur/lv.need*100) + "%"; $("#xpl").textContent = `${lv.cur} / ${lv.need} XP to Lv.${lv.lvl+1}`;
+      $("#stk").textContent = `${st}-day streak`;
       const pos = done ? (st - 1) % 7 : st % 7;
-      $("#days").innerHTML = E.CHECKIN.map((a,i) => `<div class="day ${i < pos || (done && i === pos) ? "done" : ""} ${i === pos ? "today" : ""}">Day ${i+1}<b>+${a}</b>${i < pos || (done && i === pos) ? "✓" : i === 6 ? "🎁" : "USDT"}</div>`).join("");
-      const ci = $("#ci"); ci.disabled = done; ci.textContent = done ? "Checked in today ✓" : `Check in · +${E.CHECKIN[st % 7]} USDT`;
-      $("#bdg").innerHTML = E.BADGES.map(b => `<div class="badge ${E.taskDone(b.k) ? "got" : ""}"><span>${b.e}</span>${b.n}</div>`).join("");
-      $("#tasks").innerHTML = E.TASKS.map(tk => { const ok = E.taskDone(tk.k), cl = s.rewards.claimed[tk.k];
-        return `<div class="list-item"><span class="ic ${cl ? "ic-g" : ok ? "ic-y" : ""}">${ic(cl ? "check" : "target",16)}</span><div class="grow"><b style="font-size:14px">${tk.n}</b><div class="label">+${tk.reward} USDT · +${tk.xp} XP</div></div>
-          ${cl ? `<span class="pill-s run">Claimed</span>` : ok ? `<button class="btn btn-primary btn-sm" data-cl="${tk.k}">Claim</button>` : `<span class="pill-s stop">To do</span>`}</div>`; }).join("");
+      $("#days").innerHTML = E.CHECKIN.map((a,i) => { const d = i < pos || (done && i === pos);
+        return `<div class="${d ? "done" : ""} ${i === pos && !done ? "now" : ""}"><span>${d ? ic("check",14,2.6) : "D" + (i+1)}</span><b class="num">+${a}</b></div>`; }).join("");
+      const ci = $("#ci"); ci.disabled = done; ci.textContent = done ? "Checked in today" : `Check in  +${E.CHECKIN[st % 7]} USDT`;
+      const cl = E.TASKS.filter(t => s.rewards.claimed[t.k]).length; $("#tcnt").textContent = `${cl}/${E.TASKS.length} claimed`;
+      $("#bdg").innerHTML = E.BADGES.map(b => `<div class="${E.taskDone(b.k) ? "got" : ""}"><span>${ic(BADGE_IC[b.k] || "award",18)}</span>${esc(b.n)}</div>`).join("");
+      $("#tasks").innerHTML = E.TASKS.map(tk => { const ok = E.taskDone(tk.k), c = s.rewards.claimed[tk.k], [p, n] = taskProg(tk.k);
+        return `<div class="px-task"><span class="px-ico ${c ? "g" : ok ? "" : "n"}">${ic(c ? "check" : "target",16)}</span><div class="grow"><b style="font-size:14px;font-weight:600">${esc(tk.n)}</b><div class="px-mut">+${tk.reward} USDT, +${tk.xp} XP</div>${n > 1 && !c ? `<div class="px-bar"><i style="width:${p/n*100}%"></i></div>` : ""}</div>
+          ${c ? `<span class="px-tag up">Claimed</span>` : ok ? `<button class="px-btn br sm" data-cl="${tk.k}">Claim</button>` : `<span class="px-mut num">${p}/${n}</span>`}</div>`; }).join("");
     };
     render();
-    $("#ci").onclick = () => { const x = E.checkIn(); if (x){ toast(`Day ${x.day} check-in: +${x.amt} USDT`, "ok"); U.fx("claim"); U.confetti(); render(); } };
-    $("#tasks").addEventListener("click", e => { const b = e.target.closest("[data-cl]"); if (!b) return; const tk = E.claim(b.dataset.cl); if (tk){ toast(`Claimed +${tk.reward} USDT · +${tk.xp} XP`, "ok"); U.fx("claim"); U.confetti(); render(); } });
+    $("#ci").onclick = () => { const x = E.checkIn(); if (x){ toast(`Day ${x.day} check-in: +${x.amt} USDT`, "ok"); U.fx("claim"); render(); } };
+    $("#tasks").addEventListener("click", e => { const b = e.target.closest("[data-cl]"); if (!b) return; const tk = E.claim(b.dataset.cl); if (tk){ toast(`Claimed +${tk.reward} USDT, +${tk.xp} XP`, "ok"); U.fx("claim"); render(); } });
     this.unmount = bus.on("rewards", render);
   }};
 };
@@ -110,30 +71,31 @@ const LESSONS = [
   {k:"risk", t:"Risk management rules", lvl:"All levels", body:["Risk 1–2% of your balance per trade. Always use a stop loss on Futures.","Don't chase losses. Keep a journal: your Assets page shows 7-day PnL and win rate to review your edge."], q:["A sensible risk per trade is…",["1–2% of balance","25% of balance","All-in"],0]}
 ];
 Pages.academy = () => {
-  const html = wrap("Academy", `<div class="hero" style="margin-bottom:12px"><svg class="deco" viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="48" fill="rgba(46,107,255,.2)"/><path d="M30 50l30-14 30 14-30 14z" fill="#5AA9FF"/><path d="M42 56v14c0 6 36 6 36 0V56" fill="none" stroke="#5AA9FF" stroke-width="4"/></svg>
-    <div class="title">Learn to trade like a pro</div><div class="sub" style="margin:4px 0 10px">Short lessons with a quiz. Earn XP for each one.</div><div class="xp" style="max-width:220px"><i id="ap"></i></div><div class="label" id="apl" style="margin-top:6px"></div></div>
-    <section class="card"><div id="ll"></div></section>`);
+  const html = `<div class="px-page">${hd("Academy")}
+    <div class="px-sec" style="padding-top:8px"><div class="px-sec-h"><h2>Your progress</h2><span class="px-mut" id="apl"></span></div><div class="px-bar"><i id="ap"></i></div><p class="px-t2" style="margin-top:8px">Short lessons with a quiz. Earn 25 XP for each correct answer.</p></div>
+    <div id="ll"></div></div>`;
+  const LV = {Beginner:"br", Intermediate:"", Advanced:"dn", "All levels":"up"};
   return {html, title:"Academy", mount(r){
     const read = k => !!S().rewards.used["lesson:" + k];
     const render = () => {
       const n = LESSONS.filter(l => read(l.k)).length;
-      r.querySelector("#ap").style.width = (n/LESSONS.length*100) + "%"; r.querySelector("#apl").textContent = `${n} of ${LESSONS.length} lessons completed`;
-      r.querySelector("#ll").innerHTML = LESSONS.map(l => `<button class="lesson" data-l="${l.k}"><span class="th">${thumb(l.k)}</span><div class="grow"><b style="font-size:14px">${l.t}</b><div class="label">${l.lvl} · 2 min read</div></div>${read(l.k) ? `<span class="up">${ic("check",18)}</span>` : `<span class="chev">${ic("chev",16)}</span>`}</button>`).join("");
+      r.querySelector("#ap").style.width = (n/LESSONS.length*100) + "%"; r.querySelector("#apl").textContent = `${n} of ${LESSONS.length} completed`;
+      r.querySelector("#ll").innerHTML = LESSONS.map(l => `<button class="px-les" data-l="${l.k}"><span class="th">${thumb(l.k)}</span><div class="grow"><b>${esc(l.t)}</b><div class="px-mut"><span class="px-tag ${LV[l.lvl] || ""}">${l.lvl}</span> &nbsp;${2 + l.body.length - 1} min read</div></div>${read(l.k) ? `<span class="up">${ic("check",18)}</span>` : `<span style="color:var(--muted)">${ic("chev",16)}</span>`}</button>`).join("");
     };
     render();
     r.querySelector("#ll").addEventListener("click", e => {
       const b = e.target.closest("[data-l]"); if (!b) return; const l = LESSONS.find(x => x.k === b.dataset.l);
-      U.sheet(l.t, `<div style="display:grid;place-items:center;background:var(--card-2);border-radius:12px;padding:16px;margin-bottom:12px">${thumb(l.k).replace('width="64" height="48"','width="192" height="144"')}</div>
-        ${l.body.map(p => `<p class="sub" style="margin-bottom:10px;font-size:14px">${p}</p>`).join("")}
-        <div class="card" style="background:var(--card-2);margin-top:8px"><b style="font-size:14px">Quick quiz</b><p class="sub" style="margin:6px 0 10px;font-size:13px">${l.q[0]}</p><div class="stack" id="qz">${l.q[1].map((o,i) => `<button class="btn btn-ghost btn-block" data-a="${i}" style="justify-content:flex-start;background:var(--card)">${o}</button>`).join("")}</div></div>`, el => {
+      U.sheet(l.t, `<div style="display:grid;place-items:center;background:var(--card-2);border-radius:12px;padding:12px;margin-bottom:12px">${thumb(l.k).replace('width="64" height="48"','width="160" height="120"')}</div>
+        ${l.body.map(p => `<p class="px-t2" style="font-size:14px;line-height:1.6;margin-bottom:10px;color:var(--text-2)">${p}</p>`).join("")}
+        <div class="px-sec" style="border:0;padding-bottom:0"><div class="px-sec-h" style="margin-bottom:2px"><h2>Quick quiz</h2></div><p style="font-size:13px;color:var(--text-2)">${l.q[0]}</p><div class="px-quiz" id="qz">${l.q[1].map((o,i) => `<button data-a="${i}">${o}</button>`).join("")}</div></div>`, el => {
         el.querySelector("#qz").addEventListener("click", ev => {
           const a = ev.target.closest("[data-a]"); if (!a) return;
           if (+a.dataset.a === l.q[2]){
-            a.style.background = "var(--up)"; a.style.color = "#fff"; U.fx("win");
+            a.classList.add("ok"); U.fx("win");
             if (!read(l.k)){ S().rewards.used["lesson:" + l.k] = Date.now(); S().rewards.xp += 25; store.save(); bus.emit("rewards"); toast("Correct! +25 XP", "ok"); }
             else toast("Correct!", "ok");
             render();
-          } else { a.style.background = "var(--down)"; a.style.color = "#fff"; U.fx("loss"); toast("Not quite — try again", "bad"); }
+          } else { a.classList.add("no"); U.fx("loss"); toast("Not quite, try again", "bad"); }
         });
       });
     });
@@ -142,26 +104,41 @@ Pages.academy = () => {
 
 /* ---------- Price alerts ---------- */
 Pages.alerts = () => {
-  const html = wrap("Price Alerts", `<section class="card" style="margin-bottom:12px"><div class="title" style="margin-bottom:10px">New alert</div>
-      <div class="form-row"><label for="as">Market</label><div class="field"><select id="as">${[...M.pairs.values()].sort((a,b) => (a.rank||500) - (b.rank||500)).slice(0,120).map(p => `<option value="${p.sym}">${esc(M.label(p))}</option>`).join("")}</select></div><div class="label" id="acur" style="margin-top:6px"></div></div>
-      <div class="form-row"><label for="apx">Alert price</label><div class="field" id="apf"><input id="apx" type="number" inputmode="decimal"></div><div class="err-msg" id="ae"></div></div>
-      <button class="btn btn-primary btn-block" id="aadd">${ic("ring",16)} Create alert</button></section>
-    <section class="card"><div class="row between"><span class="title">Your alerts</span><span class="label" id="acnt"></span></div><div id="al"></div></section>`);
+  const html = `<div class="px-page">${hd("Price Alerts", `<button class="icon-btn" id="anew" aria-label="New alert" style="color:var(--brand)">${ic("plus",20,2.2)}</button>`)}
+    <div class="px-sec" style="padding-top:4px"><div class="px-sec-h"><h2>Active</h2><span class="px-mut" id="acnt"></span></div><div id="al"></div></div>
+    <div class="px-sec" id="hist-s"><div class="px-sec-h"><h2>Triggered</h2></div><div id="alh"></div></div></div>`;
   return {html, title:"Price Alerts", mount(r){
     const $ = q => r.querySelector(q);
-    const cur = () => { const p = M.get($("#as").value); $("#acur").textContent = "Current price: " + M.fmtPx(p); if (!$("#apx").value && p?.price) $("#apx").value = +(p.price*1.01).toFixed(p.dp); };
+    const item = x => { const p = M.get(x.sym), up = x.price >= (x.last || (p?.price || 0));
+      return `<div class="px-al">${UI.pairIcon(p, 32)}<div class="grow"><b style="font-size:14px;font-weight:600">${esc(p ? M.label(p) : x.sym)}</b><div class="cond num">${x.done ? "Hit " + M.fmtPx(p || {dp:2}, x.price) + " on " + U.dateStr(x.hit) : `Price ${up ? "rises to" : "falls to"} ${M.fmtPx(p || {dp:2}, x.price)} · now ${M.fmtPx(p)}`}</div></div>${x.done ? `<span class="px-tag">Done</span>` : ""}<button class="del" data-del="${x.id}" aria-label="Delete alert">${ic("trash",16)}</button></div>`; };
     const render = () => {
-      const a = S().alerts; $("#acnt").textContent = a.filter(x => !x.done).length + " active";
-      $("#al").innerHTML = a.length ? a.map(x => { const p = M.get(x.sym); return `<div class="list-item">${UI.pairIcon(p,28)}<div class="grow"><b style="font-size:14px">${esc(p ? M.label(p) : x.sym)}</b><div class="label">${x.done ? "Triggered " + U.dateStr(x.hit) : "Notify at " + M.fmtPx(p || {dp:2}, x.price) + " · now " + M.fmtPx(p)}</div></div><span class="pill-s ${x.done?"stop":"run"}">${x.done?"Done":"Active"}</span><button class="icon-btn" data-del="${x.id}" aria-label="Delete alert">${ic("trash",16)}</button></div>`; }).join("") : UI.emptyState("ring","No alerts yet. Create one above or tap the bell on any chart.");
+      const a = S().alerts, act = a.filter(x => !x.done), dn = a.filter(x => x.done);
+      $("#acnt").textContent = act.length + "/30";
+      $("#al").innerHTML = act.length ? act.map(item).join("") : `${empty("ring","No active alerts")}<button class="px-btn br blk" data-new>Create alert</button>`;
+      $("#hist-s").classList.toggle("hide", !dn.length); $("#alh").innerHTML = dn.slice(0, 20).map(item).join("");
+      r.querySelectorAll("[data-new]").forEach(b => b.onclick = create);
     };
-    if (sessionStorage.getItem("lastSym_binary")) $("#as").value = sessionStorage.getItem("lastSym_binary");
-    cur(); render();
-    $("#as").onchange = () => { $("#apx").value = ""; cur(); };
-    $("#aadd").onclick = () => { const v = parseFloat($("#apx").value), sym = $("#as").value, p = M.get(sym);
-      const err = !(v > 0) ? "Enter a valid price." : S().alerts.filter(x => !x.done).length >= 30 ? "Maximum 30 active alerts." : "";
-      $("#ae").textContent = err; $("#apf").classList.toggle("err", !!err); if (err) return toast(err, "bad");
-      S().alerts.unshift({id:U.uid(), sym, price:v, t:Date.now(), last:p.price}); store.save(); E.award("alert"); render(); toast(`Alert set for ${M.label(p)} at ${M.fmtPx(p, v)}`, "ok"); $("#apx").value = ""; cur(); };
-    $("#al").addEventListener("click", e => { const b = e.target.closest("[data-del]"); if (!b) return; S().alerts = S().alerts.filter(x => x.id !== b.dataset.del); store.save(); render(); toast("Alert deleted", "ok"); });
+    function create(){
+      const opts = [...M.pairs.values()].sort((a,b) => (a.rank||500) - (b.rank||500)).slice(0,120);
+      U.sheet("New price alert", `<div class="px-fld"><label><span>Market</span><span id="acur"></span></label><select class="px-sel" id="as">${opts.map(p => `<option value="${p.sym}">${esc(M.label(p))}</option>`).join("")}</select></div>
+        <div class="px-fld"><label><span>Alert price</span></label><div class="px-inp" id="apf"><input id="apx" type="number" inputmode="decimal"><span>USDT</span></div></div>
+        <div class="px-chips" style="margin-bottom:14px">${[-5,-1,1,5].map(v => `<button data-pc="${v}">${v > 0 ? "+" : ""}${v}%</button>`).join("")}</div><div class="px-err" id="ae"></div>
+        <button class="px-btn pri blk lg" id="aadd">Create alert</button>`, el => {
+        const q = s => el.querySelector(s);
+        const cur = () => { const p = M.get(q("#as").value); q("#acur").textContent = "Last " + M.fmtPx(p); if (!q("#apx").value && p?.price) q("#apx").value = +(p.price*1.01).toFixed(p.dp); };
+        const last = sessionStorage.getItem("lastSym_binary"); if (last && opts.some(p => p.sym === last)) q("#as").value = last;
+        cur();
+        q("#as").onchange = () => { q("#apx").value = ""; cur(); };
+        q("[data-pc]").parentNode.onclick = e => { const b = e.target.closest("[data-pc]"); const p = M.get(q("#as").value); if (b && p?.price) q("#apx").value = +(p.price * (1 + +b.dataset.pc / 100)).toFixed(p.dp); };
+        q("#aadd").onclick = () => { const v = parseFloat(q("#apx").value), sym = q("#as").value, p = M.get(sym);
+          const err = !(v > 0) ? "Enter a valid price." : S().alerts.filter(x => !x.done).length >= 30 ? "Maximum 30 active alerts." : "";
+          q("#ae").textContent = err; q("#apf").classList.toggle("err", !!err); if (err) return;
+          S().alerts.unshift({id:U.uid(), sym, price:v, t:Date.now(), last:p.price}); store.save(); E.award("alert"); U.closeLayer(); render(); toast(`Alert set for ${M.label(p)} at ${M.fmtPx(p, v)}`, "ok"); };
+      });
+    }
+    $("#anew").onclick = create;
+    render();
+    r.addEventListener("click", e => { const b = e.target.closest("[data-del]"); if (!b) return; S().alerts = S().alerts.filter(x => x.id !== b.dataset.del); store.save(); render(); toast("Alert deleted", "ok"); });
     const iv = setInterval(render, 4000), off = bus.on("alerts", render);
     this.unmount = () => { clearInterval(iv); off(); };
   }};
