@@ -4,22 +4,22 @@
 (function(){
 const LW = window.LightweightCharts, {bus, store, money, mmss, signed} = U;
 const TZ = -new Date().getTimezoneOffset() * 60;
-const UP = "#2EBD85", DN = "#F6465D";
-const COL = {m7:"#F0B90B", m25:"#E040FB", m99:"#7B61FF", boll:"#C99400", bollMid:"#F0B90B", rsi:"#B65EFF", macd:"#F0B90B", sig:"#E040FB", sar:"#E6A23C", vwap:"#4FC3F7"};
+const UP = "#12B886", DN = "#F0435A";
+const COL = {m7:"#F59E0B", m25:"#D946EF", m99:"#2E6BFF", boll:"#7B61FF", bollMid:"#5AA9FF", rsi:"#7B61FF", macd:"#2E6BFF", sig:"#F59E0B", sar:"#E6A23C", vwap:"#4FC3F7"};
 let chart, el, sym, tf = "15m", sec = 900, bars = [], S = {}, inds = [], type = "candle", loadSeq = 0, offs = [], ro, ui = {}, dirty = false, raf, lastRender = 0, onDetail = null, hover = null, hoverPt = null, lines = new Map(), cache = {}, pctMode = false;
 let draw = {tool:null, temp:null}, drawEl = null;
 
 const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 const dark = () => document.documentElement.dataset.theme !== "light";
 function opts(){
-  const d = dark(), grid = d ? "rgba(132,142,156,.08)" : "rgba(112,122,138,.10)";
+  const d = dark(), grid = d ? "rgba(148,163,184,.07)" : "rgba(100,116,139,.08)";
   return {
-    layout:{background:{type:"solid", color: css("--bg")}, textColor: d ? "#848E9C" : "#707A8A", fontFamily:"IBM Plex Sans, system-ui, sans-serif", fontSize:10.5, attributionLogo:false,
-      panes:{separatorColor: d ? "#2B3440" : "#EAECEF", separatorHoverColor:"rgba(252,213,53,.25)", enableResize:true}},
+    layout:{background:{type:"solid", color: css("--chart-bg") || css("--bg")}, textColor: d ? "#7D8BA3" : "#8391A7", fontFamily:"Manrope, system-ui, sans-serif", fontSize:10.5, attributionLogo:false,
+      panes:{separatorColor: d ? "#222E45" : "#E4E9F2", separatorHoverColor:"rgba(46,107,255,.25)", enableResize:true}},
     grid:{vertLines:{color:grid}, horzLines:{color:grid}},
     rightPriceScale:{borderVisible:false, scaleMargins:{top:0.1, bottom:0.08}, minimumWidth:62, entireTextOnly:true},
     timeScale:{borderVisible:false, timeVisible:true, secondsVisible: sec < 60, rightOffset:8, barSpacing: tf === "tick" ? 3 : 7, minBarSpacing:0.8, tickMarkFormatter: undefined},
-    crosshair:{mode:0, vertLine:{color: d ? "#848E9C" : "#707A8A", style:2, width:1, labelBackgroundColor: d ? "#EAECEF" : "#202630"}, horzLine:{color: d ? "#848E9C" : "#707A8A", style:2, width:1, labelVisible:false}},
+    crosshair:{mode:0, vertLine:{color: d ? "#848E9C" : "#707A8A", style:2, width:1, labelBackgroundColor: d ? "#2E6BFF" : "#0F172A"}, horzLine:{color: d ? "#848E9C" : "#707A8A", style:2, width:1, labelVisible:false}},
     handleScroll:{vertTouchDrag:true, mouseWheel:true, pressedMouseMove:true, horzTouchDrag:true},
     handleScale:{pinch:true, mouseWheel:true, axisPressedMouseMove:{time:true, price:true}, axisDoubleClickReset:true},
     kineticScroll:{touch:true, mouse:false},
@@ -54,12 +54,12 @@ function build(){
   S = {};
   const lineMode = tf === "tick" || type === "line";
   if (lineMode){
-    S.main = chart.addSeries(LW.AreaSeries, {lineColor:"#F0B90B", topColor:"rgba(240,185,11,.30)", bottomColor:"rgba(240,185,11,0)", lineWidth:1.5, lineType: tf === "tick" ? 2 : 0, priceFormat:pf, lastPriceAnimation:1, lastValueVisible:false, priceLineVisible:true, priceLineColor: dark() ? "#B7BDC6" : "#707A8A", priceLineStyle:2, crosshairMarkerRadius:3});
+    S.main = chart.addSeries(LW.AreaSeries, {lineColor:"#2E6BFF", topColor:"rgba(46,107,255,.30)", bottomColor:"rgba(46,107,255,0)", lineWidth:1.5, lineType: tf === "tick" ? 2 : 0, priceFormat:pf, lastPriceAnimation:1, lastValueVisible:false, priceLineVisible:true, priceLineColor: "#2E6BFF", priceLineStyle:2, crosshairMarkerRadius:3});
   } else {
-    S.main = chart.addSeries(LW.CandlestickSeries, {upColor:UP, downColor:DN, borderVisible:false, wickUpColor:UP, wickDownColor:DN, priceFormat:pf, lastValueVisible:false, priceLineVisible:true, priceLineColor: dark() ? "#B7BDC6" : "#707A8A", priceLineStyle:2});
+    S.main = chart.addSeries(LW.CandlestickSeries, {upColor:UP, downColor:DN, borderVisible:false, wickUpColor:UP, wickDownColor:DN, priceFormat:pf, lastValueVisible:false, priceLineVisible:true, priceLineColor: "#2E6BFF", priceLineStyle:2});
   }
   chart.priceScale("right").applyOptions({mode: pctMode ? 2 : 0});
-  try { LW.createTextWatermark(chart.panes()[0], {horzAlign:"center", vertAlign:"center", lines:[{text:"◆ NovaTrade", color: dark() ? "rgba(132,142,156,.10)" : "rgba(112,122,138,.10)", fontSize:26, fontStyle:"700"}]}); } catch {}
+  try { LW.createTextWatermark(chart.panes()[0], {horzAlign:"center", vertAlign:"center", lines:[{text:"NovaTrade", color: dark() ? "rgba(148,163,184,.07)" : "rgba(100,116,139,.07)", fontSize:28, fontStyle:"700"}]}); } catch {}
   if (inds.includes("VOL")){
     S.vol = chart.addSeries(LW.HistogramSeries, {priceFormat:{type:"volume"}, priceScaleId:"vol", lastValueVisible:false, priceLineVisible:false});
     chart.priceScale("vol").applyOptions({scaleMargins:{top:0.84, bottom:0}});
@@ -74,8 +74,8 @@ function build(){
   let pane = 1;
   if (inds.includes("RSI")){
     S.rsi = chart.addSeries(LW.LineSeries, {color:COL.rsi, lineWidth:1.2, priceLineVisible:false, lastValueVisible:true, priceFormat:{type:"price", precision:2, minMove:0.01}}, pane);
-    S.rsi.createPriceLine({price:70, color:"rgba(246,70,93,.6)", lineStyle:2, lineWidth:1, axisLabelVisible:false});
-    S.rsi.createPriceLine({price:30, color:"rgba(46,189,133,.6)", lineStyle:2, lineWidth:1, axisLabelVisible:false});
+    S.rsi.createPriceLine({price:70, color:"rgba(240,67,90,.6)", lineStyle:2, lineWidth:1, axisLabelVisible:false});
+    S.rsi.createPriceLine({price:30, color:"rgba(18,184,134,.6)", lineStyle:2, lineWidth:1, axisLabelVisible:false});
     pane++;
   }
   if (inds.includes("MACD")){
@@ -116,7 +116,7 @@ function calc(){
 function point(i, r){
   const b = bars[i], t = T(b.time), o = {};
   o.main = (tf === "tick" || type === "line") ? {time:t, value:b.close} : {time:t, open:b.open, high:b.high, low:b.low, close:b.close};
-  if (S.vol) o.vol = {time:t, value:b.volume || 0, color: b.close >= b.open ? "rgba(46,189,133,.45)" : "rgba(246,70,93,.45)"};
+  if (S.vol) o.vol = {time:t, value:b.volume || 0, color: b.close >= b.open ? "rgba(18,184,134,.45)" : "rgba(240,67,90,.45)"};
   const lp = arr => arr[i] == null ? {time:t} : {time:t, value:arr[i]};
   if (S.m7){ o.m7 = lp(r.m7); o.m25 = lp(r.m25); o.m99 = lp(r.m99); }
   if (S.e7){ o.e7 = lp(r.e7); o.e25 = lp(r.e25); o.e99 = lp(r.e99); }
@@ -125,7 +125,7 @@ function point(i, r){
   if (S.vw) o.vw = lp(r.vw);
   if (S.st) o.st = r.st.val[i] == null ? {time:t} : {time:t, value:r.st.val[i], color: r.st.dir[i] === 1 ? UP : DN};
   if (S.rsi) o.rsi = lp(r.rsi);
-  if (S.mh){ o.mh = r.macd.hist[i] == null ? {time:t} : {time:t, value:r.macd.hist[i], color: r.macd.hist[i] >= 0 ? "rgba(46,189,133,.7)" : "rgba(246,70,93,.7)"}; o.ml = lp(r.macd.line); o.ms = lp(r.macd.signal); }
+  if (S.mh){ o.mh = r.macd.hist[i] == null ? {time:t} : {time:t, value:r.macd.hist[i], color: r.macd.hist[i] >= 0 ? "rgba(18,184,134,.7)" : "rgba(240,67,90,.7)"}; o.ml = lp(r.macd.line); o.ms = lp(r.macd.signal); }
   return o;
 }
 function seriesKeys(){ return Object.keys(S).filter(k => S[k] && typeof S[k].setData === "function"); }
@@ -175,9 +175,9 @@ function onTick(s, price){
 function onTrade(s, tr){ if (s !== sym || !bars.length) return; const bt = Math.floor(tr.t/1000/sec)*sec, l = bars[bars.length-1]; if (l.time === bt) l.volume += tr.q; }
 function loop(){
   raf = requestAnimationFrame(loop);
-  const n = performance.now(); if (n - lastRender < 180) return; lastRender = n;
-  if (dirty){ dirty = false; renderLast(); }
-  overlay(); renderDraw();
+  const n = performance.now();
+  if (dirty && n - lastRender >= 120){ dirty = false; lastRender = n; renderLast(); }
+  overlay(); renderDraw();   // every frame → HTML labels move in sync with the canvas while panning
 }
 
 /* ---- Legend (indicator values, top-left) ---- */
@@ -216,14 +216,14 @@ function crossBox(){
 function syncLines(){
   if (!S.main) return;
   const want = new Map(), s = store.s;
-  s.positions.filter(x => x.sym === sym).forEach(p => want.set("b"+p.id, {price:p.entry, color:"#F0B90B", lineStyle:2}));
+  s.positions.filter(x => x.sym === sym).forEach(p => want.set("b"+p.id, {price:p.entry, color:"#2E6BFF", lineStyle:2}));
   s.fut.positions.filter(x => x.sym === sym).forEach(p => {
     want.set("f"+p.id, {price:p.entry, color: p.side === "long" ? UP : DN, lineStyle:2});
     if (p.liq > 0) want.set("l"+p.id, {price:p.liq, color:"#F7931A", lineStyle:2});
     if (p.tp) want.set("t"+p.id, {price:p.tp, color:DN, lineStyle:2});
     if (p.sl) want.set("s"+p.id, {price:p.sl, color:DN, lineStyle:2});
   });
-  s.fut.orders.filter(x => x.sym === sym).forEach(o => want.set("o"+o.id, {price:o.price, color:"#F0B90B", lineStyle:2}));
+  s.fut.orders.filter(x => x.sym === sym).forEach(o => want.set("o"+o.id, {price:o.price, color:"#7B61FF", lineStyle:2}));
   for (const [k, l] of lines){ if (!want.has(k)){ try { S.main.removePriceLine(l); } catch {} lines.delete(k); } }
   for (const [k, o] of want){
     if (lines.has(k)) lines.get(k).applyOptions({price:o.price, color:o.color});
@@ -292,7 +292,7 @@ function overlay(){
     if (xe != null){ const x = Math.min(Math.max(xe, 30), axisX - 4); h += `<div class="exp-line" style="left:${x}px"><span style="top:${4 + (used.length-1)*18}px">⏱ ${mmss(lft)}</span></div>`; }
     h += `<div class="plab ${win == null ? "n" : win ? "g" : "r"}" style="top:${yy}px;right:66px"><span>${pos.dir === "up" ? "▲ Up" : "▼ Down"}</span><span>${win ? "+" + money(pnl) : "-" + money(pos.amount)} · ${mmss(lft)}</span></div>`;
   });
-  box.innerHTML = h;
+  if (h !== box._h){ box._h = h; box.innerHTML = h; }
 }
 
 /* ---- Tap on price axis toggles % scale ---- */
@@ -316,8 +316,9 @@ function openDetail(){
 
 /* ---- Drawing tools: trend line, ray, horizontal line, rectangle, fib ---- */
 const dKey = () => "draw_" + sym;
-const drawings = () => { try { return JSON.parse(localStorage.getItem(dKey()) || "[]"); } catch { return []; } };
-const saveDrawings = a => { try { localStorage.setItem(dKey(), JSON.stringify(a)); } catch {} };
+let dCache = null, dSym = null;
+const drawings = () => { if (dSym !== sym){ dSym = sym; try { dCache = JSON.parse(localStorage.getItem(dKey()) || "[]"); } catch { dCache = []; } } return dCache.slice(); };
+const saveDrawings = a => { dCache = a.slice(); dSym = sym; try { localStorage.setItem(dKey(), JSON.stringify(a)); } catch {} };
 function setTool(t){ draw.tool = t; draw.temp = null; drawEl.classList.toggle("on", !!t); bus.emit("drawtool", t); }
 function bindDraw(){
   const pt = e => { const r = drawEl.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top; return {x, y, t:xToTime(x), p:S.main.coordinateToPrice(y)}; };
@@ -344,7 +345,9 @@ function renderDraw(){
     if (d.k === "fib"){ [0,0.236,0.382,0.5,0.618,0.786,1].forEach(r => { const pr = d.a.p + (d.b.p - d.a.p) * r, y = S.main.priceToCoordinate(pr); if (y == null) return;
       h += `<line x1="${Math.min(a.x,b.x)}" x2="${w}" y1="${y}" y2="${y}" class="df"/><text x="${Math.min(a.x,b.x)+2}" y="${y-3}" class="dt">${r} (${M.fmtPx(M.get(sym), pr)})</text>`; }); }
   });
-  drawEl.innerHTML = h; drawEl.setAttribute("viewBox", `0 0 ${el.clientWidth} ${H}`);
+  const vb = `0 0 ${el.clientWidth} ${H}`;
+  if (h !== drawEl._h){ drawEl._h = h; drawEl.innerHTML = h; }
+  if (vb !== drawEl._vb){ drawEl._vb = vb; drawEl.setAttribute("viewBox", vb); }
 }
 function undoDraw(){ const a = drawings(); a.pop(); saveDrawings(a); }
 function clearDraw(){ saveDrawings([]); }

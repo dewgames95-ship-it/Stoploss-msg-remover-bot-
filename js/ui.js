@@ -2,7 +2,7 @@
 (function(){
 const C = window.CONFIG, {esc, ic, t, store} = U;
 
-const COLORS = ["#F0B90B","#0ECB81","#1E80FF","#9B6BFF","#F6465D","#14B8C9","#F7931A","#E040FB"];
+const COLORS = ["#2E6BFF","#12B886","#5AA9FF","#7B61FF","#F0435A","#14B8C9","#F7931A","#E040FB"];
 function letter(txt, size=28){
   let h = 0; for (const c of txt) h = (h*31 + c.charCodeAt(0)) >>> 0;
   return `<span class="letter" style="width:${size}px;height:${size}px;background:${COLORS[h%COLORS.length]};font-size:${Math.round(size*.38)}px">${esc(txt.slice(0,2))}</span>`;
@@ -22,15 +22,15 @@ function pairIcon(p, size=28){
   return letter(p.base, size);
 }
 const usdt = (s=20) => `<svg width="${s}" height="${s}" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="16" fill="#26A17B"/><path fill="#fff" d="M17.9 17.4c-.1 0-.7.1-2 .1-1 0-1.7 0-2-.1-3.9-.2-6.8-.9-6.8-1.7s2.9-1.5 6.8-1.7v2.7c.3 0 1 .1 2 .1 1.2 0 1.8-.1 1.9-.1v-2.7c3.9.2 6.8.9 6.8 1.7s-2.9 1.5-6.8 1.7zm0-3.6v-2.4h5.4V7.8H8.7v3.6h5.4v2.4c-4.4.2-7.7 1.1-7.7 2.1s3.3 1.9 7.7 2.1v7.6h3.8V18c4.4-.2 7.7-1.1 7.7-2.1s-3.3-1.9-7.7-2.1z"/></svg>`;
-const logo = (s=24) => `<svg width="${s}" height="${s}" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="16" fill="#FCD535"/><path d="M14 42l10-12 8 7 16-19" fill="none" stroke="#181A20" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="48" cy="18" r="5" fill="#0ECB81" stroke="#181A20" stroke-width="2"/></svg>`;
+const logo = (s=24) => `<svg width="${s}" height="${s}" viewBox="0 0 64 64" aria-hidden="true"><defs><linearGradient id="nlg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2E6BFF"/><stop offset="1" stop-color="#7B61FF"/></linearGradient></defs><rect width="64" height="64" rx="18" fill="url(#nlg)"/><path d="M15 42l10-11 8 7 15-17" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><circle cx="48" cy="20" r="5" fill="#fff"/></svg>`;
 
 /* End-of-page graphic (replaces footer links) */
 const ART = `<svg class="art" viewBox="0 0 340 120" aria-hidden="true">
-  <defs><linearGradient id="ea" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#F0B90B" stop-opacity=".35"/><stop offset="1" stop-color="#F0B90B" stop-opacity="0"/></linearGradient></defs>
+  <defs><linearGradient id="ea" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#2E6BFF" stop-opacity=".35"/><stop offset="1" stop-color="#2E6BFF" stop-opacity="0"/></linearGradient></defs>
   <path d="M0 96 L30 84 L55 90 L80 70 L105 76 L130 52 L155 60 L180 40 L205 48 L230 26 L255 34 L280 18 L310 24 L340 8 L340 120 L0 120Z" fill="url(#ea)"/>
-  <path d="M0 96 L30 84 L55 90 L80 70 L105 76 L130 52 L155 60 L180 40 L205 48 L230 26 L255 34 L280 18 L310 24 L340 8" fill="none" stroke="#F0B90B" stroke-width="2.5"/>
-  ${[[40,70,12,"#0ECB81"],[70,62,16,"#F6465D"],[100,58,14,"#0ECB81"],[130,40,18,"#0ECB81"],[160,48,12,"#F6465D"],[190,30,16,"#0ECB81"],[220,22,12,"#0ECB81"],[250,26,14,"#F6465D"],[280,10,16,"#0ECB81"]].map(([x,y,h,c]) => `<line x1="${x}" x2="${x}" y1="${y-6}" y2="${y+h+6}" stroke="${c}" stroke-width="1.5" opacity=".7"/><rect x="${x-4}" y="${y}" width="8" height="${h}" rx="1.5" fill="${c}" opacity=".85"/>`).join("")}
-  <circle cx="340" cy="8" r="4" fill="#FCD535"><animate attributeName="r" values="4;7;4" dur="1.6s" repeatCount="indefinite"/><animate attributeName="opacity" values="1;.4;1" dur="1.6s" repeatCount="indefinite"/></circle>
+  <path d="M0 96 L30 84 L55 90 L80 70 L105 76 L130 52 L155 60 L180 40 L205 48 L230 26 L255 34 L280 18 L310 24 L340 8" fill="none" stroke="#2E6BFF" stroke-width="2.5"/>
+  ${[[40,70,12,"#12B886"],[70,62,16,"#F0435A"],[100,58,14,"#12B886"],[130,40,18,"#12B886"],[160,48,12,"#F0435A"],[190,30,16,"#12B886"],[220,22,12,"#12B886"],[250,26,14,"#F0435A"],[280,10,16,"#12B886"]].map(([x,y,h,c]) => `<line x1="${x}" x2="${x}" y1="${y-6}" y2="${y+h+6}" stroke="${c}" stroke-width="1.5" opacity=".7"/><rect x="${x-4}" y="${y}" width="8" height="${h}" rx="1.5" fill="${c}" opacity=".85"/>`).join("")}
+  <circle cx="340" cy="8" r="4" fill="#7B61FF"><animate attributeName="r" values="4;7;4" dur="1.6s" repeatCount="indefinite"/><animate attributeName="opacity" values="1;.4;1" dur="1.6s" repeatCount="indefinite"/></circle>
 </svg>`;
 function endcap(){
   return `<section class="endcap" aria-label="About ${esc(C.APP_NAME)}">

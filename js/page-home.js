@@ -72,16 +72,16 @@ function sortHead(){ return `<div class="mkt-head"><span>Name / Vol</span><butto
 function bindSort(root, ml){ let st = {}; root.querySelectorAll("[data-sort]").forEach(b => b.onclick = () => { const k = b.dataset.sort; st[k] = st[k] === -1 ? 1 : st[k] === 1 ? 0 : -1; Object.keys(st).forEach(x => x !== k && (st[x] = 0)); ml.setSort(st[k] ? [k, st[k]] : null); }); }
 
 /* ---------- Illustrations ---------- */
-const ROBOT = `<svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="54" fill="rgba(240,185,11,.12)"/><path d="M60 14v10" stroke="#F0B90B" stroke-width="4" stroke-linecap="round"/><circle cx="60" cy="12" r="5" fill="#FCD535"/>
-<rect x="28" y="26" width="64" height="48" rx="16" fill="#FCD535"/><rect x="36" y="36" width="48" height="26" rx="10" fill="#181A20"/>
-<circle cx="50" cy="49" r="5" fill="#0ECB81"><animate attributeName="r" values="5;3;5" dur="2.4s" repeatCount="indefinite"/></circle><circle cx="70" cy="49" r="5" fill="#0ECB81"><animate attributeName="r" values="5;3;5" dur="2.4s" repeatCount="indefinite"/></circle>
-<rect x="20" y="42" width="8" height="18" rx="4" fill="#F0B90B"/><rect x="92" y="42" width="8" height="18" rx="4" fill="#F0B90B"/>
-<rect x="38" y="78" width="44" height="26" rx="10" fill="#F0B90B"/><path d="M48 92l8-6 6 4 10-8" stroke="#181A20" stroke-width="3.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+const ROBOT = `<svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="54" fill="rgba(46,107,255,.12)"/><path d="M60 14v10" stroke="#2E6BFF" stroke-width="4" stroke-linecap="round"/><circle cx="60" cy="12" r="5" fill="#7B61FF"/>
+<rect x="28" y="26" width="64" height="48" rx="16" fill="#7B61FF"/><rect x="36" y="36" width="48" height="26" rx="10" fill="#0F172A"/>
+<circle cx="50" cy="49" r="5" fill="#12B886"><animate attributeName="r" values="5;3;5" dur="2.4s" repeatCount="indefinite"/></circle><circle cx="70" cy="49" r="5" fill="#12B886"><animate attributeName="r" values="5;3;5" dur="2.4s" repeatCount="indefinite"/></circle>
+<rect x="20" y="42" width="8" height="18" rx="4" fill="#2E6BFF"/><rect x="92" y="42" width="8" height="18" rx="4" fill="#2E6BFF"/>
+<rect x="38" y="78" width="44" height="26" rx="10" fill="#2E6BFF"/><path d="M48 92l8-6 6 4 10-8" stroke="#0F172A" stroke-width="3.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 const ROCKET = `<svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="54" fill="rgba(14,203,129,.14)"/>
-<g transform="rotate(35 60 60)"><path d="M60 14c14 12 18 32 14 54H46c-4-22 0-42 14-54z" fill="#EAECEF"/><circle cx="60" cy="44" r="8" fill="#0ECB81" stroke="#181A20" stroke-width="3"/>
-<path d="M46 60l-12 14 14-2zM74 60l12 14-14-2z" fill="#FCD535"/><path d="M50 70h20l-4 10h-12z" fill="#B7BDC6"/>
+<g transform="rotate(35 60 60)"><path d="M60 14c14 12 18 32 14 54H46c-4-22 0-42 14-54z" fill="#EAECEF"/><circle cx="60" cy="44" r="8" fill="#12B886" stroke="#0F172A" stroke-width="3"/>
+<path d="M46 60l-12 14 14-2zM74 60l12 14-14-2z" fill="#7B61FF"/><path d="M50 70h20l-4 10h-12z" fill="#B7BDC6"/>
 <path d="M54 82c2 10 6 16 6 16s4-6 6-16z" fill="#F7931A"><animate attributeName="d" values="M54 82c2 10 6 16 6 16s4-6 6-16z;M54 82c2 14 6 22 6 22s4-8 6-22z;M54 82c2 10 6 16 6 16s4-6 6-16z" dur=".5s" repeatCount="indefinite"/></path></g></svg>`;
-const LEV = `<svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="54" fill="rgba(155,107,255,.16)"/><text x="60" y="72" text-anchor="middle" font-size="40" font-weight="800" fill="#FCD535" font-family="IBM Plex Sans">125x</text><path d="M22 92h76" stroke="#9B6BFF" stroke-width="3" stroke-linecap="round"/><path d="M30 86l14-10 12 6 18-16 16 6" fill="none" stroke="#0ECB81" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+const LEV = `<svg viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="54" fill="rgba(155,107,255,.16)"/><text x="60" y="72" text-anchor="middle" font-size="40" font-weight="800" fill="#7B61FF" font-family="IBM Plex Sans">125x</text><path d="M22 92h76" stroke="#7B61FF" stroke-width="3" stroke-linecap="round"/><path d="M30 86l14-10 12 6 18-16 16 6" fill="none" stroke="#12B886" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 
 const TILES = [
   ["Deposit","deposit","ic-y","#/deposit"],["Withdraw","withdraw","ic-b","#/withdraw"],["Activate Auto Trading","auto","ic-g","#/auto"],["Refer and Earn","gift","ic-p","#/referral"],

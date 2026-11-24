@@ -139,7 +139,7 @@ Pages.chart = (params) => {
     if (obTab === "depth"){
       let cb = 0, ca = 0; const cbs = bids.map(b => cb += +b[1]), cas = asks.map(a => ca += +a[1]), mx = Math.max(cb, ca) || 1, W = 340, H = 160;
       const bx = i => W/2 - (i+1) * (W/2) / bids.length, ax = i => W/2 + (i+1) * (W/2) / asks.length, y = v => H - v / mx * (H - 10);
-      box.innerHTML = ratio + `<svg viewBox="0 0 ${W} ${H+16}" style="width:100%;height:auto"><path d="M${W/2} ${H} ${cbs.map((v,i) => `L${bx(i)} ${y(v)}`).join(" ")} L0 ${y(cb)} L0 ${H}Z" fill="rgba(46,189,133,.25)" stroke="var(--up)"/><path d="M${W/2} ${H} ${cas.map((v,i) => `L${ax(i)} ${y(v)}`).join(" ")} L${W} ${y(ca)} L${W} ${H}Z" fill="rgba(246,70,93,.25)" stroke="var(--down)"/>
+      box.innerHTML = ratio + `<svg viewBox="0 0 ${W} ${H+16}" style="width:100%;height:auto"><path d="M${W/2} ${H} ${cbs.map((v,i) => `L${bx(i)} ${y(v)}`).join(" ")} L0 ${y(cb)} L0 ${H}Z" fill="rgba(18,184,134,.25)" stroke="var(--up)"/><path d="M${W/2} ${H} ${cas.map((v,i) => `L${ax(i)} ${y(v)}`).join(" ")} L${W} ${y(ca)} L${W} ${H}Z" fill="rgba(240,67,90,.25)" stroke="var(--down)"/>
         <text x="4" y="${H+12}" font-size="9" fill="var(--muted)">${M.fmtPx(p, +bids[bids.length-1][0])}</text><text x="${W/2}" y="${H+12}" font-size="9" text-anchor="middle" fill="var(--muted)">${M.fmtPx(p)}</text><text x="${W-4}" y="${H+12}" font-size="9" text-anchor="end" fill="var(--muted)">${M.fmtPx(p, +asks[asks.length-1][0])}</text></svg>`;
       return;
     }

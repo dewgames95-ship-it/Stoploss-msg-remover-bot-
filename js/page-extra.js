@@ -27,7 +27,7 @@ Pages.assets = () => {
       const day0 = new Date().setHours(0,0,0,0), tp = E.stats().todayPnl + s.fut.history.filter(x => x.closed >= day0).reduce((a,x) => a + x.profit, 0);
       $("#at").innerHTML = hide ? "******" : `${money(total)}<small>USDT</small>`;
       const t = $("#atp"); t.textContent = hide ? "****" : signed(tp) + " USDT"; t.className = "num " + (tp >= 0 ? "up" : "down");
-      const parts = [["Trading (available)", s.balance, "#F0B90B"], ["Binary positions", bin, "#1E80FF"], ["Futures margin + PnL", Math.max(0, fm + up), "#9B6BFF"], ["Vault", vault, "#0ECB81"]];
+      const parts = [["Trading (available)", s.balance, "#2E6BFF"], ["Binary positions", bin, "#5AA9FF"], ["Futures margin + PnL", Math.max(0, fm + up), "#7B61FF"], ["Vault", vault, "#12B886"]];
       const sum = parts.reduce((a,p) => a + p[1], 0) || 1; let acc = 0;
       const R = 46, Cc = 2*Math.PI*R;
       $("#donut").innerHTML = `<svg class="donut" viewBox="0 0 120 120"><circle cx="60" cy="60" r="${R}" fill="none" stroke="var(--input)" stroke-width="14"/>${parts.map(([,v,c]) => { const len = v/sum*Cc, el = `<circle cx="60" cy="60" r="${R}" fill="none" stroke="${c}" stroke-width="14" stroke-dasharray="${len} ${Cc-len}" stroke-dashoffset="${-acc}" transform="rotate(-90 60 60)"/>`; acc += len; return el; }).join("")}<text x="60" y="58" text-anchor="middle" font-size="10" fill="var(--muted)">Total</text><text x="60" y="73" text-anchor="middle" font-size="12" font-weight="600" fill="var(--text)">${hide ? "***" : CH.fmtVol(total)}</text></svg>`;
@@ -55,7 +55,7 @@ Pages.assets = () => {
 /* ---------- Rewards Hub ---------- */
 Pages.rewards = () => {
   const html = wrap("Rewards Hub", `<div class="two-col"><div class="stack">
-    <div class="hero"><svg class="deco" viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="48" fill="rgba(240,185,11,.18)"/><path d="M60 22l11 22 24 4-17 17 4 24-22-11-22 11 4-24-17-17 24-4z" fill="#FCD535"/></svg>
+    <div class="hero"><svg class="deco" viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="48" fill="rgba(46,107,255,.18)"/><path d="M60 22l11 22 24 4-17 17 4 24-22-11-22 11 4-24-17-17 24-4z" fill="#7B61FF"/></svg>
       <div class="label">Your level</div><div class="h1" id="lv"></div><div class="xp" style="margin:10px 0 6px;max-width:220px"><i id="xpb"></i></div><div class="label" id="xpl"></div></div>
     <section class="card"><div class="row between" style="margin-bottom:10px"><span class="title">Daily check-in</span><span class="label" id="stk"></span></div><div class="days" id="days"></div><button class="btn btn-primary btn-block" id="ci" style="margin-top:12px"></button></section>
     <section class="card"><div class="title" style="margin-bottom:10px">Badges</div><div class="badges" id="bdg"></div></section>
@@ -84,17 +84,17 @@ Pages.rewards = () => {
 
 /* ---------- Academy ---------- */
 const thumb = (kind) => {
-  const c = {up:"#0ECB81", dn:"#F6465D", y:"#F0B90B", b:"#1E80FF", p:"#9B6BFF"};
+  const c = {up:"#12B886", dn:"#F0435A", y:"#2E6BFF", b:"#5AA9FF", p:"#7B61FF"};
   const candles = `<g>${[[8,22,14,c.up],[18,18,12,c.dn],[28,14,16,c.up],[38,20,10,c.dn],[48,10,18,c.up]].map(([x,y,h,col]) => `<line x1="${x+3}" x2="${x+3}" y1="${y-4}" y2="${y+h+4}" stroke="${col}"/><rect x="${x}" y="${y}" width="6" height="${h}" rx="1" fill="${col}"/>`).join("")}</g>`;
   const m = {
     binary:`<path d="M6 30l10-6 8 4 10-12 10 6 10-10" stroke="${c.y}" stroke-width="2" fill="none"/><path d="M32 6v36" stroke="${c.y}" stroke-dasharray="3 2"/><text x="44" y="12" font-size="8" fill="${c.up}">▲</text><text x="44" y="40" font-size="8" fill="${c.dn}">▼</text>`,
     candles, ema:`${candles}<path d="M4 34 C20 30 30 22 60 14" stroke="${c.y}" stroke-width="1.5" fill="none"/><path d="M4 30 C20 32 34 26 60 22" stroke="${c.p}" stroke-width="1.5" fill="none"/>`,
     boll:`<path d="M4 14 C20 8 40 10 60 6" stroke="${c.b}" fill="none"/><path d="M4 26 C20 22 40 24 60 18" stroke="${c.y}" stroke-dasharray="2 2" fill="none"/><path d="M4 38 C20 34 40 38 60 30" stroke="${c.b}" fill="none"/>${candles}`,
     super:`${candles}<path d="M4 40 L24 38 L24 36 L44 32" stroke="${c.up}" stroke-width="2" fill="none"/><path d="M44 8 L60 10" stroke="${c.dn}" stroke-width="2" fill="none"/>`,
-    rsi:`<rect x="4" y="8" width="56" height="10" fill="rgba(246,70,93,.15)"/><rect x="4" y="30" width="56" height="10" fill="rgba(14,203,129,.15)"/><path d="M4 26 L14 14 L24 22 L34 34 L44 20 L60 12" stroke="${c.p}" stroke-width="2" fill="none"/>`,
+    rsi:`<rect x="4" y="8" width="56" height="10" fill="rgba(240,67,90,.15)"/><rect x="4" y="30" width="56" height="10" fill="rgba(14,203,129,.15)"/><path d="M4 26 L14 14 L24 22 L34 34 L44 20 L60 12" stroke="${c.p}" stroke-width="2" fill="none"/>`,
     macd:`${[8,14,20,26,32,38,44,50,56].map((x,i) => { const v = [4,7,9,6,2,-3,-6,-4,-1][i]; return `<rect x="${x-2}" y="${v>=0?24-v:24}" width="4" height="${Math.abs(v)}" fill="${v>=0?c.up:c.dn}"/>`; }).join("")}<path d="M4 18 C20 10 34 26 60 28" stroke="${c.b}" fill="none"/><path d="M4 22 C20 14 34 22 60 30" stroke="${c.y}" fill="none"/>`,
     lev:`<text x="32" y="30" text-anchor="middle" font-size="18" font-weight="700" fill="${c.y}">50x</text><path d="M6 40h52" stroke="#F7931A" stroke-dasharray="3 2"/>`,
-    risk:`<path d="M32 6 L54 14 V26 C54 36 32 44 32 44 C32 44 10 36 10 26 V14 Z" fill="rgba(240,185,11,.2)" stroke="${c.y}" stroke-width="2"/><path d="M24 25l6 6 10-12" stroke="${c.up}" stroke-width="2.5" fill="none"/>`
+    risk:`<path d="M32 6 L54 14 V26 C54 36 32 44 32 44 C32 44 10 36 10 26 V14 Z" fill="rgba(46,107,255,.2)" stroke="${c.y}" stroke-width="2"/><path d="M24 25l6 6 10-12" stroke="${c.up}" stroke-width="2.5" fill="none"/>`
   };
   return `<svg viewBox="0 0 64 48" width="64" height="48" aria-hidden="true">${m[kind]}</svg>`;
 };
@@ -110,7 +110,7 @@ const LESSONS = [
   {k:"risk", t:"Risk management rules", lvl:"All levels", body:["Risk 1–2% of your balance per trade. Always use a stop loss on Futures.","Don't chase losses. Keep a journal: your Assets page shows 7-day PnL and win rate to review your edge."], q:["A sensible risk per trade is…",["1–2% of balance","25% of balance","All-in"],0]}
 ];
 Pages.academy = () => {
-  const html = wrap("Academy", `<div class="hero" style="margin-bottom:12px"><svg class="deco" viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="48" fill="rgba(155,107,255,.2)"/><path d="M30 50l30-14 30 14-30 14z" fill="#FCD535"/><path d="M42 56v14c0 6 36 6 36 0V56" fill="none" stroke="#FCD535" stroke-width="4"/></svg>
+  const html = wrap("Academy", `<div class="hero" style="margin-bottom:12px"><svg class="deco" viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="48" fill="rgba(155,107,255,.2)"/><path d="M30 50l30-14 30 14-30 14z" fill="#7B61FF"/><path d="M42 56v14c0 6 36 6 36 0V56" fill="none" stroke="#7B61FF" stroke-width="4"/></svg>
     <div class="title">Learn to trade like a pro</div><div class="sub" style="margin:4px 0 10px">Short lessons with a quiz. Earn XP for each one.</div><div class="xp" style="max-width:220px"><i id="ap"></i></div><div class="label" id="apl" style="margin-top:6px"></div></div>
     <section class="card"><div id="ll"></div></section>`);
   return {html, title:"Academy", mount(r){

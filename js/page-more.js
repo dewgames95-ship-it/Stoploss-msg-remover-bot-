@@ -53,7 +53,7 @@ Pages.deposit = () => {
 /* ---------- Withdraw (to Vault / Earn) ---------- */
 Pages.withdraw = () => {
   const html = wrap("Withdraw", `<div class="two-col"><div class="stack">
-    <div class="hero"><svg class="deco" viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="50" fill="rgba(240,185,11,.15)"/><rect x="32" y="34" width="56" height="52" rx="8" fill="#F0B90B"/><circle cx="60" cy="60" r="12" fill="#181A20"/><circle cx="60" cy="60" r="5" fill="#FCD535"/></svg>
+    <div class="hero"><svg class="deco" viewBox="0 0 120 120" aria-hidden="true"><circle cx="60" cy="60" r="50" fill="rgba(46,107,255,.15)"/><rect x="32" y="34" width="56" height="52" rx="8" fill="#2E6BFF"/><circle cx="60" cy="60" r="12" fill="#0F172A"/><circle cx="60" cy="60" r="5" fill="#7B61FF"/></svg>
       <div class="label">Vault balance · ${Math.round(E.APR*100)}% APR</div><div class="bal num" id="vb"></div><div class="sub" style="font-size:12px">Withdraw profits from trading into your Vault — it earns interest every second.</div></div>
     <section class="card"><form id="wf" novalidate>
       <div class="seg" style="margin-bottom:14px"><button type="button" class="on" data-d="in">Trading → Vault</button><button type="button" data-d="out">Vault → Trading</button></div>
@@ -269,8 +269,9 @@ Pages.settings = () => {
     ${row("sun","ic-y","Theme",`<div class="seg" style="width:150px"><button data-th="light" class="${st.theme==="light"?"on":""}">Light</button><button data-th="dark" class="${st.theme==="dark"?"on":""}">Dark</button></div>`)}
     ${row("globe","ic-b","Language",`<button class="btn btn-ghost btn-sm" data-lang>${st.lang==="hi"?"हिन्दी":"English"} ${ic("chev",14)}</button>`)}
     <div class="title" style="margin:16px 0 4px">Trading</div>
-    ${row("volume","ic-g","Sounds",sw(st.sound,"sound"),"Win / loss sound effects")}
-    ${row("vibrate","ic-p","Vibration",sw(st.haptic,"haptic"),"Haptic feedback on supported phones")}
+    ${row("volume","ic-g","Sounds",sw(st.sound,"sound"),"Order, win / loss & alert sounds")}
+    ${row("volume","ic-b","Tap sounds",sw(st.tapSound,"tapSound"),"Soft click on every tap")}
+    ${row("vibrate","ic-p","Vibration",sw(st.haptic,"haptic"),"Haptic feedback on taps & orders (Android)")}
     ${row("wallet","ic-c","Default amount",`<div class="field" style="width:110px;height:40px"><input type="number" min="1" id="sda" value="${st.defAmt}" aria-label="Default amount"></div>`,"USDT per trade")}
     ${row("clock","ic-y","Default expiry",`<div class="seg" style="width:150px">${C.EXPIRIES.map(x => `<button data-de="${x}" class="${st.defExp===x?"on":""}">${x<60?x+"s":x/60+"m"}</button>`).join("")}</div>`)}
   </section>
@@ -278,7 +279,7 @@ Pages.settings = () => {
     ${row("eye","ic-x","Hide balance",sw(st.hideBal,"hideBal"),"Mask balances on Home")}
     ${row("shield","ic-g","Data storage","<span class='label'>This device</span>","Saved in your browser (localStorage)")}
     <button class="list-item" style="width:100%" data-wipe><span class="ic ic-r">${ic("trash",18)}</span><span class="grow down" style="font-weight:600;text-align:left">Clear all app data</span></button>
-    <div class="label" style="margin-top:12px">Version 3.0 · ${esc(C.APP_NAME)}</div>
+    <div class="label" style="margin-top:12px">Version 5.0 · ${esc(C.APP_NAME)}</div>
   </section></div>`);
   return {html, title:"Settings", mount(r){
     r.querySelectorAll("[data-th]").forEach(b => b.onclick = () => { App.setTheme(b.dataset.th); r.querySelectorAll("[data-th]").forEach(x => x.classList.toggle("on", x===b)); toast("Theme updated", "ok"); });

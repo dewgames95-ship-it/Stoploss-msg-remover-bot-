@@ -87,7 +87,7 @@ const bus = {
 const KEY = "novatrade_v1";
 const defaults = () => ({
   balance: C.START_BALANCE, positions: [], history: [], tx: [], notifs: [], unread: 0,
-  settings: {theme: "dark", lang:"en", sound:true, tapSound:false, haptic:true, hideBal:false, defAmt:10, defExp:30, lev:20, inds:["EMA","VOL"], chartType:"candle"},
+  settings: {theme: "light", lang:"en", sound:true, tapSound:true, haptic:true, hideBal:false, defAmt:10, defExp:30, lev:20, inds:["EMA","VOL"], chartType:"candle"},
   fut: {positions:[], orders:[], history:[]}, alerts: [], favs: ["BTCUSDT","ETHUSDT","XAUUSD"], rewards: {checkins:[], claimed:{}, xp:0, used:{}}, vault: {bal:0, since:Date.now()},
   balHist: [], bots: {}, auto: {on:false, pair:"BTCUSDT", amount:10, expiry:30, strategy:"trend", interval:20, max:20, count:0, log:[]},
   profile: {name:"Trader" + Math.floor(1000 + Math.random()*9000), uid: String(Math.floor(10000000 + Math.random()*89999999)), ref: Math.random().toString(36).slice(2,8).toUpperCase(), joined: Date.now()},
@@ -96,6 +96,7 @@ const defaults = () => ({
 let S;
 try { S = Object.assign(defaults(), JSON.parse(localStorage.getItem(KEY) || "{}")); } catch { S = defaults(); }
 S.settings = Object.assign(defaults().settings, S.settings || {});
+if (!S.settings.v5){ Object.assign(S.settings, {v5:true, theme:"light", sound:true, tapSound:true, haptic:true}); }
 if (S.profile && S.profile.name === "Demo Trader") S.profile.name = "Trader" + Math.floor(1000 + Math.random()*9000);
 ["fut","rewards","vault"].forEach(k => S[k] = Object.assign(defaults()[k], S[k] || {}));
 let saveT;
@@ -133,6 +134,7 @@ function toast(msg, kind="info", ms=2600){
   const box = $("#toasts"); const el = document.createElement("div");
   const icn = {ok:"check", bad:"x", warn:"info", info:"info"}[kind];
   el.className = "toast " + kind; el.setAttribute("role","status");
+  if (kind === "bad"){ buzz("error"); beep("err"); }
   el.innerHTML = `<span class="ti">${ic(icn,12,3.5)}</span><span>${esc(msg)}</span>`;
   box.appendChild(el);
   setTimeout(() => { el.classList.add("out"); setTimeout(() => el.remove(), 300); }, ms);
@@ -181,27 +183,32 @@ function confirmBox(title, body, okText="Confirm", danger=false){
 document.addEventListener("keydown", e => { if (e.key === "Escape") closeLayer(); });
 
 /* ----- Feedback: sound + haptics + confetti ----- */
-let actx;
-const SND = {win:[[660,0],[880,.1],[1320,.2]], loss:[[330,0],[220,.12]], open:[[520,0],[780,.07]], tick:[[1000,0]], tap:[[1400,0]], alert:[[880,0],[880,.18],[880,.36]], claim:[[523,0],[659,.08],[784,.16],[1047,.24]]};
+let actx, lastTap = 0;
+const SND = {win:[[660,0],[880,.09],[1320,.18]], loss:[[392,0],[262,.13]], open:[[620,0],[930,.06]], close:[[700,0],[520,.07]], tick:[[1100,0]], tap:[[1800,0]], toggle:[[1250,0],[1650,.045]], alert:[[880,0],[1175,.16],[880,.32]], claim:[[523,0],[659,.07],[784,.14],[1047,.21]], err:[[220,0],[196,.09]]};
+function ac(){ actx ||= new (window.AudioContext || window.webkitAudioContext)(); if (actx.state === "suspended") actx.resume(); return actx; }
 function beep(kind="tap"){
-  if (!S.settings.sound) return;
-  if (kind === "tap") return;
+  const soft = kind === "tap" || kind === "toggle" || kind === "tick";
+  if (!S.settings.sound || (soft && !S.settings.tapSound)) return;
   try {
-    actx ||= new (window.AudioContext || window.webkitAudioContext)();
-    if (actx.state === "suspended") actx.resume();
-    const vol = kind === "tap" ? 0.035 : kind === "tick" ? 0.06 : 0.14, dur = kind === "tap" ? 0.035 : 0.17;
+    const A = ac(), vol = kind === "tap" ? 0.05 : soft ? 0.06 : 0.13, dur = kind === "tap" ? 0.028 : soft ? 0.05 : 0.16;
     (SND[kind] || SND.tap).forEach(([f, d]) => {
-      const o = actx.createOscillator(), g = actx.createGain();
-      o.type = kind === "tap" || kind === "tick" ? "triangle" : "sine"; o.frequency.value = f; o.connect(g); g.connect(actx.destination);
-      const t0 = actx.currentTime + d; g.gain.setValueAtTime(0.0001,t0); g.gain.exponentialRampToValueAtTime(vol,t0+0.008); g.gain.exponentialRampToValueAtTime(0.0001,t0+dur);
+      const o = A.createOscillator(), g = A.createGain(), fl = A.createBiquadFilter();
+      o.type = soft ? "triangle" : kind === "err" ? "square" : "sine"; o.frequency.value = f;
+      if (kind === "tap") o.frequency.exponentialRampToValueAtTime(f * 0.55, A.currentTime + d + dur);
+      fl.type = "lowpass"; fl.frequency.value = soft ? 4200 : 3200;
+      o.connect(fl); fl.connect(g); g.connect(A.destination);
+      const t0 = A.currentTime + d; g.gain.setValueAtTime(0.0001,t0); g.gain.exponentialRampToValueAtTime(vol,t0+0.004); g.gain.exponentialRampToValueAtTime(0.0001,t0+dur);
       o.start(t0); o.stop(t0+dur+0.02);
     });
   } catch {}
 }
-const buzz = p => { if (S.settings.haptic && navigator.vibrate) try{ navigator.vibrate(p); }catch{} };
+const HAP = {light:8, medium:16, heavy:28, success:[12,40,18], error:[30,50,30,50,30], warn:[20,60,20]};
+const buzz = p => { if (S.settings.haptic && navigator.vibrate) try{ navigator.vibrate(HAP[p] ?? p); }catch{} };
+/* one call for "real exchange" feedback: haptic + sound together */
+const fx = kind => { const m = {tap:["light","tap"], toggle:["light","toggle"], open:["medium","open"], close:["medium","close"], win:["success","win"], loss:["error","loss"], err:["error","err"], claim:["success","claim"], alert:["warn","alert"]}[kind] || ["light","tap"]; buzz(m[0]); beep(m[1]); };
 function confetti(){
   const box = document.createElement("div"); box.className = "confetti";
-  const cols = ["#0ECB81","#FCD535","#F0B90B","#1E80FF","#F6465D","#9B6BFF"];
+  const cols = ["#12B886","#2E6BFF","#7B61FF","#5AA9FF","#F0435A","#B9C8FF"];
   for (let i=0;i<60;i++){ const d=document.createElement("i"); d.style.left=Math.random()*100+"%"; d.style.background=cols[i%cols.length]; d.style.animationDelay=Math.random()*0.5+"s"; d.style.animationDuration=(1.2+Math.random())+"s"; box.appendChild(d); }
   document.body.appendChild(box); setTimeout(() => box.remove(), 2800);
 }
@@ -223,12 +230,15 @@ function copyText(txt, msg="Copied to clipboard"){
   function fallback(){ const ta=document.createElement("textarea"); ta.value=txt; ta.style.position="fixed"; ta.style.opacity="0"; document.body.appendChild(ta); ta.select(); try{ document.execCommand("copy"); done(); }catch{ toast("Copy failed — long-press to copy","bad"); } ta.remove(); }
 }
 
-// Light haptic only on primary controls (no click sounds). Action sounds play on real events (order, win, loss, alert).
+// Tap feedback (haptic + soft click) on every interactive control, like native exchange apps.
 document.addEventListener("pointerdown", e => {
-  const t = e.target.closest(".btn-up, .btn-down, .btn-primary, .bnav a, .exp-chip, [data-hap]");
-  if (!t || t.disabled) return;
-  buzz(t.matches(".btn-up, .btn-down") ? 14 : 6);
+  const t = e.target.closest("button, a[href], .mkt-row, .tile, .exp-chip, [data-hap], [role=switch]");
+  if (!t || t.disabled || t.closest(".draw-svg")) return;
+  const now = performance.now(); if (now - lastTap < 45) return; lastTap = now;
+  if (t.matches(".btn-up, .btn-down, .fbtn2, .btn-primary")){ buzz("medium"); beep("tap"); return; }
+  if (t.matches(".switch, [role=switch]")){ buzz("light"); beep("toggle"); return; }
+  buzz("light"); beep("tap");
 }, {passive:true});
 
-window.U = {$, $$, esc, clamp, fmt, money, signed, pct, mmss, timeStr, dateStr, uid, sleep, ic, bus, store, t, toast, sheet, drawer, modal, closeLayer, confirmBox, beep, buzz, confetti, spark, copyText};
+window.U = {$, $$, esc, clamp, fmt, money, signed, pct, mmss, timeStr, dateStr, uid, sleep, ic, bus, store, t, toast, sheet, drawer, modal, closeLayer, confirmBox, beep, buzz, confetti, spark, copyText, fx};
 })();
