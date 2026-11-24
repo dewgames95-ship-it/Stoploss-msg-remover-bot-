@@ -1,11 +1,36 @@
 /* ===== Trading screens: Price/Chart page, USDⓈ-M Futures, Binary Options ===== */
 (function(){
 const C = window.CONFIG, {esc, ic, t, store, bus, money, signed, pct, mmss, toast, fmt} = U;
-const TFS = ["tick","1m","5m","15m","1h","4h","1d","5s","15s","30s"];
+const TFS = ["tick","1s","5s","30s","1m","5m","15m","1h","4h","1d","15s"];
 const TFL = {tick:"Time", "1d":"1D"};
 const INDS_MAIN = ["MA","EMA","BOLL","SAR","VWAP","SUPER"], INDS_SUB = ["VOL","RSI","MACD"];
 const S = () => store.s;
 const fsym = p => p.type === "crypto" ? p.base + "USDT" : p.sym;
+
+/* ---------------- Coin info (CoinGecko, cached per session) ---------------- */
+const CG = "https://api.coingecko.com/api/v3";
+async function cgCoin(base){
+  const key = "cg_" + base; try { const c = JSON.parse(sessionStorage.getItem(key) || "null"); if (c) return c; } catch {}
+  const sr = await (await fetch(`${CG}/search?query=${encodeURIComponent(base)}`)).json();
+  const hit = (sr.coins || []).find(c => c.symbol?.toUpperCase() === base) || (sr.coins || [])[0]; if (!hit) throw 0;
+  const d = await (await fetch(`${CG}/coins/${hit.id}?localization=false&tickers=false&market_data=true&community_data=false&developer_data=false&sparkline=false`)).json();
+  try { sessionStorage.setItem(key, JSON.stringify(d)); } catch {} return d;
+}
+async function coinInfo(p, box){
+  if (p.type !== "crypto"){ box.innerHTML = `<div class="title" style="margin-bottom:6px">${esc(UI.fullName(p))}</div><p class="sub">${p.type === "forex" ? "Foreign-exchange pair quoted from interbank liquidity. Trades 24/5, closed on weekends." : "Spot precious metal priced in US dollars per troy ounce. Trades 24/5."}</p>`; return; }
+  box.innerHTML = `<div class="ci-skel">${Array(8).fill('<div class="skel" style="height:22px"></div>').join("")}</div>`;
+  try {
+    const d = await cgCoin(p.base), m = d.market_data || {}, u = v => v == null ? "--" : Number(v).toLocaleString("en-US", {maximumFractionDigits: v < 1 ? 6 : 2});
+    const sup = v => v == null ? "--" : Math.round(v).toLocaleString("en-US") + " " + esc(p.base), dt = d.genesis_date || (m.ath_date?.usd ? "" : "");
+    const desc = (d.description?.en || "").replace(/<[^>]+>/g, "").trim(), web = d.links?.homepage?.find(Boolean), wp = d.links?.whitepaper || "";
+    box.innerHTML = `<div class="ci-h">${UI.pairIcon(p, 28)}<b>${esc(d.name || UI.fullName(p))}</b></div>
+      <p class="ci-disc">*Data provided by CoinGecko is for information purposes only. It is shown on an "as is" basis and doesn't constitute any form of representation or warranty.</p>
+      <div class="ci-t">${[["Market Cap Ranking", d.market_cap_rank ? "#" + d.market_cap_rank : "--"], ["Circulating Market Cap", u(m.market_cap?.usd) + " USDT"], ["Fully Diluted Market Cap", u(m.fully_diluted_valuation?.usd) + " USDT"], ["Circulating Supply", sup(m.circulating_supply)], ["Maximum Supply", sup(m.max_supply)], ["Total Supply", sup(m.total_supply)], ["Issuance Date", d.genesis_date || "--"], ["All Time High", u(m.ath?.usd) + " USDT"], ["All Time Low", u(m.atl?.usd) + " USDT"]].map(([a, b]) => `<div><span>${a}</span><b class="num">${b}</b></div>`).join("")}</div>
+      ${web || wp ? `<div class="ci-sec">Link</div><div class="ci-links">${web ? `<a class="btn btn-ghost" href="${esc(web)}" target="_blank" rel="noopener">Official Website</a>` : ""}${wp ? `<a class="btn btn-ghost" href="${esc(wp)}" target="_blank" rel="noopener">White Paper</a>` : ""}</div>` : ""}
+      ${desc ? `<div class="ci-sec">Introduction</div><p class="ci-desc clamp" id="ciDesc">${esc(desc)}</p><button class="link" id="ciMore">View More</button>` : ""}`;
+    const more = box.querySelector("#ciMore"); if (more) more.onclick = () => { box.querySelector("#ciDesc").classList.toggle("clamp"); more.textContent = more.textContent === "View More" ? "View Less" : "View More"; };
+  } catch { box.innerHTML = UI.emptyState("info", "Coin info is unavailable right now. Check your connection and try again."); }
+}
 
 /* ---------------- shared pieces ---------------- */
 function resolveSym(params, key){
@@ -51,7 +76,7 @@ function bindChart(root, sym, tfKey, defTf, detailCb, opt={}){
   return () => { offs.forEach(f => f()); CH.destroy(); document.body.classList.remove("fs-on"); if (document.fullscreenElement) try { document.exitFullscreen(); } catch {} };
 }
 /* Compact chart used inside Futures (like the exchange's in-position chart): no indicator bar */
-const MINI_TFS = ["1m","5m","15m","1h","4h","1d"];
+const MINI_TFS = ["1s","5s","30s","1m","5m","15m","1h","4h","1d"];
 function miniChartBlock(sym){
   return `<div class="tfbar mini"><div class="tfs" id="tfs">${MINI_TFS.map(x => `<button data-tf="${x}">${TFL[x] || x}</button>`).join("")}</div>
     <button class="ti" data-ctype aria-label="Line / candles">${ic("candle",16)}</button><a class="ti" href="#/chart/${sym}" aria-label="Full chart">${ic("expand",15)}</a></div>
@@ -110,7 +135,7 @@ Pages.chart = (params) => {
   <header class="cp-head"><button class="icon-btn" data-back aria-label="Back">${ic("back",22)}</button>
     <div class="grow"><button class="nm" data-pick>${esc(fsym(p))} <span class="perp">Perp</span>${ic("chevd",16)}</button><div class="cp-sub">${esc(UI.fullName(p))}</div></div>
     <button class="icon-btn" data-star aria-label="Favorite"></button><button class="icon-btn" data-alert aria-label="Price alert">${ic("bell",22)}</button></header>
-  <div class="cp-tabs"><button class="on" data-cpt="price">Price</button><button data-cpt="info">Info</button><button data-cpt="data">Data</button><button data-cpt="binary">Binary</button></div>
+  <div class="cp-tabs"><button class="on" data-cpt="price">Chart</button><button data-cpt="coin">Coin Info</button><button data-cpt="info">Info</button><button data-cpt="data">Data</button><button data-cpt="binary">Binary</button></div>
   <div id="cpPrice">
     <div class="cp-price"><div><div class="label">Last Price ▾</div><div class="lp" id="lp">--</div><div class="row num" style="gap:6px;font-size:14px"><b id="lusd"></b><span id="lc"></span></div><div class="label" style="margin-top:4px">Mark Price <b class="num" id="mk" style="color:var(--text);font-weight:400"></b></div>${p.closed ? `<div class="brand-c" style="font-size:13px;margin-top:4px">Market closed</div>` : ""}</div>
       <div class="k"><span>24h High</span><b id="hi"></b><span>24h Low</span><b id="lo"></b><span>24h Vol(${esc(p.base)})</span><b id="vb"></b><span>24h Vol(USDT)</span><b id="vq"></b></div></div>
@@ -160,6 +185,7 @@ Pages.chart = (params) => {
     const box = root.querySelector("#cpOther"), p = M.get(sym);
     if (k === "info") box.innerHTML = `<div class="row" style="gap:10px;margin-bottom:14px">${UI.pairIcon(p,40)}<div><div class="title">${esc(UI.fullName(p))}</div><div class="label">${esc(fsym(p))} Perpetual</div></div></div>
       <div class="cdetail" style="grid-template-columns:1fr">${[["Contract","USDⓈ-M Perpetual"],["Settlement asset","USDT"],["Max leverage", E.maxLev(p) + "x"],["Maintenance margin rate",(C.MMR*100).toFixed(2)+"%"],["Taker / Maker fee",(C.FEE*100).toFixed(3)+"% / 0.020%"],["Funding interval","8h"],["Binary options", p.tradable ? "30s · 1m · 5m · +92%" : "Not available"],["Trading hours", p.type === "crypto" ? "24/7" : "Mon–Fri"],["Price source", p.type === "crypto" ? "Binance spot" : "biquote.io"]].map(([a,b]) => `<div><span>${a}</span><b>${esc(b)}</b></div>`).join("")}</div>`;
+    if (k === "coin") coinInfo(p, box);
     if (k === "data"){
       const t = M.trades.slice(0, 40), buy = t.filter(x => x.buy).reduce((a,x) => a + x.q*x.p, 0), sell = t.filter(x => !x.buy).reduce((a,x) => a + x.q*x.p, 0), bp = buy + sell ? buy/(buy+sell)*100 : 50;
       box.innerHTML = `<div class="title" style="margin-bottom:10px">Taker buy / sell (recent trades)</div><div class="ratio num"><span class="up">${bp.toFixed(1)}%</span><div class="bar"><i style="width:${bp}%;background:var(--up)"></i><i style="flex:1;background:var(--down)"></i></div><span class="down">${(100-bp).toFixed(1)}%</span></div>
@@ -195,7 +221,7 @@ Pages.futures = (params) => {
   let root, offs = [], timers = [], oc = "open", otype = "market", lev = Math.min(s.settings.lev || 20, E.maxLev(P())), mode = s.settings.marginMode || "cross", tpsl = false, ptab = sessionStorage.getItem("fx_ptab") || "pos", hideOther = false, chartOpen = false, unChart = null, sliderPct = 0;
   const $ = q => root.querySelector(q);
   const html = `
-  <div class="tabs" style="gap:20px;margin:0 -16px;padding:4px 16px 0;border:0"><button class="tab on" style="font-size:17px">USDⓈ-M</button><a class="tab" href="#/trade/${sym}" style="font-size:17px">Binary</a><a class="tab" href="#/options" style="font-size:17px">Options</a><a class="tab" href="#/copy" style="font-size:17px">Copy</a><a class="tab" href="#/bots" style="font-size:17px">Bots</a></div>
+  <div class="tabs" style="gap:20px;margin:0 -16px;padding:4px 16px 0;border:0"><button class="tab on" style="font-size:17px">USDⓈ-M</button><a class="tab" href="#/spot/${sym}" style="font-size:17px">Spot</a><a class="tab" href="#/trade/${sym}" style="font-size:17px">Binary</a><a class="tab" href="#/options" style="font-size:17px">Options</a><a class="tab" href="#/copy" style="font-size:17px">Copy</a><a class="tab" href="#/bots" style="font-size:17px">Bots</a></div>
   <header class="fx-head"><div class="grow"><button class="nm" data-pick>${esc(fsym(P()))} <span class="perp">Perp</span>${ic("chevd",16)}</button><div class="num" id="fchg" style="font-size:13px"></div></div>
     <a class="icon-btn" href="#/chart/${sym}" aria-label="Chart">${ic("candle",22,1.6)}</a><button class="icon-btn" data-menu aria-label="More">${ic("dots",22)}</button></header>
   <div class="fx-grid">
@@ -228,7 +254,7 @@ Pages.futures = (params) => {
   <div class="ptools" id="ptools"><label class="fchk" style="margin:0"><input type="checkbox" id="hide"> Hide Other Symbols</label><button class="btn btn-ghost btn-sm" data-closeall>Close All</button></div>
   <div id="plist"></div>
 
-  <section class="fxc ${sessionStorage.getItem("fx_chart") === "0" ? "" : "open"}" id="cch"><button class="fxc-bar" data-cch><span>${esc(fsym(P()))} Perp Chart</span><span class="fxc-i">${ic("chevd",16)}</span></button><div class="fxc-body">${miniChartBlock(sym)}</div></section>`;
+  <div style="height:64px"></div><section class="fxc ${sessionStorage.getItem("fx_chart") === "1" ? "open" : ""}" id="cch"><button class="fxc-bar" data-cch><span>${esc(fsym(P()))} Perp Chart</span><span class="fxc-i">${ic("chevd",16)}</span></button><div class="fxc-body">${miniChartBlock(sym)}</div></section>`;
 
   /* --- order form --- */
   const inputs = () => { const p = P(), amt = parseFloat($("#amt").value) || 0, px = otype === "limit" ? (parseFloat($("#lp").value) || p.price) : p.price; return {p, amt, px}; };
@@ -357,14 +383,38 @@ Pages.futures = (params) => {
     });
   }
   function tpslSheet(id){
-    const pos = s.fut.positions.find(x => x.id === id); if (!pos) return; const p = M.get(pos.sym);
-    U.sheet("TP/SL for entire position", `<div class="kv"><span>Symbol</span><b>${esc(fsym(p))} Perp · ${pos.side === "long" ? "Long" : "Short"} ${pos.lev}x</b></div><div class="kv"><span>Entry Price</span><b class="num">${M.fmtPx(p,pos.entry)}</b></div><div class="kv"><span>Mark Price</span><b class="num">${M.fmtPx(p)}</b></div><div class="kv" style="margin-bottom:14px"><span>Liq. Price</span><b class="num" style="color:#F7931A">${pos.liq > 0 ? M.fmtPx(p,pos.liq) : "--"}</b></div>
-      <div class="form-row"><label>Take Profit · Mark price</label><div class="famt"><input id="t1" type="number" inputmode="decimal" value="${pos.tp||""}" placeholder="TP price"><span>USDT</span></div><div class="label" id="t1e"></div></div>
-      <div class="form-row"><label>Stop Loss · Mark price</label><div class="famt"><input id="t2" type="number" inputmode="decimal" value="${pos.sl||""}" placeholder="SL price"><span>USDT</span></div><div class="label" id="t2e"></div></div>
-      <div class="err-msg" id="te"></div><button class="btn btn-primary btn-block btn-lg" data-ok>Confirm</button>`, el => {
-      const est = (v, k) => { const x = parseFloat(v); el.querySelector("#" + k + "e").innerHTML = x ? `When Mark Price reaches ${M.fmtPx(p, x)}, it will trigger a Market order. Est. PNL: <b class="${E.futPnl(pos, x).pnl>=0?"up":"down"}">${signed(E.futPnl(pos, x).pnl)} USDT</b>` : ""; };
-      el.querySelector("#t1").oninput = e => est(e.target.value, "t1"); el.querySelector("#t2").oninput = e => est(e.target.value, "t2"); est(pos.tp, "t1"); est(pos.sl, "t2");
-      el.querySelector("[data-ok]").onclick = () => { const e = E.setTpSl(id, parseFloat(el.querySelector("#t1").value) || null, parseFloat(el.querySelector("#t2").value) || null); if (e){ el.querySelector("#te").textContent = e; return; } E.award("tpsl"); U.closeLayer(); toast("TP/SL placed", "ok"); };
+    const pos = s.fut.positions.find(x => x.id === id); if (!pos) return; const p = M.get(pos.sym), long = pos.side === "long";
+    const roiOf = px => px ? E.futPnl(pos, px).pnl / pos.margin * 100 : 0;
+    const pxOf = roi => { const d = roi / 100 * pos.margin / pos.qty; return pos.entry + (long ? d : -d); };
+    const blk = (k, n, max) => `<div class="ts-b" data-k="${k}"><div class="ts-h"><b>${n}</b><button class="icon-btn" data-del="${k}" aria-label="Clear ${n}">${ic("trash",16)}</button></div>
+      <div class="ts-in"><label><small>Trigger Price</small><input type="number" inputmode="decimal" data-px="${k}" placeholder="--"></label><span class="ts-u">Mark</span>
+        <label class="ts-roi"><small>ROI</small><input type="number" inputmode="decimal" data-roi="${k}" placeholder="--"></label><span class="ts-u">%</span></div>
+      <div class="dslider ts-sl"><div class="tr"></div><div class="fl" data-fl="${k}"></div>${[0, 20, 100].map(v => `<i class="nd" style="left:${v}%"></i>`).join("")}<div class="th" data-th="${k}"></div><input type="range" min="0" max="${max}" step="1" value="0" data-r="${k}" aria-label="${n} ROI"></div>
+      <div class="ts-ticks"><span>0%</span><span style="left:20%">${Math.round(max*.2)}%</span><span>${max}%</span></div>
+      <p class="ts-note" data-note="${k}"></p></div>`;
+    U.sheet("TP/SL", `<div class="ts-pos"><b>${esc(fsym(p))}</b><span class="ls ${long ? "long" : "short"}">${long ? "Long" : "Short"}</span><span class="perp">${pos.mode === "isolated" ? "Isolated" : "Cross"}</span><span class="perp">${pos.lev}x</span></div>
+      <div class="ts-g"><div><small>Amount (USDT)</small><b class="num">${money(pos.qty * pos.entry)}</b></div><div><small>Entry price</small><b class="num">${M.fmtPx(p, pos.entry)}</b></div><div><small>Last price</small><b class="num">${M.fmtPx(p)}</b></div><div><small>Est. liq. price</small><b class="num" style="color:var(--warn)">${pos.liq > 0 ? M.fmtPx(p, pos.liq) : "--"}</b></div></div>
+      <div class="seg ts-mode"><button class="on">Entire position</button><button disabled title="Coming soon">Partial position</button></div>
+      ${blk("tp", "TP", 150)}${blk("sl", "SL", 75)}
+      <div class="err-msg" id="te"></div><button class="btn btn-primary btn-block btn-lg" data-ok>OK</button>`, el => {
+      const v = {tp: pos.tp || null, sl: pos.sl || null};
+      const paint = (k, from) => {
+        const px = v[k], roi = px ? roiOf(px) : null, max = k === "tp" ? 150 : 75, mag = roi == null ? 0 : U.clamp(Math.abs(roi), 0, max);
+        if (from !== "px") el.querySelector(`[data-px="${k}"]`).value = px ? M.fmtPx(p, px).replace(/,/g, "") : "";
+        if (from !== "roi") el.querySelector(`[data-roi="${k}"]`).value = roi == null ? "" : roi.toFixed(2);
+        if (from !== "r") el.querySelector(`[data-r="${k}"]`).value = mag;
+        el.querySelector(`[data-fl="${k}"]`).style.width = el.querySelector(`[data-th="${k}"]`).style.left = (mag / max * 100) + "%";
+        const est = px ? E.futPnl(pos, px).pnl : null;
+        el.querySelector(`[data-note="${k}"]`).innerHTML = px ? `When the Mark Price reaches <b class="num">${M.fmtPx(p, px)}</b>, it will trigger a <u>${k.toUpperCase()} Market Order</u> and the estimated PnL is <b class="num ${est >= 0 ? "up" : "down"}">${signed(est)} USDT (${roi >= 0 ? "+" : ""}${roi.toFixed(2)}%)</b>.` : `Set a trigger price or drag the slider to set ${k === "tp" ? "take profit" : "stop loss"} by ROI.`;
+      };
+      ["tp","sl"].forEach(k => {
+        el.querySelector(`[data-px="${k}"]`).oninput = e => { v[k] = parseFloat(e.target.value) || null; paint(k, "px"); };
+        el.querySelector(`[data-roi="${k}"]`).oninput = e => { const r = parseFloat(e.target.value); v[k] = isNaN(r) ? null : pxOf(k === "sl" ? -Math.abs(r) : Math.abs(r)); paint(k, "roi"); };
+        el.querySelector(`[data-r="${k}"]`).oninput = e => { const r = +e.target.value; v[k] = r ? pxOf(k === "sl" ? -r : r) : null; paint(k, "r"); };
+        el.querySelector(`[data-del="${k}"]`).onclick = () => { v[k] = null; paint(k); };
+        paint(k);
+      });
+      el.querySelector("[data-ok]").onclick = () => { const e = E.setTpSl(id, v.tp ? +(+v.tp).toFixed(p.dp) : null, v.sl ? +(+v.sl).toFixed(p.dp) : null); if (e){ el.querySelector("#te").textContent = e; return toast(e, "bad"); } E.award("tpsl"); U.closeLayer(); U.fx("notify"); toast("TP/SL updated", "ok"); };
     });
   }
   function closeSheet(id){
@@ -470,6 +520,7 @@ function historyHtml(list){
       <div class="ph-t"><span>Opened</span><b class="num">${ds(x.open)}</b></div><div class="ph-t" style="margin-top:4px"><span>Closed (Lasting ${dur(x.closed - x.open)})</span><b class="num">${ds(x.closed)}</b></div></div>`; }).join("");
 }
 window.UI.historyHtml = historyHtml;
+Object.assign(window.UI, {bindChart, miniChartBlock, pickSheet, alertSheet, candleDetail, MINI_TFS});
 
 /* ---------------- Binary Options (#/trade/SYM) ---------------- */
 Pages.trade = (params) => {
@@ -480,7 +531,7 @@ Pages.trade = (params) => {
   let root, offs = [], timers = [], unChart, exp = s.settings.defExp || 30, ptab = "pos", cdLast = {};
   const $ = q => root.querySelector(q);
   const html = `<div class="bin-page">
-  <div class="tabs" style="gap:20px;margin:0 -16px;padding:4px 16px 0;border:0"><a class="tab" href="#/futures/${sym}" style="font-size:17px">USDⓈ-M</a><button class="tab on" style="font-size:17px">Binary</button><a class="tab" href="#/options" style="font-size:17px">Options</a><a class="tab" href="#/copy" style="font-size:17px">Copy</a><a class="tab" href="#/bots" style="font-size:17px">Bots</a></div>
+  <div class="tabs" style="gap:20px;margin:0 -16px;padding:4px 16px 0;border:0"><a class="tab" href="#/futures/${sym}" style="font-size:17px">USDⓈ-M</a><a class="tab" href="#/spot/${sym}" style="font-size:17px">Spot</a><button class="tab on" style="font-size:17px">Binary</button><a class="tab" href="#/options" style="font-size:17px">Options</a><a class="tab" href="#/copy" style="font-size:17px">Copy</a><a class="tab" href="#/bots" style="font-size:17px">Bots</a></div>
   <header class="fx-head"><div class="grow"><button class="nm" data-pick>${esc(M.label(P()))} ${P().tradable ? `<span class="perp" style="color:var(--brand-2)">+92%</span>` : `<span class="perp">Chart only</span>`}${ic("chevd",16)}</button></div>
     <button class="icon-btn" data-alert aria-label="Price alert">${ic("bell",22)}</button><a class="icon-btn" href="#/chart/${sym}" aria-label="Full chart">${ic("candle",22,1.6)}</a></header>
   <div class="cp-price" style="border:0;padding-top:6px"><div><div class="lp" id="lp">--</div><div class="row num" style="gap:6px;font-size:13px"><b id="lusd"></b><span id="lc"></span></div></div>

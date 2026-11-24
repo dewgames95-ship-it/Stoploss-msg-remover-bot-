@@ -41,7 +41,7 @@ function mount(container, parts, detailCb){
   drawEl = el.parentElement.querySelector("#drawSvg");
   ui.ovl2 = el.parentElement.querySelector("#ovl2"); ui.cbox = el.parentElement.querySelector("#cbox"); ui.auto = el.parentElement.querySelector("#autoBtn");
   ui.auto.onclick = () => { chart?.priceScale("right").applyOptions({autoScale:true}); ui.auto.classList.add("hide"); };
-  bindDraw(); bindAxisTap();
+  bindDraw(); bindAxisTap(); bindDrag();
   loop();
 }
 
@@ -272,14 +272,20 @@ function overlay(){
   }
   const bin = ui.mode !== "fut" && cp.pos !== false, fut = ui.mode !== "bin" && cp.pos !== false, ordOn = ui.mode !== "bin" && cp.ord !== false;
   // futures: entry label (PnL | size), TP/SL labels, liq
+  // futures: entry label (PnL | size) + draggable TP/SL (drag the "TP/SL" handle off the entry line, or drag existing TP/SL labels)
   if (fut) s.fut.positions.filter(x => x.sym === sym).forEach(pos => {
     const {pnl} = E.futPnl(pos), ye = S.main.priceToCoordinate(pos.entry), c = pnl >= 0 ? "g" : "r";
-    if (ye != null) h += `<div class="plab ${c}" style="top:${ye}px;left:0"><span>PnL ${signed(pnl)}</span><span>${money(pos.qty * pos.entry)}</span></div>`;
-    [["tp","TP"],["sl","SL"]].forEach(([k, n]) => { if (!pos[k]) return; const yy = S.main.priceToCoordinate(pos[k]); if (yy == null) return;
-      const est = E.futPnl(pos, pos[k]).pnl; h += `<div class="plab o ${est>=0?"g":"r"}" style="top:${yy}px;left:${Math.max(4, axisX/2 - 70)}px"><span>${n} Market ${M.fmtPx(p, pos[k])}</span><span>PnL ${signed(est)}</span></div>`; });
-    if (pos.liq > 0){ const yl = S.main.priceToCoordinate(pos.liq); if (yl != null && yl > 0 && yl < el.clientHeight) h += `<div class="plab o liq" style="top:${yl}px;left:4px"><span>Liq. ${M.fmtPx(p, pos.liq)}</span></div>`; }
+    if (ye != null){
+      h += `<div class="plab ${c}" style="top:${ye}px;left:0"><span>PnL ${signed(pnl)}</span><span>${money(pos.qty * pos.entry)}</span></div>`;
+      if (ui.mode !== "bin" && !(dragS && dragS.id === pos.id && dragS.kind === "new")) h += `<div class="dh drag" data-drag="new:${pos.id}" style="top:${ye}px;right:70px">${dragIcon} TP/SL</div>`;
+    }
+    const pv = k => dragS && dragS.id === pos.id && (dragS.kind === k || (dragS.kind === "new" && dragS.as === k)) ? dragS.price : pos[k];
+    [["tp","TP"],["sl","SL"]].forEach(([k, n]) => { const v = pv(k); if (!v) return; const yy = S.main.priceToCoordinate(v); if (yy == null) return;
+      const est = E.futPnl(pos, v).pnl, roi = est / (pos.margin || 1) * 100, act = dragS && dragS.id === pos.id && (dragS.kind === k || dragS.as === k);
+      if (act) h += `<div class="dline ${k}" style="top:${yy}px"></div>`;
+      h += `<div class="plab o ${est>=0?"g":"r"} drag${act ? " act" : ""}" data-drag="${k}:${pos.id}" style="top:${yy}px;left:${Math.max(4, axisX/2 - 90)}px"><span>${dragIcon} ${n} ${M.fmtPx(p, v)}</span><span>PnL ${signed(est)} (${roi >= 0 ? "+" : ""}${roi.toFixed(1)}%)</span></div>`; });
   });
-  if (ordOn) s.fut.orders.filter(x => x.sym === sym).forEach(o => { const yy = S.main.priceToCoordinate(o.price); if (yy != null) h += `<div class="plab o y" style="top:${yy}px;left:4px"><span>Limit ${o.side === "long" ? "Buy" : "Sell"} ${M.fmtPx(p, o.price)}</span><span>${money(o.margin * o.lev)}</span></div>`; });
+  if (ordOn) s.fut.orders.filter(x => x.sym === sym).forEach(o => { const yy = S.main.priceToCoordinate(dragS && dragS.kind === "ord" && dragS.id === o.id ? dragS.price : o.price); if (yy != null) h += `<div class="plab o y drag" data-drag="ord:${o.id}" style="top:${yy}px;left:4px"><span>Limit ${o.side === "long" ? "Buy" : "Sell"} ${M.fmtPx(p, o.price)}</span><span>${money(o.margin * o.lev)}</span></div>`; });
   // B/S markers from trades on this symbol
   const marks = ui.mode === "bin" ? [] : [...s.fut.positions.filter(x => x.sym === sym).map(x => ({t:x.open, p:x.entry, s:x.side === "long" ? "B" : "S"})),
     ...s.fut.history.filter(x => x.sym === sym).slice(0, 40).flatMap(x => [{t:x.open, p:x.entry, s:x.side === "long" ? "B" : "S"}, {t:x.closed, p:x.exit, s:x.side === "long" ? "S" : "B"}])];
@@ -309,6 +315,35 @@ function overlay(){
     h += `<div class="plab ${win == null ? "n" : win ? "g" : "r"}" style="top:${yy}px;right:66px"><span>${pos.dir === "up" ? "▲ Up" : "▼ Down"}</span><span>${win ? "+" + money(pnl) : "-" + money(pos.amount)} · ${mmss(lft)}</span></div>`;
   });
   if (h !== box._h){ box._h = h; box.innerHTML = h; }
+}
+
+/* ---- Drag TP / SL / limit order lines on the chart ---- */
+let dragS = null;
+const dragIcon = `<svg width="9" height="9" viewBox="0 0 10 10" aria-hidden="true"><path d="M5 0l3 3H2zM5 10l3-3H2z" fill="currentColor"/></svg>`;
+function bindDrag(){
+  const host = el.parentElement;
+  host.addEventListener("pointerdown", e => {
+    const t = e.target.closest("[data-drag]"); if (!t || !chart || !S.main) return;
+    e.preventDefault(); e.stopPropagation();
+    const [kind, id] = t.dataset.drag.split(":"); dragS = {kind, id, price:null, as:null, y0:e.clientY};
+    const move = ev => {
+      const r = el.getBoundingClientRect(), pr = S.main.coordinateToPrice(ev.clientY - r.top); if (pr == null) return;
+      dragS.price = pr;
+      if (kind === "new"){ const pos = store.s.fut.positions.find(x => x.id === id); if (pos) dragS.as = (pos.side === "long") === (pr > pos.entry) ? "tp" : "sl"; }
+    };
+    const up = () => {
+      removeEventListener("pointermove", move); removeEventListener("pointerup", up); removeEventListener("pointercancel", up);
+      const d = dragS; dragS = null; if (!d || d.price == null) return;
+      const P = M.get(sym), v = +M.fmtPx(P, d.price).replace(/,/g, "");
+      if (d.kind === "ord"){ const o = store.s.fut.orders.find(x => x.id === d.id); if (o){ o.price = v; store.save(); bus.emit("positions"); U.toast(`Limit price moved to ${M.fmtPx(P, v)}`, "ok", 1400); } return; }
+      const pos = store.s.fut.positions.find(x => x.id === d.id); if (!pos) return;
+      const k = d.kind === "new" ? d.as : d.kind; if (!k) return;
+      const err = E.setTpSl(pos.id, k === "tp" ? v : pos.tp || null, k === "sl" ? v : pos.sl || null);
+      if (err) return U.toast(err, "bad");
+      E.award?.("tpsl"); U.fx("notify"); U.toast(`${k.toUpperCase()} set at ${M.fmtPx(P, v)} · est. PnL ${signed(E.futPnl(pos, v).pnl)} USDT`, "ok", 1800); syncLines();
+    };
+    addEventListener("pointermove", move); addEventListener("pointerup", up); addEventListener("pointercancel", up);
+  }, true);
 }
 
 /* ---- Tap on price axis toggles % scale ---- */

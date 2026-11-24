@@ -179,7 +179,7 @@ async function startHub(){
 }
 
 /* ---- Candles (OHLCV) ---- */
-const TF_SEC = {tick:1, "5s":5, "15s":15, "30s":30, "1m":60, "5m":300, "15m":900, "1h":3600, "4h":14400, "1d":86400};
+const TF_SEC = {tick:1, "1s":1, "5s":5, "15s":15, "30s":30, "1m":60, "5m":300, "15m":900, "1h":3600, "4h":14400, "1d":86400};
 function aggregate(bars, sec){
   const out = [];
   for (const b of bars){
@@ -194,13 +194,13 @@ async function candles(sym, tf){
   if (p.type === "crypto"){
     const k = r => ({time: Math.floor(r[0]/1000), open:+r[1], high:+r[2], low:+r[3], close:+r[4], volume:+r[5]});
     if (sec < 60){
-      const pages = tf === "tick" || tf === "5s" ? 1 : tf === "15s" ? 2 : 3;
+      const pages = tf === "tick" || tf === "1s" || tf === "5s" ? 1 : tf === "15s" ? 2 : 3;
       let end = null, all = [];
       for (let i=0;i<pages;i++){
         const rows = await binance(`/api/v3/klines?symbol=${sym}&interval=1s&limit=1000` + (end ? `&endTime=${end}` : ""));
         all = rows.map(k).concat(all); if (!rows.length) break; end = rows[0][0] - 1;
       }
-      return aggregate(tf === "tick" ? all.slice(-600) : all, sec);
+      return aggregate(tf === "tick" ? all.slice(-600) : tf === "1s" ? all.slice(-900) : all, sec);
     }
     const rows = await binance(`/api/v3/klines?symbol=${sym}&interval=${tf}&limit=500`);
     return rows.map(k);
