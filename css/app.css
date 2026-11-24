@@ -1070,3 +1070,5 @@ html[data-theme="dark"] .btn-primary{background:linear-gradient(180deg,#4D86FF,#
 .sl-art{width:76px;height:76px;border-radius:22px;display:grid;place-items:center;flex-shrink:0;color:var(--brand);background:var(--card);border:1px solid var(--line);position:relative}
 .sl-art::after{content:"";position:absolute;inset:-8px;border-radius:28px;border:1px dashed var(--line-2);opacity:.7}
 .sl-art svg{width:34px!important;height:34px!important}
+/* Price colour preference: red-up / green-down */
+html[data-cm="ru"]{--up:#F0435A;--down:#12B886;--up-bg:rgba(240,67,90,.10);--down-bg:rgba(18,184,134,.11)}

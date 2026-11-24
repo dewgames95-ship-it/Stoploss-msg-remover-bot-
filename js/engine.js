@@ -386,6 +386,8 @@ const level = () => { const xp = S().rewards.xp; return {lvl: Math.floor(xp/200)
 
 /* ---- Vault (Earn) ---- */
 const APR = 0.08;
+/* Earn total = flexible vault + locked products (principal + accrued simple interest) */
+function earnValue(){ const L = (S().earn?.locked || []), now = Date.now(); return vaultValue() + L.reduce((a, x) => a + x.amount * (1 + x.apr * Math.min(now - x.start, x.days * 864e5) / 31536e6), 0); }
 function vaultValue(){ const v = S().vault; return v.bal * (1 + APR * (Date.now() - v.since) / 31536e6); }
 function vaultMove(amount, dir){
   const v = S().vault, cur = vaultValue();
@@ -394,5 +396,5 @@ function vaultMove(amount, dir){
   store.save(); bus.emit("vault"); return null;
 }
 
-window.E = {setPosLev, refreshLiq, liqPrice, maxLev, futValidate, openFut, futPnl, closeFut, cancelOrder, setTpSl, TASKS, BADGES, award, taskDone, claim, streak, checkIn, CHECKIN, level, dayKey, vaultValue, vaultMove, APR, validate, place, livePnl, stats, todaySeries, BOTS, botPnl, startBot, stopBot, startAuto, stopAuto, runAuto, RATIO};
+window.E = {earnValue, setPosLev, refreshLiq, liqPrice, maxLev, futValidate, openFut, futPnl, closeFut, cancelOrder, setTpSl, TASKS, BADGES, award, taskDone, claim, streak, checkIn, CHECKIN, level, dayKey, vaultValue, vaultMove, APR, validate, place, livePnl, stats, todaySeries, BOTS, botPnl, startBot, stopBot, startAuto, stopAuto, runAuto, RATIO};
 })();

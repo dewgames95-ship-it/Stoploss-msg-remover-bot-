@@ -4,7 +4,7 @@
 (function(){
 const LW = window.LightweightCharts, {bus, store, money, mmss, signed} = U;
 const TZ = -new Date().getTimezoneOffset() * 60;
-const UP = "#12B886", DN = "#F0435A";
+let UP = "#12B886", DN = "#F0435A";
 const COL = {m7:"#F59E0B", m25:"#0EA5E9", m99:"#64748B", boll:"#0EA5E9", bollMid:"#F59E0B", rsi:"#2E6BFF", macd:"#2E6BFF", sig:"#F59E0B", sar:"#E6A23C", vwap:"#4FC3F7"};
 let chart, el, sym, tf = "15m", sec = 900, bars = [], S = {}, inds = [], type = "candle", loadSeq = 0, offs = [], ro, ui = {}, dirty = false, raf, lastRender = 0, onDetail = null, hover = null, hoverPt = null, lines = new Map(), cache = {}, pctMode = false;
 let draw = {tool:null, temp:null}, drawEl = null;
@@ -49,6 +49,7 @@ function mount(container, parts, detailCb){
 function build(){
   if (chart){ chart.remove(); chart = null; }
   lines.clear();
+  UP = css("--up") || UP; DN = css("--down") || DN;
   chart = LW.createChart(el, Object.assign({width: el.clientWidth, height: el.clientHeight}, opts()));
   const p = M.get(sym), dp = p?.dp ?? 2, pf = {type:"price", precision:dp, minMove: Math.pow(10, -dp)};
   S = {};

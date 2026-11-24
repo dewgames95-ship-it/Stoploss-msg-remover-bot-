@@ -6,7 +6,13 @@ let current = null, curName = "";
 const DESC = {home:"Live crypto, forex and gold prices, binary options and futures.", markets:"Live prices for 100+ crypto pairs, forex and metals.", trade:"Trade Up or Down on live charts with 30s–5m expiries.", futures:"USDT-margined futures up to 125x with TP/SL.", assets:"Your balances, PnL and transactions.", bots:"Automated trading bots on live prices.", referral:"Invite friends and earn commission.", profile:"Your trading stats and account.", deposit:"Add USDT to your trading account instantly.", withdraw:"Move funds to your Vault and earn interest.", auto:"Activate automatic trading.", vip:"Momentum signals for every tradable pair.", community:"Chat with other traders.", about:"About NovaTrade.", support:"Contact NovaTrade support by phone, email or ticket.", settings:"Theme, language, sounds and defaults.", rewards:"Daily check-in, tasks and badges.", academy:"Learn trading, indicators and risk management.", alerts:"Price alerts for any market.", options:"Buy BTC, ETH and altcoin call & put options, cash-settled in USDT."};
 const NAV = [["home","Home","nhome"],["markets","Markets","nmkt"],["trade","Trade","ntrade"],["futures","Futures","nfut"],["assets","Assets","nasset"]];
 
-function setTheme(th){ S.settings.theme = th; document.documentElement.dataset.theme = th; document.querySelector('meta[name="theme-color"]').content = th === "dark" ? "#0B1220" : "#F5F7FB"; store.save(); bus.emit("theme"); }
+const mq = matchMedia("(prefers-color-scheme: dark)");
+function setTheme(th){
+  S.settings.theme = th; const r = th === "system" ? (mq.matches ? "dark" : "light") : th;
+  document.documentElement.dataset.theme = r; document.documentElement.dataset.cm = S.settings.colorMode === "ru" ? "ru" : "gu";
+  document.querySelector('meta[name="theme-color"]').content = r === "dark" ? "#0B1220" : "#F5F7FB"; store.save(); bus.emit("theme");
+}
+mq.addEventListener?.("change", () => { if (S.settings.theme === "system") setTheme("system"); });
 function renderNav(active){
   $("#bnav").innerHTML = `<div class="bnav-in">${NAV.map(([k,n,i]) => `<a href="#/${k}" class="${active===k?"on":""}" ${active===k?'aria-current="page"':""}><span class="ni">${ic(i,24,1.6)}</span><span>${t(n)}</span></a>`).join("")}</div>`;
 }
