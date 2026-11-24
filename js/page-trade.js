@@ -93,8 +93,9 @@ function pickSheet(cur, onPick, binaryOnly){
     const qq = q.toUpperCase();
     const list = [...M.pairs.values()].filter(p => (m === "all" || p.tradable) && (!qq || p.sym.includes(qq) || UI.fullName(p).toUpperCase().includes(qq)))
       .sort((a,b) => ((a.type==="crypto"?a.rank||999:500) - (b.type==="crypto"?b.rank||999:500))).slice(0, 160);
-    return list.map(p => `<button class="mkt-row" style="width:100%;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr)" data-s="${p.sym}"><div class="row" style="gap:10px;min-width:0">${UI.pairIcon(p,26)}<div class="grow" style="text-align:left"><div class="sym">${esc(fsym(p))} <span class="perp">Perp</span></div><div class="sub2">${esc(UI.fullName(p))}${p.qv ? " | " + CH.fmtVol(p.qv) : ""}</div></div></div>
-      <div style="text-align:right"><div class="num" style="font-weight:500">${M.fmtPx(p)}</div><div class="num ${p.chg<0?"down":"up"}" style="font-size:12px">${p.closed ? "Closed" : p.chg == null ? "" : pct(p.chg)}</div></div></button>`).join("") || UI.emptyState("search","No results");
+    const vol = p => p.qv ? CH.fmtVol(p.qv) : "";
+    return list.map(p => `<button class="pk-row" data-s="${p.sym}">${UI.pairIcon(p,30)}<div class="pk-n"><b>${esc(fsym(p))}</b><small>${esc(UI.fullName(p))} ${vol(p) ? `<span class="num">${vol(p)}</span>` : ""} <span class="perp">${p.type === "crypto" ? "Perp" : "24/5"}</span></small></div>
+      <div class="pk-p"><b class="num">${M.fmtPx(p)}</b><small class="num">$${M.fmtPx(p)}</small></div><span class="pk-c ${p.closed ? "cl" : (p.chg||0) < 0 ? "dn" : ""}">${p.closed ? "Closed" : p.chg == null ? "--" : pct(p.chg)}</span></button>`).join("") || UI.emptyState("search","No results");
   };
   U.sheet("", `<label class="search" style="margin-bottom:6px">${ic("search",16)}<input id="ps" placeholder="Search" autocomplete="off"></label>
     <div class="tabs" style="margin-bottom:4px"><button class="tab ${m==="all"?"on":""}" data-m="all">USDⓈ-M</button><button class="tab ${m==="binary"?"on":""}" data-m="binary">Binary</button></div><div id="pl">${body()}</div>`, el => {
@@ -446,16 +447,12 @@ Pages.futures = (params) => {
   /* Realized PnL breakdown: where the money went and how much % of margin */
   function rzSheet(id){
     const pos = s.fut.positions.find(x => x.id === id) || s.fut.history.find(x => x.id === id); if (!pos) return;
-    const p = M.get(pos.sym) || {dp:2, base:pos.sym}, rz = pos.rz || {openFee: pos.fee || 0, closeFee:0, closePnl:0, funding:0};
-    const total = (pos.realized ?? pos.profit ?? 0), m = pos.margin || 1, pc = v => `<small class="${v >= 0 ? "up" : "down"}">${v >= 0 ? "+" : ""}${(v / m * 100).toFixed(2)}%</small>`;
-    const row = (k, d, v) => `<div class="rz-r"><div><b>${k}</b><small>${d}</small></div><div class="num ${v > 0 ? "up" : v < 0 ? "down" : ""}">${signed(v)}${pc(v)}</div></div>`;
-    U.sheet("Realized PNL", `<div class="rz-top"><span>Realized PNL (USDT)</span><b class="num ${total >= 0 ? "up" : "down"}">${signed(total)}</b><small class="num">${(total / m * 100).toFixed(2)}% of margin ${money(m)} USDT</small></div>
-      ${row("Closing PNL", "Profit / loss from the part of the position you closed", rz.closePnl)}
-      ${row("Opening fee", `Taker ${(C.FEE * 100).toFixed(3)}% of opening notional`, -rz.openFee)}
-      ${row("Closing fee", `Taker ${(C.FEE * 100).toFixed(3)}% of closing notional`, -rz.closeFee)}
-      ${row("Funding fee", "Paid / received every 8h (00:00, 08:00, 16:00 UTC)", rz.funding)}
-      <p class="rz-note">${ic("info",13)} Realized PNL = Closing PNL − Trading fees ± Funding fees. Fees are charged on notional value (margin × leverage), so they look large compared with margin at high leverage.</p>`);
+    const rz = pos.rz || {openFee: pos.fee || 0, closeFee:0, closePnl:0, funding:0}, total = pos.realized ?? pos.profit ?? 0, m = pos.margin || 1;
+    const row = (k, v) => `<div class="rz-r"><span>${k}</span><b class="num ${v > 0 ? "up" : v < 0 ? "down" : ""}">${signed(v)} <small>${v >= 0 ? "+" : ""}${(v / m * 100).toFixed(2)}%</small></b></div>`;
+    U.sheet("Realized PNL", `<div class="rz-top"><b class="num ${total >= 0 ? "up" : "down"}">${signed(total)} USDT</b><small class="num">${(total / m * 100).toFixed(2)}% of margin</small></div>
+      ${row("Closed PNL", rz.closePnl)}${row("Trading fee", -(rz.openFee + rz.closeFee))}${row("Funding fee", rz.funding)}`);
   }
+
 
   return {html, title: fsym(P()) + " Futures", mount(r){
     root = r; M.watchTrades(sym);
@@ -564,7 +561,7 @@ Pages.trade = (params) => {
     const p = P(), a = parseFloat($("#amt").value) || 0;
     $("#ob").textContent = money(s.balance); $("#po").textContent = "+" + money(a * E.RATIO) + " USDT";
     root.querySelectorAll("[data-e]").forEach(b => b.classList.toggle("on", +b.dataset.e === exp));
-    $("#upP").textContent = $("#dnP").textContent = "+" + Math.round(C.PAYOUT*100) + "% · " + (exp < 60 ? exp + "s" : exp/60 + "m");
+    $("#upP").textContent = $("#dnP").textContent = "Get " + money(a * E.RATIO) + " · " + (exp < 60 ? exp + "s" : exp/60 + "m");
     let note = "";
     if (!p.tradable) note = `<div class="notice">${ic("lock",14)}<span>Binary is not available for ${esc(M.label(p))}. <a href="#/futures/${sym}" style="text-decoration:underline">Trade on USDⓈ-M</a></span></div>`;
     else if (p.closed) note = `<div class="notice">${ic("clock",14)}<span>Market closed. Forex & metals reopen Monday.</span></div>`;

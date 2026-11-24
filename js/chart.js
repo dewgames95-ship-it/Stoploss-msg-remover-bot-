@@ -41,7 +41,7 @@ function mount(container, parts, detailCb){
   drawEl = el.parentElement.querySelector("#drawSvg");
   ui.ovl2 = el.parentElement.querySelector("#ovl2"); ui.cbox = el.parentElement.querySelector("#cbox"); ui.auto = el.parentElement.querySelector("#autoBtn");
   ui.auto.onclick = () => { chart?.priceScale("right").applyOptions({autoScale:true}); ui.auto.classList.add("hide"); };
-  bindDraw(); bindAxisTap(); bindDrag();
+  bindDraw(); bindAxisTap(); bindDrag(); bindMarks(); bindAxisDrag();
   loop();
 }
 
@@ -203,6 +203,8 @@ function crossBox(){
   const ts = `${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")},${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}${sec < 60 ? ":" + String(d.getSeconds()).padStart(2,"0") : ""}`;
   const c = ch >= 0 ? "up" : "down";
   box.innerHTML = [["Time",ts],["Open",f(b.open)],["High",f(b.high)],["Low",f(b.low)],["Close",f(b.close)],["Chg",`<span class="${c}">${ch>=0?"+":""}${M.fmtPx(p,ch)}</span>`],["%Chg",`<span class="${c}">${chp>=0?"+":""}${chp.toFixed(2)}%</span>`],["Range",rng.toFixed(2)+"%"],["Vol",fmtVol(b.volume||0)]].map(([k,v]) => `<div><span>${k}</span><b>${v}</b></div>`).join("");
+  const bt = lastMarks.filter(m => { const i = barAt(Math.floor(m.t / 1000)); return i === hover; });
+  if (bt.length) box.innerHTML += bt.slice(0, 3).map(m => `<div class="cb-t"><span class="${m.s === "B" ? "up" : "down"}">${m.s === "B" ? "Buy" : "Sell"}</span><b>${M.fmtPx(p, m.p)}</b></div>`).join("");
   const w = el.clientWidth; box.classList.remove("hide");
   box.style.left = hoverPt.x > w/2 ? "6px" : ""; box.style.right = hoverPt.x > w/2 ? "" : "70px";
   // custom horizontal label on price axis: price + % vs last
@@ -287,10 +289,11 @@ function overlay(){
   });
   if (ordOn) s.fut.orders.filter(x => x.sym === sym).forEach(o => { const yy = S.main.priceToCoordinate(dragS && dragS.kind === "ord" && dragS.id === o.id ? dragS.price : o.price); if (yy != null) h += `<div class="plab o y drag" data-drag="ord:${o.id}" style="top:${yy}px;left:4px"><span>Limit ${o.side === "long" ? "Buy" : "Sell"} ${M.fmtPx(p, o.price)}</span><span>${money(o.margin * o.lev)}</span></div>`; });
   // B/S markers from trades on this symbol
-  const marks = ui.mode === "bin" ? [] : [...s.fut.positions.filter(x => x.sym === sym).map(x => ({t:x.open, p:x.entry, s:x.side === "long" ? "B" : "S"})),
-    ...s.fut.history.filter(x => x.sym === sym).slice(0, 40).flatMap(x => [{t:x.open, p:x.entry, s:x.side === "long" ? "B" : "S"}, {t:x.closed, p:x.exit, s:x.side === "long" ? "S" : "B"}])];
-  if (ui.mode !== "fut") marks.push(...s.positions.filter(x => x.sym === sym).map(x => ({t:x.open, p:x.entry, s:x.dir === "up" ? "B" : "S"})),
-    ...s.history.filter(x => x.sym === sym).slice(0, 40).map(x => ({t:x.open, p:x.entry, s:x.dir === "up" ? "B" : "S"})));
+  const marks = ui.mode === "bin" ? [] : [...s.fut.positions.filter(x => x.sym === sym).map(x => ({t:x.open, p:x.entry, s:x.side === "long" ? "B" : "S", k:"fo", r:x})),
+    ...s.fut.history.filter(x => x.sym === sym).slice(0, 40).flatMap(x => [{t:x.open, p:x.entry, s:x.side === "long" ? "B" : "S", k:"fo", r:x}, {t:x.closed, p:x.exit, s:x.side === "long" ? "S" : "B", k:"fc", r:x}])];
+  if (ui.mode !== "fut") marks.push(...s.positions.filter(x => x.sym === sym).map(x => ({t:x.open, p:x.entry, s:x.dir === "up" ? "B" : "S", k:"bo", r:x})),
+    ...s.history.filter(x => x.sym === sym).slice(0, 40).map(x => ({t:x.open, p:x.entry, s:x.dir === "up" ? "B" : "S", k:"bh", r:x})));
+  lastMarks = marks;
   // small B/S tags snapped to the candle: Buy below the low, Sell above the high, arrow pointing at the wick
   const lineMode = tf === "tick" || type === "line", stack = {};
   if (cp.bs !== false) marks.forEach(m => {
@@ -302,7 +305,7 @@ function overlay(){
     if (x == null || yy == null || x < 0 || x > axisX) return;
     const n = stack[key] = (stack[key] || 0) + 1; if (n > 3) return;
     const off = (n - 1) * 16;
-    h += `<div class="bs ${m.s === "B" ? "b" : "s"}" style="left:${x}px;top:${m.s === "B" ? yy + off : yy - off}px">${m.s}</div>`; });
+    h += `<div class="bs ${m.s === "B" ? "b" : "s"}" data-mk="${marks.indexOf(m)}" style="left:${x}px;top:${m.s === "B" ? yy + off : yy - off}px">${m.s}</div>`; });
   // binary: tag + start/expiry lines
   const used = [];
   if (bin) s.positions.filter(x => x.sym === sym).forEach(pos => {
@@ -312,9 +315,36 @@ function overlay(){
     const xs = timeToX(pos.open/1000), xe = timeToX(pos.exp/1000);
     if (xs != null && xs > 0 && xs < axisX) h += `<div class="start-line" style="left:${xs}px"></div>`;
     if (xe != null){ const x = Math.min(Math.max(xe, 30), axisX - 4); h += `<div class="exp-line" style="left:${x}px"><span style="top:${4 + (used.length-1)*18}px">⏱ ${mmss(lft)}</span></div>`; }
-    h += `<div class="plab ${win == null ? "n" : win ? "g" : "r"}" style="top:${yy}px;right:66px"><span>${pos.dir === "up" ? "▲ Up" : "▼ Down"}</span><span>${win ? "+" + money(pnl) : "-" + money(pos.amount)} · ${mmss(lft)}</span></div>`;
+    h += `<div class="plab ${win == null ? "n" : win ? "g" : "r"}" style="top:${yy}px;right:66px"><span>${pos.dir === "up" ? "▲ Up" : "▼ Down"}</span><span>${money(pos.amount)} → ${win == null ? money(pos.amount) : win ? money(pos.amount * E.RATIO) : "0.00"} · ${mmss(lft)}</span></div>`;
   });
   if (h !== box._h){ box._h = h; box.innerHTML = h; }
+}
+
+/* ---- Tap a B/S marker → trade details ---- */
+let lastMarks = [];
+function markSheet(m){
+  const P = M.get(sym), r = m.r, f = v => v == null ? "--" : M.fmtPx(P, v), dt = t => t ? new Date(t).toLocaleString() : "--";
+  let rows;
+  if (m.k === "bo" || m.k === "bh") rows = [["Type", "Binary " + (r.dir === "up" ? "Up" : "Down")], ["Amount", money(r.amount) + " USDT"], ["Entry price", f(r.entry)], ["Close price", f(r.exit)], ["Result", r.result ? `<span class="${r.profit >= 0 ? "up" : "down"}">${r.result === "win" ? "Won" : r.result === "loss" ? "Lost" : "Refunded"} ${signed(r.profit)} USDT</span>` : "Open"], ["Opened", dt(r.open)], ["Expires / closed", dt(r.closed || r.exp)]];
+  else rows = [["Type", `Futures ${r.side === "long" ? "Long" : "Short"} ${r.lev}x`], [m.k === "fc" ? "Close price" : "Entry price", f(m.p)], ["Size", money((r.qty || r.closedVol || 0) * r.entry) + " USDT"], ["Margin", money(r.margin) + " USDT"], ...(r.profit != null ? [["Realized PnL", `<span class="${r.profit >= 0 ? "up" : "down"}">${signed(r.profit)} USDT</span>`]] : [["Unrealized PnL", `<span class="${E.futPnl(r).pnl >= 0 ? "up" : "down"}">${signed(E.futPnl(r).pnl)} USDT</span>`]]), ["Time", dt(m.t)]];
+  U.sheet(`${m.s === "B" ? "Buy" : "Sell"} · ${M.label(P)}`, `<div class="cf-rows">${rows.map(([a, b]) => `<div><span>${a}</span><b class="num">${b}</b></div>`).join("")}</div>`);
+}
+function bindMarks(){
+  const host = el.parentElement; let st = null;
+  host.addEventListener("pointerdown", e => { const t = e.target.closest("[data-mk]"); st = t ? {i:+t.dataset.mk, x:e.clientX, y:e.clientY} : null; }, true);
+  host.addEventListener("pointerup", e => { if (!st) return; const m = lastMarks[st.i]; if (m && Math.hypot(e.clientX - st.x, e.clientY - st.y) < 8) markSheet(m); st = null; }, true);
+}
+/* ---- Drag the right price axis vertically to stretch / squeeze the price scale (touch + mouse) ---- */
+function bindAxisDrag(){
+  let d = null;
+  const inAxis = (x, y) => { const r = el.getBoundingClientRect(); return x - r.left > el.clientWidth - 62 && y - r.top < el.clientHeight - 26; };
+  const start = (x, y) => { const ps = chart?.priceScale("right"), vr = ps?.getVisibleRange?.(); if (!vr) return false; d = {y, from:vr.from, to:vr.to, moved:false}; return true; };
+  const move = y => { if (!d) return; const dy = y - d.y; if (Math.abs(dy) > 3) d.moved = true; const k = Math.exp(dy * 0.006), mid = (d.from + d.to) / 2, half = (d.to - d.from) / 2 * k;
+    try { chart.priceScale("right").applyOptions({autoScale:false}); chart.priceScale("right").setVisibleRange({from: mid - half, to: mid + half}); checkAuto(); } catch {} };
+  el.addEventListener("touchstart", e => { if (e.touches.length === 1 && inAxis(e.touches[0].clientX, e.touches[0].clientY) && start(e.touches[0].clientX, e.touches[0].clientY)) e.stopPropagation(); }, {capture:true, passive:true});
+  el.addEventListener("touchmove", e => { if (d){ e.stopPropagation(); e.preventDefault(); move(e.touches[0].clientY); } }, {capture:true, passive:false});
+  el.addEventListener("touchend", e => { if (d){ if (d.moved) e.stopPropagation(); d = null; } }, true);
+  el.addEventListener("mousedown", e => { if (inAxis(e.clientX, e.clientY) && start(e.clientX, e.clientY)){ e.stopPropagation(); const mm = ev => move(ev.clientY), mu = () => { removeEventListener("mousemove", mm); removeEventListener("mouseup", mu); d = null; }; addEventListener("mousemove", mm); addEventListener("mouseup", mu); } }, true);
 }
 
 /* ---- Drag TP / SL / limit order lines on the chart ---- */
@@ -353,8 +383,7 @@ function bindAxisTap(){
   el.addEventListener("pointerup", e => {
     const r = el.getBoundingClientRect(), x = e.clientX - r.left;
     if (Math.hypot(e.clientX - sx, e.clientY - sy) < 6 && Date.now() - st < 300 && x > el.clientWidth - 62 && e.clientY - r.top < el.clientHeight - 26){
-      pctMode = !pctMode; chart.priceScale("right").applyOptions({mode: pctMode ? 2 : 0});
-      U.toast(pctMode ? "Price axis: percentage" : "Price axis: price", "info", 1000);
+      /* axis tap no longer toggles % mode (drag the axis to scale, double-tap to reset) */
     }
     setTimeout(checkAuto, 50);
   }, true);

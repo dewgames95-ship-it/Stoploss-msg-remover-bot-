@@ -110,13 +110,93 @@ Pages.assets = (params) => {
     U.sheet("PnL analysis", `<div class="px-pnl"><div class="px-mut">Cumulative balance change</div><div class="big num ${cls(delta)}">${signed(delta)} <small>USDT</small></div><div class="px-big">${spark(pts, 320, 110)}</div></div>
       <div class="px-kpis" style="margin:12px 0 16px"><div><span>Today's PnL</span><b class="num ${cls(t.tp)}">${signed(t.tp)}</b></div><div><span>Unrealized (Futures)</span><b class="num ${cls(t.up)}">${signed(t.up)}</b></div><div><span>Realized trades</span><b class="num">${S().history.length + S().fut.history.length}</b></div><div><span>Win rate</span><b class="num">${E.stats().winRate.toFixed(1)}%</b></div></div>${calendar()}`);
   }
+
+  /* ---- Transfer & Convert sheets ---- */
+  const XACC = [["spot","Spot / Trading",false],["earn","Earn (Flexible)",false],["fut","Futures",true],["copy","Copy Trading",true]];
+  const xBal = k => k === "earn" ? E.vaultValue() : S().balance;
+  function transferSheet(done){
+    let from = "spot", to = "earn";
+    const opts = sel => XACC.map(([k,n,dis]) => `<option value="${k}" ${dis ? "disabled" : ""} ${k === sel ? "selected" : ""}>${n}${dis ? " (uses Spot balance)" : ""}</option>`).join("");
+    U.sheet("Transfer", `<div class="px-xf">
+      <div class="px-xrow"><span class="lb">From</span><select id="xf" aria-label="From account">${opts(from)}</select></div>
+      <div class="px-xsw"><button id="xs" aria-label="Swap accounts">${ic("swap",18,1.8)}</button></div>
+      <div class="px-xrow"><span class="lb">To</span><select id="xt" aria-label="To account">${opts(to)}</select></div>
+      <div class="px-xcoin">${UI.coinImg("USDT",26)}<b>USDT</b><span class="px-mut">Tether</span></div>
+      <div class="px-fld"><label><span>Amount</span><span class="px-mut" id="xav"></span></label><div class="px-inp"><input id="xa" type="number" inputmode="decimal" placeholder="0.00"><button id="xm" class="px-link">Max</button><span>USDT</span></div></div>
+      <div class="px-mut" style="margin:8px 0 14px">Futures &amp; Copy use your Spot/Trading balance.</div>
+      <button class="px-btn pri blk lg" id="xok">Confirm</button></div>`, el => {
+      const $ = q => el.querySelector(q), F = $("#xf"), T = $("#xt"), A = $("#xa");
+      const av = () => Math.max(0, Math.floor(xBal(from) * 100) / 100);
+      const upd = () => { F.value = from; T.value = to; $("#xav").textContent = "Available: " + money(av()) + " USDT"; };
+      F.onchange = () => { from = F.value; if (to === from) to = from === "spot" ? "earn" : "spot"; upd(); };
+      T.onchange = () => { to = T.value; if (to === from) from = to === "spot" ? "earn" : "spot"; upd(); };
+      $("#xs").onclick = () => { [from, to] = [to, from]; upd(); };
+      $("#xm").onclick = () => { A.value = av(); };
+      $("#xok").onclick = () => {
+        const v = +A.value; if (!(v > 0)) return toast("Enter an amount", "bad");
+        if (v > av() + 1e-9) return toast("Insufficient balance", "bad");
+        const err = E.vaultMove(Math.min(v, xBal(from)), from === "spot" ? "in" : "out");
+        if (err) return toast(err, "bad");
+        U.fx("claim"); U.closeLayer(); toast(`Transfer successful: ${money(v)} USDT to ${to === "earn" ? "Earn" : "Spot"}`, "ok"); done && done();
+      };
+      upd();
+    });
+  }
+  function convertSheet(done){
+    const H = (() => { try { return window.SPOT?.holdings?.() || []; } catch { return []; } })();
+    const fromC = ["USDT", ...H.map(h => h.coin)], toC = ["USDT","BTC","ETH","BNB","SOL","XRP","DOGE"];
+    let f = "USDT", t = "BTC";
+    const px = c => c === "USDT" ? 1 : (M.get(c + "USDT")?.price || 0);
+    const have = c => c === "USDT" ? S().balance : (H.find(h => h.coin === c)?.avail || 0);
+    const op = (l, sel) => l.map(c => `<option ${c === sel ? "selected" : ""}>${c}</option>`).join("");
+    U.sheet("Convert", `<div class="px-xf">
+      <div class="px-xrow"><span class="lb">From</span><select id="cf">${op(fromC, f)}</select></div>
+      <div class="px-xsw"><button id="cs" aria-label="Swap coins">${ic("swap",18,1.8)}</button></div>
+      <div class="px-xrow"><span class="lb">To</span><select id="ct">${op(toC, t)}</select></div>
+      <div class="px-fld"><label><span>Amount</span><span class="px-mut" id="cav"></span></label><div class="px-inp"><input id="ca" type="number" inputmode="decimal" placeholder="0.00"><button id="cm" class="px-link">Max</button><span id="cu"></span></div></div>
+      <div class="px-xprev"><div><span>Rate</span><b class="num" id="cr">-</b></div><div><span>You receive</span><b class="num" id="cp">-</b></div><div><span>Fee (0.1% per trade)</span><b class="num" id="cfe">-</b></div></div>
+      <button class="px-btn pri blk lg" id="cok">Confirm</button></div>`, el => {
+      const $ = q => el.querySelector(q), CF = $("#cf"), CT = $("#ct"), A = $("#ca");
+      const rate = () => px(f) / (px(t) || NaN);
+      const legs = () => (f !== "USDT" ? 1 : 0) + (t !== "USDT" ? 1 : 0);
+      const recv = v => v * rate() * Math.pow(1 - 0.001, legs());
+      const upd = () => { const v = +A.value || 0, r = rate();
+        $("#cu").textContent = f; $("#cav").textContent = "Available: " + fmt(have(f), f === "USDT" ? 2 : 6) + " " + f;
+        $("#cr").textContent = isFinite(r) ? `1 ${f} ≈ ${fmt(r, r >= 1 ? 4 : 8)} ${t}` : "Price unavailable";
+        $("#cp").textContent = v > 0 && isFinite(r) ? fmt(recv(v), t === "USDT" ? 2 : 6) + " " + t : "-";
+        $("#cfe").textContent = v > 0 ? fmt(v * px(f) * (1 - Math.pow(0.999, legs())), 4) + " USDT" : "-"; };
+      const sync = () => { CF.value = f; CT.value = t; upd(); };
+      CF.onchange = () => { f = CF.value; if (t === f) t = f === "USDT" ? "BTC" : "USDT"; sync(); };
+      CT.onchange = () => { t = CT.value; if (t === f) f = t === "USDT" ? "BTC" : "USDT"; if (!fromC.includes(f)) f = "USDT"; sync(); };
+      $("#cs").onclick = () => { if (!fromC.includes(t)) return toast("You don't hold " + t, "info"); [f, t] = [t, f]; if (!toC.includes(t)) toC.push(t); CT.innerHTML = op(toC, t); sync(); };
+      $("#cm").onclick = () => { A.value = f === "USDT" ? Math.floor(have(f) * 100) / 100 : have(f); upd(); };
+      A.oninput = upd;
+      $("#cok").onclick = () => {
+        const v = +A.value, r = rate(); if (!(v > 0)) return toast("Enter an amount", "bad");
+        if (!isFinite(r) || !(px(f) > 0)) return toast("Price unavailable, try again", "bad");
+        if (v > have(f) + 1e-9) return toast("Insufficient balance", "bad");
+        const sp = S().spot || (S().spot = {hold:{}, orders:[], history:[]}); sp.hold ||= {}; sp.history ||= []; sp.orders ||= [];
+        let usdt = v * px(f);
+        if (f === "USDT") store.setBalance(S().balance - v, "convert");
+        else { const h = sp.hold[f], ac = h.cost / h.qty, q = Math.min(v, h.qty); h.cost = Math.max(0, h.cost - ac * q); h.qty -= q; if (h.qty < 1e-9) delete sp.hold[f];
+          usdt *= 0.999; sp.history.unshift({id:U.uid(), sym:f + "USDT", side:"sell", price:px(f), qty:q, fee:q * px(f) * 0.001, ts:Date.now(), type:"convert"}); }
+        if (t === "USDT") store.setBalance(S().balance + usdt, "convert");
+        else { const q = usdt / px(t) * 0.999, h = sp.hold[t] ||= {qty:0, cost:0}; h.qty += q; h.cost += usdt;
+          sp.history.unshift({id:U.uid(), sym:t + "USDT", side:"buy", price:px(t), qty:usdt / px(t), fee:usdt * 0.001, ts:Date.now(), type:"convert"}); }
+        sp.history = sp.history.slice(0, 200);
+        store.save(); bus.emit("spot"); U.fx("claim"); U.closeLayer();
+        toast(`Converted ${fmt(v, f === "USDT" ? 2 : 6)} ${f} to ${fmt(recv(v), t === "USDT" ? 2 : 6)} ${t}`, "ok"); done && done();
+      };
+      sync();
+    });
+  }
   function render(r){
     const s = S(), t = totals(), hide = !!s.settings.hideBal, H = v => hide ? "******" : v, box = r.querySelector("#ab");
     const label = {overview:"Total Assets", fund:"Fund Account", spot:"Spot Account", futures:"Futures Account", copy:"Copy Trading", earn:"Earn Account"}[tab];
     const val = {overview:t.total, fund:t.fund, spot:t.spot, futures:t.fut, copy:t.cv, earn:t.vault}[tab];
     const pnl = {overview:t.tp, fund:null, spot:t.hp, futures:t.up, copy:t.cpn, earn:null}[tab];
     const pc = pnl == null ? 0 : pnl / Math.max(1, val - pnl) * 100;
-    const acts = `<div class="px-acts"><a href="#/deposit" class="pri"><span>${ic("down",24,1.8)}</span>Deposit</a><a href="#/withdraw"><span>${ic("up",24,1.8)}</span>Withdraw</a><a href="#/withdraw"><span>${ic("swap",24,1.8)}</span>Transfer</a><a href="#/trade"><span>${ic("reset",24,1.8)}</span>Convert</a></div>`;
+    const acts = `<div class="px-acts"><a href="#/deposit" class="pri"><span>${ic("down",24,1.8)}</span>Deposit</a><a href="#/withdraw"><span>${ic("up",24,1.8)}</span>Withdraw</a><button data-xfer><span>${ic("swap",24,1.8)}</span>Transfer</button><button data-conv><span>${ic("reset",24,1.8)}</span>Convert</button></div>`;
     const promo = `<a class="px-promo" href="#/earn"><div class="tx"><b>Earn up to 12% APR on USDT</b><span>Flexible and locked plans, redeem anytime</span></div>${ART.coins(84)}<i class="arr">${ic("chev",14,2)}</i></a>`;
     let body = "";
     if (tab === "overview" && view === "account"){
@@ -140,6 +220,8 @@ Pages.assets = (params) => {
     box.innerHTML = `<div class="px-ah"><div class="top"><div class="lb">${label}<button data-eye aria-label="${hide ? "Show" : "Hide"} balance">${ic(hide?"eyeoff":"eye",16)}</button></div><span class="sp"></span><button class="icon-btn" data-pnl aria-label="PnL analysis">${ic("chart",20,1.7)}</button><a class="icon-btn" href="#/history" aria-label="History">${ic("clockh",20,1.7)}</a></div>
       <div class="big num">${H(money(val))}<small>USDT ${ic("chevd",12,2)}</small></div><div class="eq num">${H("≈ $" + money(val))}</div>
       ${pnl != null ? `<button class="pl" data-pnl>Today's PnL <b class="num ${cls(pnl)}">${H(sgnUsd(pnl) + " (" + sgnPct(pc) + ")")}</b>${ic("chev",12,2)}</button>` : ""}</div>${acts}${promo}<div id="alist">${body}</div>`;
+    box.querySelectorAll("[data-xfer]").forEach(b => b.onclick = () => transferSheet(() => render(r)));
+    box.querySelectorAll("[data-conv]").forEach(b => b.onclick = () => convertSheet(() => render(r)));
     box.querySelectorAll("[data-eye]").forEach(b => b.onclick = () => { s.settings.hideBal = !s.settings.hideBal; store.save(); render(r); });
     box.querySelectorAll("[data-pnl]").forEach(b => b.onclick = () => pnlSheet(t));
     const sm = box.querySelector("[data-small]"); if (sm) sm.onchange = () => { s.settings.hideSmall = sm.checked; store.save(); render(r); };

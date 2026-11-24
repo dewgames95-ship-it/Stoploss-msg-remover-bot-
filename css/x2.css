@@ -77,9 +77,9 @@ a.px-row:active,button.px-row:active{background:var(--hover)}
 .px-ah .pl{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);margin-top:10px;min-height:24px;text-align:left}
 .px-ah .pl b{font-weight:600}
 .px-acts{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:14px 0 16px}
-.px-acts a{display:flex;flex-direction:column;align-items:center;gap:8px;font-size:12px;font-weight:500;color:var(--text)}
-.px-acts a span{width:64px;height:64px;border-radius:18px;background:var(--card-2);color:var(--text);display:grid;place-items:center;transition:transform .08s,background .12s}
-.px-acts a:active span{transform:scale(.96);background:var(--hover)}
+.px-acts a,.px-acts button{display:flex;flex-direction:column;align-items:center;gap:8px;font-size:12px;font-weight:500;color:var(--text)}
+.px-acts a span,.px-acts button span{width:64px;height:64px;border-radius:18px;background:var(--card-2);color:var(--text);display:grid;place-items:center;transition:transform .08s,background .12s}
+.px-acts a:active span,.px-acts button:active span{transform:scale(.96);background:var(--hover)}
 .px-acts a.pri span{background:var(--brand);color:#fff}
 .px-promo{position:relative;display:flex;align-items:center;gap:8px;padding:14px 12px 14px 16px;border-radius:16px;background:var(--card-2);margin-bottom:14px;overflow:hidden;min-height:92px}
 .px-promo .tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
@@ -272,3 +272,16 @@ a.px-row:active,button.px-row:active{background:var(--hover)}
 .px-fld{min-width:0}
 .px-cal .d{aspect-ratio:auto;height:34px}
 .px-addr .a{font-size:12px}
+
+/* transfer / convert sheets */
+.px-xf select{width:100%;height:100%;background:transparent;color:var(--text);font:inherit;font-weight:600;font-size:15px;border:0;outline:0;text-align:right;appearance:auto}
+.px-xrow{display:flex;align-items:center;gap:12px;height:52px;padding:0 14px;border-radius:12px;background:var(--card-2)}
+.px-xrow .lb{font-size:13px;color:var(--muted);width:40px;flex-shrink:0}
+.px-xsw{display:flex;justify-content:center;margin:-8px 0;position:relative;z-index:1}
+.px-xsw button{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:var(--card);border:1px solid var(--line);color:var(--text);transform:rotate(90deg)}
+.px-xsw button:active{background:var(--hover)}
+.px-xcoin{display:flex;align-items:center;gap:8px;margin:14px 0 4px}
+.px-xprev{border-radius:12px;background:var(--card-2);padding:4px 14px;margin:12px 0 14px}
+.px-xprev div{display:flex;justify-content:space-between;gap:8px;min-height:34px;align-items:center;font-size:13px}
+.px-xprev span{color:var(--muted)}
+.px-inp .px-link{background:none;margin-right:8px}

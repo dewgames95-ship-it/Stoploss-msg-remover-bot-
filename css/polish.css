@@ -1,0 +1,46 @@
+/* NovaTrade v5.3 polish: edge glow (dark) + crisp borders (light). Load last. No layout changes. */
+.card,.hm-ban,.bt-card,.pf-tile,.px-promo,.px-lc,.px-hero,.px-kpis>div,.px-acc,.px-notice,.op-os,.pm-strip{border:1px solid #ECEEF2}
+.card,.hm-ban,.bt-card,.pf-tile,.px-promo,.px-lc,.px-hero{box-shadow:0 1px 2px rgba(16,24,40,.04)}
+.sheet{box-shadow:0 -6px 24px -10px rgba(16,24,40,.12)}
+.tile .ic,.px-acts a span,.px-acts button span,.as-acts span{border:1px solid #ECEEF2}
+.pm-strip{border-left:0;border-right:0}
+
+html[data-theme="dark"] .card,
+html[data-theme="dark"] .hm-ban,
+html[data-theme="dark"] .bt-card,
+html[data-theme="dark"] .pf-tile,
+html[data-theme="dark"] .px-promo,
+html[data-theme="dark"] .px-lc,
+html[data-theme="dark"] .px-hero,
+html[data-theme="dark"] .px-kpis>div,
+html[data-theme="dark"] .px-acc,
+html[data-theme="dark"] .px-notice,
+html[data-theme="dark"] .px-xrow,
+html[data-theme="dark"] .px-xprev,
+html[data-theme="dark"] .op-os{
+  border:1px solid rgba(255,255,255,.08);
+  background-image:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,0) 40%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.06),0 0 0 1px rgba(90,140,255,.06),0 8px 24px -12px rgba(0,0,0,.8);
+}
+html[data-theme="dark"] .tile .ic,
+html[data-theme="dark"] .px-acts a span,
+html[data-theme="dark"] .px-acts button span,
+html[data-theme="dark"] .as-acts span,
+html[data-theme="dark"] .as-acts a>span,
+html[data-theme="dark"] .px-ico{
+  border:1px solid rgba(255,255,255,.09);
+  background-image:radial-gradient(circle at 50% 38%,rgba(120,160,255,.20),rgba(120,160,255,0) 68%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.07),0 4px 12px -6px rgba(0,0,0,.9);
+}
+html[data-theme="dark"] .px-acts a.pri span{background-image:linear-gradient(180deg,rgba(255,255,255,.18),rgba(255,255,255,0));border-color:rgba(120,160,255,.45);box-shadow:inset 0 1px 0 rgba(255,255,255,.25),0 0 18px -4px rgba(46,107,255,.55)}
+html[data-theme="dark"] .px-btn,
+html[data-theme="dark"] .sp-card,
+html[data-theme="dark"] .pf-top .icon-btn{box-shadow:inset 0 1px 0 rgba(255,255,255,.05)}
+html[data-theme="dark"] .px-btn:not(.pri){border:1px solid rgba(255,255,255,.08)}
+html[data-theme="dark"] .px-btn.pri{box-shadow:inset 0 1px 0 rgba(255,255,255,.22),0 6px 18px -8px rgba(46,107,255,.7)}
+html[data-theme="dark"] .sheet{
+  border-top:1px solid rgba(255,255,255,.10);
+  background-image:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,0) 90px);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 -12px 40px -12px rgba(0,0,0,.9),0 0 0 1px rgba(90,140,255,.05);
+}
+html[data-theme="dark"] .px-xsw button{box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 0 0 3px var(--card)}
