@@ -41,6 +41,7 @@ const INFO = {
   roi: () => ["ROI", `<p class="info-p">ROI = Unrealized PnL ÷ Initial Margin × 100%. With leverage, a 1% price move changes ROI by about (1% × leverage).</p>`],
   pnl: () => ["Unrealized PnL", `<p class="info-p">Profit or loss of the open position at the current Mark Price: (Mark − Entry) × Size for Long, (Entry − Mark) × Size for Short. Fees and funding are shown in Realized PnL.</p>`],
   mark: () => ["Mark Price", `<p class="info-p">A fair price derived from the index and the live order book. PnL and liquidation use the Mark Price, not the last trade, to avoid manipulation.</p>`],
+  entry: () => ["Entry Price", `<p class="info-p">Average price at which this position was opened.</p>`],
   size: () => ["Size", `<p class="info-p">Position notional value in USDT = quantity × mark price. Size = Margin × Leverage at entry.</p>`],
   margin: () => ["Margin", `<p class="info-p">Collateral locked for this position. Isolated: only this margin can be lost. Cross: your available balance is shared across positions.</p>`],
   tpsl: () => ["TP / SL", `<p class="info-p">Take Profit and Stop Loss are trigger orders. When the Mark Price reaches your trigger, a market order closes the position. Use ROI % mode to set them by return instead of price.</p>`],
@@ -434,10 +435,10 @@ Pages.futures = (params) => {
   function setPtab(k){ ptab = k; sessionStorage.setItem("fx_ptab", k); root.querySelectorAll("[data-pt]").forEach(b => b.classList.toggle("on", b.dataset.pt === k)); $("#ptools").classList.toggle("hide", k === "hist"); renderPositions(); }
   function posCard(pos){
     const p = M.get(pos.sym);
-    return `<div class="pc" data-id="${pos.id}"><div class="pc-h"><span class="side-b ${pos.side==="long"?"l":"s"}">${pos.side==="long"?"L":"S"}</span><button class="sym" data-open="${pos.sym}">${esc(fsym(p))}</button><span class="perp">Perp</span><span class="perp">${pos.mode === "isolated" ? "Isolated" : "Cross"} ${pos.lev}x</span><span class="bars-i" data-mrb><i></i><i></i><i></i></span>${pos.source === "auto" || pos.auto ? '<span class="perp auto">Auto</span>' : ""}</div>
+    return `<div class="pc" data-id="${pos.id}"><div class="pc-h"><span class="side-b ${pos.side==="long"?"l":"s"}">${pos.side==="long"?"L":"S"}</span><button class="sym" data-open="${pos.sym}">${esc(fsym(p))}</button><span class="perp">Perp</span><span class="perp">${pos.mode === "isolated" ? "Isolated" : "Cross"} ${pos.lev}x</span><span class="bars-i" data-mrb data-lv="1"><i></i><i></i><i></i><i></i></span>${pos.source === "auto" || pos.auto ? '<span class="perp auto">Auto</span>' : ""}</div>
       <div class="pc-big"><div><span><u data-info="pnl">PNL (USDT)</u> <button data-share="${pos.id}" aria-label="Share">${ic("share",15)}</button></span><b class="num" data-pnl></b></div><div style="text-align:right"><span style="justify-content:flex-end"><u data-info="roi">ROI</u></span><b class="num" data-roe></b></div></div>
-      <div class="pc-g"><div><span data-info="size"><u>Size (USDT)</u></span><b class="num" data-size></b></div><div><span data-info="margin"><u>Margin (USDT)</u></span><b class="num">${money(pos.margin)}</b></div><div><span data-info="mr"><u>Margin Ratio</u></span><b class="num" data-mr></b></div>
-        <div><span>Entry Price (USDT)</span><b class="num">${M.fmtPx(p, pos.entry)}</b></div><div><span data-info="mark"><u>Mark Price (USDT)</u></span><b class="num" data-mark></b></div><div><span data-info="liq"><u>Liq. Price (USDT)</u></span><b class="num" style="color:#F7931A">${pos.liq > 0 ? M.fmtPx(p, pos.liq) : "--"}</b></div></div>
+      <div class="pc-g"><div><span data-info="size"><u>Size (USDT)</u></span><b class="num" data-size></b></div><div><span data-info="margin">Margin (USDT)</span><b class="num">${money(pos.margin)}</b></div><div><span data-info="mr"><u>Margin Ratio</u></span><b class="num" data-mr></b></div>
+        <div><span data-info="entry"><u>Entry Price (USDT)</u></span><b class="num">${M.fmtPx(p, pos.entry)}</b></div><div><span data-info="mark"><u>Mark Price (USDT)</u></span><b class="num" data-mark></b></div><div><span data-info="liq"><u>Liq. Price (USDT)</u></span><b class="num" style="color:#F7931A">${pos.liq > 0 ? M.fmtPx(p, pos.liq) : "--"}</b></div></div>
       <div class="fkv" style="margin-top:10px"><span>TP/SL</span><b class="num"><span class="up">${pos.tp ? M.fmtPx(p,pos.tp) : "--"}</span> / <span class="down">${pos.sl ? M.fmtPx(p,pos.sl) : "--"}</span></b></div>
       ${FP.showRz === false ? "" : `<button class="rpnl" data-rz="${pos.id}"><span>Realized PNL (USDT)</span><b class="num ${(pos.realized||0)>=0?"up":"down"}">${signed(pos.realized || 0)} ${ic("chev",13)}</b></button>`}
       <div class="pc-btns"><button data-plev="${pos.id}">Leverage</button><button data-tpsl="${pos.id}">TP/SL</button><button data-close="${pos.id}">Close</button></div></div>`;
@@ -481,7 +482,7 @@ Pages.futures = (params) => {
       const a = r.querySelector("[data-pnl]"), b = r.querySelector("[data-roe]"); a.textContent = signed(pnl); b.textContent = signed(roe) + "%"; a.className = b.className = "num " + c;
       r.querySelector("[data-size]").textContent = money(size); r.querySelector("[data-mark]").textContent = M.fmtPx(p, px);
       const m = r.querySelector("[data-mr]"); m.textContent = mr.toFixed(2) + "%"; m.className = "num " + (mr < 50 ? "up" : mr < 80 ? "warn-c" : "down");
-      const mb = r.querySelector("[data-mrb]"); mb.style.color = mr < 50 ? "var(--up)" : mr < 80 ? "var(--warn)" : "var(--down)"; mb.dataset.lv = mr < 50 ? 1 : mr < 80 ? 2 : 3;
+      const mb = r.querySelector("[data-mrb]"); mb.style.color = mr < 50 ? "var(--up)" : mr < 80 ? "var(--warn)" : "var(--down)"; mb.dataset.lv = mr < 25 ? 1 : mr < 50 ? 2 : mr < 80 ? 3 : 4;
     });
   }
   function tpslSheet(id){

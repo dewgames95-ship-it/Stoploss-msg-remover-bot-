@@ -79,7 +79,7 @@ function drawCard(cv, d, ti){
   c.fillStyle = "rgba(255,255,255,.55)"; c.font = `600 24px ${FONT}`; c.fillText("PnL (USDT)", 48, y0);
   c.fillStyle = G; c.font = `800 52px ${FONT}`; c.fillText((Number(d.pnl) >= 0 ? "+" : "") + num(d.pnl, 2), 48, y0 + 62);
   // price rows
-  const ry = 700; rr(c, 40, ry, W - 80, 150, 22); c.fillStyle = "rgba(255,255,255,.07)"; c.fill(); c.strokeStyle = "rgba(255,255,255,.12)"; c.lineWidth = 1.5; c.stroke();
+  const ry = 700; rr(c, 40, ry, W - 80, 150, 22); c.fillStyle = "rgba(6,14,32,.72)"; c.fill(); c.strokeStyle = "rgba(255,255,255,.14)"; c.lineWidth = 1.5; c.stroke();
   [["Entry price", d.entry], ["Mark price", d.mark]].forEach(([k, v], i) => { const yy = ry + 56 + i * 56; c.font = `600 24px ${FONT}`; c.fillStyle = "rgba(255,255,255,.58)"; c.textAlign = "left"; c.fillText(k, 72, yy); c.font = `800 28px ${FONT}`; c.fillStyle = "#fff"; c.textAlign = "right"; c.fillText(px(v), W - 72, yy); });
   c.textAlign = "left";
   // footer: invite + QR
@@ -100,13 +100,18 @@ UI.sharePnl = function(d){
   const el = U.modal(`<div class="shr"><div class="shr-top"><b>Share your PnL</b><button class="icon-btn" data-close aria-label="Close">${ic("close",18)}</button></div>
     <div class="shr-cv"><canvas id="shcv" aria-label="PnL share card"></canvas></div>
     <div class="shr-dots" role="radiogroup" aria-label="Card style">${THEMES.map((t, i) => `<button data-th="${i}" role="radio" aria-label="${t.n}" class="${i === 0 ? "on" : ""}" style="--c:${t.acc};background:linear-gradient(135deg,${t.bg[1]},${t.acc})"></button>`).join("")}</div>
-    <div class="shr-act"><button class="shr-b" data-copy>${ic("copy",16)} Copy text</button><button class="shr-b pri" data-save>${ic("down",16)} Save image</button></div></div>`, el => {
+    <div class="shr-act"><button class="shr-b pri" data-save>${ic("down",16)} Save image</button><button class="shr-b" data-copy>${ic("copy",16)} Copy</button><button class="shr-b" data-share>${ic("share",16)} Share</button></div></div>`, el => {
     const cv = el.querySelector("#shcv"), draw = () => drawCard(cv, d, ti);
     draw();
     (document.fonts && document.fonts.ready || Promise.resolve()).then(() => { if (el.isConnected && el.querySelector("#shcv")) draw(); });
     el.querySelector("[data-close]").onclick = () => U.closeLayer();
     el.querySelectorAll("[data-th]").forEach(b => b.onclick = () => { ti = +b.dataset.th; el.querySelectorAll("[data-th]").forEach(x => x.classList.toggle("on", x === b)); draw(); });
     el.querySelector("[data-copy]").onclick = () => U.copyText(shareText(d), "Text copied");
+    el.querySelector("[data-share]").onclick = async () => {
+      const text = shareText(d);
+      try { if (navigator.share){ await navigator.share({title: (window.CONFIG && CONFIG.APP_NAME) || "NovaTrade", text}); return; } } catch (e) { if (e && e.name === "AbortError") return; }
+      U.copyText(text, "Text copied");
+    };
     el.querySelector("[data-save]").onclick = () => {
       draw();
       cv.toBlob(async blob => {

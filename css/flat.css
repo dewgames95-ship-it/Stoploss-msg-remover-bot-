@@ -144,3 +144,41 @@ html[data-theme="light"] .sheet{border-top:0}
 :root[data-theme] .px-strip>div{background:var(--surface);border:0;border-radius:var(--r-ctl)}
 :root[data-theme] .px-strip>div.done{background:var(--brand-soft);color:var(--brand)}
 :root[data-theme] .px-strip>div.now{background:var(--surface);box-shadow:inset 0 0 0 1px var(--brand);border:0}
+
+/* ===== v6.5: position cards restored (own card per position), Binance-style header, header cards ===== */
+:root{--cardfill:#FFFFFF}
+html[data-theme="dark"]{--cardfill:var(--surface)}
+:root[data-theme] .pc,:root[data-theme] .fx-page .pc,:root[data-theme] .bin-page .pc,:root[data-theme] .fxr .pc{
+  background:var(--cardfill);border:1px solid var(--line-2);border-radius:var(--r-card);padding:14px;margin:0 0 10px;box-shadow:none}
+:root[data-theme] .pc:last-child{border-bottom:1px solid var(--line-2);margin-bottom:0}
+:root[data-theme] .fxr .pc-g,:root[data-theme] .fxr .ph-g,:root[data-theme] .bin-page .pc-g,:root[data-theme] .bin-page .ph-g{border-top:0;padding-top:0}
+.pc-h{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.pc-h .side-b{width:20px;height:20px;border-radius:4px;font-size:12px;font-weight:700;color:#fff;flex-shrink:0}
+.pc-h .sym{font-size:16px;font-weight:700;line-height:20px}
+.pc-h .perp,.pc-h .perp.auto{background:transparent;border:1px solid var(--line-2);border-radius:4px;color:var(--text-2);font-size:11.5px;font-weight:500;line-height:16px;padding:1px 6px}
+.pc-h .perp.auto{color:var(--brand);border-color:var(--brand)}
+/* risk icon: 4 thin equal bars */
+.pc-h .bars-i{display:inline-flex;align-items:center;gap:2px;height:10px;margin-left:0;color:var(--up)}
+.pc-h .bars-i i{display:block;width:2px;height:10px;border-radius:1px;background:currentColor;opacity:.25}
+.pc-h .bars-i i:nth-child(n){height:10px}
+.pc-h .bars-i i:nth-child(1){opacity:1}
+.pc-h .bars-i[data-lv="2"] i:nth-child(-n+2),.pc-h .bars-i[data-lv="3"] i:nth-child(-n+3),.pc-h .bars-i[data-lv="4"] i:nth-child(-n+4){opacity:1}
+/* labels: dotted underline only on data labels (not Margin) */
+.pc-g span,.pc-big span,.pc-g span u,.pc-big span u{text-decoration:none}
+.pc-g span u,.pc-big span u,.pc-g span.dl,.pc-big span.dl{text-decoration:underline dotted;text-decoration-color:var(--text-3,var(--muted));text-decoration-thickness:1px;text-underline-offset:4px}
+.pc-g span[data-info="margin"] u{text-decoration:none}
+.pc-g{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px 8px}
+.pc-g>div:nth-child(3n){text-align:right}
+.pc-g span,.pc-big span{margin-bottom:3px}
+.pc-g span{display:block}
+.pc-big b{font-size:22px;font-weight:700}
+.pc-big{margin-bottom:14px}
+.rpnl{border:1px solid var(--line-2);border-radius:8px;background:transparent}
+.pc-btns{gap:10px}
+.pc-btns button{height:38px;border-radius:8px;background:var(--input);border:0;font-weight:600}
+
+/* header cards: home balance + assets overview */
+:root[data-theme] .hm-assets,:root[data-theme] .px-ah{background:var(--cardfill);border:1px solid var(--line-2);border-radius:var(--r-card);padding:14px;margin:6px 0 12px;box-shadow:none}
+:root[data-theme] .hm-assets{align-items:center;gap:12px}
+:root[data-theme] .hm-bal{margin:6px 0 8px}
+:root[data-theme] .px-ah .pl{margin-top:8px}
