@@ -15,7 +15,7 @@ const IDEF = {
   SUPER:{n:10, m:3, conf:0.15},
   VWAP:{c:"#4FC3F7"},
   SR:{lv:3, k:5},
-  LIQ:{lev:"10,25,50,100", bins:130},
+  LIQ:{lev:"10,25,50,100", bins:220},
   RSI:{n:14, c:"#2E6BFF"},
   MACD:{f:12, s:26, g:9, c:"#2E6BFF", cs:"#F59E0B"}
 };
@@ -213,7 +213,7 @@ function calcLiq(){
   return mx > 0 ? {bins, rLo, bw, mx, key:bars.length + "|" + bars[L].time} : null;
 }
 const fmtUsd = v => "$" + (v >= 1e9 ? (v / 1e9).toFixed(2) + "B" : v >= 1e6 ? (v / 1e6).toFixed(1) + "M" : v >= 1e3 ? (v / 1e3).toFixed(1) + "K" : v.toFixed(0));
-function liqColor(t, a){ const stops = [[0, [92,60,180]], [.45, [214,104,52]], [1, [255,222,40]]]; let i = t < .45 ? 0 : 1; const [t0, c0] = stops[i], [t1, c1] = stops[i+1], u = (t - t0) / (t1 - t0); return `rgba(${c0.map((v, j) => Math.round(v + (c1[j] - v) * u)).join(",")},${a})`; }
+function liqColor(t, a){ const stops = [[0, [110,70,190]], [.5, [30,170,170]], [1, [255,222,40]]]; let i = t < .5 ? 0 : 1; const [t0, c0] = stops[i], [t1, c1] = stops[i+1], u = (t - t0) / (t1 - t0); return `rgba(${c0.map((v, j) => Math.round(v + (c1[j] - v) * u)).join(",")},${a})`; }
 function drawLiq(){
   const cv = ui.liq; if (!cv) return;
   if (!liqOn || !chart || !S.main || !bars.length){ if (cv._on){ cv._on = false; const c = cv.getContext("2d"); c.clearRect(0, 0, cv.width, cv.height); } return; }
@@ -223,18 +223,19 @@ function drawLiq(){
   if (cv._w !== W || cv._h !== H || cv._d !== dpr){ cv._w = W; cv._h = H; cv._d = dpr; cv.width = W * dpr; cv.height = H * dpr; cv.style.width = W + "px"; cv.style.height = H + "px"; }
   const c = cv.getContext("2d"); c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, W, H); cv._on = true;
   if (liqData.none) return;
-  const d = liqData, hit = []; c.font = "600 9.5px Manrope, system-ui, sans-serif"; c.textBaseline = "middle"; c.textAlign = "right";
+  const d = liqData, hit = []; c.font = "600 10px Manrope, system-ui, sans-serif"; c.textBaseline = "middle"; c.textAlign = "right";
   const labs = [];
   const vis = []; let vmx = 0;
   d.bins.forEach((b, n) => { const y1 = S.main.priceToCoordinate(d.rLo + (n + 1) * d.bw), y0 = S.main.priceToCoordinate(d.rLo + n * d.bw); if (y1 == null || y0 == null || y0 < 0 || y1 > H) return; vis.push({b, n, y0, y1}); vmx = Math.max(vmx, b.w); });
-  vis.forEach(({b, n, y0, y1}) => { const t = Math.sqrt(b.w / (vmx || 1)); if (t < 0.4) return;
+  vis.forEach(({b, n, y0, y1}) => { const t = Math.sqrt(b.w / (vmx || 1)); if (t < 0.34) return;
     let x0 = chart.timeScale().logicalToCoordinate(b.i0); x0 = x0 == null ? 0 : Math.max(0, x0);
-    c.fillStyle = liqColor(t, (0.07 + 0.5 * t * t).toFixed(2)); c.fillRect(x0, y1, pw - x0, Math.max(2, y0 - y1));
+    const hh = Math.min(4, Math.max(2, y0 - y1)), cy = (y0 + y1) / 2;
+    c.fillStyle = liqColor(t, (0.03 + 0.32 * t * t * t).toFixed(3)); c.fillRect(x0, cy - hh / 2, pw - x0, hh);
     hit.push({n, y0, y1, t});
-    if (t >= 0.7) labs.push({y:(y0 + y1) / 2, t, usd:b.usd});
+    if (t >= 0.8) labs.push({y:(y0 + y1) / 2, t, usd:b.usd});
   });
   labs.sort((a, b) => b.t - a.t); const placed = [];
-  for (const l of labs){ if (placed.length >= 4) break; if (placed.some(p => Math.abs(p - l.y) < 14)) continue; placed.push(l.y);
+  for (const l of labs){ if (placed.length >= 3) break; if (placed.some(p => Math.abs(p - l.y) < 14)) continue; placed.push(l.y);
     const tx = fmtUsd(l.usd), tw = c.measureText(tx).width + 8; c.fillStyle = dark() ? "rgba(10,12,18,.62)" : "rgba(255,255,255,.78)"; c.fillRect(pw - tw - 2, l.y - 7, tw, 14);
     c.fillStyle = dark() ? "#FFD84A" : "#9A5B00"; c.fillText(tx, pw - 6, l.y + .5); }
   cv._hit = hit;

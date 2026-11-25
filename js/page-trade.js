@@ -5,6 +5,7 @@ const TFS = ["tick","1s","5s","30s","1m","5m","15m","1h","4h","1d","3d","1w","1M
 const TFL = {tick:"Time", "1d":"1D", "3d":"3D", "1w":"1W", "1M":"1M"};
 const INDS_MAIN = ["MA","EMA","BOLL","SAR","VWAP","SUPER"], INDS_SUB = ["VOL","RSI","MACD"];
 const S = () => store.s;
+const usdPx = p => M.fmtPx(p, p.price != null && M.usdtUsd ? p.price * M.usdtUsd() : p.price);
 const fsym = p => p.type === "crypto" ? p.base + "USDT" : p.sym;
 
 /* ---------------- Coin info (CoinGecko, cached per session) ---------------- */
@@ -159,7 +160,7 @@ function pickSheet(cur, onPick, binaryOnly){
     list = list.slice(0, 200);
     const vol = p => p.qv ? CH.fmtVol(p.qv) : "";
     return list.map(p => `<button class="pk-row" data-s="${p.sym}">${UI.pairIcon(p,30)}<div class="pk-n"><b>${esc(fsym(p))}</b><small><span class="pk-fn">${esc(UI.fullName(p))}</span> ${vol(p) ? `<span class="num">${vol(p)}</span>` : ""} ${m === "binary" ? `<span class="pk-pp">${Math.round(E.payoutOf(p.sym) * 100)}%</span>` : spot ? (p.type === "crypto" || p.type === "stock" ? "" : `<span class="perp">24/5</span>`) : `<span class="perp">${p.type === "crypto" ? "Perp" : "24/5"}</span>`}</small></div>
-      <div class="pk-p"><b class="num">${M.fmtPx(p)}</b><small class="num">$${M.fmtPx(p)}</small></div><span class="pk-c ${p.closed ? "cl" : (p.chg||0) < 0 ? "dn" : ""}">${p.closed ? "Closed" : p.chg == null ? "--" : pct(p.chg)}</span></button>`).join("") || UI.emptyState(m === "fav" ? "star" : "search", m === "fav" ? "No favorites yet" : "No results");
+      <div class="pk-p"><b class="num">${M.fmtPx(p)}</b><small class="num">$${usdPx(p)}</small></div><span class="pk-c ${p.closed ? "cl" : (p.chg||0) < 0 ? "dn" : ""}">${p.closed ? "Closed" : p.chg == null ? "--" : pct(p.chg)}</span></button>`).join("") || UI.emptyState(m === "fav" ? "star" : "search", m === "fav" ? "No favorites yet" : "No results");
   };
   U.sheet("", `<label class="search" style="margin-bottom:6px">${ic("search",16)}<input id="ps" placeholder="Search" autocomplete="off"></label>
     <div class="tabs pk-tabs" style="margin-bottom:4px">${spot ? SPT.map(([k, n]) => `<button class="tab ${m===k?"on":""}" data-m="${k}">${n}</button>`).join("") : `<button class="tab ${m==="fav"?"on":""}" data-m="fav">Favorites</button><button class="tab ${m==="all"?"on":""}" data-m="all">Futures</button><button class="tab ${m==="binary"?"on":""}" data-m="binary">Binary</button>`}</div>
@@ -219,7 +220,7 @@ Pages.chart = (params) => {
   function renderPx(){
     const p = M.get(sym), lp = root.querySelector("#lp"); if (!lp) return;
     lp.textContent = M.fmtPx(p); lp.className = "lp " + (p.dir >= 0 ? "up" : "down");
-    root.querySelector("#lusd").textContent = "$" + M.fmtPx(p);
+    root.querySelector("#lusd").textContent = "$" + usdPx(p);
     const lc = root.querySelector("#lc"); lc.className = "num " + ((p.chg||0) < 0 ? "down" : "up"); lc.textContent = p.closed || p.chg == null ? "" : pct(p.chg);
     root.querySelector("#mk").textContent = M.fmtPx(p);
     root.querySelector("#hi").textContent = M.fmtPx(p, p.high); root.querySelector("#lo").textContent = M.fmtPx(p, p.low);
@@ -279,7 +280,7 @@ Pages.chart = (params) => {
     offs.push(bus.on("tick", x => { if (x === sym && performance.now() - tT > 200){ tT = performance.now(); renderPx(); } }), bus.on("meta", x => x === sym && renderPx()),
       bus.on("depth", x => { if (x === sym && obTab !== "trades" && performance.now() - bT > 500){ bT = performance.now(); renderBook(); } }), bus.on("trade", x => { if (x === sym && obTab === "trades" && performance.now() - bT > 400){ bT = performance.now(); renderBook(); } }));
     if (p.type !== "crypto"){ const iv = setInterval(renderBook, 2000); timers.push(() => clearInterval(iv)); }
-  }, unmount(){ offs.forEach(f => f()); timers.forEach(f => f()); unChart?.(); M.unwatchTrades(); document.body.classList.remove("no-nav"); }};
+  }, unmount(){ offs.forEach(f => f()); timers.forEach(f => f()); window.TX?.clearFx?.(); unChart?.(); M.unwatchTrades(); document.body.classList.remove("no-nav"); }};
 };
 
 /* ---------------- USDⓈ-M Futures (#/futures/SYM) ---------------- */
@@ -692,7 +693,7 @@ Pages.trade = (params) => {
 
   function renderPx(){
     const p = P(), el = $("#lp"); if (!el) return;
-    el.textContent = M.fmtPx(p); el.className = "lp " + (p.dir >= 0 ? "up" : "down"); $("#lusd").textContent = "$" + M.fmtPx(p);
+    el.textContent = M.fmtPx(p); el.className = "lp " + (p.dir >= 0 ? "up" : "down"); $("#lusd").textContent = "$" + usdPx(p);
     const lc = $("#lc"); lc.className = "num " + ((p.chg||0) < 0 ? "down" : "up"); lc.textContent = p.closed ? t("Market closed") : p.chg == null ? "" : pct(p.chg);
     $("#hi").textContent = M.fmtPx(p, p.high); $("#lo").textContent = M.fmtPx(p, p.low);
     const m = M.momentum(sym, 60000), up = Math.round(U.clamp(50 + m*30 + U.clamp(p.chg||0,-5,5)*2, 6, 94)); $("#sen").innerHTML = `<span class="up">${up}%</span> / <span class="down">${100-up}%</span>`;
@@ -749,8 +750,9 @@ Pages.trade = (params) => {
         es.textContent = ev.open ? "Closable for " + mmss(ev.lockIn) : "Available in the first half only"; }
       const sc = Math.ceil(left); if (sc <= 5 && sc > 0 && cdLast[pos.id] !== sc && pos.sym === sym){ cdLast[pos.id] = sc; U.beep("tick"); } });
   }
-  function result(rec){
+  function showResult(rec){
     const p = M.get(rec.sym), w = rec.result === "win" && rec.profit > 0, l = rec.result === "loss", ttl = rec.early ? "Closed early" : w ? "You won!" : l ? "Trade lost" : "Draw — refunded";
+    window.TX?.clearFx?.();
     if (w){ U.confetti(); U.fx("win"); window.TX?.flyMoney?.(); } else if (l) U.fx("loss");
     U.modal(`<div class="rs ${w?"w":l?"l":"d"}" data-rs><button class="rs-x" data-x aria-label="Close">${ic("x",18,2.2)}</button>
       <div class="res-ic ${w?"w":l?"l":"d"}">${ic(w?"trophy":l?"x":"reset",30)}</div><div class="rs-t">${ttl}</div>
@@ -758,12 +760,15 @@ Pages.trade = (params) => {
       <div class="rs-d">${esc(M.label(p))} · ${rec.dir==="up"?"Up":"Down"} · ${money(rec.amount)} USDT<br>Entry ${M.fmtPx(p, rec.entry)} → ${rec.early ? "Exit" : "Close"} ${M.fmtPx(p, rec.exit)}</div>
       <div class="rs-bar"><i></i></div><div class="rs-cd">Closing in <b>3</b>s</div></div>`, el => {
       const box = el.querySelector("[data-rs]"), t0 = Date.now(), cd = el.querySelector(".rs-cd b");
-      const stop = () => clearInterval(iv), iv = setInterval(() => {
-        if (!box.isConnected || el.querySelector("[data-rs]") !== box) return stop();
+      const stop = () => clearInterval(iv), done = () => { stop(); window.TX?.clearFx?.(); rsBusy = false; setTimeout(nextResult, 350); }, iv = setInterval(() => {
+        if (!box.isConnected || el.querySelector("[data-rs]") !== box) return done();
         const left = 3000 - (Date.now() - t0); cd.textContent = Math.max(1, Math.ceil(left / 1000));
-        if (left <= 0){ stop(); U.closeLayer(); } }, 100);
-      el.querySelector("[data-x]").onclick = () => { stop(); U.closeLayer(); }; });
+        if (left <= 0){ U.closeLayer(); done(); } }, 100);
+      el.querySelector("[data-x]").onclick = () => { U.closeLayer(); done(); }; });
   }
+  let rsQ = [], rsBusy = false;
+  function nextResult(){ if (rsBusy || !rsQ.length || !root) return; rsBusy = true; showResult(rsQ.shift()); }
+  function result(rec){ rsQ.push(rec); nextResult(); }
   return {html, title: M.label(P()) + " Binary", mount(r){
     root = r; M.watchTrades(sym);
     $("#amt").value = s.settings.defAmt || 10;
@@ -784,7 +789,7 @@ Pages.trade = (params) => {
     $("[data-pick]").onclick = () => pickSheet(sym, x => location.hash = "#/trade/" + x, true);
     $("[data-alert]").onclick = () => alertSheet(sym);
     $("#plist").addEventListener("click", e => { const ec = e.target.closest("[data-ec]");
-      if (ec && !ec.disabled){ const r = E.closeBinaryEarly(ec.dataset.ec); if (r.err){ toast(r.err, "bad"); } return; }
+      if (ec && !ec.disabled){ ec.disabled = true; const r = E.closeBinaryEarly(ec.dataset.ec); if (r.err){ toast(r.err, "bad"); } return; }
       const o = e.target.closest("[data-open]"); if (o && o.dataset.open !== sym) location.hash = "#/trade/" + o.dataset.open; });
     let tT = 0;
     offs.push(bus.on("tick", x => { if (x === sym && performance.now() - tT > 150){ tT = performance.now(); renderPx(); } }), bus.on("meta", x => { if (x === sym){ renderPx(); renderOrder(); } }),

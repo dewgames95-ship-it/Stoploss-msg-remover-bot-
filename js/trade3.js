@@ -21,5 +21,6 @@ function flyMoney(){
     document.body.appendChild(box); setTimeout(() => box.remove(), 4200);
   } catch {}
 }
-window.TX = {flyMoney};
+function clearFx(){ document.querySelectorAll(".tx-fly,.confetti").forEach(e => e.remove()); }
+window.TX = {flyMoney, clearFx};
 })();
