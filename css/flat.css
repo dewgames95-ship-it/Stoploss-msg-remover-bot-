@@ -113,3 +113,21 @@ html[data-theme="dark"] .sheet{border-top:0}
 html[data-theme="light"] .sheet{border-top:0}
 .hm-strip{border-top-color:var(--line)}
 :root[data-theme] .px-strip>div{border-radius:var(--r-ctl)}
+
+/* ---------- leftovers ---------- */
+.hm-sc a,.px-chip-g button,.px-sg button,.chs button,.px-subnav .pill,.px-subnav .pill button,.px-subnav button.rnd,.ptc,.bt-fnav button,.px-sg,.chs{border-radius:var(--r-ctl)}
+.px-acts a span,.px-acts button span,.as-acts span,.as-acts a>span{border-radius:var(--r-card)}
+.px-chip-g button,.chs button,.px-subnav .pill{border:0;background:var(--input)}
+.px-chip-g button.on,.chs button.on,.px-subnav .pill button.on{background:var(--grad-brand-soft);color:var(--text);font-weight:700}
+.px-subnav .pill{padding:2px}.px-subnav .pill button{background:none}.px-subnav .pill button.on{background:var(--hover)}
+.px-subnav button.rnd{border:0;background:var(--input)}
+.px-sg button{background:var(--input)}.px-sg button.on{background:var(--grad-brand-soft)}
+.pf-sw{border:0}
+.pbox,.pbox.pu,.pbox.pd{border-width:1px!important}
+
+/* ---------- spot / options / rewards ---------- */
+.sp-seg,.sp-sel,.sp-in,.sp-seg button,.op-tg,.op-amts button,.op-exp,.op-und,.op-up,.op-dn,.op-amt,.op-sum,.px-strip>div,.px-task .px-btn,.px-btn.sm,nav.bt-fnav button,.bt-fnav a{border-radius:var(--r-ctl)}
+.op-amts button,.op-exp,.op-tg,.op-und{border:0;background:var(--input)}
+.op-amts button.on,.op-exp.on,.op-tg.on,.op-und.on{background:var(--grad-brand-soft);box-shadow:inset 0 0 0 1px var(--brand)}
+.px-strip>div{border-color:var(--line)}
+.pm-fld,.pm-in,.pm-sel,.pm-ta{border-color:var(--line)}
