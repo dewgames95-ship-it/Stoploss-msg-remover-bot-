@@ -294,7 +294,7 @@ on("close", (tid, p) => { const X = window.COPYX; if (!X) return;
 function mirrorPct(c){
   const m = c.mir, tr = ST && ST.T[c.lid]; let un = 0;
   if (tr) m.open.forEach(o => { const p = tr.open.find(x => x.id === o.pid); if (p && !p.bin) un += o.m * pnlOf(p).pnl / p.margin; });
-  return (m.realized + un) / c.amt * 100;
+  return c.amt > 0 ? (m.realized + un) / c.amt * 100 : 0;
 }
 function mirrorCurve(now){ const X = window.COPYX; if (!X) return; X.cstate().active.forEach(c => { if (!c.mir) return; const a = c.mir.curve ||= []; a.push([now, +mirrorPct(c).toFixed(3)]); if (a.length > 360){ const k = []; a.forEach((x, i) => { if (i % 2 === 0 || i === a.length - 1) k.push(x); }); c.mir.curve = k; } }); }
 function copyPct(c, t){
@@ -314,7 +314,7 @@ window.SIM = {
   closed(id, n){ const tr = ST && ST.T[id]; return tr ? tr.closed.slice(0, n || 30) : null; },
   feed(id, n){ const tr = ST && ST.T[id]; return tr ? tr.feed.slice(0, n || 20) : null; },
   watch(id){ const now = Date.now(); const was = (watched[id] || 0) > now; watched[id] = now + 3 * MIN; const tr = ST && ST.T[id]; if (!was && tr) tr.nextAt = Math.min(tr.nextAt, now + 6e3 + Math.random() * 14e3); },
-  mirror(c){ return c.mir || null; },
+  mirror(c){ return c.mir || null; }, _st(){ return ST; },
   reset(){ try { localStorage.removeItem(KEY); } catch {} }
 };
 setTimeout(boot, 2500);

@@ -28,7 +28,10 @@ npm test
 - Download: Releases page of this repo, file `binary-trading.apk`.
 - Local build: `cd android && ./gradlew assembleRelease` (needs Android SDK 34).
 
-## Deploy
-GitHub Pages serves the `gh-pages` branch. Push to `main` and `gh-pages` to update.
+## Build & deploy
+Source files stay separate (open `index.html` for development).
+- `npm run build` bundles all JS into `dist/app.min.js` and all CSS into `dist/app.min.css` (esbuild, minified) and writes `dist/index.html`.
+- `npm run test:dist` runs the smoke tests against the bundle.
+- `npm run deploy` builds and publishes `dist/` to the `gh-pages` branch (the live site). Push source to `main`.
 
 Demo only. Not financial advice.

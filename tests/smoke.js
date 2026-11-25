@@ -1,7 +1,7 @@
 'use strict';
 const http = require('http'), fs = require('fs'), path = require('path');
 const { chromium, devices } = require('playwright');
-const ROOT = path.resolve(__dirname, '..');
+const ROOT = path.resolve(__dirname, '..', process.env.TEST_ROOT || '');
 const SHOTS = process.argv.includes('--shots');
 const SHOT_DIR = path.join(__dirname, 'shots');
 const MIME = {'.html':'text/html','.js':'text/javascript','.css':'text/css','.svg':'image/svg+xml','.json':'application/json','.webmanifest':'application/manifest+json','.png':'image/png','.jpg':'image/jpeg','.webp':'image/webp','.ico':'image/x-icon','.woff2':'font/woff2'};

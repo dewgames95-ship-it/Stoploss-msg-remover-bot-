@@ -637,7 +637,7 @@ Pages.copy = (params) => {
             ["Max per order", `${money(mo)} USDT`], ["Stop-loss", sl ? `-${sl}%` : "Off"], ["Take-profit", tp ? `+${tp}%` : "Off"]]});
           if (!ok) return;
           if (inv > bal() + 1e-9){ toast("Insufficient " + (mk === "binary" ? "Binary" : "Futures") + " balance", "bad"); UI.walletErr("Insufficient " + (mk === "binary" ? "Binary" : "Futures") + " balance"); return; }
-          cstate().active.unshift(newCopy(l, {mk, mode:mk === "binary" ? "binary" : mode, sizing:mode, modeVal:mv, maxOrder:mo, sl, tp}));
+          cstate().active.unshift(newCopy(l, {mk, amt:inv, mode:mk === "binary" ? "binary" : mode, sizing:mode, modeVal:mv, maxOrder:mo, sl, tp}));
           store.addWallet(mk === "binary" ? "binary" : "futures", -inv, "copy"); store.save();
           store.notify("Copy trading started", `Copying ${l.name} with ${money(inv)} USDT`, "ok"); U.fx("open"); toast("Copy trading started", "ok");
           view = "my"; show();

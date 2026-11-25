@@ -13,7 +13,7 @@
     try {
       const r = await fetch("./?vc=" + Date.now(), {cache: "no-store"});
       if (!r.ok) return;
-      const live = ((await r.text()).match(/update\.js\?v=([\d.]+)/) || [])[1];
+      const live = ((await r.text()).match(/(?:update|app\.min)\.js\?v=([\d.]+)/) || [])[1];
       if (live && live !== CUR) prompt(live);
     } catch {}
   }
