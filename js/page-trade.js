@@ -320,7 +320,7 @@ Pages.futures = (params) => {
   <div class="ptools" id="ptools"><label class="fchk" style="margin:0"><input type="checkbox" id="hide"> Hide Other Symbols</label><button class="btn btn-ghost btn-sm" data-closeall>Close All (<span id="cac">0</span>)</button></div>
   <div id="plist"></div>
 
-  <div style="height:64px"></div><section class="fxc ${sessionStorage.getItem("fx_chart") === "1" ? "open" : ""}" id="cch"><button class="fxc-bar" data-cch><span>${esc(fsym(P()))} Perp Chart</span><span class="fxc-i">${ic("chevd",16)}</span></button><div class="fxc-body">${dockChartBlock(sym)}</div></section>`;
+  <div style="height:64px"></div><section class="fxc ${sessionStorage.getItem("fx_chart") === "1" ? "open" : ""}" id="cch"><button class="fxc-bar" data-cch><span>${esc(fsym(P()))} Perp Chart</span><span class="fxc-i">${ic("chevd",16)}</span></button><div class="fxc-body">${miniChartBlock(sym)}</div></section>`;
 
   /* --- order form --- */
   const inputs = () => { const p = P(), amt = parseFloat($("#amt").value) || 0, px = otype === "limit" ? (parseFloat($("#lp").value) || p.price) : p.price; return {p, amt, px}; };
@@ -514,7 +514,7 @@ Pages.futures = (params) => {
   }
   function toggleChart(){
     chartOpen = !chartOpen; $("#cch").classList.toggle("open", chartOpen); sessionStorage.setItem("fx_chart", chartOpen ? "1" : "0");
-    if (chartOpen && !unChart){ unChart = bindChart(root, sym, "tf_fut", "15m", candleDetail(sym), {tfs:MINI_TFS}); dockPerf(root, sym); }
+    if (chartOpen && !unChart){ unChart = bindChart(root, sym, "tf_fut", "15m", candleDetail(sym), {mini:true, tfs:MINI_TFS}); }
     else setTimeout(CH.resize, 60);
   }
   /* Realized PnL breakdown: where the money went and how much % of margin */

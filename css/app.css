@@ -1389,3 +1389,9 @@ html[data-theme="dark"] .pc,html[data-theme="dark"] .fx-page>.fx-grid>div:first-
 .pk-n small>:first-child{overflow:hidden;text-overflow:ellipsis}
 .pc{padding-right:2px}
 .pk-fn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+
+/* chart page: price, intervals, chart, indicators and performance all on one screen (no scroll) */
+body.no-nav .cp-chart:not(.fs) .chart-wrap{height:calc(100svh - 440px - env(safe-area-inset-bottom));min-height:240px;max-height:none}
+body.no-nav .cp-price{padding-top:8px;padding-bottom:8px}
+body.no-nav .perf{padding-top:8px;padding-bottom:8px}
+.fxc .legend{display:none}
