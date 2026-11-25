@@ -527,7 +527,8 @@ Pages.copy = (params) => {
       renderList();
     }
     function renderSay(){
-      body.innerHTML = `<div class="px-sec-h" style="margin:8px 0 4px"><h2>Traders say</h2><span class="px-mut"><i class="px-pulse"></i> Live</span></div>` + feed().map(p => `<div class="px-post" data-ld="${p.l.id}"><div class="h">${ART.avatar(p.l.id, 40)}<div class="grow"><b>${esc(p.l.name)}</b><div class="px-mut">${agoStr(p.ago)}</div></div><span class="px-tag">${esc(symLabel(p.sym))}</span></div><p>${esc(p.text)}</p><div class="f"><span>${ic("heart",14,1.7)} ${p.likes}</span><span>${ic("chat",14,1.7)} ${p.cm}</span><span>${ic("share",14,1.7)}</span></div></div>`).join("");
+      body.innerHTML = `<div class="px-sec-h" style="margin:8px 0 4px"><h2>Traders say</h2><span class="px-mut"><i class="px-pulse"></i> Live</span></div>` + feed().map(p => `<div class="px-post" data-ld="${p.l.id}"><div class="h">${ART.avatar(p.l.id, 40)}<div class="grow"><b>${esc(p.l.name)}</b><div class="px-mut">${agoStr(p.ago)}</div></div><span class="px-tag">${esc(symLabel(p.sym))}</span></div><p>${esc(p.text)}</p>${SOCIAL.bar("px:" + p.l.id + ":" + p.ago, p.likes, p.cm, {who:p.l.name, text:p.text})}</div>`).join("");
+      SOCIAL.bind(body);
     }
     function renderMy(){
       const st = cstate(), now = Date.now();

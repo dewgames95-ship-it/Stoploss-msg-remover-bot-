@@ -235,7 +235,7 @@ function addToPosition(sym, side, margin, lev, entry, fee, mode, tp, sl){
   pos.liq = liqPrice(side, pos.entry, pos.lev, mode, pos.qty, pos.margin);
   return pos;
 }
-function openFut({sym, side, margin, lev, type="market", price=null, tp=null, sl=null, mode=null}){
+function openFut({sym, side, margin, lev, type="market", price=null, tp=null, sl=null, mode=null, tif="GTC"}){
   mode = mode || S().settings.marginMode || "cross";
   margin = r2(margin);
   const err = futValidate(sym, margin, lev, type === "limit" ? price : null); if (err) return {err};
@@ -243,8 +243,9 @@ function openFut({sym, side, margin, lev, type="market", price=null, tp=null, sl
   if (type === "limit"){
     if (side === "long" ? price >= p.price : price <= p.price) type = "market";
     else {
+      if (tif === "IOC" || tif === "FOK") return {err:`${tif} order cannot be filled immediately at this price.`};
       const e2 = tpslCheck(side, price, tp, sl, null); if (e2) return {err:e2};
-      const o = {id:uid(), sym, side, margin, lev, price, tp, sl, fee, mode, t:Date.now()};
+      const o = {id:uid(), sym, side, margin, lev, price, tp, sl, fee, mode, tif, t:Date.now()};
       F().orders.push(o); store.setBalance(S().balance - margin - fee, "order");
       F().log = (F().log || []).concat({t:Date.now(), sym, side, type:"Limit", price, qty: margin*lev/price, status:"New"}).slice(-200);
       bus.emit("positions"); store.save(); return {order:o};

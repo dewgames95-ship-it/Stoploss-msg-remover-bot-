@@ -704,3 +704,169 @@ Pages.community = () => {
 [["transfer","assets"],["notifications","profile"],["notifs","profile"],["me","profile"],["menu","profile"],["account","profile"],["pnl-analysis","pnl"],["analysis","pnl"],["wallet","assets"],["funds","assets"],["portfolio","assets"],["perp","futures"],["perpetual","futures"],["binary","trade"],["bot","bots"],["copytrading","copy"],["copy-trading","copy"],["reward","rewards"],["tasks","rewards"],["alert","alerts"],["learn","academy"],["help","support"],["faq","support"],["signals","vip"],["preferences","settings"],["trades","history"],["orders","history"],["staking","earn"],["savings","earn"],["market","markets"],["exchange","spot"]].forEach(([a, b]) => { if (!Pages[a]) Pages[a] = (p) => Pages[b](p); });
 Pages.notfound = () => ({title:"Page not found", html:`<div class="nf"><div class="big">404</div><div class="h1" style="margin:8px 0">Page not found</div><p class="sub" style="margin-bottom:24px">The page you’re looking for doesn’t exist or was moved.</p><a class="btn btn-primary" href="#/home">${ic("home",18)} Back to Home</a></div>${UI.footer()}`});
 })();
+
+/* ---------- Preferences (Binance-style: Trading Mode / Layout / Notifications) ---------- */
+(function(){
+const {esc, ic, store, toast} = U;
+const S = () => store.s;
+Pages.preferences = Pages.prefs = () => {
+  let tab = "mode", sub = "general";
+  const st = () => S().settings;
+  const F = () => st().futp, L = () => st().layout;
+  const save = () => store.save();
+  const chev = `<span class="pf-chev">${ic("chev", 16)}</span>`;
+  const info = k => `<button class="pf-i" data-info="${k}" aria-label="More info">${ic("info", 15)}</button>`;
+  const INFO = {
+    protect:["Price Protection", "Price Protection prevents orders from being filled at a price that deviates too far from the mark price. Orders that would fill beyond the allowed range are rejected instead of executed at a bad price."],
+    tapFill:["Tap to fill in Price", "When on, tapping a price in the order book or a recent trade automatically fills it into the Price field of your order form."],
+    trig:["Trigger Type", "Choose which price triggers your conditional orders and TP/SL: Last Price follows the latest trade, Mark Price follows the fair index-based price and is harder to manipulate."]
+  };
+  const sw = (path, on) => `<button class="switch ${on ? "on" : ""}" data-sw="${path}" role="switch" aria-checked="${!!on}" aria-label="${esc(path)}"></button>`;
+  const trow = (title, subt, path, on, i) => `<div class="pf-row pf-tg" data-rsw><div class="pf-main"><div class="pf-t">${title}${i ? " " + info(i) : ""}</div>${subt ? `<div class="pf-s">${subt}</div>` : ""}</div>${sw(path, on)}</div>`;
+  const vrow = (k, title, val, i) => `<button class="pf-row pf-v" data-open="${k}"><div class="pf-main"><div class="pf-t">${title}${i ? ` <span class="pf-i" data-info="${i}" role="button" aria-label="More info">${ic("info", 15)}</span>` : ""}</div></div><span class="pf-val">${val}</span>${chev}</button>`;
+  const seg = (attr, val, items) => `<div class="pf-seg">${items.map(([k, n]) => `<button ${attr}="${k}" class="${val === k ? "on" : ""}">${n}</button>`).join("")}</div>`;
+
+  const nameOf = {oneway:"One-way Mode", hedge:"Hedge Mode", USDT:"USDT (Order Size)", COIN:"Coin", last:"Last Price", mark:"Mark Price", single:"Single-Asset Mode", multi:"Multi-Assets Mode"};
+  const levVal = () => F().levSet ? `${st().lev}x ${st().marginMode === "isolated" ? "Isolated" : "Cross"}` : "Disabled";
+
+  /* ---- illustrations ---- */
+  const lineSvg = (x, y, w, c = "var(--line-2)") => `<rect x="${x}" y="${y}" width="${w}" height="3" rx="1.5" fill="${c}"/>`;
+  const chartBlk = (x, y, w, h) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="3" fill="var(--input)"/><path d="M${x + 4} ${y + h - 5} L${x + w * .3} ${y + h * .5} L${x + w * .5} ${y + h * .65} L${x + w * .75} ${y + 5} L${x + w - 4} ${y + h * .4}" fill="none" stroke="var(--muted)" stroke-width="1.4"/>`;
+  const bookBlk = (x, y, w, h) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="3" fill="var(--input)"/>${[0, 1, 2, 3].map(i => lineSvg(x + 4, y + 5 + i * 6, w - 8, i < 2 ? "var(--down)" : "var(--up)")).join("").replace(/<rect/g, '<rect opacity=".55"')}`;
+  const formBlk = (x, y, w, h) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="3" fill="var(--input)"/>${lineSvg(x + 4, y + 5, w - 8)}${lineSvg(x + 4, y + 12, w - 8)}<rect x="${x + 4}" y="${y + h - 9}" width="${w - 8}" height="5" rx="2.5" fill="var(--up)" opacity=".8"/>`;
+  const klSvg = k => {
+    const W = 84, H = 70;
+    let body = "";
+    if (k === "top") body = chartBlk(6, 6, W - 12, 24) + bookBlk(6, 34, 36, 30) + formBlk(46, 34, 32, 30);
+    else if (k === "bottom") body = bookBlk(6, 6, 36, 30) + formBlk(46, 6, 32, 30) + chartBlk(6, 40, W - 12, 24);
+    else body = bookBlk(6, 6, 36, 58) + formBlk(46, 6, 32, 58);
+    return `<svg viewBox="0 0 ${W} ${H}" class="pf-ill" aria-hidden="true"><rect x=".5" y=".5" width="${W - 1}" height="${H - 1}" rx="7" fill="var(--card)" stroke="var(--line)"/>${body}</svg>`;
+  };
+  const ordSvg = k => {
+    const a = k === "left" ? [6, 42] : [46, 6];
+    return `<svg viewBox="0 0 84 70" class="pf-ill" aria-hidden="true"><rect x=".5" y=".5" width="83" height="69" rx="7" fill="var(--card)" stroke="var(--line)"/>${chartBlk(6, 6, 72, 18)}${formBlk(a[0] === 6 ? 6 : 46, 28, 32, 36)}${bookBlk(a[0] === 6 ? 44 : 6, 28, 34, 36)}</svg>`;
+  };
+  const card = (attr, val, cur, label, ill) => `<button class="pf-card ${cur === val ? "on" : ""}" ${attr}="${val}" aria-pressed="${cur === val}">${ill}<span>${label}</span></button>`;
+
+  /* ---- tab bodies ---- */
+  const bodyMode = () => `
+    <div class="pf-sec">
+      <div class="pf-row"><div class="pf-main"><div class="pf-t">Futures Mode</div></div>${seg("data-fm", F().mode, [["classic", "Classic"], ["easy", "Easy"]])}</div>
+      ${vrow("acct", "Account Mode", "Classic Trading")}
+      ${vrow("pos", "Position Mode", nameOf[F().posMode])}
+      ${vrow("asset", "Asset Mode", nameOf[F().asset || "single"])}
+      ${vrow("unit", "Unit Preference", nameOf[F().unit])}
+      ${vrow("lev", "Default Leverage & Margin Mode", levVal())}
+      ${vrow("trig", "Default Trigger Type", nameOf[F().trig], "trig")}
+    </div>
+    <div class="pf-sec">
+      ${trow("Price Protection", "Rejects orders that would fill too far from the mark price.", "futp.protect", F().protect !== false, "protect")}
+      ${trow("Tap to fill in Price", "Tap an order book price to fill it into your order.", "futp.tapFill", !!F().tapFill, "tapFill")}
+    </div>`;
+
+  const preview = () => {
+    const on = L().bstab !== false;
+    const bk = (c, w) => `<div class="pf-bk"><i style="background:var(${c});width:${w}%"></i><b>***</b></div>`;
+    return `<div class="pf-prev"><div class="pf-prev-h">Preview</div><div class="pf-prev-b">
+      <div class="pf-pf">
+        ${on ? `<div class="pf-bs"><span class="b">Buy</span><span>Sell</span></div>` : ""}
+        <div class="pf-fl"><span>Cross 20x S</span></div>
+        <div class="pf-fi">Limit <em>${ic("chevd", 10)}</em></div>
+        <div class="pf-fi"><span>Price</span><b>***</b><u>BBO</u></div>
+        <div class="pf-fi"><span>Amount</span><b>***</b><u>USDT</u></div>
+        <div class="pf-sl"><i></i><i></i><i></i><i></i><i></i></div>
+        <div class="pf-av">Avbl <b>***</b></div>
+        <div class="pf-btn">${on ? "Buy / Long" : "Buy | Sell"}</div>
+      </div>
+      <div class="pf-ob">${[1, 2, 3, 4].map(i => bk("--down", 40 + i * 12)).join("")}<div class="pf-mid">***</div>${[1, 2, 3, 4].map(i => bk("--up", 90 - i * 12)).join("")}</div>
+    </div></div></div>`;
+  };
+
+  const bodyLayout = () => {
+    const pills = `<div class="pf-pills">${[["general", "General"], ["trade", "Trade Panel"], ["pos", "Positions"]].map(([k, n]) => `<button data-sub="${k}" class="${sub === k ? "on" : ""}">${n}</button>`).join("")}</div>`;
+    if (sub === "general") return pills + `
+      <p class="pf-note">* General settings apply to Spot, Futures and Options</p>
+      <div class="pf-h">K-Line in Trading Page</div>
+      <div class="pf-cards">${[["top", "Top"], ["bottom", "Bottom"], ["none", "None"]].map(([k, n]) => card("data-kl", k, L().kline, n, klSvg(k))).join("")}</div>
+      <div class="pf-h">Place Order Layout</div>
+      <div class="pf-cards two">${[["left", "Left"], ["right", "Right"]].map(([k, n]) => card("data-ol", k, L().order, n, ordSvg(k))).join("")}</div>`;
+    if (sub === "trade") return pills + `${preview()}
+      <div class="pf-h">Buy/Sell Tab Setting</div>
+      <div class="pf-cards two">${card("data-bs", "1", L().bstab !== false ? "1" : "0", "Display Buy/Sell tab", `<svg viewBox="0 0 84 40" class="pf-ill"><rect x=".5" y=".5" width="83" height="39" rx="7" fill="var(--card)" stroke="var(--line)"/><rect x="8" y="8" width="30" height="9" rx="4.5" fill="var(--up)" opacity=".85"/><rect x="42" y="8" width="30" height="9" rx="4.5" fill="var(--input)"/>${lineSvg(8, 24, 64)}${lineSvg(8, 30, 40)}</svg>`)}${card("data-bs", "0", L().bstab !== false ? "1" : "0", "Hide Buy/Sell tab", `<svg viewBox="0 0 84 40" class="pf-ill"><rect x=".5" y=".5" width="83" height="39" rx="7" fill="var(--card)" stroke="var(--line)"/>${lineSvg(8, 10, 64)}${lineSvg(8, 17, 40)}<rect x="8" y="25" width="30" height="8" rx="4" fill="var(--up)" opacity=".85"/><rect x="42" y="25" width="30" height="8" rx="4" fill="var(--down)" opacity=".85"/></svg>`)}</div>
+      <div class="pf-sec">
+        ${trow("Input Step Increment", "Show +/- steppers on the price and amount fields.", "layout.step", !!L().step)}
+        ${trow("Slider Vibration", "Vibrate lightly as the order slider passes each mark (Android only).", "layout.slideVib", L().slideVib !== false)}
+      </div>`;
+    const CH = [["bs", "Buy / Sell markers", "Show your fills on the chart"], ["pos", "Position lines", "Entry price and liquidation lines"], ["ord", "Order lines", "Open limit orders on the chart"], ["hilo", "High / Low labels", "Highest and lowest visible price"], ["cd", "Candle countdown", "Time left on the current candle"]];
+    return pills + `<div class="pf-sec">${trow("Display realized PNL in positions", "Show realized PNL on each position card.", "futp.showRz", F().showRz !== false)}</div>
+      <div class="pf-h">Chart</div><div class="pf-sec">${CH.map(([k, n, s]) => trow(n, s, "chart." + k, st().chart[k] !== false)).join("")}</div>`;
+  };
+
+  const bodyNotif = () => {
+    const N = [["fill", "Order filled", "When a limit or conditional order is filled"], ["tpsl", "TP/SL triggered", "When take profit or stop loss closes a position"], ["liq", "Liquidation warning", "When a position gets close to liquidation"], ["funding", "Funding fee", "When a funding fee is charged or received"], ["binary", "Binary result", "When a binary trade settles"], ["news", "Announcements", "Product news and platform updates"]];
+    const SND = [["open", "Order opened"], ["close", "Position closed"], ["win", "Trade won"], ["loss", "Trade lost"], ["alert", "Price alert"], ["notify", "Notification"], ["err", "Error"]];
+    return `<div class="pf-sec">${N.map(([k, n, s]) => trow(n, s, "notif." + k, st().notif[k] !== false)).join("")}</div>
+      <div class="pf-h">Sounds</div><div class="pf-sec">${trow("Sounds", "Master switch for all event sounds", "sound", st().sound !== false)}
+      ${SND.map(([k, n]) => trow(n, "", "snd." + k, st().snd[k] !== false)).join("")}</div>`;
+  };
+
+  const tabs = [["mode", "Trading Mode"], ["layout", "Layout"], ["notif", "Notifications"]];
+  const html = UI.pageHead("Preferences", {right: `<span class="icon-btn" aria-hidden="true"></span>`}) +
+    `<div class="pf-page"><div class="pf-tabs" id="pfTabs">${tabs.map(([k, n]) => `<button data-tab="${k}" class="${tab === k ? "on" : ""}"><span>${n}</span></button>`).join("")}</div><div id="pfBody"></div></div>`;
+
+  return {html, title: "Preferences", mount(r){
+    const body = r.querySelector("#pfBody");
+    const render = () => {
+      body.innerHTML = tab === "mode" ? bodyMode() : tab === "layout" ? bodyLayout() : bodyNotif();
+      r.querySelectorAll("#pfTabs button").forEach(b => b.classList.toggle("on", b.dataset.tab === tab));
+    };
+    const opt = (attr, val, cur, title, subt, ico) => `<button class="pf-opt ${val === cur ? "on" : ""}" ${attr}="${val}"><div class="pf-opt-h">${ico || ""}<b>${title}</b><span class="pf-rad"></span></div>${subt || ""}</button>`;
+    const bullets = a => `<ul class="pf-ul">${a.map(x => `<li>${x}</li>`).join("")}</ul>`;
+    const pick = (title, rows, onPick) => U.sheet(title, `<div class="pf-opts">${rows}</div>`, el => {
+      el.querySelectorAll(".pf-opt").forEach(b => b.onclick = () => { const a = [...b.attributes].find(x => x.name.startsWith("data-")); onPick(a.value); save(); U.closeLayer(); render(); });
+    });
+    const sheets = {
+      acct: () => U.sheet("Account Mode", `<div class="pf-opts">${opt("data-x", "c", "c", "Classic Trading", `<p class="pf-p">Trade Spot, Futures and Options with separate balances and the full set of order types.</p>`)}</div>`),
+      pos: () => pick("Position Mode", opt("data-v", "oneway", F().posMode, "One-way Mode", `<p class="pf-p">Hold a single position per contract, in one direction only.</p>`) + opt("data-v", "hedge", F().posMode, "Hedge Mode", `<p class="pf-p">Hold long and short positions on the same contract at the same time.</p>`), v => F().posMode = v),
+      asset: () => { const a = F().asset || "single"; pick("Asset Mode",
+        opt("data-v", "single", a, "Single-Asset Mode", bullets(["Margin is the contract's own settlement asset", "Profit and loss from one contract does not offset another", "Simple and predictable risk per position"]), `<span class="pf-oi">${ic("wallet", 20)}</span>`) +
+        opt("data-v", "multi", a, "Multi-Assets Mode", bullets(["Use several assets as shared margin", "Unrealized profits from one position can support others", "Cross-margin only, higher liquidation interdependence"]), `<span class="pf-oi">${ic("layers", 20)}</span>`), v => F().asset = v); },
+      unit: () => pick("Unit Preference", opt("data-v", "USDT", F().unit, "USDT (Order Size)", `<p class="pf-p">Enter order size in USDT value.</p>`) + opt("data-v", "COIN", F().unit, "Coin", `<p class="pf-p">Enter order size in the base coin, e.g. BTC.</p>`), v => F().unit = v),
+      trig: () => pick("Default Trigger Type", opt("data-v", "last", F().trig, "Last Price", `<p class="pf-p">Triggers on the latest traded price.</p>`) + opt("data-v", "mark", F().trig, "Mark Price", `<p class="pf-p">Triggers on the fair mark price, less prone to wicks.</p>`), v => F().trig = v),
+      lev: () => {
+        let lv = Math.max(1, Math.min(125, st().lev || 20)), mm = st().marginMode || "cross";
+        U.sheet("Default Leverage & Margin Mode", `<div class="pf-lv"><div class="pf-lv-v"><b id="pfLv">${lv}x</b></div><input type="range" id="pfLvR" min="1" max="125" value="${lv}" aria-label="Leverage"><div class="pf-lv-m"><span>1x</span><span>25x</span><span>50x</span><span>75x</span><span>100x</span><span>125x</span></div>
+          ${seg("data-mm", mm, [["cross", "Cross"], ["isolated", "Isolated"]])}<p class="pf-p">Applied to new futures orders. Higher leverage increases liquidation risk.</p><button class="btn btn-primary btn-block" id="pfLvOk" style="margin-top:14px">Confirm</button></div>`, el => {
+          const rg = el.querySelector("#pfLvR"), paint = () => { rg.style.setProperty("--p", (rg.value - 1) / 124 * 100 + "%"); el.querySelector("#pfLv").textContent = rg.value + "x"; };
+          paint(); rg.oninput = () => { lv = +rg.value; paint(); };
+          el.querySelectorAll("[data-mm]").forEach(b => b.onclick = () => { mm = b.dataset.mm; el.querySelectorAll("[data-mm]").forEach(x => x.classList.toggle("on", x === b)); });
+          el.querySelector("#pfLvOk").onclick = () => { st().lev = lv; st().marginMode = mm; F().levSet = true; save(); U.closeLayer(); render(); };
+        });
+      }
+    };
+    r.addEventListener("click", e => {
+      const t = e.target;
+      const inf = t.closest("[data-info]");
+      if (inf){ e.stopPropagation(); const [h, p] = INFO[inf.dataset.info]; return U.sheet(h, `<p class="pf-p" style="margin:0 0 12px">${esc(p)}</p><button class="btn btn-primary btn-block" data-close2>Got it</button>`, el => el.querySelector("[data-close2]").onclick = U.closeLayer); }
+      let b;
+      if ((b = t.closest("[data-tab]"))){ tab = b.dataset.tab; return render(); }
+      if ((b = t.closest("[data-sub]"))){ sub = b.dataset.sub; return render(); }
+      if ((b = t.closest("[data-open]"))) return sheets[b.dataset.open]();
+      if ((b = t.closest("[data-fm]"))){ F().mode = b.dataset.fm; save(); return render(); }
+      if ((b = t.closest("[data-kl]"))){ L().kline = b.dataset.kl; save(); return render(); }
+      if ((b = t.closest("[data-ol]"))){ L().order = b.dataset.ol; save(); return render(); }
+      if ((b = t.closest("[data-bs]"))){ L().bstab = b.dataset.bs === "1"; save(); return render(); }
+      if ((b = t.closest("[data-rsw]"))){
+        const s = b.querySelector("[data-sw]"); if (!s) return;
+        const p = s.dataset.sw, cur = p.split(".").reduce((a, k) => a == null ? a : a[k], st()); const on = !(cur !== false && !!cur);
+        const ks = p.split("."), l = ks.pop(); ks.reduce((a, k) => a[k] = a[k] || {}, st())[l] = on; save();
+        s.classList.toggle("on", on); s.setAttribute("aria-checked", on);
+      }
+    });
+    render();
+  }};
+};
+/* entry row in Settings */
+const _st = Pages.settings;
+Pages.settings = (...a) => { const p = _st(...a); p.html = p.html.replace('<div class="pm-page">', `<div class="pm-page"><section class="pm-sec"><a class="pm-row tap" href="#/preferences"><span class="pm-main"><span class="pm-t">Preferences</span><span class="pm-s" style="display:block">Trading mode, layout and notifications</span></span><span class="chev">${ic("chev", 16)}</span></a></section>`); return p; };
+})();

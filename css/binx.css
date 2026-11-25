@@ -1,0 +1,74 @@
+/* ===== binx: Binance-like Perp chart page + docked futures chart ===== */
+/* header */
+body .cp-head{gap:2px;padding:4px 0 0;margin:0 -16px;padding-left:6px;padding-right:6px;min-height:44px}
+body .cp-head .icon-btn{width:34px;height:34px}
+body .cp-head .nm{font-size:17px;font-weight:700;gap:5px;line-height:1.15;align-items:center}
+body .cp-head .nm .coin,body .cp-head .nm img,body .cp-head .nm svg:not(:last-child){flex-shrink:0}
+body .cp-head .nm .perp{font-size:10px;line-height:15px;padding:0 4px;border-radius:3px}
+body .cp-sub{font-size:11px;line-height:1.2;margin-top:0;color:var(--muted)}
+/* tabs: underline */
+body .cp-tabs{gap:20px;border:0;border-bottom:1px solid var(--line);padding:0 16px;margin:0 -16px}
+body .cp-tabs button{padding:7px 0 8px;border:0;border-radius:0;background:none;font-size:14px;font-weight:500;color:var(--muted)}
+body .cp-tabs button.on{background:none;color:var(--text);font-weight:700}
+body .cp-tabs button.on::after{display:block;content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--text)!important;border-radius:1px}
+/* price block */
+body .cp-price{padding:6px 16px 6px;gap:6px;border-bottom:0}
+body .cp-price .mk-l{display:inline-flex;align-items:center;gap:3px;font-size:11px;color:var(--muted);line-height:1.2;padding:0}
+body .cp-price .lp{font-size:26px;font-weight:700;line-height:1.1;letter-spacing:-.02em}
+body .cp-price .pl-s{gap:6px;font-size:12px;line-height:1.3;margin-top:1px}
+body .cp-price .pl-s b{font-weight:500}
+body .cp-price .pl-l{font-size:11px;color:var(--muted);line-height:1.3}
+body .cp-price .pl-l b{color:var(--text);font-weight:500}
+body .cp-price .k{font-size:11px;gap:2px 14px;line-height:1.35;align-content:start;padding-top:12px}
+body .cp-price .k span{color:var(--muted)}
+/* interval row */
+body .tfbar{padding:0 10px 0 6px;height:30px;gap:2px;border-top:0;border-bottom:0}
+body .tfbar .tfs{gap:0;align-items:center}
+body .tfbar .tfs button,body .tf-more{font-size:12.5px;font-weight:500;padding:0 8px;height:26px;border-radius:4px;color:var(--muted);background:none}
+body .tfbar .tfs button.on,body .tf-more.on{color:var(--text);font-weight:700;background:none}
+body .tfbar .ti{width:28px;height:28px;border-radius:4px;color:var(--text-2);background:none}
+body .tfbar .ti.on{background:none;color:var(--text)}
+body .tfbar .ti svg{width:15px;height:15px}
+body .tf-more svg{width:10px;height:10px}
+body .drawbar{padding:4px 12px}
+/* chart: compact */
+body.no-nav .cp-chart:not(.fs) .chart-wrap{height:clamp(250px,calc(100svh - 392px - env(safe-area-inset-bottom)),520px);min-height:0}
+body .cp-chart:not(.fs) .chart-wrap{box-shadow:none}
+/* indicator row */
+body .indbar{padding:0 4px 0 16px;border:0}
+body .indbar .il{gap:15px;padding:6px 0}
+body .indbar .il button{font-size:12px}
+/* performance */
+body .perf{padding:6px 16px;gap:2px;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+body .perf div{font-size:10.5px}
+body .perf b{font-size:11.5px;font-weight:500;margin-top:1px}
+body.no-nav .perf{padding-top:6px;padding-bottom:6px}
+/* order book area */
+body .obtabs{gap:18px;margin:0;padding:8px 0 4px}
+body .obtabs button,body .obtabs button.on{padding:4px 0;border-radius:0;background:none;font-size:12.5px;font-weight:500;color:var(--muted)}
+body .obtabs button.on{color:var(--text);font-weight:700}
+body .ratio{font-size:11.5px;margin:4px 0 8px}
+body .ratio .bar{height:4px;gap:2px}
+body .ob2-h{font-size:11px}
+body .ob2{font-size:12px}
+body .ob2 .r{padding:2px 4px;line-height:1.4}
+#obox{min-height:260px;padding-bottom:4px}
+/* bottom bar */
+body .cp-bottom{padding:6px 12px calc(6px + env(safe-area-inset-bottom))}
+body .cp-bottom .in.qt{display:flex;align-items:center;gap:8px}
+body .cp-bottom .ib{background:none;border:0;padding:0;display:flex;flex-direction:column;align-items:center;gap:1px;font-size:10px;color:var(--text-2);min-width:38px;line-height:1.1}
+body .cp-bottom .in.qt .btn{flex:1;height:38px;border-radius:8px;font-size:14px;font-weight:700}
+body .cp-bottom .in.qt .btn-up{background:var(--up);color:#fff}
+body .cp-bottom .in.qt .btn-down{background:var(--down);color:#fff}
+body.no-nav #app,body.no-nav .page{padding-bottom:calc(64px + env(safe-area-inset-bottom))}
+#cpOther .cp-coin{margin-top:16px}
+
+/* docked futures chart */
+body .fxc{background:var(--bg);box-shadow:none;border-top:1px solid var(--line)}
+body .fxc-bar{padding:8px 16px;font-size:13px;font-weight:700}
+body .fxc.open .fxc-body{max-height:none;overflow:visible;background:var(--bg)}
+body .fxc .tfbar{height:28px;padding:0 8px 0 4px;border-top:1px solid var(--line);margin:0}
+body .fxc .tfbar .tfs button{font-size:12px;padding:0 7px;height:24px}
+body .fxc .cp-chart .chart-wrap{height:260px;min-height:0;max-height:none;background:var(--bg)}
+body .fxc .indbar{border:0}
+body .fxc .indbar .il{padding:5px 0}

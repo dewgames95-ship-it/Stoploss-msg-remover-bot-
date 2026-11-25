@@ -101,7 +101,10 @@ const PREF_DEF = {
   confirm: {market:true, limit:true, close:true, binary:true, option:true},       // 2-step order confirmation per order type
   snd: {open:true, close:true, win:true, loss:true, alert:true, notify:true, err:true},
   chart: {bs:true, pos:true, ord:true, hilo:true, cd:true},                     // B/S markers, position lines, order lines, high/low, candle countdown
-  hideSmall:false, pnlBasis:"24h"
+  hideSmall:false, pnlBasis:"24h",
+  layout: {kline:"bottom", order:"left", bstab:true, step:false, slideVib:true},   // Binance Preferences > Layout
+  futp: {mode:"classic", posMode:"oneway", unit:"USDT", trig:"last", protect:true, tapFill:false, showRz:true},   // Preferences > Trading Mode
+  notif: {fill:true, tpsl:true, liq:true, funding:false, binary:true, news:true}
 };
 for (const k in PREF_DEF){ const d = PREF_DEF[k]; S.settings[k] = typeof d === "object" ? Object.assign({}, d, S.settings[k] || {}) : (S.settings[k] ?? d); }
 if (!S.settings.v5){ Object.assign(S.settings, {v5:true, theme:"light", sound:true, haptic:true}); }

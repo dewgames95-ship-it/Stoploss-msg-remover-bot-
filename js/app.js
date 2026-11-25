@@ -10,7 +10,7 @@ const mq = matchMedia("(prefers-color-scheme: dark)");
 function setTheme(th){
   S.settings.theme = th; const r = th === "system" ? (mq.matches ? "dark" : "light") : th;
   document.documentElement.dataset.theme = r; document.documentElement.dataset.cm = S.settings.colorMode === "ru" ? "ru" : "gu";
-  document.querySelector('meta[name="theme-color"]').content = r === "dark" ? "#0B1220" : "#F5F7FB"; store.save(); bus.emit("theme");
+  document.querySelector('meta[name="theme-color"]').content = r === "dark" ? "#1F2630" : "#F5F7FB"; store.save(); bus.emit("theme");
 }
 mq.addEventListener?.("change", () => { if (S.settings.theme === "system") setTheme("system"); });
 function renderNav(active){

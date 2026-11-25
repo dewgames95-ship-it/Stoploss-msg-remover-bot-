@@ -296,3 +296,26 @@ a.px-row:active,button.px-row:active{background:var(--hover)}
 .px-opn .g span{display:block;font-size:10.5px;color:var(--muted)}.px-opn .g b{display:block;font-size:12.5px;font-weight:700;margin-top:2px}
 .px-opn .g div:nth-child(2){text-align:center}.px-opn .g div:nth-child(3){text-align:right}
 .px-lc .b.four b{font-size:12px}
+
+/* social bar + comments sheet */
+.sc-bar{display:flex;gap:6px;margin:6px 0 0 -8px}
+.sc-b{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:0 8px;border-radius:999px;font-size:12px;color:var(--muted);background:none;border:0;cursor:pointer;transition:background .15s}
+.sc-b:active{background:var(--hover)}
+.sc-b .sc-ic{display:inline-flex}
+.sc-like.on{color:var(--down)}.sc-like.on svg{fill:var(--down);stroke:var(--down)}
+.sc-like.pop .sc-ic{animation:scpop .35s cubic-bezier(.3,1.6,.5,1)}
+@keyframes scpop{0%{transform:scale(1)}40%{transform:scale(1.45)}100%{transform:scale(1)}}
+.px-post .sc-bar{margin-top:2px}
+.hm-fw{border-top:1px solid var(--line)}.hm-fw:first-child{border-top:0}.hm-fw .hm-fc{border-top:0}
+.sc-list{max-height:52vh;overflow-y:auto;padding-bottom:6px}
+.sc-r{display:flex;gap:10px;padding:10px 0;align-items:flex-start}
+.sc-r .g{flex:1;min-width:0}.sc-r .t{display:flex;gap:8px;align-items:baseline;font-size:12px;color:var(--muted)}.sc-r .t b{font-size:13px;color:var(--text);font-weight:700}
+.sc-r p{margin:3px 0 0;font-size:13.5px;line-height:1.45;color:var(--text);word-break:break-word}
+.sc-cl{display:inline-flex;flex-direction:column;align-items:center;gap:2px;font-size:11px;color:var(--muted);background:none;border:0;padding:4px;min-width:32px}
+.sc-cl.on{color:var(--down)}.sc-cl.on svg{fill:var(--down);stroke:var(--down)}
+.sc-ini{display:inline-flex;align-items:center;justify-content:center;border-radius:50%;background:var(--card-2);color:var(--text-2);font-size:11px;font-weight:700;flex-shrink:0}
+.sc-empty{padding:28px 0;text-align:center;color:var(--muted);font-size:13px}
+.sc-in{display:flex;gap:8px;padding-top:10px;border-top:1px solid var(--line);position:sticky;bottom:0;background:inherit}
+.sc-in input{flex:1;min-width:0;height:42px;border-radius:999px;border:0;background:var(--input);color:var(--text);padding:0 16px;font-size:14px}
+.sc-in button{height:42px;padding:0 18px;border-radius:999px;border:0;background:var(--brand);color:#fff;font-weight:700;font-size:14px}
+.sc-in button:disabled{opacity:.4}

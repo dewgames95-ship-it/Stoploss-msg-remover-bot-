@@ -243,8 +243,8 @@ Pages.home = () => {
     function drawFeed(){
       const my = gen; let shown = 0;
       stb.innerHTML = `<p class="hm-cap">Binance Square posts aren't available via a public API — showing live crypto news.</p><div id="fl"></div><div id="fs" class="hm-sent"></div>`;
-      const fl = stb.querySelector("#fl"), fs = stb.querySelector("#fs");
-      const card = x => `<a class="hm-fc" href="${esc(x.link)}" target="_blank" rel="noopener noreferrer"><div class="b"><div class="m"><i class="hm-src">${esc(x.src[0])}</i><span>${esc(x.src)}</span><span>· ${rel(x.ts)}</span></div><h4>${esc(x.title)}</h4>${x.desc ? `<p>${esc(x.desc)}</p>` : ""}</div>${x.img ? `<img src="${esc(x.img)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : ""}</a>`;
+      const fl = stb.querySelector("#fl"), fs = stb.querySelector("#fs"); SOCIAL.bind(stb);
+      const card = x => `<div class="hm-fw"><a class="hm-fc" href="${esc(x.link)}" target="_blank" rel="noopener noreferrer"><div class="b"><div class="m"><i class="hm-src">${esc(x.src[0])}</i><span>${esc(x.src)}</span><span>· ${rel(x.ts)}</span></div><h4>${esc(x.title)}</h4>${x.desc ? `<p>${esc(x.desc)}</p>` : ""}</div>${x.img ? `<img src="${esc(x.img)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : ""}</a>${SOCIAL.bar("nw:" + SOCIAL.hash(x.link), 8 + SOCIAL.hash(x.link) % 190, 1 + SOCIAL.hash(x.title) % 22, {who:x.src, text:x.title, url:x.link})}</div>`;
       const err = m => { fs.innerHTML = errBox(m); fs.querySelector("[data-retry]").onclick = () => { feedCache.busy = false; fs.innerHTML = skel(3); step(); }; };
       async function step(){
         if (my !== gen || feedCache.busy) return;

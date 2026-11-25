@@ -1,0 +1,30 @@
+plugins { id 'com.android.application' }
+
+def vc = (System.getenv("VERSION_CODE") ?: "1").toInteger()
+
+android {
+    namespace 'app.novatrade.binary'
+    compileSdk 34
+    defaultConfig {
+        applicationId "app.novatrade.binary"
+        minSdk 24
+        targetSdk 34
+        versionCode vc
+        versionName "1.0." + vc
+    }
+    signingConfigs {
+        release {
+            // Dedicated key for this personal demo app. Every build (local or CI) must use the same key,
+            // otherwise Android refuses to install updates over the old app.
+            storeFile file("nova-release.jks")
+            storePassword "novatrade"
+            keyAlias "nova"
+            keyPassword "novatrade"
+        }
+    }
+    buildTypes {
+        release { minifyEnabled false; signingConfig signingConfigs.release }
+        debug { signingConfig signingConfigs.release }
+    }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+}

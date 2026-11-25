@@ -1,0 +1,6 @@
+/* ===== FINAL dark theme (Binance-style): one uniform grey page, cards = page bg ===== */
+html[data-theme="dark"]{
+  --bg:#1F2630; --card:#1F2630; --chart-bg:#1F2630; --card-2:#29303A; --input:#29303A; --panel:#29303A; --hover:#323A46;
+  --line:#2B323C; --line-2:#3A424E; --text:#EAECEF; --text-2:#B7BDC6; --muted:#848E9C;
+  --sky-soft:#29303A; --glass:rgba(31,38,48,.92); --shadow:none; --shadow-lg:0 -8px 32px rgba(0,0,0,.35);
+}
