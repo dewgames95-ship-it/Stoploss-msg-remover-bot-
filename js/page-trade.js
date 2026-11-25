@@ -646,8 +646,8 @@ function calcSheet(){
 }
 function historyHtml(list){
   if (!list.length) return UI.emptyState("history", "No position history");
-  const dur = ms => { const m = Math.floor(ms/60000); return m >= 1440 ? `${Math.floor(m/1440)}d ${Math.floor(m%1440/60)}h` : m >= 60 ? `${Math.floor(m/60)}h ${m%60}m` : `${m}m`; };
-  const ds = t => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")} ${d.toTimeString().slice(0,8)}`; };
+  const dur = ms => { if (!isFinite(ms) || ms < 0) return "--"; const m = Math.floor(ms/60000); return m >= 1440 ? `${Math.floor(m/1440)}d ${Math.floor(m%1440/60)}h` : m >= 60 ? `${Math.floor(m/60)}h ${m%60}m` : `${m}m`; };
+  const ds = t => { const d = new Date(t); if (!t || isNaN(d)) return "--"; return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")} ${d.toTimeString().slice(0,8)}`; };
   return list.map(x => { const p = M.get(x.sym) || {dp:2, type:"crypto", base:x.sym.replace("USDT",""), sym:x.sym}; const roi = x.roi ?? (x.profit / (x.margin || 1) * 100), base = p.type === "crypto" ? p.base : "";
     return `<div class="pc"><div class="pc-h"><span class="side-b ${x.side==="long"?"l":"s"}">${x.side==="long"?"B":"S"}</span><span class="sym">${esc(fsym(p))}</span><span class="perp">Perp</span><span class="perp">${x.mode === "isolated" ? "Isolated" : "Cross"} ${x.lev}x</span><span class="grow"></span><span class="label" style="font-size:13px">${x.reason === "liquidated" ? "Liquidated" : "Closed"}</span></div>
       <div class="ph-g"><div data-rz="${x.id}" class="rz-link"><span>Realized PNL (USDT) ${ic("chev",11)}</span><b class="num ${x.profit>=0?"up":"down"}">${signed(x.profit)}</b></div><div><span>ROI</span><b class="num ${roi>=0?"up":"down"}">${roi.toFixed(2)}%</b></div><div><span>Closed Vol.${base ? ` (${esc(base)})` : ""}</span><b class="num">${fmt(x.closedVol ?? x.qty ?? 0, 3)}</b></div>
@@ -801,7 +801,7 @@ Pages.trade = (params) => {
 /* ---------------- Futures trade history (#/history) ---------------- */
 Pages.history = () => {
   let tab = "pos";
-  const html = `<header class="page-head"><button class="icon-btn" data-back aria-label="Back">${ic("back",22)}</button><div class="grow" style="text-align:center"><div class="h1" style="font-size:18px">My Trades</div><div class="label">USDⓈ-M Futures</div></div><span style="width:34px"></span></header>
+  const html = `<header class="page-head"><button class="icon-btn" data-back aria-label="Back">${ic("back",22)}</button><div class="grow" style="text-align:center"><div class="h1" style="font-size:18px">My Trades</div><div class="label">USDⓈ-M Futures</div></div><button class="hx-exp" data-exp type="button">Export</button></header>
     <div class="ptabs" style="margin-top:0"><button data-ht="ord">Order History</button><button class="on" data-ht="pos">Position History</button><button data-ht="trade">Trade History</button><button data-ht="bin">Binary</button></div>
     <p class="label" style="margin:10px 0">Last updated: <span id="lu"></span></p><div id="hl"></div>`;
   return {html, title:"My Trades", mount(r){

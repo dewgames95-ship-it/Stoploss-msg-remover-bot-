@@ -1,1 +1,13 @@
-/* v6.7 */
+/* v6.7 — copy trading: detail tabs, live rows */
+.px-opn.fresh,.px-pos.fresh,.px-rec.fresh{animation:pxfresh 2.4s ease-out}
+@keyframes pxfresh{0%{background:var(--brand-soft)}100%{background:transparent}}
+.px-opn.fresh{animation-name:pxfreshc}
+@keyframes pxfreshc{0%{box-shadow:0 0 0 2px var(--brand)}100%{box-shadow:0 0 0 0 transparent}}
+.px-pos.hist{align-items:flex-start;padding:10px 0}
+.px-pos.hist .grow .px-mut{font-size:11.5px;line-height:1.45}
+.px-rec{display:flex;align-items:flex-start;gap:10px;padding:11px 4px;border-bottom:1px solid var(--line);font-size:13px;line-height:1.4}
+.px-rec:last-child{border-bottom:0}
+.px-rec .d{flex:none;width:8px;height:8px;border-radius:50%;margin-top:6px;background:var(--brand)}
+.px-rec .d.up{background:var(--up)}.px-rec .d.dn{background:var(--down)}
+.px-rec .px-mut{font-size:11.5px;margin-top:1px}
+#dtabs{gap:18px}

@@ -147,12 +147,15 @@ function skip(name, why) { results.push({ name, ok: true, skipped: true, detail:
     // options (best effort)
     try {
       await go('#/options/BTC');
-      const n = await page.locator('[data-buy]').count();
-      if (!n) skip('options: buy', 'no Buy buttons rendered (likely no live price)');
+      await page.waitForFunction(() => window.M && M.get('BTCUSDT') && M.get('BTCUSDT').price > 0, null, {timeout: 8000}).catch(() => {});
+      const live = await page.waitForSelector('#sGo', {state: 'visible', timeout: 4000}).then(() => true).catch(() => false);
+      if (!live) skip('options: buy', 'Simple-mode buy button not rendered');
       else {
         const before = await page.evaluate(() => (U.store.s.opt?.positions || []).length);
-        await page.locator('[data-buy]').nth(Math.floor(n / 2)).click(); await settle(page, 500);
-        await page.click('#osGo'); await settle(page, 600);
+        await page.evaluate(() => { U.store.s.wallets.options = Math.max(U.store.s.wallets.options || 0, 1000); });
+        await page.click('#sAmts [data-a="50"]'); await settle(page, 300);
+        await page.click('#sGo'); await settle(page, 400);
+        if (await page.locator('[data-yes]').count()) await page.click('[data-yes]'); await settle(page, 600);
         const after = await page.evaluate(() => (U.store.s.opt?.positions || []).length);
         rec('options: buy adds position', after === before + 1, `positions ${before} -> ${after}`);
         await shot('options');
