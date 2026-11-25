@@ -131,3 +131,16 @@ html[data-theme="light"] .sheet{border-top:0}
 .op-amts button.on,.op-exp.on,.op-tg.on,.op-und.on{background:var(--grad-brand-soft);box-shadow:inset 0 0 0 1px var(--brand)}
 .px-strip>div{border-color:var(--line)}
 .pm-fld,.pm-in,.pm-sel,.pm-ta{border-color:var(--line)}
+
+/* ---------- options (simple + pro) and rewards check-in ---------- */
+:root[data-theme] .op-dir button,:root[data-theme] .op-tg,:root[data-theme] .op-und,:root[data-theme] .op-sum{background:var(--surface);background-image:none;border:0;box-shadow:none;border-radius:var(--r-card);opacity:1}
+:root[data-theme] .op-dir button.on.op-up,:root[data-theme] .op-up.on{background:color-mix(in srgb,var(--up) 12%,var(--surface));box-shadow:inset 0 0 0 1px var(--up)}
+:root[data-theme] .op-dir button.on.op-dn,:root[data-theme] .op-dn.on{background:color-mix(in srgb,var(--down) 12%,var(--surface));box-shadow:inset 0 0 0 1px var(--down)}
+:root[data-theme] .op-tg.on{background:var(--brand-soft);box-shadow:inset 0 0 0 1px var(--brand)}
+:root[data-theme] .op-exp,:root[data-theme] .op-amts button{background:var(--input);border:0;border-radius:var(--r-chip);box-shadow:none}
+:root[data-theme] .op-exp.on,:root[data-theme] .op-amts button.on{background:var(--grad-brand-soft);box-shadow:inset 0 0 0 1px var(--brand);color:var(--text)}
+:root[data-theme] .op-exp.on small{color:var(--text-2)}
+.op-amt,.op-simple .famt{border-radius:var(--r-ctl)}
+:root[data-theme] .px-strip>div{background:var(--surface);border:0;border-radius:var(--r-ctl)}
+:root[data-theme] .px-strip>div.done{background:var(--brand-soft);color:var(--brand)}
+:root[data-theme] .px-strip>div.now{background:var(--surface);box-shadow:inset 0 0 0 1px var(--brand);border:0}
