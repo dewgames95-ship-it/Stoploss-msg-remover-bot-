@@ -138,3 +138,23 @@ nav.bt-fnav{box-shadow:none;border-color:var(--line-2)}
 .hm-rows{contain:content}
 .hm-sentinel{height:1px}
 .hm-row,.px-coin,.pm-prod{content-visibility:auto;contain-intrinsic-size:auto 56px}
+
+/* px sections become cards (rewards, assets lists, academy, alerts, deposit) */
+.px-page .px-sec{margin:0 0 12px;padding:14px;border:1px solid var(--pg-bd);border-radius:var(--r-card);background:var(--card);overflow:hidden}
+.px-page .px-sec:last-child{border-bottom:1px solid var(--pg-bd)}
+.px-lv{border-radius:var(--r-card);margin-bottom:12px;background:var(--grad-brand)!important}
+.px-btn.br{background:var(--grad-brand);color:#fff}
+.px-bar i{background:var(--grad-brand)}
+.px-lv .px-bar i{background:#fff}
+.px-strip>div.now{border-color:var(--brand);background:var(--grad-brand-soft)}
+.px-btn{border-radius:var(--r-ctl)}
+.px-page>#ll:not(:empty){border:1px solid var(--pg-bd);border-radius:var(--r-card);background:var(--card);padding:0 14px;overflow:hidden}
+.px-page>#ll>*:last-child{border-bottom:0}
+.rf-dark{padding:16px 14px 14px}
+.rf-art{width:112px;height:112px;margin-right:-4px}
+.rf-tx h2{font-size:22px;margin-bottom:10px}
+.rf-mng{white-space:nowrap}
+.rf-top{min-height:120px}
+/* inputs / chips inside sheets: visible borders in dark */
+.sheet .sc-in input,.sheet .px-inp,.sheet .pm-fld{border:1px solid var(--line-2)}
+.sheet .px-chips button,.sheet .sc-chips button{border-color:var(--line-2)}

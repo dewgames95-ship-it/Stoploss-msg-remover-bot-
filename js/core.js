@@ -85,8 +85,14 @@ const bus = {
 
 /* ----- Store (localStorage) ----- */
 const KEY = "novatrade_v1";
+const WALLETS = ["spot","futures","binary","options","earn"];
+const r2 = v => Math.round(v*100)/100;
+function splitWallets(total){
+  const f = r2(total*0.4), b = r2(total*0.3), o = r2(total*0.1);
+  return {spot: r2(total - f - b - o), futures: f, binary: b, options: o, earn: 0};
+}
 const defaults = () => ({
-  balance: C.START_BALANCE, positions: [], history: [], tx: [], notifs: [], unread: 0,
+  balance: C.START_BALANCE, wallets: splitWallets(C.START_BALANCE), walletsV1: true, positions: [], history: [], tx: [], notifs: [], unread: 0,
   settings: {theme: "light", lang:"en", sound:true, haptic:true, hideBal:false, defAmt:10, defExp:30, lev:20, inds:["EMA","VOL"], chartType:"candle"},
   fut: {positions:[], orders:[], history:[]}, alerts: [], favs: ["BTCUSDT","ETHUSDT","XAUUSD"], rewards: {checkins:[], claimed:{}, xp:0, used:{}}, vault: {bal:0, since:Date.now()},
   balHist: [], bots: {}, auto: {on:false, pair:"BTCUSDT", amount:10, expiry:30, strategy:"trend", interval:20, max:20, count:0, log:[]},
@@ -95,6 +101,11 @@ const defaults = () => ({
 });
 let S;
 try { S = Object.assign(defaults(), JSON.parse(localStorage.getItem(KEY) || "{}")); } catch { S = defaults(); }
+if (!S.walletsV1 || !S.wallets){   // one-time migration: legacy single balance -> separate wallets (40% futures / 30% binary / 20% spot / 10% options)
+  S.wallets = splitWallets(+S.balance || 0); S.walletsV1 = true;
+}
+WALLETS.forEach(k => { if (!(S.wallets[k] >= 0)) S.wallets[k] = 0; });
+S.balance = r2(WALLETS.reduce((a,k) => a + S.wallets[k], 0));
 S.settings = Object.assign(defaults().settings, S.settings || {});
 S.settings.lang = "en";
 const PREF_DEF = {
@@ -115,12 +126,28 @@ const store = {
   get s(){ return S; },
   save(){ clearTimeout(saveT); saveT = setTimeout(() => { try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch{} }, 120); },
   saveNow(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch{} },
-  setBalance(v, reason){
-    S.balance = Math.round(v*100)/100;
+  WALLETS,
+  wb(k){ return (S.wallets && S.wallets[k]) || 0; },
+  setWallet(k, v, reason){
+    if (!(k in S.wallets)) return;
+    S.wallets[k] = Math.max(0, r2(v));
+    S.balance = r2(WALLETS.reduce((a,w) => a + S.wallets[w], 0));
     S.balHist.push({t: Date.now(), b: S.balance});
     if (S.balHist.length > 400) S.balHist.splice(0, S.balHist.length - 400);
-    this.save(); bus.emit("balance", S.balance, reason);
+    this.save(); bus.emit("balance", S.balance, reason, k);
   },
+  addWallet(k, d, reason){ this.setWallet(k, this.wb(k) + d, reason); },
+  transfer(from, to, amt){
+    amt = r2(+amt);
+    if (!(from in S.wallets) || !(to in S.wallets) || from === to) return "Choose two different wallets.";
+    if (!(amt > 0)) return "Enter a valid amount.";
+    if (amt > this.wb(from) + 1e-9) return "Insufficient " + from[0].toUpperCase() + from.slice(1) + " balance";
+    S.wallets[from] = r2(S.wallets[from] - amt); S.wallets[to] = r2(S.wallets[to] + amt);
+    (S.tx ||= []).unshift({type:"transfer", from, to, amt, t: Date.now()});
+    this.save(); bus.emit("balance", S.balance, "transfer", to); return null;
+  },
+  // legacy: single-balance writers (deposit, earn, copy, convert) are routed to Spot so wallets stay consistent
+  setBalance(v, reason){ this.setWallet("spot", this.wb("spot") + (v - S.balance), reason); },
   reset(){ const keep = {settings:S.settings, profile:S.profile}; S = Object.assign(defaults(), keep); this.saveNow(); bus.emit("balance", S.balance); bus.emit("positions"); bus.emit("history"); },
   wipe(){ localStorage.removeItem(KEY); location.reload(); },
   notify(title, body, kind="info"){

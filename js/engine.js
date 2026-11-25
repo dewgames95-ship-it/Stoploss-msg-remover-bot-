@@ -20,7 +20,7 @@ function validate(sym, amount){
   if (!(amount > 0) || isNaN(amount)) return "Enter a valid amount.";
   if (amount < 0.1) return "Minimum trade amount is 0.1 USDT.";
   if (amount > 5000) return "Maximum trade amount is 5,000 USDT.";
-  if (amount > S().balance) return "Insufficient balance. Add funds from Deposit.";
+  if (amount > store.wb("binary") + 1e-9) return "Insufficient Binary balance";
   if (S().positions.length >= C.MAX_OPEN) return `Maximum ${C.MAX_OPEN} open positions reached.`;
   return null;
 }
@@ -34,7 +34,7 @@ function place(sym, dir, amount, expiry, source="manual"){
   const p = M.get(sym), now = Date.now();
   const pos = {id:uid(), sym, dir, amount, entry:p.price, open:now, exp:alignedExpiry(expiry, now), expiry, payout:payoutOf(sym, expiry), source};
   S().positions.push(pos);
-  store.setBalance(S().balance - amount, "trade");
+  store.addWallet("binary", -amount, "trade");
   bus.emit("positions"); bus.emit("placed", pos);
   if (!S().rewards.used.first){ S().rewards.used.first = now; bus.emit("rewards"); }
   return {pos};
@@ -65,7 +65,7 @@ function settle(pos){
   S().positions = S().positions.filter(x => x.id !== pos.id);
   const rec = Object.assign({}, pos, {exit, result, profit, credit, closed: now});
   S().history.unshift(rec); S().history = S().history.slice(0, 500);
-  store.setBalance(S().balance + credit, "settle");
+  store.addWallet("binary", credit, "settle");
   const lbl = M.label(p || {type:"crypto", base:pos.sym});
   store.notify(result === "win" ? "Trade won 🎉" : result === "loss" ? "Trade lost" : "Trade refunded",
     `${lbl} ${pos.dir === "up" ? "Up" : "Down"} ${money(pos.amount)} USDT → ${signed(profit)} USDT`, result === "win" ? "ok" : result === "loss" ? "bad" : "info");
@@ -89,7 +89,7 @@ function fundingTick(now){
     const px = M.get(pos.sym)?.price || pos.entry, pay = r2(pos.qty * px * FUND_RATE * (pos.side === "long" ? 1 : -1) * (ep - pos.fEp));
     pos.fEp = ep; pos.realized = (pos.realized || 0) - pay;
     pos.rz = pos.rz || {openFee:pos.fee || 0, closeFee:0, closePnl:0, funding:0}; pos.rz.funding -= pay;
-    store.setBalance(S().balance - pay, "funding"); any = true;
+    store.addWallet("futures", -pay, "funding"); any = true;
   });
   if (any){ store.save(); bus.emit("positions"); }
 }
@@ -116,11 +116,11 @@ function todaySeries(){
 
 /* ---- Bots (simulated, driven by real price moves) ---- */
 const BOTS = [
-  {id:"combo", name:"Future Combo Bot", pair:"BTCUSDT", desc:"Long BTC with a hedge — trend-following futures combo.", mult:3, grid:0.00004, risk:"Medium", apy:"38–64%"},
-  {id:"grid", name:"Spot Grid Bot", pair:"ETHUSDT", desc:"Buys low and sells high inside a price range, 24/7.", mult:1, grid:0.00008, risk:"Low", apy:"12–28%"},
-  {id:"dca", name:"Smart DCA Bot", pair:"SOLUSDT", desc:"Dollar-cost averages into dips with safety orders.", mult:1.5, grid:0.00003, risk:"Low", apy:"15–35%"},
-  {id:"gold", name:"Gold Trend Bot", pair:"XAUUSD", desc:"Follows the gold trend on biquote live prices.", mult:5, grid:0.00002, risk:"Medium", apy:"20–45%"},
-  {id:"fx", name:"Forex Scalper", pair:"EURUSD", desc:"High-frequency EUR/USD scalping on short swings.", mult:20, grid:0.00002, risk:"High", apy:"25–80%"}
+  {id:"combo", wallet:"futures", name:"Future Combo Bot", pair:"BTCUSDT", desc:"Long BTC with a hedge — trend-following futures combo.", mult:3, grid:0.00004, risk:"Medium", apy:"38–64%"},
+  {id:"grid", wallet:"spot", name:"Spot Grid Bot", pair:"ETHUSDT", desc:"Buys low and sells high inside a price range, 24/7.", mult:1, grid:0.00008, risk:"Low", apy:"12–28%"},
+  {id:"dca", wallet:"spot", name:"Smart DCA Bot", pair:"SOLUSDT", desc:"Dollar-cost averages into dips with safety orders.", mult:1.5, grid:0.00003, risk:"Low", apy:"15–35%"},
+  {id:"gold", wallet:"futures", name:"Gold Trend Bot", pair:"XAUUSD", desc:"Follows the gold trend on biquote live prices.", mult:5, grid:0.00002, risk:"Medium", apy:"20–45%"},
+  {id:"fx", wallet:"futures", name:"Forex Scalper", pair:"EURUSD", desc:"High-frequency EUR/USD scalping on short swings.", mult:20, grid:0.00002, risk:"High", apy:"25–80%"}
 ];
 function botPnl(id){
   const b = S().bots[id]; if (!b?.running) return b?.pnl || 0;
@@ -134,11 +134,12 @@ function botPnl(id){
 function startBot(id, invest){
   const def = BOTS.find(x => x.id === id), p = M.get(def.pair);
   if (!(invest >= 10)) return "Minimum investment is 10 USDT.";
-  if (invest > S().balance) return "Insufficient balance.";
+  const w = def.wallet || "futures";
+  if (invest > store.wb(w) + 1e-9) return "Insufficient " + w[0].toUpperCase() + w.slice(1) + " balance";
   if (!p?.price || M.isStale(p)) return "Market data offline for " + def.pair + ". Try again shortly.";
   if (p.closed) return "Market closed for this pair right now.";
-  S().bots[id] = {running:true, invest, start:p.price, since:Date.now(), series:[0], pnl:0};
-  store.setBalance(S().balance - invest, "bot");
+  S().bots[id] = {running:true, w, invest, start:p.price, since:Date.now(), series:[0], pnl:0};
+  store.addWallet(w, -invest, "bot");
   store.notify("Bot started", `${def.name} with ${money(invest)} USDT`, "ok"); E.award("bot");
   bus.emit("bots"); return null;
 }
@@ -146,7 +147,7 @@ function stopBot(id){
   const b = S().bots[id]; if (!b?.running) return;
   const pnl = Math.round(botPnl(id) * 100) / 100;
   b.running = false; b.pnl = pnl; b.stopped = Date.now();
-  store.setBalance(S().balance + b.invest + pnl, "bot");
+  store.addWallet(b.w || BOTS.find(x => x.id === id)?.wallet || "futures", b.invest + pnl, "bot");
   const def = BOTS.find(x => x.id === id);
   store.notify("Bot stopped", `${def.name}: ${signed(pnl)} USDT returned with your ${money(b.invest)} USDT`, pnl >= 0 ? "ok" : "bad");
   bus.emit("bots");
@@ -190,7 +191,7 @@ function stopAuto(reason="Stopped by you."){ S().auto.on = false; clearInterval(
 const F = () => S().fut;
 const r2 = v => Math.round(v * 100) / 100;
 function maxLev(p){ return C.LEVERAGE_MAX[p?.type] || 125; }
-function crossAvail(){ return S().balance; }
+function crossAvail(){ return store.wb("futures"); }
 // Liquidation: margin balance (margin [+ free balance for cross]) + uPnL = maintenance margin
 function liqPrice(side, entry, lev, mode="cross", qty=null, margin=null){
   const mmr = C.MMR;
@@ -208,7 +209,7 @@ function futValidate(sym, margin, lev, price){
   if (!(margin > 0)) return "Please enter the amount.";
   if (margin * lev < 5) return "Order value must be at least 5 USDT.";
   const fee = margin * lev * C.FEE;
-  if (margin + fee > S().balance) return "Insufficient balance. Add funds to continue.";
+  if (margin + fee > store.wb("futures") + 1e-9) return "Insufficient Futures balance";
   if (lev < 1 || lev > maxLev(p)) return `Leverage must be 1x–${maxLev(p)}x.`;
   if (margin * lev > 5000000) return "Max position size is 5,000,000 USDT.";
   if (price != null && !(price > 0)) return "Please enter the price.";
@@ -246,13 +247,13 @@ function openFut({sym, side, margin, lev, type="market", price=null, tp=null, sl
       if (tif === "IOC" || tif === "FOK") return {err:`${tif} order cannot be filled immediately at this price.`};
       const e2 = tpslCheck(side, price, tp, sl, null); if (e2) return {err:e2};
       const o = {id:uid(), sym, side, margin, lev, price, tp, sl, fee, mode, tif, t:Date.now()};
-      F().orders.push(o); store.setBalance(S().balance - margin - fee, "order");
+      F().orders.push(o); store.addWallet("futures", -margin - fee, "order");
       F().log = (F().log || []).concat({t:Date.now(), sym, side, type:"Limit", price, qty: margin*lev/price, status:"New"}).slice(-200);
       bus.emit("positions"); store.save(); return {order:o};
     }
   }
   const e2 = tpslCheck(side, p.price, tp, sl, liqPrice(side, p.price, lev, mode, margin*lev/p.price, margin)); if (e2) return {err:e2};
-  store.setBalance(S().balance - margin - fee, "futures");
+  store.addWallet("futures", -margin - fee, "futures");
   const pos = addToPosition(sym, side, margin, lev, p.price, fee, mode, tp, sl);
   F().log = (F().log || []).concat({t:Date.now(), sym, side, type:"Market", price:p.price, qty: margin*lev/p.price, fee, status:"Filled"}).slice(-200);
   refreshLiq(); award("futures"); bus.emit("positions"); store.save();
@@ -277,7 +278,7 @@ function closeFut(id, reason="manual", atPx, frac=1){
   pos.realized = (pos.realized || 0) + pnl - (reason === "liquidated" ? 0 : fee);
   pos.rz = pos.rz || {openFee:pos.fee || 0, closeFee:0, closePnl:0, funding:0}; pos.rz.closePnl += pnl; pos.rz.closeFee += reason === "liquidated" ? 0 : fee;
   pos.closedQty = (pos.closedQty || 0) + q; pos.closeNotional = (pos.closeNotional || 0) + q * px;
-  store.setBalance(S().balance + back, "futures");
+  store.addWallet("futures", back, "futures");
   F().log = (F().log || []).concat({t:Date.now(), sym:pos.sym, side: pos.side === "long" ? "short" : "long", type: reason === "manual" ? "Market" : reason.toUpperCase(), price:px, qty:q, fee, pnl, status:"Filled"}).slice(-200);
   let profit = r2(pnl - fee);
   if (frac >= 0.9999 || reason === "liquidated"){
@@ -298,7 +299,7 @@ function closeFut(id, reason="manual", atPx, frac=1){
 function cancelOrder(id){
   const o = F().orders.find(x => x.id === id); if (!o) return;
   F().orders = F().orders.filter(x => x.id !== id);
-  store.setBalance(S().balance + o.margin + o.fee, "order"); bus.emit("positions");
+  store.addWallet("futures", o.margin + o.fee, "order"); bus.emit("positions");
 }
 function setTpSl(id, tp, sl){
   const pos = F().positions.find(x => x.id === id); if (!pos) return "Position not found.";
@@ -308,8 +309,8 @@ function setTpSl(id, tp, sl){
 function setPosLev(id, lev){
   const pos = F().positions.find(x => x.id === id); if (!pos) return "Position not found.";
   const need = pos.qty * pos.entry / lev, diff = need - pos.margin;
-  if (diff > S().balance) return "Insufficient balance to lower leverage.";
-  store.setBalance(S().balance - diff, "futures"); pos.margin = need; pos.lev = lev;
+  if (diff > store.wb("futures") + 1e-9) return "Insufficient Futures balance";
+  store.addWallet("futures", -diff, "futures"); pos.margin = need; pos.lev = lev;
   pos.liq = liqPrice(pos.side, pos.entry, lev, pos.mode, pos.qty, pos.margin); refreshLiq(); store.save(); bus.emit("positions"); return null;
 }
 bus.on("tick", (sym, px) => {
@@ -373,7 +374,7 @@ function taskDone(k){
 function claim(k){
   const t = TASKS.find(x => x.k === k), r = S().rewards;
   if (!t || r.claimed[k] || !taskDone(k)) return false;
-  r.claimed[k] = Date.now(); r.xp += t.xp; store.setBalance(S().balance + t.reward, "reward");
+  r.claimed[k] = Date.now(); r.xp += t.xp; store.addWallet("spot", t.reward, "reward");
   store.notify("Reward claimed", `+${t.reward} USDT · +${t.xp} XP`, "ok"); bus.emit("rewards"); return t;
 }
 const dayKey = (d=new Date()) => d.toISOString().slice(0,10);
@@ -388,7 +389,7 @@ function checkIn(){
   const r = S().rewards, k = dayKey(); if (r.checkins.includes(k)) return null;
   const st = streak(), amt = CHECKIN[st % 7];
   r.checkins.push(k); r.checkins = r.checkins.slice(-60); r.xp += 10;
-  store.setBalance(S().balance + amt, "checkin");
+  store.addWallet("spot", amt, "checkin");
   store.notify("Daily check-in", `+${amt} USDT · Day ${st % 7 + 1} streak`, "ok"); bus.emit("rewards");
   return {amt, day: st % 7 + 1};
 }
@@ -401,8 +402,8 @@ function earnValue(){ const L = (S().earn?.locked || []), now = Date.now(); retu
 function vaultValue(){ const v = S().vault; return v.bal * (1 + APR * (Date.now() - v.since) / 31536e6); }
 function vaultMove(amount, dir){
   const v = S().vault, cur = vaultValue();
-  if (dir === "in"){ if (amount > S().balance) return "Amount exceeds your trading balance."; v.bal = cur + amount; v.since = Date.now(); store.setBalance(S().balance - amount, "vault"); }
-  else { if (amount > cur + 1e-9) return "Amount exceeds your Vault balance."; v.bal = cur - amount; v.since = Date.now(); store.setBalance(S().balance + amount, "vault"); }
+  if (dir === "in"){ if (amount > store.wb("earn") + 1e-9) return "Insufficient Earn balance"; v.bal = cur + amount; v.since = Date.now(); store.addWallet("earn", -amount, "vault"); }
+  else { if (amount > cur + 1e-9) return "Amount exceeds your Vault balance."; v.bal = cur - amount; v.since = Date.now(); store.addWallet("earn", amount, "vault"); }
   store.save(); bus.emit("vault"); return null;
 }
 
