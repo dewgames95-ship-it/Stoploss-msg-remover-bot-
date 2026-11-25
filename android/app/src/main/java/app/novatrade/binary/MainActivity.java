@@ -64,6 +64,11 @@ public class MainActivity extends Activity {
         s.setDatabaseEnabled(true);
         s.setMediaPlaybackRequiresUserGesture(false);
         s.setCacheMode(WebSettings.LOAD_DEFAULT);
+        s.setTextZoom(100);                    // ignore system font scaling so layouts never overlap
+        s.setLoadWithOverviewMode(true);
+        s.setUseWideViewPort(true);
+        web.setOverScrollMode(View.OVER_SCROLL_NEVER);
+        web.setLayerType(View.LAYER_TYPE_HARDWARE, null);
         s.setUserAgentString(s.getUserAgentString() + " BinaryTradingApp/" + BuildConfigVersion());
         web.addJavascriptInterface(new Bridge(), "NativeApp");
 

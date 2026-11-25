@@ -1,0 +1,27 @@
+/* ===== trade2: v6.2 trading pages layer (loaded after theme.css) ===== */
+/* Binary: time period = row of 4 separate small cards */
+.bin-page .bx-trow{display:flex;align-items:center;gap:10px;margin:2px 0 10px}
+.bin-page .bx-tl{flex:0 0 auto;width:52px;margin:0;font-size:12px;line-height:1.15;font-weight:600;color:var(--muted)}
+.bin-page .bx-time{flex:1;min-width:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;height:40px;padding:0;margin:0;background:none;border-radius:0}
+.bin-page .bx-time .exp-chip{height:40px;min-width:0;padding:0;display:grid;place-items:center;background:var(--card);border:1px solid var(--line);border-radius:var(--r-chip);box-shadow:none;transition:none}
+.bin-page .bx-time .exp-chip b{font-size:13px;font-weight:600;color:var(--muted)}
+.bin-page .bx-time .exp-chip.on{background:var(--grad-brand-soft);border:1px solid var(--brand);box-shadow:none}
+.bin-page .bx-time .exp-chip.on b{color:var(--text);font-weight:800}
+/* quick amounts: bigger tap target, brand-soft selected */
+.bb-chips button{height:32px;border-radius:var(--r-chip);border:1px solid transparent}
+.bb-chips button.on{background:var(--grad-brand-soft);border-color:var(--brand);color:var(--text);font-weight:800}
+.bb-max{height:32px;border-radius:var(--r-chip)}
+.bb-top .bx-step{width:32px;height:32px;border-radius:var(--r-chip)}
+.bx-bet,.bx-pay{border-radius:var(--r-card)}
+.bin-page .ud{gap:8px}
+/* Buy/Long/Up and Sell/Short/Down: gradient */
+.btn-up,.fbtn2.l,.bin-page .ud .btn-up,body .cp-bottom .in.qt .btn-up,.qt-top .oc button.on[data-sd="long"]{background:var(--grad-up);color:#fff;box-shadow:none}
+.btn-down,.fbtn2.s,.bin-page .ud .btn-down,body .cp-bottom .in.qt .btn-down,.qt-top .oc button.on[data-sd="short"]{background:var(--grad-down);color:#fff;box-shadow:none}
+.btn-up,.btn-down,.fbtn2{border-radius:var(--r-ctl)}
+.bin-page .ud .btn,.bx .ud .btn{border-radius:var(--r-ctl)}
+.btn-up:disabled,.btn-down:disabled{opacity:.5}
+/* position cards: countdown never collides with tags */
+.bin-page .pc-h{min-width:0;flex-wrap:nowrap}
+.bin-page .pc-h .sym{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bin-page .pc-h .perp,.bin-page .pc-h .side-b{flex-shrink:0}
+.bin-page .pc-h [data-cd]{flex-shrink:0;margin-left:auto;font-size:14px;min-width:46px;text-align:right}

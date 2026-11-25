@@ -1,0 +1,20 @@
+/* ===== v6.2 brand layer: Binance structure, NovaTrade light-blue → blue accent (instead of Binance yellow) =====
+   Tokens only here; component rules live in each engineer's file. Loaded last. */
+:root{
+  --brand:#2F7BFF; --brand-2:#4FA8FF; --brand-soft:rgba(47,123,255,.10); --brand-soft-2:rgba(47,123,255,.18);
+  --grad-brand:linear-gradient(135deg,#5CC6FF 0%,#3B8CFF 48%,#2F6BF0 100%);
+  --grad-brand-soft:linear-gradient(135deg,rgba(92,198,255,.16) 0%,rgba(47,107,240,.16) 100%);
+  --up:#20B26C; --down:#EF454A;
+  --grad-up:linear-gradient(180deg,#2CC47D 0%,#1FA463 100%);
+  --grad-down:linear-gradient(180deg,#FF5A61 0%,#E23B42 100%);
+  --cta:var(--grad-brand);
+  --r-card:14px; --r-ctl:10px; --r-chip:8px; --r-sheet:20px;
+}
+html[data-theme="dark"]{
+  --brand:#3D8BFF; --brand-2:#62B6FF; --brand-soft:rgba(61,139,255,.14); --brand-soft-2:rgba(61,139,255,.24);
+  --grad-brand:linear-gradient(135deg,#62C9FF 0%,#3D8BFF 50%,#2D66E8 100%);
+  --up:#2EBD85; --down:#F6465D;
+  --grad-up:linear-gradient(180deg,#35C990 0%,#26A974 100%);
+  --grad-down:linear-gradient(180deg,#FF5C70 0%,#E23A50 100%);
+}
+html[data-cm="ru"]{--grad-up:linear-gradient(180deg,#FF5A61 0%,#E23B42 100%);--grad-down:linear-gradient(180deg,#2CC47D 0%,#1FA463 100%)}
