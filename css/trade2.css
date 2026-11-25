@@ -1,11 +1,11 @@
 /* ===== trade2: v6.2 trading pages layer (loaded after theme.css) ===== */
-/* Binary: time period = row of 4 separate small cards */
-.bin-page .bx-trow{display:flex;align-items:center;gap:10px;margin:2px 0 10px}
-.bin-page .bx-tl{flex:0 0 auto;width:52px;margin:0;font-size:12px;line-height:1.15;font-weight:600;color:var(--muted)}
-.bin-page .bx-time{flex:1;min-width:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;height:40px;padding:0;margin:0;background:none;border-radius:0}
-.bin-page .bx-time .exp-chip{height:40px;min-width:0;padding:0;display:grid;place-items:center;background:var(--card);border:1px solid var(--line);border-radius:var(--r-chip);box-shadow:none;transition:none}
-.bin-page .bx-time .exp-chip b{font-size:13px;font-weight:600;color:var(--muted)}
-.bin-page .bx-time .exp-chip.on{background:var(--grad-brand-soft);border:1px solid var(--brand);box-shadow:none}
+/* Binary: time period = independent bordered box holding 4 small cards */
+.bin-page .bx-trow{display:block;margin:0 0 8px;padding:10px;background:var(--card-2);border:1px solid var(--line-2,var(--line));border-radius:var(--r-card)}
+.bin-page .bx-tl{width:auto;margin:0 0 8px;font-size:12px;line-height:1.2;font-weight:600;color:var(--muted)}
+.bin-page .bx-time{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;height:auto;padding:0;margin:0;background:none;border-radius:0}
+.bin-page .bx-time .exp-chip{height:40px;min-width:0;padding:0;margin:0;display:flex;flex-direction:row;align-items:center;justify-content:center;text-align:center;background:var(--bg);border:1px solid var(--line-2,var(--line));border-radius:var(--r-chip);box-shadow:none;transition:none;line-height:1}
+.bin-page .bx-time .exp-chip b{display:block;font-size:13px;line-height:1;font-weight:600;color:var(--muted)}
+.bin-page .bx-time .exp-chip.on{background:var(--grad-brand-soft);border-color:var(--brand)}
 .bin-page .bx-time .exp-chip.on b{color:var(--text);font-weight:800}
 /* quick amounts: bigger tap target, brand-soft selected */
 .bb-chips button{height:32px;border-radius:var(--r-chip);border:1px solid transparent}
@@ -25,3 +25,12 @@
 .bin-page .pc-h .sym{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .bin-page .pc-h .perp,.bin-page .pc-h .side-b{flex-shrink:0}
 .bin-page .pc-h [data-cd]{flex-shrink:0;margin-left:auto;font-size:14px;min-width:46px;text-align:right}
+/* interval row */
+.tfbar .tfs{overflow-x:auto;flex-wrap:nowrap;-webkit-overflow-scrolling:touch}
+.tfbar .tfs button,.tfbar .tf-more{flex:0 0 auto;font-size:12.5px;min-height:30px}
+/* position / order / history cards (futures + binary) */
+.fx-page .pc,.bin-page .pc,.fxr .pc{background:var(--bg);border:1px solid var(--line-2,var(--line));border-radius:var(--r-card);padding:12px;margin:0 0 10px}
+.fxr .pc-g,.fxr .ph-g,.bin-page .pc-g,.bin-page .ph-g{padding-top:10px;border-top:1px solid var(--line)}
+.fxr .pc-h,.bin-page .pc-h{margin-bottom:10px}
+.fxr .ph-t,.bin-page .ph-t{padding-top:8px;border-top:1px solid var(--line)}
+.fxr .pc .prog,.bin-page .pc .prog{margin-top:10px}

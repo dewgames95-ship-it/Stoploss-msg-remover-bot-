@@ -86,7 +86,7 @@ function loadingPage(title){
   return {title:"Loading", html: UI.pageHead(title) + `<div>${Array(8).fill('<div class="skel"></div>').join("")}</div>`, mount(){ off = bus.on("list", () => { if (M.cryptoOrder.length) setTimeout(App.route, 0); }); }, unmount(){ off?.(); }};
 }
 function chartBlock(){
-  const MAIN = ["tick","1m","15m","1h","4h","1d"];
+  const MAIN = ["tick","1s","5s","30s","1m","15m","1h","4h","1d"];
   return `<div class="tfbar"><div class="tfs" id="tfs">${MAIN.map(x => `<button data-tf="${x}">${TFL[x] || x}</button>`).join("")}<button class="tf-more" data-tfmore><span id="tfml">More</span> ${ic("chevd",10)}</button></div>
       <button class="ti" data-fs aria-label="Fullscreen">${ic("expand",15)}</button><button class="ti" data-drawt aria-label="Drawing tools">${ic("pen",15)}</button><button class="ti" data-indset aria-label="Indicator settings">${ic("grid",15)}</button><button class="ti" data-ctype aria-label="Chart type">${ic("candle",15)}</button></div>
     <div class="drawbar hide" id="drawbar">${[["trend","Trend line"],["ray","Ray"],["hline","Horizontal"],["rect","Rectangle"],["fib","Fib"]].map(([k,n]) => `<button data-tool="${k}">${n}</button>`).join("")}<button data-undo>${ic("reset",13)} Undo</button><button data-clear>${ic("trash",13)} Clear</button></div>
@@ -565,8 +565,8 @@ Pages.futures = (params) => {
     if (kl === "bottom"){ if ($("#cch").classList.contains("open")){ chartOpen = false; toggleChart(); } $("[data-cch]").onclick = toggleChart; }
     else if (kl === "top") unChart = bindChart(root, sym, "tf_fut", "15m", candleDetail(sym), {mini:true, tfs:MINI_TFS});
     $("[data-pick]").onclick = () => pickSheet(sym, x => location.hash = "#/futures/" + x);
-    $("[data-menu]").onclick = () => U.sheet("", [["ring","Price alert", () => alertSheet(sym)],["candle","Chart", () => location.hash = "#/chart/" + sym],["history","Position history", () => location.hash = "#/history"],["percent","Futures calculator", calcSheet]].map(([i,n],k) => `<button class="list-item" style="width:100%" data-k="${k}"><span class="ic">${ic(i,18)}</span><span class="grow">${n}</span>${ic("chev",16)}</button>`).join(""), el => {
-      const acts = [() => alertSheet(sym), () => location.hash = "#/chart/" + sym, () => location.hash = "#/history", calcSheet];
+    $("[data-menu]").onclick = () => U.sheet("", [["ring","Price alert", () => alertSheet(sym)],["candle","Chart", () => location.hash = "#/chart/" + sym],["history","Position history", () => location.hash = "#/history"],["percent","Futures calculator", calcSheet],["gear","Preferences", () => location.hash = "#/preferences"]].map(([i,n],k) => `<button class="list-item" style="width:100%" data-k="${k}"><span class="ic">${ic(i,18)}</span><span class="grow">${n}</span>${ic("chev",16)}</button>`).join(""), el => {
+      const acts = [() => alertSheet(sym), () => location.hash = "#/chart/" + sym, () => location.hash = "#/history", calcSheet, () => location.hash = "#/preferences"];
       el.querySelectorAll("[data-k]").forEach(b => b.onclick = () => { U.closeLayer(); setTimeout(acts[+b.dataset.k], 300); }); });
     root.querySelectorAll("[data-oc]").forEach(b => b.onclick = () => { oc = b.dataset.oc; root.querySelectorAll("[data-oc]").forEach(x => x.classList.toggle("on", x===b)); $("#amt").value = ""; sliderPct = 0; $("#sl").value = 0; renderForm(); });
     $("[data-mode]").onclick = modeSheet; $("[data-lev]").onclick = () => levSheet();
