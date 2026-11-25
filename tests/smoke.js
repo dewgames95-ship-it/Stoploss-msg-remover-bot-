@@ -91,6 +91,7 @@ function skip(name, why) { results.push({ name, ok: true, skipped: true, detail:
     await page.goto(base + '#/home'); await settle(page, 1500);
     await page.evaluate(() => {
       Object.keys(U.store.s.settings.confirm).forEach(k => U.store.s.settings.confirm[k] = false);
+      U.store.s.settings.tips = false; window.TOUR && TOUR.close && TOUR.close();
       const ensure = (sym, px) => { const p = M.get(sym); if (p && !(p.price > 0)) p.price = px; };
       ensure('BTCUSDT', 60000); ensure('ETHUSDT', 3000);
     });
