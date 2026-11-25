@@ -223,3 +223,24 @@ nav.bt-fnav button.on{background:var(--card-2);color:var(--text);font-weight:800
 .pf-sw:active{background:var(--hover)}
 .pf-vou{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px;border-radius:12px;background:var(--card-2);margin-bottom:10px}
 .pf-vou span{display:block;font-size:12px;color:var(--muted);margin-top:2px}.pf-vou b.num{font-size:18px}
+
+/* ===== Referral (BingX style) ===== */
+.rf-hero{margin:0 -16px 10px;padding:18px 16px 20px;background:var(--card-2);text-align:center}
+.rf-hero svg.rf-art{display:block;margin:0 auto 6px}
+.rf-hero h2{font-size:20px;font-weight:800;margin:0 0 4px}
+.rf-hero p{font-size:13px;color:var(--muted);margin:0 0 14px}
+.rf-code{display:flex;align-items:center;justify-content:space-between;gap:10px;height:54px;padding:0 6px 0 16px;border-radius:12px;background:var(--card);border:1px solid var(--line);text-align:left}
+.rf-code span{display:block;font-size:11px;color:var(--muted)}
+.rf-code b{display:block;font-size:20px;font-weight:800;letter-spacing:.12em}
+.rf-code button{height:42px;padding:0 18px;border-radius:10px;font-size:14px;font-weight:700;background:var(--brand);color:#fff}
+.rf-tier-on td{font-weight:700}
+.rf-step{display:flex;gap:14px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line)}
+.rf-step:last-child{border-bottom:0}
+.rf-step svg{flex-shrink:0;color:var(--text)}
+.rf-hist{padding:6px 0}
+/* ===== Profile menu grid ===== */
+.pf-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:4px 2px;margin:0 -4px 4px}
+.pf-gi{display:flex;flex-direction:column;align-items:center;gap:7px;padding:12px 2px 8px;border-radius:12px;color:var(--text);font-size:11.5px;font-weight:500;text-align:center;line-height:1.2;min-width:0;background:none}
+.pf-gi:active{background:var(--hover)}
+.pf-gi span{max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.pf-top .pf-ib+.pf-ib{margin-left:-2px}

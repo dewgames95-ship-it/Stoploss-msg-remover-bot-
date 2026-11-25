@@ -56,11 +56,10 @@ function marketList(box, o = {}){
     else if (chip === "indices") l = all.filter(p => p.type === "index");
     else if (chip === "commod") l = all.filter(p => p.type === "commodity");
     else { const top = crypto(); l = [...top.slice(0,5), M.get("XAUUSD"), M.get("EURUSD"), ...top.slice(5), M.get("GBPUSD"), M.get("XAGUSD")].filter(Boolean); }
-    if (sub === "spot") l = l.filter(p => p.type === "crypto");
     return l;
   }
   const vol = p => p.qv ? "Vol " + CH.fmtVol(p.qv) : ({forex:"Forex", metal:"Spot metal", stock:"Stock", index:"Index", commodity:"Commodity"})[p.type] || "";
-  const tag = p => p.type === "crypto" ? (sub === "spot" ? "" : `<em>Perp</em>`) : (p.type === "stock" ? `<em class="t">Stock</em>` : `<em class="t">24/5</em>`);
+  const tag = p => p.type === "crypto" ? (sub === "spot" ? "" : `<em>Perp</em>`) : (sub === "spot" ? (p.type === "stock" ? `<em class="t">Stock</em>` : "") : p.type === "stock" ? `<em class="t">Stock</em>` : `<em class="t">24/5</em>`);
   const chgHtml = p => p.closed ? `<span class="hm-chg cl">Closed</span>` : p.chg == null ? `<span class="hm-chg cl">--</span>` : `<span class="hm-chg ${p.chg < 0 ? "neg" : ""}">${p.chg >= 0 ? "+" : ""}${p.chg.toFixed(2)}%</span>`;
   const usd = p => "$" + M.fmtPx(p, p.quote === "JPY" ? p.price / (M.get("USDJPY")?.price || 1) : p.price);
   function render(){
@@ -82,7 +81,7 @@ function marketList(box, o = {}){
     dirty.clear();
   }
   box.addEventListener("click", e => { const r = e.target.closest(".hm-row"); if (!r) return;
-    const p = M.get(r.dataset.sym); location.hash = (sub === "spot" && p && p.type === "crypto" ? "#/spot/" : "#/futures/") + r.dataset.sym; });
+    location.hash = (sub === "spot" ? "#/spot/" : "#/futures/") + r.dataset.sym; });
   box.addEventListener("keydown", e => { const r = e.target.closest(".hm-row"); if (r && e.key === "Enter") r.click(); });
   offs.push(bus.on("tick", s => dirty.add(s)), bus.on("meta", s => dirty.add(s)), bus.on("list", render));
   const iv = setInterval(flush, 500);
@@ -101,7 +100,7 @@ function bindChips(root, ml){
 /* ---------- Home ---------- */
 const SHORT = [
   ["Copy Trading","users","#/copy"],["Rewards Hub","gift","#/rewards"],["Futures","layers","#/futures"],["Spot","chart","#/spot"],["Options","target","#/options"],
-  ["Trading Bots","bot","#/bots"],["Earn","earn","#/earn"],["Refer","share","#/referral"],["More","grid","#more"]
+  ["Trading Bots","bot","#/bots"],["Earn","earn","#/earn"],["Refer","share","#/referral"],["More","grid","#/profile"]
 ];
 const SLIDES = [
   ["Join the Rewards Hub and claim up to 500 USDT","Daily check-in, tasks and badges","#/rewards","trophy"],
@@ -111,19 +110,39 @@ const SLIDES = [
   ["Options are live: calls and puts on BTC, ETH and more","Max loss is limited to the premium","#/options","shield"],
   ["Invite friends and earn up to 40% commission","Both of you receive a bonus","#/referral","gift"]
 ];
+const DEF_FAVS = ["BTCUSDT","ETHUSDT","SOLUSDT","BNBUSDT","XRPUSDT","DOGEUSDT","XAUUSD","XAGUSD","NVDAUSDT","AAPLUSDT","TSLAUSDT","US30"];
+function seedFavs(){
+  const s = S(); if (s.favSeeded || !M.cryptoOrder.length) return;
+  s.favs = s.favs || [];
+  if (s.favs.length < 10){ DEF_FAVS.forEach(x => { if (!s.favs.includes(x) && M.get(x)) s.favs.push(x); }); }
+  if (s.favs.length >= 10){ s.favSeeded = true; }
+  store.save();
+}
 const HOT = ["BTC","SOL","ETH","XRP","DOGE","BNB"];
-const STRIP = {
-  academy:[["Candlestick patterns for beginners","#/academy","5 min"],["How leverage and liquidation work","#/academy","7 min"],["Risk management: sizing a position","#/academy","6 min"]],
-  events:[["Futures Trading Competition: 100,000 USDT pool","#/rewards","Live"],["Daily check-in streak bonus","#/rewards","Daily"],["Invite friends, share 40% fees","#/rewards","Ongoing"]],
-  announce:[["Options trading now supports 6 underlying assets","#/options","New"],["Scheduled maintenance for demo servers: none planned","#/home",""],["New: Spot markets available from the Home tabs","#/markets","New"]]
-};
+const EVENTS = [["Futures Trading Competition","Share a 100,000 USDT prize pool","#/futures","Live","podium"],["Rewards Hub","Daily check-in, tasks and badges","#/rewards","Daily","trophy"],["Copy Trading Carnival","Follow top traders and share profit bonuses","#/copy","Hot","rocket"],["Invite Friends","Earn up to 40% commission","#/referral","Ongoing","gift"],["Earn Boost","Up to 12% APR on idle USDT","#/earn","New","coins"],["Options Launch","Calls and puts with capped risk","#/options","New","shield"]];
+const LESSONS = [["Candlestick patterns for beginners","5 min"],["How leverage and liquidation work","7 min"],["Risk management: sizing a position","6 min"],["Reading order books and depth","6 min"],["Stop loss and take profit explained","5 min"],["Funding rates in perpetual futures","8 min"],["Spot vs futures: which to choose","4 min"],["Support, resistance and trend lines","7 min"],["What are options and how do they work","9 min"],["Building a simple trading plan","6 min"]];
+const ANN_CATS = [[48,"New Listings"],[49,"Latest News"],[161,"Delisting"],[93,"Activities"]];
+const FEEDS = [["Cointelegraph","https://cointelegraph.com/rss"],["CoinDesk","https://www.coindesk.com/arc/outboundfeeds/rss/"],["Decrypt","https://decrypt.co/feed"],["The Block","https://www.theblock.co/rss.xml"]];
+const feedCache = {items:[], loaded:0, busy:false};
+const annCache = {};
+const rel = ts => { const d = (Date.now() - ts) / 1000; if (!isFinite(d)) return ""; if (d < 60) return "just now"; if (d < 3600) return Math.floor(d/60) + "m ago"; if (d < 86400) return Math.floor(d/3600) + "h ago"; if (d < 2592000) return Math.floor(d/86400) + "d ago"; return new Date(ts).toLocaleDateString(); };
+const plain = h => { const d = document.createElement("div"); d.innerHTML = String(h || ""); return (d.textContent || "").replace(/\s+/g, " ").trim(); };
+const skel = n => Array(n).fill('<div class="hm-sk"><i></i><b></b></div>').join("");
+const errBox = msg => `<div class="hm-err"><p>${esc(msg)}</p><button data-retry>Retry</button></div>`;
+async function jget(url){ const r = await fetch(url); if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); }
+async function loadFeed(i){
+  const [name, url] = FEEDS[i];
+  const j = await jget("https://api.rss2json.com/v1/api.json?rss_url=" + encodeURIComponent(url));
+  if (j.status && j.status !== "ok") throw new Error(j.message || "Feed error");
+  return (j.items || []).map(it => ({src:name, title:plain(it.title), desc:plain(it.description || it.content).slice(0, 220), img:it.thumbnail || (it.enclosure && it.enclosure.link) || (/<img[^>]+src="([^"]+)"/.exec(it.content || "") || [])[1] || "", link:it.link, ts:Date.parse((it.pubDate || "").replace(" ", "T") + "Z") || Date.parse(it.pubDate) || 0}));
+}
 
 Pages.home = () => {
   let offs = [], timers = [], ml;
   const s = S();
   const html = `
   <header class="hm-top">
-    <button class="hm-av" data-menu aria-label="Open menu">${avatar(s.profile.name, 34)}</button>
+    <a class="hm-av" href="#/profile" aria-label="Profile">${avatar(s.profile.name, 34)}</a>
     <label class="hm-search" id="hs">${ic("flame",16)}<span class="hm-rot"><span class="hm-rot-in" id="rot">${[...HOT, HOT[0]].map(x => `<span>${x} Hot Searched</span>`).join("")}</span></span><input id="q" type="search" aria-label="Search markets" autocomplete="off" enterkeyhint="search"></label>
     <a class="hm-ib" href="#/support" aria-label="Support">${ic("headset",21)}<i></i></a>
     <a class="hm-ib" href="#/rewards" aria-label="Rewards">${ic("gift",21)}</a>
@@ -137,10 +156,10 @@ Pages.home = () => {
     </div>
     <a class="hm-dep" href="#/deposit">Deposit</a>
   </section>
-  <nav class="hm-sc" aria-label="Shortcuts">${SHORT.map(([n,i,h]) => `<a href="${h}" ${h === "#more" ? "data-more" : ""}>${ic(i,22,1.7)}<span>${esc(n).replace(" ", "<br>")}${n.includes(" ") ? "" : "<br>&nbsp;"}</span></a>`).join("")}</nav>
+  <nav class="hm-sc" aria-label="Shortcuts">${SHORT.map(([n,i,h]) => `<a href="${h}">${ic(i,22,1.7)}<span>${esc(n).replace(" ", "<br>")}${n.includes(" ") ? "" : "<br>&nbsp;"}</span></a>`).join("")}</nav>
   <section class="hm-ban" aria-label="Featured"><div class="hm-bs" id="bs">${SLIDES.map(([h,p,l,a]) => `<a class="hm-sl" href="${l}"><div class="g"><h3>${esc(h)}</h3><p>${esc(p)}</p></div>${art(a)}</a>`).join("")}</div><span class="hm-cnt" id="cnt">1/${SLIDES.length}</span></section>
   <section aria-label="Markets">${chipsHtml()}<div id="mlist"></div></section>
-  <div class="hm-strip-sp"></div><div class="hm-strip" id="strip"><div class="hm-st-t"><button data-st="academy" class="on">Academy</button><button data-st="events">Events</button><button data-st="announce">Announcement</button><span class="x" data-sx role="button" aria-label="Expand">${ic("chevd",16)}</span></div><div class="hm-st-b" id="stb"></div></div>`;
+  <div class="hm-strip-sp"></div><div class="hm-strip" id="strip"><div class="hm-st-t" role="tablist"><button data-st="feed" role="tab">Feed</button><button data-st="announce" role="tab">Announcements</button><button data-st="events" role="tab">Events</button><button data-st="academy" role="tab">Academy</button><span class="x" data-sx role="button" tabindex="0" aria-label="Expand">${ic("chevd",16)}</span></div><div class="hm-st-b" id="stb"></div></div>`;
 
   function renderBal(){
     const b = document.getElementById("bal"); if (!b) return;
@@ -152,6 +171,7 @@ Pages.home = () => {
   function renderNotif(){ const n = document.getElementById("nb"); if (!n) return; n.textContent = s.unread > 9 ? "9+" : s.unread; n.classList.toggle("hide", !s.unread); }
   return {html, title:"Home", mount(root){
     renderBal(); renderNotif();
+    seedFavs(); offs.push(bus.on("list", () => { seedFavs(); }));
     ml = marketList(root.querySelector("#mlist"), {limit:15});
     bindChips(root, ml);
     const qi = root.querySelector("#q"), hs = root.querySelector("#hs");
@@ -164,8 +184,6 @@ Pages.home = () => {
     const rv = setInterval(() => { ri++; rot.classList.add("anim"); rot.style.transform = `translateY(-${ri * 36}px)`;
       if (ri === HOT.length) setTimeout(() => { rot.classList.remove("anim"); rot.style.transform = "translateY(0)"; ri = 0; }, 480); }, 3000);
     timers.push(() => clearInterval(rv));
-    root.querySelector("[data-menu]").onclick = UI.openMenu;
-    root.querySelector("[data-more]").onclick = e => { e.preventDefault(); UI.openMenu(); };
     root.querySelector("[data-bell]").onclick = UI.openNotifs;
     root.querySelector("[data-eye]").onclick = () => { s.settings.hideBal = !s.settings.hideBal; store.save(); root.querySelector("#ey").style.transform = s.settings.hideBal ? "rotate(180deg)" : ""; renderBal(); };
     root.querySelector("#ey").style.display = "inline-flex";
@@ -177,12 +195,73 @@ Pages.home = () => {
     auto(); timers.push(() => clearInterval(bt));
     ["touchstart","pointerdown"].forEach(ev => bs.addEventListener(ev, () => clearInterval(bt), {passive:true}));
     ["touchend","pointerup"].forEach(ev => bs.addEventListener(ev, auto, {passive:true}));
-    /* strip */
-    const strip = root.querySelector("#strip"), stb = root.querySelector("#stb"); let stTab = "academy";
-    const drawStrip = () => { stb.innerHTML = STRIP[stTab].map(([n,h,tg]) => `<a href="${h}"><span>${esc(n)}</span><small>${esc(tg)}</small>${ic("chev",14)}</a>`).join(""); };
-    drawStrip();
-    strip.querySelectorAll("[data-st]").forEach(b => b.onclick = () => { stTab = b.dataset.st; strip.querySelectorAll("[data-st]").forEach(x => x.classList.toggle("on", x === b)); drawStrip(); strip.classList.add("open"); });
-    strip.querySelector("[data-sx]").onclick = () => strip.classList.toggle("open");
+    /* strip: Feed / Announcements / Events / Academy */
+    const strip = root.querySelector("#strip"), stb = root.querySelector("#stb"); let stTab = "feed", io = null, gen = 0, annCat = 48;
+    const stop = () => { if (io){ io.disconnect(); io = null; } gen++; };
+    const watch = (el, fn) => { if (io) io.disconnect(); io = new IntersectionObserver(es => { if (es.some(x => x.isIntersecting)) fn(); }, {root:stb, rootMargin:"200px"}); io.observe(el); };
+    timers.push(stop);
+    function drawFeed(){
+      const my = gen; let shown = 0;
+      stb.innerHTML = `<p class="hm-cap">Binance Square posts aren't available via a public API — showing live crypto news.</p><div id="fl"></div><div id="fs" class="hm-sent"></div>`;
+      const fl = stb.querySelector("#fl"), fs = stb.querySelector("#fs");
+      const card = x => `<a class="hm-fc" href="${esc(x.link)}" target="_blank" rel="noopener noreferrer"><div class="b"><div class="m"><i class="hm-src">${esc(x.src[0])}</i><span>${esc(x.src)}</span><span>· ${rel(x.ts)}</span></div><h4>${esc(x.title)}</h4>${x.desc ? `<p>${esc(x.desc)}</p>` : ""}</div>${x.img ? `<img src="${esc(x.img)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : ""}</a>`;
+      const err = m => { fs.innerHTML = errBox(m); fs.querySelector("[data-retry]").onclick = () => { feedCache.busy = false; fs.innerHTML = skel(3); step(); }; };
+      async function step(){
+        if (my !== gen || feedCache.busy) return;
+        if (shown >= feedCache.items.length){
+          if (feedCache.loaded >= FEEDS.length){ fs.innerHTML = shown ? '<small class="hm-end">You are all caught up</small>' : errBox("No news available right now."); if (!shown) fs.querySelector("[data-retry]").onclick = () => { feedCache.loaded = 0; feedCache.items = []; fs.innerHTML = skel(3); step(); }; return; }
+          feedCache.busy = true; fs.innerHTML = skel(3);
+          const idx = feedCache.loaded === 0 ? [0, 1] : [feedCache.loaded], res = await Promise.allSettled(idx.map(loadFeed));
+          feedCache.busy = false; if (my !== gen) return;
+          res.forEach(r => { if (r.status === "fulfilled") feedCache.items.push(...r.value); });
+          feedCache.items.sort((a,b) => b.ts - a.ts);
+          if (!feedCache.items.length && res.every(r => r.status === "rejected")){ return err("Couldn't load the news feed."); }
+          feedCache.loaded = idx[idx.length - 1] + 1; shown = 0; fl.innerHTML = "";
+        }
+        const n = feedCache.items.slice(shown, shown + 10); shown += n.length;
+        fl.insertAdjacentHTML("beforeend", n.map(card).join(""));
+        fs.innerHTML = skel(1); watch(fs, step);
+      }
+      if (feedCache.items.length){ const n = feedCache.items.slice(0, 10); shown = n.length; fl.innerHTML = n.map(card).join(""); fs.innerHTML = skel(1); watch(fs, step); }
+      else { fs.innerHTML = skel(4); step(); }
+    }
+    function drawAnn(){
+      const my = gen, c = annCache[annCat] = annCache[annCat] || {items:[], page:0, done:false, busy:false};
+      stb.innerHTML = `<div class="hm-sc2">${ANN_CATS.map(([id,n]) => `<button data-ac="${id}" class="${id === annCat ? "on" : ""}">${n}</button>`).join("")}</div><div id="al"></div><div id="as" class="hm-sent"></div>`;
+      stb.querySelectorAll("[data-ac]").forEach(b => b.onclick = () => { annCat = +b.dataset.ac; stop(); drawAnn(); });
+      const al = stb.querySelector("#al"), as = stb.querySelector("#as");
+      const row = x => `<a class="hm-ar" href="https://www.binance.com/en/support/announcement/detail/${esc(x.code)}" target="_blank" rel="noopener noreferrer"><span>${esc(x.title)}</span><small>${rel(x.releaseDate)}</small></a>`;
+      const err = () => { as.innerHTML = errBox("Couldn't load announcements."); as.querySelector("[data-retry]").onclick = () => { as.innerHTML = skel(4); step(); }; };
+      async function step(){
+        if (my !== gen || c.busy || c.done) return;
+        c.busy = true;
+        try {
+          const j = await jget(`https://www.binance.com/bapi/composite/v1/public/cms/article/list/query?type=1&catalogId=${annCat}&pageNo=${c.page + 1}&pageSize=20`);
+          const arts = (j.data && j.data.catalogs && j.data.catalogs[0] && j.data.catalogs[0].articles) || [];
+          c.busy = false; c.page++; if (arts.length < 20) c.done = true; c.items.push(...arts);
+          if (my !== gen) return;
+          al.insertAdjacentHTML("beforeend", arts.map(row).join(""));
+          if (c.done){ as.innerHTML = c.items.length ? '<small class="hm-end">No more announcements</small>' : errBox("No announcements found."); if (!c.items.length) as.querySelector("[data-retry]").onclick = () => { c.done = false; c.page = 0; as.innerHTML = skel(4); step(); }; }
+          else { as.innerHTML = skel(1); watch(as, step); }
+        } catch (e){ c.busy = false; if (my === gen) err(); }
+      }
+      if (c.items.length){ al.innerHTML = c.items.map(row).join(""); if (c.done) as.innerHTML = '<small class="hm-end">No more announcements</small>'; else { as.innerHTML = skel(1); watch(as, step); } }
+      else { as.innerHTML = skel(5); step(); }
+    }
+    const drawStrip = () => {
+      stop(); stb.scrollTop = 0;
+      if (stTab === "feed") drawFeed();
+      else if (stTab === "announce") drawAnn();
+      else if (stTab === "events") stb.innerHTML = EVENTS.map(([n,d,h,tg,a]) => `<a class="hm-ev" href="${h}">${art(a, 52).replace('class="art"','class="art" width="52" height="52"')}<div><b>${esc(n)}</b><span>${esc(d)}</span></div><em>${esc(tg)}</em></a>`).join("");
+      else stb.innerHTML = LESSONS.map(([n,m], i) => `<a class="hm-ar" href="#/academy"><i class="hm-no">${i + 1}</i><span>${esc(n)}</span><small>${esc(m)}</small></a>`).join("");
+    };
+    const setOn = () => strip.querySelectorAll("[data-st]").forEach(x => { x.classList.toggle("on", x.dataset.st === stTab && strip.classList.contains("open")); x.setAttribute("aria-selected", x.dataset.st === stTab); });
+    strip.querySelectorAll("[data-st]").forEach(b => b.onclick = () => { stTab = b.dataset.st; const was = strip.classList.contains("open"); strip.classList.add("open"); setOn(); drawStrip(); });
+    const tog = () => { const o = strip.classList.toggle("open"); setOn(); if (o) drawStrip(); else stop(); };
+    strip.querySelector("[data-sx]").onclick = tog;
+    strip.querySelector("[data-sx]").onkeydown = e => { if (e.key === "Enter") tog(); };
+    setOn();
+    if (window.__hmOpenStrip){ strip.classList.add("open"); setOn(); drawStrip(); }
     offs.push(bus.on("balance", renderBal), bus.on("history", renderBal), bus.on("notifs", renderNotif));
     const bv = setInterval(renderBal, 3000); timers.push(() => clearInterval(bv));
   }, unmount(){ offs.forEach(f => f()); timers.forEach(f => f()); ml?.destroy(); }};
