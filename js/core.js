@@ -103,7 +103,7 @@ const PREF_DEF = {
   chart: {bs:true, pos:true, ord:true, hilo:true, cd:true},                     // B/S markers, position lines, order lines, high/low, candle countdown
   hideSmall:false, pnlBasis:"24h",
   layout: {kline:"bottom", order:"left", bstab:true, step:false, slideVib:true},   // Binance Preferences > Layout
-  futp: {mode:"classic", posMode:"oneway", unit:"USDT", trig:"last", protect:true, tapFill:false, showRz:true},   // Preferences > Trading Mode
+  futp: {mode:"classic", posMode:"oneway", asset:"single", unit:"USDT", trig:"last", protect:true, tapFill:false, showRz:true, levSet:false},   // Preferences > Trading Mode
   notif: {fill:true, tpsl:true, liq:true, funding:false, binary:true, news:true}
 };
 for (const k in PREF_DEF){ const d = PREF_DEF[k]; S.settings[k] = typeof d === "object" ? Object.assign({}, d, S.settings[k] || {}) : (S.settings[k] ?? d); }

@@ -4,3 +4,26 @@ html[data-theme="dark"]{
   --line:#2B323C; --line-2:#3A424E; --text:#EAECEF; --text-2:#B7BDC6; --muted:#848E9C;
   --sky-soft:#29303A; --glass:rgba(31,38,48,.92); --shadow:none; --shadow-lg:0 -8px 32px rgba(0,0,0,.35);
 }
+
+/* --- flatten dark panels: no gradients / glows / inset highlights; borders are plain hairlines --- */
+html[data-theme="dark"] .card,html[data-theme="dark"] .bt-card,html[data-theme="dark"] .pf-tile,html[data-theme="dark"] .px-lc,
+html[data-theme="dark"] .px-kpis>div,html[data-theme="dark"] .px-acc,html[data-theme="dark"] .px-notice,html[data-theme="dark"] .px-xrow,
+html[data-theme="dark"] .px-xprev,html[data-theme="dark"] .op-os,html[data-theme="dark"] .kpi,html[data-theme="dark"] .mover,
+html[data-theme="dark"] .stats-row,html[data-theme="dark"] .sp-card{
+  background:var(--card);background-image:none;border:1px solid var(--line);box-shadow:none}
+html[data-theme="dark"] .hm-ban,html[data-theme="dark"] .px-promo,html[data-theme="dark"] .px-hero{
+  background:var(--card-2);background-image:none;border:0;box-shadow:none}
+html[data-theme="dark"] .slide,html[data-theme="dark"] .slide.s2,html[data-theme="dark"] .slide.s3,html[data-theme="dark"] .hero{background:var(--card-2);background-image:none;box-shadow:none}
+html[data-theme="dark"] body{background:var(--bg)}
+html[data-theme="dark"] .px-btn,html[data-theme="dark"] .pf-top .icon-btn{box-shadow:none}
+html[data-theme="dark"] .px-btn.pri{box-shadow:none}
+html[data-theme="dark"] .px-btn:not(.pri){border:0}
+html[data-theme="dark"] .px-acts a span,html[data-theme="dark"] .px-acts button span,html[data-theme="dark"] .as-acts span,
+html[data-theme="dark"] .as-acts a>span,html[data-theme="dark"] .tile .ic,html[data-theme="dark"] .px-ico,html[data-theme="dark"] .px-acts a.pri span{
+  background-image:none;box-shadow:none;border:0}
+/* sheets / drawers / modals: Binance-style raised grey */
+html[data-theme="dark"] .sheet,html[data-theme="dark"] .drawer,html[data-theme="dark"] .modal{background:var(--card-2);border:0;box-shadow:var(--shadow-lg)}
+html[data-theme="dark"] .sheet .grab{background:var(--line-2)}
+html[data-theme="dark"] .sheet .sc-in{background:var(--card-2)}
+html[data-theme="dark"] .sc-in input{background:var(--bg)}
+html[data-theme="dark"] .sheet-h,html[data-theme="dark"] .sheet-b{background:transparent}
