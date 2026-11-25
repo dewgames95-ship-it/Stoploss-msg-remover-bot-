@@ -285,3 +285,14 @@ a.px-row:active,button.px-row:active{background:var(--hover)}
 .px-xprev div{display:flex;justify-content:space-between;gap:8px;min-height:34px;align-items:center;font-size:13px}
 .px-xprev span{color:var(--muted)}
 .px-inp .px-link{background:none;margin-right:8px}
+
+/* leader detail: tabs + live open positions */
+.px-opn{padding:12px 14px;border-radius:14px;background:var(--card-2);margin-bottom:8px}
+.px-opn .h{display:flex;align-items:center;gap:10px}
+.px-opn .h b{font-size:14px}
+.px-opn .r{text-align:right;display:flex;flex-direction:column;gap:2px;flex-shrink:0}
+.px-opn .r b{font-size:15px;font-weight:800}.px-opn .r span{font-size:12px;font-weight:600}
+.px-opn .g{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+.px-opn .g span{display:block;font-size:10.5px;color:var(--muted)}.px-opn .g b{display:block;font-size:12.5px;font-weight:700;margin-top:2px}
+.px-opn .g div:nth-child(2){text-align:center}.px-opn .g div:nth-child(3){text-align:right}
+.px-lc .b.four b{font-size:12px}

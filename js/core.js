@@ -228,8 +228,8 @@ function ac(){
 const SND = {
   open:   [[880,0,.09,.11,"sine"],[1318.5,.055,.14,.10,"sine"]],                                   // crisp rising blip
   close:  [[1046.5,0,.08,.09,"sine"],[784,.05,.14,.09,"sine"]],                                    // soft falling blip
-  win:    [[1046.5,0,.12,.10,"sine"],[1318.5,.08,.12,.10,"sine"],[1568,.16,.14,.10,"sine"],[2093,.24,.34,.09,"sine"]], // bright chime
-  loss:   [[392,0,.16,.12,"triangle"],[329.6,.12,.28,.11,"triangle"]],                            // low, gentle descend
+  win:    [[784,0,.14,.16,"sine"],[988,.07,.14,.16,"sine"],[1175,.14,.16,.16,"sine"],[1568,.22,.45,.15,"sine"],[1976,.22,.45,.06,"sine"]], // bright cash chime
+  loss:   [[494,0,.16,.16,"triangle"],[392,.13,.18,.16,"triangle"],[262,.27,.42,.17,"triangle"]],                                    // clear descending tone
   notify: [[1318.5,0,.12,.08,"sine"],[987.8,.11,.22,.08,"sine"]],                                   // ding-dong
   alert:  [[1760,0,.07,.08,"sine"],[1760,.14,.07,.08,"sine"],[2349,.28,.18,.08,"sine"]],           // triple ping
   claim:  [[1975.5,0,.06,.07,"sine"],[2637,.05,.22,.07,"sine"]],                                    // coin

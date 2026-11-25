@@ -223,7 +223,7 @@ async function startHub(){
 }
 
 /* ---- Candles (OHLCV) ---- */
-const TF_SEC = {tick:1, "1s":1, "5s":5, "15s":15, "30s":30, "1m":60, "5m":300, "15m":900, "1h":3600, "4h":14400, "1d":86400};
+const TF_SEC = {tick:1, "1s":1, "5s":5, "15s":15, "30s":30, "1m":60, "5m":300, "15m":900, "1h":3600, "4h":14400, "1d":86400, "3d":259200, "1w":604800, "1M":2592000};
 function aggregate(bars, sec){
   const out = [];
   for (const b of bars){
@@ -249,10 +249,11 @@ async function candles(sym, tf){
     const rows = await binance(`/api/v3/klines?symbol=${sym}&interval=${tf}&limit=500`);
     return rows.map(k);
   }
-  const iv = sec < 60 ? "1m" : tf;
+  const iv = sec < 60 ? "1m" : sec > 86400 ? "1d" : tf;
   const d = await getJSON(`${C.BIQUOTE}/api/${sym}/ohlc?interval=${iv}&limit=300`, 3);
   let bars = (d.bars || []).map(b => ({time: Math.floor(Date.parse(b.openTime)/1000), open:+b.open, high:+b.high, low:+b.low, close:+b.close, volume:+b.tickVolume || 0}))
     .filter(b => b.open > 0).sort((a,b) => a.time - b.time);
+  if (sec > 86400) bars = aggregate(bars, sec);
   if (sec < 60){
     const ticks = (hist.get(sym) || []).map(x => ({time:Math.floor(x.t/1000), open:x.p, high:x.p, low:x.p, close:x.p, volume:1}));
     const cut = ticks.length ? ticks[0].time : Infinity;

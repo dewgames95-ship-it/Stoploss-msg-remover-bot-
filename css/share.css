@@ -1,0 +1,14 @@
+/* PnL share modal */
+.shr{padding:16px 16px 18px;max-width:440px;margin:0 auto}
+.shr-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.shr-top b{font-size:16px;font-weight:700}
+.shr-cv{border-radius:18px;overflow:hidden;box-shadow:0 10px 36px rgba(0,0,0,.35);background:#000;line-height:0}
+.shr-cv canvas{width:100%;height:auto;aspect-ratio:720/1040;display:block;max-height:62vh;margin:0 auto;object-fit:contain}
+.shr-dots{display:flex;justify-content:center;gap:14px;margin:14px 0}
+.shr-dots button{width:26px;height:26px;border-radius:50%;border:2px solid transparent;box-shadow:0 0 0 1px var(--line)}
+.shr-dots button.on{border-color:var(--bg);box-shadow:0 0 0 2px var(--text)}
+.shr-act{display:flex;gap:10px}
+.shr-b{flex:1;height:46px;border-radius:12px;display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:700;background:var(--card-2);color:var(--text)}
+.shr-b:active{background:var(--hover)}
+.shr-b.pri{background:var(--brand);color:#fff}
+.modal:has(.shr){padding:0;max-width:400px;text-align:left}

@@ -40,6 +40,24 @@ const CHIPS = [["fav","Favorites"],["hot","Hot"],["gainers","Gainers"],["losers"
 function marketList(box, o = {}){
   let chip = o.tab || sessionStorage.getItem("mktChip") || "hot", sub = sessionStorage.getItem("mktSub") || "perp", q = "", limit = o.limit || 0;
   const rows = new Map(), dirty = new Set(), offs = [];
+  let sort = (() => { try { const [k,d] = (sessionStorage.getItem("mktSort") || "").split(":"); return k && d ? {k, d} : null; } catch(e){ return null; } })();
+  const sortFn = {
+    name: (a,b) => String(a.type === "crypto" ? a.base : a.sym).localeCompare(String(b.type === "crypto" ? b.base : b.sym)),
+    vol: (a,b) => (b.qv||0) - (a.qv||0), px: (a,b) => (b.price||0) - (a.price||0), chg: (a,b) => (b.chg ?? -1e9) - (a.chg ?? -1e9)
+  };
+  function applySort(l){
+    if (!sort) return l;
+    const f = sortFn[sort.k], m = sort.d === "desc" ? 1 : -1;
+    if (sort.k === "name") return [...l].sort((a,b) => -m * f(a,b));
+    if (sort.k === "vol"){ const has = l.filter(p => p.qv), no = l.filter(p => !p.qv); return [...has.sort((a,b) => m * f(a,b)), ...no]; }
+    return [...l].sort((a,b) => m * f(a,b));
+  }
+  function cycle(k){
+    sort = !sort || sort.k !== k ? {k, d:"desc"} : sort.d === "desc" ? {k, d:"asc"} : null;
+    try { sort ? sessionStorage.setItem("mktSort", sort.k + ":" + sort.d) : sessionStorage.removeItem("mktSort"); } catch(e){}
+    render();
+  }
+  const hb = (k, n) => `<button type="button" data-sort="${k}" class="${sort?.k === k ? "on" : ""}" aria-label="Sort by ${n}">${n}<i>${sort?.k === k ? (sort.d === "desc" ? "▼" : "▲") : "⇅"}</i></button>`;
   const crypto = () => M.cryptoOrder.map(s => M.get(s)).filter(Boolean);
   function list(){
     const all = [...M.pairs.values()], qq = q.trim().toUpperCase().replace("/","");
@@ -58,17 +76,17 @@ function marketList(box, o = {}){
     else { const top = crypto(); l = [...top.slice(0,5), M.get("XAUUSD"), M.get("EURUSD"), ...top.slice(5), M.get("GBPUSD"), M.get("XAGUSD")].filter(Boolean); }
     return l;
   }
-  const vol = p => p.qv ? "Vol " + CH.fmtVol(p.qv) : ({forex:"Forex", metal:"Spot metal", stock:"Stock", index:"Index", commodity:"Commodity"})[p.type] || "";
+  const vol = p => p.qv ? CH.fmtVol(p.qv) : ({forex:"Forex", metal:"Spot metal", stock:"Stock", index:"Index", commodity:"Commodity"})[p.type] || "";
   const tag = p => p.type === "crypto" ? (sub === "spot" ? "" : `<em>Perp</em>`) : (sub === "spot" ? (p.type === "stock" ? `<em class="t">Stock</em>` : "") : p.type === "stock" ? `<em class="t">Stock</em>` : `<em class="t">24/5</em>`);
   const chgHtml = p => p.closed ? `<span class="hm-chg cl">Closed</span>` : p.chg == null ? `<span class="hm-chg cl">--</span>` : `<span class="hm-chg ${p.chg < 0 ? "neg" : ""}">${p.chg >= 0 ? "+" : ""}${p.chg.toFixed(2)}%</span>`;
   const usd = p => "$" + M.fmtPx(p, p.quote === "JPY" ? p.price / (M.get("USDJPY")?.price || 1) : p.price);
   function render(){
-    let l = list(); rows.clear();
+    let l = applySort(list()); rows.clear();
     const more = limit && l.length > limit; if (limit) l = l.slice(0, limit);
     if (!M.cryptoOrder.length && !q && !["forex","metals","fav","stocks","indices","commod"].includes(chip)){ box.innerHTML = Array(6).fill('<div class="skel"></div>').join(""); return; }
     if (!l.length){ box.innerHTML = UI.emptyState(chip === "fav" ? "star" : "search", q ? `No results for “${q}”` : chip === "fav" ? "No favorites yet. Tap the star on a trading screen to add one." : "No markets here right now."); return; }
-    box.innerHTML = `<div class="hm-hd"><span>Name / Vol</span><span>Last Price</span><span>24h Chg%</span></div>` + l.map(p => `<div class="hm-row" data-sym="${p.sym}" role="button" tabindex="0" aria-label="Open ${esc(M.label(p))}">
-      <div class="hm-nm">${UI.pairIcon(p, 32)}<div style="min-width:0"><div class="hm-sym"><span class="ellipsis">${esc(p.type === "crypto" ? p.base + "USDT" : p.sym)}</span>${tag(p)}</div><div class="hm-s2">${esc(UI.fullName(p))} · ${vol(p)}</div></div></div>
+    box.innerHTML = `<div class="hm-hd"><span class="hm-hn">${hb("name","Name")}<u>/</u>${hb("vol","Vol")}</span><span>${hb("px","Last Price")}</span><span>${hb("chg","24h Chg%")}</span></div>` + l.map(p => `<div class="hm-row" data-sym="${p.sym}" role="button" tabindex="0" aria-label="Open ${esc(M.label(p))}">
+      <div class="hm-nm">${UI.pairIcon(p, 32)}<div class="hm-tx"><div class="hm-sym"><span class="hm-sy">${esc(p.type === "crypto" ? p.base + "USDT" : p.sym)}</span>${tag(p)}</div><div class="hm-s2"><span class="hm-fn">${esc(UI.fullName(p))}</span><span class="hm-vl">${vol(p)}</span></div></div></div>
       <div class="hm-px"><b class="num" data-px>${M.fmtPx(p)}</b><span class="num" data-usd>${usd(p)}</span></div><div data-chg>${chgHtml(p)}</div></div>`).join("")
       + (more ? `<a class="hm-more" href="#/markets">View all markets</a>` : "");
     box.querySelectorAll(".hm-row").forEach(r => rows.set(r.dataset.sym, {px:r.querySelector("[data-px]"), usd:r.querySelector("[data-usd]"), chg:r.querySelector("[data-chg]")}));
@@ -80,7 +98,7 @@ function marketList(box, o = {}){
       r.chg.innerHTML = chgHtml(p); });
     dirty.clear();
   }
-  box.addEventListener("click", e => { const r = e.target.closest(".hm-row"); if (!r) return;
+  box.addEventListener("click", e => { const sb = e.target.closest("[data-sort]"); if (sb){ cycle(sb.dataset.sort); return; } const r = e.target.closest(".hm-row"); if (!r) return;
     location.hash = (sub === "spot" ? "#/spot/" : "#/futures/") + r.dataset.sym; });
   box.addEventListener("keydown", e => { const r = e.target.closest(".hm-row"); if (r && e.key === "Enter") r.click(); });
   offs.push(bus.on("tick", s => dirty.add(s)), bus.on("meta", s => dirty.add(s)), bus.on("list", render));

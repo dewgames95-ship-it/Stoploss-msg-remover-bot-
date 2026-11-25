@@ -17,7 +17,7 @@ function opts(){
     layout:{background:{type:"solid", color: css("--chart-bg") || css("--bg")}, textColor: d ? "#7D8BA3" : "#8391A7", fontFamily:"Manrope, system-ui, sans-serif", fontSize:10.5, attributionLogo:false,
       panes:{separatorColor: d ? "#222E45" : "#E4E9F2", separatorHoverColor:"rgba(46,107,255,.25)", enableResize:true}},
     grid:{vertLines:{color:grid}, horzLines:{color:grid}},
-    rightPriceScale:{borderVisible:false, scaleMargins:{top:0.1, bottom:0.08}, minimumWidth:62, entireTextOnly:true},
+    rightPriceScale:{borderVisible:false, scaleMargins:{top:0.04, bottom:0.04}, minimumWidth:62, entireTextOnly:true},
     timeScale:{borderVisible:false, timeVisible:true, secondsVisible: sec < 60, rightOffset:8, barSpacing: tf === "tick" ? 3 : 7, minBarSpacing:0.8, tickMarkFormatter: undefined},
     crosshair:{mode:0, vertLine:{color: d ? "#848E9C" : "#707A8A", style:2, width:1, labelBackgroundColor: d ? "#2E6BFF" : "#0F172A"}, horzLine:{color: d ? "#848E9C" : "#707A8A", style:2, width:1, labelVisible:false}},
     handleScroll:{vertTouchDrag:true, mouseWheel:true, pressedMouseMove:true, horzTouchDrag:true},
@@ -63,7 +63,7 @@ function build(){
   try { LW.createTextWatermark(chart.panes()[0], {horzAlign:"center", vertAlign:"center", lines:[{text:"NovaTrade", color: dark() ? "rgba(148,163,184,.07)" : "rgba(100,116,139,.07)", fontSize:28, fontStyle:"700"}]}); } catch {}
   if (inds.includes("VOL")){
     S.vol = chart.addSeries(LW.HistogramSeries, {priceFormat:{type:"volume"}, priceScaleId:"vol", lastValueVisible:false, priceLineVisible:false});
-    chart.priceScale("vol").applyOptions({scaleMargins:{top:0.84, bottom:0}});
+    chart.priceScale("vol").applyOptions({scaleMargins:{top:0.88, bottom:0}});
   }
   const ln = (color, w=1, pane=0, extra={}) => chart.addSeries(LW.LineSeries, Object.assign({color, lineWidth:w, priceLineVisible:false, lastValueVisible:false, crosshairMarkerVisible:false, priceFormat:pf}, extra), pane);
   if (!lineMode && inds.includes("MA")){ S.m7 = ln(COL.m7); S.m25 = ln(COL.m25); S.m99 = ln(COL.m99); }
@@ -166,7 +166,7 @@ function msg(t){ if (ui.msg) ui.msg.innerHTML = t ? `<span>${t}</span>` : ""; }
 
 function onTick(s, price){
   if (s !== sym || !price || !chart) return;
-  const now = Math.floor(Date.now()/1000), bt = Math.floor(now/sec)*sec, l = bars[bars.length-1];
+  const now = Math.floor(Date.now()/1000), l0 = bars[bars.length-1], bt = sec > 86400 && l0 && now < l0.time + sec ? l0.time : Math.floor(now/sec)*sec, l = l0;
   if (l && bt < l.time) return;
   const nonC = M.get(sym).type !== "crypto";
   if (l && l.time === bt){ l.high = Math.max(l.high, price); l.low = Math.min(l.low, price); l.close = price; if (nonC) l.volume += 1; }
@@ -202,7 +202,7 @@ function crossBox(){
   const ch = b.close - prev, chp = ch / prev * 100, rng = (b.high - b.low) / (b.low || 1) * 100, d = new Date(b.time*1000);
   const ts = `${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")},${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}${sec < 60 ? ":" + String(d.getSeconds()).padStart(2,"0") : ""}`;
   const c = ch >= 0 ? "up" : "down";
-  box.innerHTML = [["Time",ts],["Open",f(b.open)],["High",f(b.high)],["Low",f(b.low)],["Close",f(b.close)],["Chg",`<span class="${c}">${ch>=0?"+":""}${M.fmtPx(p,ch)}</span>`],["%Chg",`<span class="${c}">${chp>=0?"+":""}${chp.toFixed(2)}%</span>`],["Range",rng.toFixed(2)+"%"],["Vol",fmtVol(b.volume||0)]].map(([k,v]) => `<div><span>${k}</span><b>${v}</b></div>`).join("");
+  box.innerHTML = [["Time",ts],["Open",f(b.open)],["High",f(b.high)],["Low",f(b.low)],["Close",f(b.close)],["Chg",`<span class="${c}">${ch>=0?"+":""}${M.fmtPx(p,ch)}</span>`],["%Chg",`<span class="${c}">${chp>=0?"+":""}${chp.toFixed(2)}%</span>`],["Volatility",rng.toFixed(2)+"%"],["Vol",fmtVol(b.volume||0)]].map(([k,v]) => `<div><span>${k}</span><b>${v}</b></div>`).join("");
   const bt = lastMarks.filter(m => { const i = barAt(Math.floor(m.t / 1000)); return i === hover; });
   if (bt.length) box.innerHTML += bt.slice(0, 3).map(m => `<div class="cb-t"><span class="${m.s === "B" ? "up" : "down"}">${m.s === "B" ? "Buy" : "Sell"}</span><b>${M.fmtPx(p, m.p)}</b></div>`).join("");
   const w = el.clientWidth; box.classList.remove("hide");
@@ -260,7 +260,7 @@ function overlay(){
   if (y != null){
     const left = sec >= 60 && cp.cd !== false ? Math.max(0, last.time + sec - now/1000) : null;
     const cd = left == null ? "" : left >= 3600 ? `${Math.floor(left/3600)}:${String(Math.floor(left%3600/60)).padStart(2,"0")}:${String(Math.floor(left%60)).padStart(2,"0")}` : mmss(left);
-    h += `<div class="pbox" style="top:${y}px">${M.fmtPx(p, last.close)}${cd ? `<br>${cd}` : ""}</div>`;
+    h += `<div class="pbox ${last.close >= last.open ? "pu" : "pd"}" style="top:${y}px">${M.fmtPx(p, last.close)}${cd ? `<br>${cd}` : ""}</div>`;
     // "+" next to the live price: drag it up/down to create TP (profit side) or SL (loss side) for the latest position
     const myPos = ui.mode !== "bin" ? s.fut.positions.filter(x => x.sym === sym).slice(-1)[0] : null;
     if (myPos && !(dragS && dragS.kind === "new")) h += `<div class="pplus drag" data-drag="new:${myPos.id}" style="top:${y}px" title="Drag to set TP / SL">+</div>`;
@@ -320,7 +320,7 @@ function overlay(){
     const xs = timeToX(pos.open/1000), xe = timeToX(pos.exp/1000);
     if (xs != null && xs > 0 && xs < axisX) h += `<div class="start-line" style="left:${xs}px"></div>`;
     if (xe != null){ const x = Math.min(Math.max(xe, 30), axisX - 4); h += `<div class="exp-line" style="left:${x}px"><span style="top:${4 + (used.length-1)*18}px">⏱ ${mmss(lft)}</span></div>`; }
-    h += `<div class="plab ${win == null ? "n" : win ? "g" : "r"}" style="top:${yy}px;right:66px"><span>${pos.dir === "up" ? "▲ Up" : "▼ Down"}</span><span>${money(pos.amount)} → ${win == null ? money(pos.amount) : win ? money(pos.amount * E.RATIO) : "0.00"} · ${mmss(lft)}</span></div>`;
+    h += `<div class="plab ${win == null ? "n" : win ? "g" : "r"}" style="top:${yy}px;right:66px"><span>${pos.dir === "up" ? "▲ Up" : "▼ Down"}</span><span>Payout ${money(pos.amount * E.RATIO)} · ${mmss(lft)}</span></div>`;
   });
   if (h !== box._h){ box._h = h; box.innerHTML = h; }
 }

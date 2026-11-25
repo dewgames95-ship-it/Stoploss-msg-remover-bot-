@@ -386,6 +386,26 @@ function positionsOf(l, mk){
   }
   return out;
 }
+/* ---- live open positions of a leader (deterministic, slowly rotating; entry cached so it stays fixed while mark moves) ---- */
+const POPS = ["BTCUSDT","ETHUSDT","SOLUSDT","XRPUSDT","BNBUSDT","DOGEUSDT","XAUUSD"];
+const ENTRY_CACHE = new Map();
+const openCount = l => 2 + Math.floor(hash01(l.id + "n") * 4);
+function openPositions(l){
+  const now = Date.now(), n = openCount(l), out = [];
+  for (let i = 0; i < n; i++){
+    const period = (2 + Math.floor(hash01(l.id + i + "p") * 10)) * 36e5, off = hash01(l.id + i + "o") * period, slot = Math.floor((now + off) / period), start = slot * period - off;
+    const key = l.id + "|" + i + "|" + slot, r = rngFor(key);
+    const sym = i === 0 && POPS.includes(l.sym) ? l.sym : POPS[Math.floor(r() * POPS.length)];
+    const p = M.get(sym), px = p?.price || PRICE_FB[baseOf(sym)] || 100;
+    if (!ENTRY_CACHE.has(key)) ENTRY_CACHE.set(key, px * (1 + (r() - .5) * .024));
+    const entry = ENTRY_CACHE.get(key), long = r() > .4, lev = [3,5,8,10,15,20][Math.floor(r() * 6)], margin = Math.round((200 + r() * 4800) / 10) * 10;
+    out.push({sym, long, lev, entry, margin, size: margin * lev / entry, t: start, mark: px});
+  }
+  return out;
+}
+const posPnl = p => { const d = (p.mark - p.entry) / p.entry * (p.long ? 1 : -1); return {roi: d * p.lev * 100, pnl: p.margin * d * p.lev}; };
+const symQty = v => v >= 100 ? fmt(v, 2) : v >= 1 ? fmt(v, 3) : fmt(v, 4);
+
 /* ---- copy state (v2: {v:2, active:[], history:[]}); migrates the old {leaderId:{on,amt,start,since,dir}} map ---- */
 const OLD = {l1:"CryptoWhale_88", l2:"GoldRush Pro", l3:"ETH Maxi", l4:"SOL Sniper", l5:"FX Samurai", l6:"Meme Hunter"};
 function newCopy(l, o){
@@ -454,7 +474,7 @@ Pages.copy = (params) => {
   const ldCard = l => { const mk = mkOf(), s = lstats(l, 1, mk), sh = sharpe(l) * (mk === "spot" ? .9 : 1), full = l.f >= CAP, fav = favs().includes(l.id);
     return `<div class="px-lc" data-ld="${l.id}"><div class="h">${ART.avatar(l.id, 44)}<div class="grow"><div class="nm"><span class="ellipsis">${esc(l.name)}</span><button class="star ${fav ? "on" : ""}" data-fav="${l.id}" aria-label="${fav ? "Unfollow" : "Favourite"}">${ic("star",16,1.7)}</button></div><div class="px-mut mt">${tagOf()} <i class="sepv"></i> ${ic("users",13,1.7)} <span class="num">${l.f} / ${fmt(CAP,0)}</span></div></div><button class="cpy" data-cp="${l.id}" ${full ? "disabled" : ""}>${full ? "Full" : "Copy"}</button></div>
       <div class="m"><div><div class="px-mut">30D PnL</div><div class="roi num ${cls(s.roi)}">${sgnPct(s.roi)}</div></div><div class="spk">${spark(curve(l, 1, mk, 36), 130, 52, s.roi >= 0 ? "var(--up)" : "var(--down)")}</div></div>
-      <div class="b"><div><span>30D Max Drawdown</span><b class="num">${s.mdd.toFixed(2)}%</b></div><div><span>30D Sharpe Ratio</span><b class="num">${sh.toFixed(2)}</b></div><div><span>AUM</span><b class="num">${compact(s.aum)} USDT</b></div></div></div>`; };
+      <div class="b four"><div><span>30D Max DD</span><b class="num">${s.mdd.toFixed(2)}%</b></div><div><span>30D Sharpe</span><b class="num">${sh.toFixed(2)}</b></div><div><span>AUM</span><b class="num">${compact(s.aum)}</b></div><div><span>Open pos.</span><b class="num">${openCount(l)}</b></div></div></div>`; };
   return {html, title:"Copy Trading", mount(r){
     const $ = x => r.querySelector(x), body = $("#cbody");
     const nav = () => { const n = cstate().active.length; $("#snav").innerHTML = [["plaza","Copy Trading"],["my","My data" + (n ? ` (${n})` : "")],["say","Traders say"]].map(([k,t]) => `<button data-sv="${k}" class="${view===k?"on":""}">${t}</button>`).join(""); };
@@ -530,9 +550,17 @@ Pages.copy = (params) => {
         <div class="px-notice" style="margin-bottom:12px">${ic("info",14)}<span>Past performance does not guarantee future results. Copying may be closed automatically when your stop-loss or take-profit is reached.</span></div>
         <div class="px-err" id="fe"></div><button class="px-btn pri blk lg" id="go" ${full ? "disabled" : ""}>${full ? "Lead trader is full" : "Start Copying"}</button></div>`;
       const pos = positionsOf(l, mk);
-      const posHtml = `<div class="px-sec"><div class="px-sec-h"><h2>Recent positions</h2></div>${pos.map(p => `<div class="px-pos">${symIcon(p.sym, 28)}<div class="grow"><b>${esc(symLabel(p.sym))}</b> <span class="px-tag ${p.long ? "up" : "dn"}">${mk === "spot" ? (p.long ? "Buy" : "Sell") : (p.long ? "Long" : "Short") + " " + p.lev + "x"}</span><div class="px-mut num">Entry ${symPx(p.sym, p.entry)} · ${dur(Date.now() - p.t)} ago</div></div><b class="num ${cls(p.pct)}" style="font-size:13px">${sgnPct(p.pct)}</b></div>`).join("")}</div>`;
-      U.sheet(l.name, `<div id="dbody">${body()}</div>${posHtml}${form}`, el => {
+      const histHtml = `<div class="px-sec"><div class="px-sec-h"><h2>Closed positions</h2></div>${pos.map(p => `<div class="px-pos">${symIcon(p.sym, 28)}<div class="grow"><b>${esc(symLabel(p.sym))}</b> <span class="px-tag ${p.long ? "up" : "dn"}">${mk === "spot" ? (p.long ? "Buy" : "Sell") : (p.long ? "Long" : "Short") + " " + p.lev + "x"}</span><div class="px-mut num">Entry ${symPx(p.sym, p.entry)} · ${dur(Date.now() - p.t)} ago</div></div><b class="num ${cls(p.pct)}" style="font-size:13px">${sgnPct(p.pct)}</b></div>`).join("")}</div>`;
+      const livePos = () => { const ps = openPositions(l); return `<div class="px-sec-h" style="margin:4px 0"><h2>Open positions (${ps.length})</h2><span class="px-mut"><i class="px-pulse"></i> Live</span></div>` + ps.map(p => { const q = posPnl(p);
+        return `<div class="px-opn"><div class="h">${symIcon(p.sym, 28)}<div class="grow"><b>${esc(symLabel(p.sym))}</b> <span class="px-tag ${p.long ? "up" : "dn"}">${p.long ? "Long" : "Short"} ${p.lev}x</span><div class="px-mut">Opened ${dur(Date.now() - p.t)} ago</div></div><div class="r"><b class="num ${cls(q.pnl)}">${(q.pnl >= 0 ? "+" : "") + fmt(q.pnl, 2)}</b><span class="num ${cls(q.roi)}">${sgnPct(q.roi)}</span></div></div>
+          <div class="g"><div><span>Size</span><b class="num">${symQty(p.size)}</b></div><div><span>Entry</span><b class="num">${symPx(p.sym, p.entry)}</b></div><div><span>Mark</span><b class="num">${symPx(p.sym, p.mark)}</b></div></div></div>`; }).join(""); };
+      let dtab = "ov", liv = null; const stopLive = () => { if (liv){ clearInterval(liv); liv = null; } };
+      U.sheet(l.name, `<div class="px-tabs" id="dtabs" style="margin-bottom:12px">${[["ov","Overview"],["pos","Positions"],["hist","History"]].map(([k,n]) => `<button data-t="${k}" class="${k==="ov"?"on":""}">${n}</button>`).join("")}</div>
+        <div id="t-ov"><div id="dbody">${body()}</div>${form}</div><div id="t-pos" hidden></div><div id="t-hist" hidden>${histHtml}</div>`, el => {
         const q = s => el.querySelector(s);
+        const refresh = () => { const t = q("#t-pos"); if (!t || !t.isConnected) return stopLive(); if (dtab === "pos") t.innerHTML = livePos(); };
+        q("#dtabs").onclick = e => { const b = e.target.closest("[data-t]"); if (!b) return; dtab = b.dataset.t; q("#dtabs").querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b));
+          ["ov","pos","hist"].forEach(k => q("#t-" + k).hidden = k !== dtab); stopLive(); if (dtab === "pos"){ refresh(); liv = setInterval(refresh, 1000); } };
         const redraw = () => { q("#dbody").innerHTML = body(); q("#dseg").onclick = segClick; };
         const segClick = e => { const b = e.target.closest("[data-p]"); if (b){ dp = +b.dataset.p; redraw(); } };
         q("#dseg").onclick = segClick;
@@ -557,7 +585,7 @@ Pages.copy = (params) => {
           store.notify("Copy trading started", `Copying ${l.name} with ${money(inv)} USDT`, "ok"); U.fx("open"); toast("Copy trading started", "ok");
           view = "my"; show();
         };
-      });
+      }, stopLive);
     }
 
     r.addEventListener("click", e => {
