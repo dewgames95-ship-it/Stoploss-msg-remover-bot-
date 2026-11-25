@@ -134,7 +134,7 @@ function schedule(){
     const s = S(); if (!s || location.hash !== at || el) return;
     if (s.settings && s.settings.tips === false) return;
     if (s.tours && s.tours[name]) return;
-    if (document.querySelector(".scrim,.modal,.sheet.on")) return;
+    if (document.querySelector(".scrim.show,.modal.show,.sheet.show")) return;
     run(name, false);
   }, 900);
 }
