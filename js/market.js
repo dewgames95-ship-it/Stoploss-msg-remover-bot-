@@ -276,8 +276,42 @@ function isStale(p){ return !p || p.price == null || (Date.now() - p.updated > (
 function label(p){ return p.type === "crypto" ? p.base + "/USDT" : p.quote ? p.base + "/" + p.quote : p.base; }
 function fmtPx(p, v=p?.price){ return v == null ? "--" : U.fmt(v, p.dp ?? decimalsFor(v)); }
 
-function start(){ loadCrypto(); pollFx(); startHub(); loadCatalog(); }
+/* ---- v6.6: USDT/USD rate (stablecoin wobble, 0.9995-1.0002) ---- */
+function usdtUsd(){ const t = Date.now(); return 0.99985 + 0.00025 * Math.sin(t / 41000) + 0.0001 * Math.sin(t / 7300 + 1.3); }
+
+/* ---- v6.6: popular stock tickers with no live feed -> synthetic random walk (silent, never throws) ---- */
+const SYNTH = {NVDA:[180,"NVIDIA Corp"], GOOGL:[280,"Alphabet Inc"], TSLA:[430,"Tesla Inc"], MSTR:[300,"Strategy Inc"], STRC:[100,"Strategy Variable Rate Pref."], AAPL:[270,"Apple Inc"], META:[640,"Meta Platforms"], AMZN:[230,"Amazon.com Inc"], ANTHROPIC:[250,"Anthropic (Pre-IPO)"]};
+let synthOn = false;
+function addSynthetic(){
+  if (synthOn) return; synthOn = true;
+  try {
+    let saved = {}; try { saved = JSON.parse(localStorage.getItem("synth_px_v1") || "{}"); } catch {}
+    const list = [];
+    for (const T in SYNTH){
+      const sym = T + "USDT"; if (pairs.has(sym)) continue;
+      const [base, nm] = SYNTH[T], px0 = saved[T] > 0 ? saved[T] : base * (0.97 + Math.random() * 0.06), open = base * (0.985 + Math.random() * 0.03);
+      const p = addPair({fixed:true, sym, type:"stock", base:T, quote:"USDT", name: nm + (T === "ANTHROPIC" ? " · Pre-market · Synthetic" : " · Synthetic"), tradable:true, dp:2, synthetic:true, pre:T === "ANTHROPIC", listed:Date.now(),
+        price:px0, open, high:px0, low:px0, chg:(px0 - open) / open * 100, updated:Date.now()});
+      pushHist(sym, px0); list.push(p);
+    }
+    if (!list.length) return;
+    bus.emit("list");
+    const gauss = () => (Math.random() + Math.random() + Math.random() - 1.5) * 2;
+    let n = 0;
+    setInterval(() => {
+      try {
+        list.forEach(p => {
+          const prev = p.price, vol = p.pre ? 0.0007 : 0.0004, np = Math.max(1, prev * (1 + gauss() * vol + (p.open - prev) / p.open * 0.0008));
+          p.price = np; p.updated = Date.now(); p.dir = np >= prev ? 1 : -1; p.high = Math.max(p.high, np); p.low = Math.min(p.low, np); p.chg = (np - p.open) / p.open * 100;
+          pushHist(p.sym, np); bus.emit("tick", p.sym, np, prev);
+        });
+        if (++n % 10 === 0){ const o = {}; list.forEach(p => o[p.base] = p.price); try { localStorage.setItem("synth_px_v1", JSON.stringify(o)); } catch {} }
+      } catch {}
+    }, 1500);
+  } catch {}
+}
+function start(){ loadCrypto(); pollFx(); startHub(); loadCatalog(); setTimeout(addSynthetic, 7000); }
 window.addEventListener("online", () => { loadCrypto(); pollFx(); });
 
-window.M = {pairs, hist, status, book, trades, get cryptoOrder(){ return cryptoOrder; }, start, candles, watchTrades, unwatchTrades, momentum, isStale, label, fmtPx, TF_SEC, get: s => pairs.get(s)};
+window.M = {usdtUsd, addSynthetic, pairs, hist, status, book, trades, get cryptoOrder(){ return cryptoOrder; }, start, candles, watchTrades, unwatchTrades, momentum, isStale, label, fmtPx, TF_SEC, get: s => pairs.get(s)};
 })();

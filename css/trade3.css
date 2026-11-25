@@ -1,1 +1,107 @@
-/* v6.6 */
+/* v6.6 trade layer: result popup, early close, futures order panel + position card polish, spot picker, tap targets */
+
+/* ---------- binary result popup ---------- */
+.modal:has(.rs){text-align:center;padding:26px 20px 16px;max-width:300px;overflow:hidden}
+.rs .rs-x{position:absolute;top:8px;right:8px;width:36px;height:36px;display:grid;place-items:center;border-radius:50%;color:var(--muted);background:transparent}
+.rs .rs-x:active{background:var(--hover)}
+.rs .res-ic{width:56px;height:56px;margin:0 auto 10px}
+.rs.w .res-ic{animation:rspulse 1.1s ease-out 2}
+.rs-t{font-size:16px;font-weight:700;color:var(--text)}
+.rs-a{font-size:32px;line-height:1.15;font-weight:800;margin:6px 0 8px;letter-spacing:-.3px}
+.rs.w .rs-a{color:var(--up);text-shadow:0 0 18px color-mix(in srgb,var(--up) 35%,transparent)}
+.rs-d{font-size:12.5px;line-height:1.55;color:var(--text-2)}
+.rs-bar{height:3px;border-radius:2px;background:var(--line);overflow:hidden;margin:16px 0 7px}
+.rs-bar i{display:block;height:100%;width:100%;background:var(--brand);transform-origin:left center;animation:rsbar 3s linear forwards}
+.rs.w .rs-bar i{background:var(--up)}.rs.l .rs-bar i{background:var(--down)}
+.rs-cd{font-size:11.5px;color:var(--muted)}
+@keyframes rsbar{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+@keyframes rspulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--up) 45%,transparent)}100%{box-shadow:0 0 0 22px transparent}}
+.tx-fly{position:fixed;inset:0;z-index:460;pointer-events:none;overflow:hidden}
+.tx-fly span{position:absolute;opacity:0;will-change:transform,opacity}
+.tx-fly .u{bottom:-8%;animation:txup 2.4s ease-out both}
+.tx-fly .d{top:-8%;animation:txdn 2.8s ease-in both}
+@keyframes txup{0%{opacity:0;transform:translate(0,0) rotate(0)}12%{opacity:1}100%{opacity:0;transform:translate(var(--dx),-95vh) rotate(var(--rot))}}
+@keyframes txdn{0%{opacity:0;transform:translate(0,0) rotate(0)}12%{opacity:1}85%{opacity:1}100%{opacity:0;transform:translate(var(--dx),105vh) rotate(var(--rot))}}
+
+/* ---------- binary early close ---------- */
+.bin-ec{display:flex;align-items:center;gap:10px;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
+.bin-ec .ec-i{flex:1;min-width:0}
+.bin-ec .ec-i span{display:block;font-size:12.5px;font-weight:600;color:var(--text)}
+.bin-ec .ec-i small{display:block;font-size:11px;color:var(--muted);margin-top:2px;font-variant-numeric:tabular-nums}
+.bin-ec .ec-b{flex:none;min-width:136px;height:38px;padding:0 14px;border-radius:var(--r-ctl);background:var(--input);color:var(--text);font-size:13px;font-weight:700;border:0;font-variant-numeric:tabular-nums}
+.bin-ec .ec-b.up{background:var(--up-bg);color:var(--up)}
+.bin-ec .ec-b.down{background:var(--down-bg);color:var(--down)}
+.bin-ec .ec-b:not(:disabled):active{filter:brightness(.92)}
+.bin-ec .ec-b:disabled{cursor:not-allowed;color:var(--muted);background:var(--input);opacity:.75}
+
+/* ---------- futures head + order panel (Binance sizing) ---------- */
+.fx-head .nm{font-size:18px;font-weight:700;letter-spacing:-.1px}
+.fx-head .nm .perp{font-size:11px;font-weight:500;line-height:16px;padding:0 5px;border-radius:4px;background:transparent;color:var(--text-2);border:1px solid var(--line-2,var(--line))}
+.fxr .fx-row{grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:8px}
+.fxr .fx-row button{height:30px;border-radius:8px;font-size:13px;font-weight:600;background:var(--input);border:0;color:var(--text);padding:0}
+.fxr .fx-row button[data-asset]{font-weight:700}
+.fxr .fx-row button:active{background:var(--hover)}
+.as-o{display:flex;align-items:flex-start;gap:12px;width:100%;text-align:left;padding:14px;margin-bottom:10px;border:1px solid var(--line);border-radius:var(--r-card);color:var(--text)}
+.as-o.on{border-color:var(--brand);background:var(--grad-brand-soft,var(--input))}
+.as-c{flex:none;width:32px;height:32px;border-radius:8px;display:grid;place-items:center;background:var(--input);font-weight:800;font-size:15px}
+.as-o.on .as-c{background:var(--brand);color:#fff}
+.as-o b{display:block;font-size:15px;font-weight:700;margin-bottom:4px}
+.as-o ul{margin:0;padding-left:16px;font-size:12.5px;line-height:1.5;color:var(--text-2)}
+.as-r{flex:none;width:18px;height:18px;border-radius:50%;border:1.5px solid var(--line-2,var(--line));margin-top:2px;position:relative}
+.as-o.on .as-r{border-color:var(--brand);background:var(--brand)}
+.as-o.on .as-r::after{content:"";position:absolute;left:5px;top:2px;width:5px;height:9px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+
+/* ---------- position card (Binance layout) ---------- */
+.fxr .pc{padding:14px 14px 12px;margin-bottom:12px}
+.fxr .pc-h{gap:6px;margin-bottom:12px;align-items:center}
+.fxr .pc-h .side-b{width:22px;height:22px;border-radius:5px;font-size:13px;display:grid;place-items:center}
+.fxr .pc-h .sym{font-size:16px;font-weight:700;line-height:22px;margin-right:2px;padding:0}
+.fxr .pc-h .perp,.fxr .pc-h .perp.auto{font-size:11px;font-weight:500;line-height:16px;padding:1px 6px;border-radius:4px;background:transparent;border:1px solid var(--line-2,var(--line));color:var(--text-2)}
+.fxr .pc-h .perp.auto{color:var(--brand);border-color:var(--brand)}
+.fxr .pc-big{margin-bottom:14px;align-items:flex-start}
+.fxr .pc-big span{font-size:12px;margin-bottom:4px;min-height:20px;align-items:center}
+.fxr .pc-big b{font-size:24px;line-height:28px;font-weight:700;letter-spacing:-.3px;display:block}
+.fxr .pc-big button{width:32px;height:32px;margin:-6px 0 -6px -6px}
+.fxr .pc-g{gap:14px 8px;margin-bottom:0}
+.fxr .pc-g span{font-size:12px;margin-bottom:4px}
+.fxr .pc-g b{font-size:14.5px;line-height:20px;font-weight:500;display:block}
+.fxr .pc-g b.liq{color:#F7931A}
+.fxr .pc-g b.down{color:var(--down)}
+.fxr .pc-tp{display:flex;justify-content:space-between;align-items:center;margin:14px 0 0;min-height:28px;cursor:pointer}
+.fxr .pc-tp>span{font-size:13px;font-weight:500;color:var(--muted)}
+.fxr .pc-tp b{display:inline-flex;align-items:center;gap:6px;font-size:14px;font-weight:600}
+.fxr .pc-tp b i{font-style:normal;color:var(--muted);font-weight:400}
+.fxr .pc-tp b em{font-style:normal}
+.fxr .rpnl{height:42px;margin:10px 0 12px;padding:0 12px;border:1px solid var(--line-2,var(--line));background:transparent;border-radius:var(--r-ctl);font-size:13px;display:flex;align-items:center;justify-content:space-between}
+.fxr .rpnl b{font-size:14px;font-weight:600}
+.fxr .pc-btns{gap:8px}
+.fxr .pc-btns button{height:40px;border-radius:var(--r-ctl);font-size:14px;font-weight:600;background:var(--input);border:0}
+/* top tabs row sizes */
+.fxr .ptools{min-height:40px}
+.fxr .ptools .ptc{height:32px;padding:0 14px;display:inline-flex;align-items:center}
+
+/* ---------- realized pnl sheet ---------- */
+.rz-fee,.rz-cmp{margin-top:14px;padding:12px;border:1px solid var(--line-2,var(--line));border-radius:var(--r-card)}
+.rz-fee>b,.rz-cmp>b{display:block;font-size:13px;font-weight:700;margin-bottom:6px}
+.rz-fee p{font-size:13px;line-height:1.5;color:var(--text-2);margin:0}
+.rz-fee small,.rz-cmp>small{display:block;font-size:11.5px;line-height:1.45;color:var(--muted);margin-top:6px}
+.rz-ch,.rz-cr{display:grid;grid-template-columns:1.1fr 1.4fr .8fr;gap:6px;align-items:center;font-size:12.5px;padding:7px 0}
+.rz-ch{margin-top:8px;color:var(--muted);font-size:11.5px;border-bottom:1px solid var(--line)}
+.rz-ch span:last-child,.rz-cr b{text-align:right}
+.rz-cr+.rz-cr{border-top:1px solid var(--line)}
+.rz-cr span:first-child{font-weight:600;color:var(--text)}
+.rz-cr b{font-weight:600}
+.rz-cr.me{color:var(--brand)}.rz-cr.me span:first-child,.rz-cr.me b{color:var(--brand)}
+
+/* ---------- pair picker ---------- */
+.pk-tabs{gap:18px}
+.pk-h button{min-height:32px;padding:0 2px}
+
+/* ---------- tap targets: keep visual size, >=32px hit area ---------- */
+.wl-plus{position:relative;width:32px;height:32px;margin:-7px -7px -7px -3px;background:none!important;overflow:visible}
+.wl-plus::after{content:"";position:absolute;left:50%;top:50%;width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;background:var(--grad-brand,var(--brand));z-index:0}
+.wl-plus svg{position:relative;z-index:1}
+.mk-l{min-height:32px;display:inline-flex;align-items:center;margin:-6px 0}
+.ptabs button,.ptabs .ptb-l{min-height:36px}
+[data-sk]{min-height:32px}
+.fxr .fchk{min-height:32px}

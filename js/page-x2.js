@@ -59,7 +59,7 @@ const ART = {
 window.ART = ART;
 
 /* ======================= ASSETS ======================= */
-const WL = ["spot","futures","binary","options","earn"];
+const WL = ["spot","funding","futures","binary","options","earn"];
 const NAMES = c => c === "USDT" ? "TetherUS" : (window.COIN_NAMES && window.COIN_NAMES[c]) || c;
 function spotHoldings(){
   try { const h = window.SPOT?.holdings?.() || []; return (Array.isArray(h) ? h : []).map(x => {
@@ -70,7 +70,7 @@ const copyNow = () => cstate().active.reduce((a, c) => a + c.amt * (1 + copyPct(
 Pages.assets = (params) => {
   let tab = params[0] || "overview"; if (tab === "binary") tab = "spot"; if (tab === "funding") tab = "fund"; if (tab === "copying") tab = "copy";
   let view = "crypto", q = "", showQ = false, sortBy = "value";
-  const TABS = [["overview","Overview"],["fund","Wallets"],["spot","Spot"],["futures","Futures"],["copy","Copy"],["earn","Earn"]];
+  const TABS = [["overview","Overview"],["fund","Funding"],["spot","Spot"],["futures","Futures"],["copy","Copy"],["earn","Earn"]];
   const html = `<div class="px-page px-as"><div class="px-tabs" id="atabs">${TABS.map(([k,n]) => `<button data-at="${k}" class="${tab===k?"on":""}">${n}</button>`).join("")}</div><div id="ab"></div></div>`;
   function totals(){
     const s = S(), bin = s.positions.reduce((a,p) => a + p.amount, 0), fm = s.fut.positions.reduce((a,p) => a + p.margin, 0) + s.fut.orders.reduce((a,o) => a + o.margin + o.fee, 0);
@@ -90,13 +90,18 @@ Pages.assets = (params) => {
       cells += `<div class="d ${d === now.getDate() ? "t" : ""} ${v == null ? "" : v >= 0 ? "u" : "l"}">${d}${v != null ? `<small>${v >= 0 ? "+" : ""}${Math.abs(v) >= 1000 ? (v/1000).toFixed(1) + "K" : v.toFixed(0)}</small>` : ""}</div>`; }
     return `<div class="px-sec-h"><h2>${now.toLocaleString("en-US", {month:"long", year:"numeric"})} PnL</h2><b class="num ${cls(tot)}" style="font-size:13px">${signed(tot)} USDT</b></div><div class="px-cal">${cells}</div>`;
   }
-  const txList = list => list.length ? list.map(x => { const dep = x.kind === "deposit";
-      return `<div class="px-row"><span class="px-ico n">${ic(dep ? "down" : "up",16)}</span><div class="grow"><b>${dep ? "Deposit" : "Transfer"} ${esc(x.coin || "USDT")}</b><div class="px-mut">${U.dateStr(x.t)} · ${esc(x.method || "")}</div></div><div class="r"><b class="num ${dep?"up":""}">${dep?"+":""}${fmt(x.coinAmt ?? x.amount, x.coinAmt ? 6 : 2)}</b><span class="px-mut">Completed</span></div></div>`; }).join("") : empty("file","No transactions yet");
+  const txList = list => list.length ? list.map(x => {
+      const dep = x.kind === "deposit", wd = x.kind === "withdrawal", tr = x.type === "transfer";
+      const name = tr ? `Transfer ${esc(UI.walletName(x.from))} → ${esc(UI.walletName(x.to))}` : wd ? `Withdrawal ${esc(x.coin || "USDT")}` : `${dep ? "Deposit" : "Transfer"} ${esc(x.coin || "USDT")}`;
+      const amt = tr ? x.amt : (x.coinAmt ?? x.amount), sub = tr ? "Completed" : wd ? (x.status || "Completed") : "Completed";
+      return `<div class="px-row"><span class="px-ico n">${ic(dep ? "down" : tr ? "swap" : "up",16)}</span><div class="grow"><b>${name}</b><div class="px-mut">${U.dateStr(x.t)}${x.method ? " · " + esc(x.method) : ""}</div></div><div class="r"><b class="num ${dep?"up":""}">${dep?"+":wd?"-":""}${fmt(amt, x.coinAmt ? 6 : 2)}</b><span class="px-mut">${esc(sub)}</span></div></div>`; }).join("") : empty("file","No transactions yet");
   /* rows: {coin, amt, val, pnl, sub} */
   function rowsFor(t){
     const usdt = (val, sub, pnl, amt) => ({coin:"USDT", amt: amt ?? val, val, pnl, sub});
     const hold = t.hold.map(x => ({coin:x.coin, amt:x.amt, val:x.val, pnl:x.pnl, sub:null}));
-    if (tab === "fund") return WL.map(k => usdt(store.wb(k), UI.walletName(k) + " wallet", 0));
+    if (tab === "fund") return [usdt(store.wb("funding"), "Funding wallet", 0)];
+    if (tab === "spot") return [usdt(store.wb("spot"), "Spot wallet", 0), ...hold, ...(t.bin > 0 ? [usdt(t.bin, "Open binary stake", 0)] : [])];
+    if (tab === "futures") return [usdt(store.wb("futures") + t.fut, "Wallet + margin + unrealized PnL", t.up)];
     if (tab === "spot") return [...hold, ...(t.bin > 0 ? [usdt(t.bin, "Open binary stake", 0)] : [])];
     if (tab === "futures") return [usdt(t.fut, "Margin + unrealized PnL", t.up)];
     if (tab === "copy") return [usdt(t.cv, "Copy trading", t.cpn)];
@@ -104,7 +109,7 @@ Pages.assets = (params) => {
     return [usdt(t.fund + t.bin + t.fut + t.cv + t.vault, "Fund, Futures, Copy, Earn", t.usdtPnl + t.cpn), ...hold];
   }
   const coinRow = (x, H) => { const base = x.val - x.pnl, pc = base > 0 ? x.pnl / base * 100 : 0;
-    return `<div class="px-coin">${UI.coinImg(x.coin, 38)}<div class="grow"><b>${esc(x.coin)}</b><div class="px-mut">${esc(x.sub || NAMES(x.coin))}</div></div><div class="r"><b class="num">${H(fmt(x.amt, x.coin === "USDT" ? 2 : 6))}</b><span class="px-mut num">${H("$" + money(x.val))}</span></div>
+    return `<div class="px-coin" data-coin="${esc(x.coin)}" tabindex="0" role="button">${UI.coinImg(x.coin, 38)}<div class="grow"><b>${esc(x.coin)}</b><div class="px-mut">${esc(x.sub || NAMES(x.coin))}</div></div><div class="r"><b class="num">${H(fmt(x.amt, x.coin === "USDT" ? 2 : 6))}</b><span class="px-mut num">${H("$" + money(x.val))}</span></div>
       <div class="pl"><span>Today's PnL</span><b class="num ${cls(x.pnl)}">${H(sgnUsd(x.pnl) + " (" + sgnPct(pc) + ")")}</b></div></div>`; };
   function pnlSheet(t){
     const pts = [C.START_BALANCE, ...S().balHist.map(x => x.b)].slice(-120), delta = pts[pts.length-1] - pts[0];
@@ -191,24 +196,25 @@ Pages.assets = (params) => {
       sync();
     });
   }
+  const CHIPS = () => `<div class="px-sec-h" style="margin-top:14px"><h2>Coins</h2></div><div class="px-chips2"><div class="px-chip-g"><button data-v="crypto" class="on">Crypto</button><button data-v="account">Account</button></div><span class="sp"></span><button class="icon-btn" data-sq aria-label="Search">${ic("search",18,1.7)}</button><button class="icon-btn" data-filter aria-label="Sort">${ic("sort",18,1.7)}</button></div>`;
   function render(r){
     const s = S(), t = totals(), hide = !!s.settings.hideBal, H = v => hide ? "******" : v, box = r.querySelector("#ab");
-    const label = {overview:"Total Assets", fund:"Fund Account", spot:"Spot Account", futures:"Futures Account", copy:"Copy Trading", earn:"Earn Account"}[tab];
-    const val = {overview:t.total, fund:t.fund, spot:t.spot, futures:t.fut, copy:t.cv, earn:t.vault}[tab];
+    const label = {overview:"Total Assets", fund:"Funding Account", spot:"Spot Account", futures:"Futures Account", copy:"Copy Trading", earn:"Earn Account"}[tab];
+    const val = {overview:t.total, fund:store.wb("funding"), spot:t.spot + store.wb("spot"), futures:t.fut + store.wb("futures"), copy:t.cv, earn:t.vault}[tab];
     const pnl = {overview:t.tp, fund:null, spot:t.hp, futures:t.up, copy:t.cpn, earn:null}[tab];
     const pc = pnl == null ? 0 : pnl / Math.max(1, val - pnl) * 100;
     const acts = `<div class="px-acts"><a href="#/deposit" class="pri"><span>${ic("down",24,1.8)}</span>Deposit</a><a href="#/withdraw"><span>${ic("up",24,1.8)}</span>Withdraw</a><button data-xfer><span>${ic("swap",24,1.8)}</span>Transfer</button><button data-conv><span>${ic("reset",24,1.8)}</span>Convert</button></div>`;
     const promo = `<a class="px-promo" href="#/earn"><div class="tx"><b>Earn up to 12% APR on USDT</b><span>Flexible and locked plans, redeem anytime</span></div>${ART.coins(84)}<i class="arr">${ic("chev",14,2)}</i></a>`;
     let body = "";
     if (tab === "overview" && view === "account"){
-      const parts = [["Wallets","fund",t.fund,"#2E6BFF"],["Spot","spot",t.spot,"#7FA6FF"],["Futures","futures",Math.max(0,t.fut),"#5B6575"],["Copy Trading","copy",t.cv,"#A8B3C4"],["Earn","earn",t.vault,"#D3D9E2"]], sum = parts.reduce((a,p) => a + p[2], 0) || 1;
-      body = `<div class="px-alloc">${parts.filter(p => p[2] > 0).map(p => `<i style="flex:${p[2]/sum};background:${p[3]}"></i>`).join("")}</div>
+      const wb = store.wb, parts = [["Funding","fund",wb("funding"),"#2E6BFF"],["Spot","spot",wb("spot") + t.hv,"#7FA6FF"],["Futures","futures",Math.max(0,t.fut) + wb("futures"),"#5B6575"],["Binary / Options","spot",wb("binary") + wb("options") + t.bin,"#8A94A6"],["Copy Trading","copy",t.cv,"#A8B3C4"],["Earn","earn",t.vault + wb("earn"),"#D3D9E2"]], sum = parts.reduce((a,p) => a + p[2], 0) || 1;
+      body = CHIPS() + `<div class="px-alloc">${parts.filter(p => p[2] > 0).map(p => `<i style="flex:${p[2]/sum};background:${p[3]}"></i>`).join("")}</div>
         ${parts.map(([n,k,v,c]) => `<button class="px-acc" data-go="${k}"><i style="background:${c}"></i><div class="grow"><b>${n}</b><span class="px-mut">${hide ? "**" : (v/sum*100).toFixed(1) + "% of total"}</span></div><div class="r"><b class="num">${H(money(v))}</b><span class="px-mut">USDT</span></div><span class="ch">${ic("chev",14)}</span></button>`).join("")}`;
     } else {
       let rows = rowsFor(t); if (s.settings.hideSmall) rows = rows.filter(x => x.val >= 1);
       if (q) rows = rows.filter(x => (x.coin + NAMES(x.coin)).toUpperCase().includes(q.toUpperCase()));
       rows.sort(sortBy === "name" ? (a,b) => a.coin.localeCompare(b.coin) : sortBy === "pnl" ? (a,b) => b.pnl - a.pnl : (a,b) => b.val - a.val);
-      body = (tab === "overview" ? `<div class="px-sec-h"><h2>Wallets</h2><button class="px-link" data-xfer>Transfer</button></div>${WL.map(k => `<button class="px-acc" data-wl="${k}"><div class="grow"><b>${UI.walletName(k)}</b></div><div class="r"><b class="num">${H(money(store.wb(k)))}</b><span class="px-mut">USDT</span></div><span class="ch">${ic("chev",14)}</span></button>`).join("")}<div class="px-sec-h" style="margin-top:14px"><h2>Coins</h2></div><div class="px-chips2"><div class="px-chip-g"><button data-v="crypto" class="on">Crypto</button><button data-v="account">Account</button></div><span class="sp"></span><button class="icon-btn" data-sq aria-label="Search">${ic("search",18,1.7)}</button><button class="icon-btn" data-filter aria-label="Sort">${ic("sort",18,1.7)}</button></div>` : "")
+      body = (tab === "overview" ? `<div class="px-sec-h"><h2>Wallets</h2><button class="px-link" data-xfer>Transfer</button></div>${WL.map(k => `<button class="px-acc" data-wl="${k}"><div class="grow"><b>${UI.walletName(k)}</b></div><div class="r"><b class="num">${H(money(store.wb(k)))}</b><span class="px-mut">USDT</span></div><span class="ch">${ic("chev",14)}</span></button>`).join("")}${CHIPS()}` : "")
         + (showQ ? `<label class="px-search" style="margin:0 0 8px">${ic("search",16)}<input id="aq" value="${esc(q)}" placeholder="Search coins" autocomplete="off" aria-label="Search coins"></label>` : "")
         + `<label class="px-chk" style="margin:4px 0"><input type="checkbox" data-small ${s.settings.hideSmall ? "checked" : ""}><span>Hide small balances</span></label>`
         + (rows.length ? rows.map(x => coinRow(x, H)).join("") : empty("wallet", s.settings.hideSmall ? "No balances above 1 USDT" : "No assets"));
@@ -219,8 +225,10 @@ Pages.assets = (params) => {
       if (tab === "fund" || tab === "overview") body += `<div class="px-sec"><div class="px-sec-h"><h2>Recent transactions</h2><a href="#/history">Trade history</a></div>${txList(s.tx.slice(0, tab === "fund" ? 20 : 5))}</div>`;
     }
     box.innerHTML = `<div class="px-ah"><div class="top"><div class="lb">${label}<button data-eye aria-label="${hide ? "Show" : "Hide"} balance">${ic(hide?"eyeoff":"eye",16)}</button></div><span class="sp"></span><button class="icon-btn" data-pnl aria-label="PnL analysis">${ic("chart",20,1.7)}</button><a class="icon-btn" href="#/history" aria-label="History">${ic("clockh",20,1.7)}</a></div>
-      <div class="big num">${H(money(val))}<small>USDT ${ic("chevd",12,2)}</small></div><div class="eq num">${H("≈ $" + money(val))}</div>
-      ${pnl != null ? `<button class="pl" data-pnl>Today's PnL <b class="num ${cls(pnl)}">${H(sgnUsd(pnl) + " (" + sgnPct(pc) + ")")}</b>${ic("chev",12,2)}</button>` : ""}</div>${acts}${promo}<div id="alist">${body}</div>`;
+      <div class="big num">${H(money(val))}<small>USDT ${ic("chevd",12,2)}</small></div><div class="eq num">${H("≈ $" + money(val * (M.usdtUsd ? M.usdtUsd() : 1)))}</div>
+      ${pnl != null ? `<button class="pl" data-pnl>Today's PnL <b class="num ${cls(pnl)}">${H(sgnUsd(pnl) + " (" + sgnPct(pc) + ")")}</b>${ic("chev",12,2)}</button>` : ""}</div>${acts}<div class="px-car-ph"></div><div id="alist">${body}</div>`;
+    try { UI.assetsCarousel && UI.assetsCarousel(box); } catch (e) {}
+    box.querySelectorAll("[data-coin]").forEach(b => { const go = () => UI.coinSheet && UI.coinSheet(b.dataset.coin, t, () => render(r)); b.onclick = go; b.onkeydown = e => { if (e.key === "Enter") go(); }; });
     box.querySelectorAll("[data-xfer]").forEach(b => b.onclick = () => UI.transferSheet({done: () => render(r)}));
     box.querySelectorAll("[data-wl]").forEach(b => b.onclick = () => UI.transferSheet({to: b.dataset.wl}));
     box.querySelectorAll("[data-conv]").forEach(b => b.onclick = () => convertSheet(() => render(r)));
@@ -323,7 +331,7 @@ function depositPage(coin, net){
           setTimeout(() => { const pc = r.querySelector("#pc"); if (pc) pc.textContent = `${fmt(v,6)} ${coin} · 1/1 confirmations`; }, 1800);
           setTimeout(() => {
             S().tx.unshift({id, kind:"deposit", amount:usd, coin, coinAmt:v, method: net + " network", t:Date.now()});
-            store.addWallet("spot", usd, "deposit");
+            store.addWallet("funding", usd, "deposit");
             store.notify("Deposit successful", `${fmt(v,6)} ${coin} (≈ ${money(usd)} USDT) has been credited`, "ok");
             U.fx("claim");
             if (r.isConnected) r.querySelector("#pend").innerHTML = `<div class="px-row" style="margin-top:8px"><span class="px-ico g">${ic("check",16)}</span><div class="grow"><b>Deposit successful</b><div class="px-mut">${fmt(v,6)} ${coin} · ≈ ${money(usd)} USDT credited</div></div><a class="px-btn sm" href="#/assets">View</a></div>`;

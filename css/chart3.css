@@ -1,1 +1,78 @@
-/* v6.6 */
+/* v6.6 — chart add-ons (position tags, hi/lo marks, compact crosshair window, SuperTrend signals, LIQ heatmap, Indicator Settings page) */
+
+/* visible High / Low labels: the dash ends exactly on the wick tip */
+.ovl2 .hl{width:auto;height:12px;font-size:10px;line-height:12px;color:var(--text-2);transform:translateY(-50%)}
+.ovl2 .hl.l{transform:translate(calc(-100% + 1px),-50%);justify-content:flex-end}
+.ovl2 .hl.r{transform:translateY(-50%);justify-content:flex-start}
+.ovl2 .hl i{width:12px;height:1px;margin:0;background:var(--text-2);flex:none}
+.ovl2 .hl.r i{margin-right:3px}
+.ovl2 .hl.l i{margin-left:3px}
+
+/* position / TP / SL tags: colour = PnL sign */
+.plab.bin-pl.g span:first-child,.plab.bin-pl.g span+span{}
+.plab.o.g{border-color:var(--up)!important}
+.plab.o.g span:first-child{color:var(--up)!important;border-right-color:var(--up)!important}
+.plab.o.r{border-color:var(--down)!important}
+.plab.o.r span:first-child{color:var(--down)!important;border-right-color:var(--down)!important}
+.plab.o.g span+span{color:var(--up)!important}
+.plab.o.r span+span{color:var(--down)!important}
+.plab.bin-pl span+span{font-weight:700}
+
+/* "+" next to the live price box (appears on tap / long-press of the box) */
+.ovl2 .pplus{left:auto!important;right:66px!important;width:22px;height:22px;font-size:17px;animation:pplusIn .16s ease-out}
+@keyframes pplusIn{from{opacity:0;transform:translateY(-50%) scale(.5)}to{opacity:1;transform:translateY(-50%) scale(1)}}
+.ovl2 .pbox{pointer-events:none}
+
+/* crosshair window: compact, semi-transparent (Binance style) */
+.cbox,html[data-theme="light"] .cbox{font-size:11px;min-width:0;width:122px;padding:4px 7px;border-radius:6px;top:6px;background:rgba(30,35,41,.78);color:#EAECEF;border:1px solid rgba(255,255,255,.07);box-shadow:none;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
+html[data-theme="light"] .cbox{background:rgba(255,255,255,.86);color:#1E2329;border-color:rgba(0,0,0,.08);box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.cbox div{line-height:1.38;gap:6px;font-size:11px}
+.cbox span{color:#9AA3AF}
+html[data-theme="light"] .cbox span{color:#707A8A}
+.cbox b{color:inherit;font-weight:500}
+.cbox .up{color:var(--up)}.cbox .down{color:var(--down)}
+.cbox .cb-t{margin-top:2px;padding-top:2px;border-top:1px solid rgba(128,138,150,.25)}
+/* price/% label next to the crosshair: neutral */
+.xlab,html[data-theme="light"] .xlab{background:#474D57;color:#fff;font-size:10px;line-height:1.25;border-radius:4px}
+
+/* SuperTrend BUY / SELL markers */
+.ovl2 .stsig{position:absolute;width:0;height:0;pointer-events:none}
+.ovl2 .stsig i{position:absolute;left:0;transform:translateX(-50%);font-style:normal;font-size:9px;font-weight:800;letter-spacing:.2px;line-height:1;padding:3px 6px;border-radius:5px;color:#fff;white-space:nowrap;box-shadow:0 1px 4px rgba(0,0,0,.25)}
+.ovl2 .stsig i::after{content:"";position:absolute;left:50%;margin-left:-4px;border:4px solid transparent}
+.ovl2 .stsig.b i{top:8px;background:var(--up)}
+.ovl2 .stsig.b i::after{top:-7px;border-bottom:4px solid var(--up)}
+.ovl2 .stsig.s i{bottom:8px;background:var(--down)}
+.ovl2 .stsig.s i::after{bottom:-7px;border-top:4px solid var(--down)}
+
+/* LIQ heatmap */
+.liq-cv{position:absolute;left:0;top:0;z-index:3;pointer-events:none}
+.liq-tip{position:absolute;z-index:8;width:130px;display:flex;flex-direction:column;gap:1px;padding:6px 9px;border-radius:8px;background:rgba(30,35,41,.92);color:#EAECEF;font-size:11px;pointer-events:none;box-shadow:0 4px 14px rgba(0,0,0,.3)}
+.liq-tip.hide{display:none}
+.liq-tip b{font-size:12px}.liq-tip span{color:#9AA3AF;font-size:10px}.liq-tip em{font-style:normal;color:#FFD84A;font-weight:700}
+html[data-theme="light"] .liq-tip{background:rgba(30,35,41,.94)}
+
+/* indicator row: settings icon + room for S/R, LIQ */
+.indbar .ind-set{width:30px;height:30px;display:grid;place-items:center;color:var(--text-2);flex:0 0 auto}
+.indbar .ind-set svg{width:18px;height:18px}
+body .indbar .il{gap:13px}
+
+/* Indicator Settings page */
+.indpage{position:fixed;inset:0;z-index:900;background:var(--bg);color:var(--text);display:flex;flex-direction:column;transform:translateY(24px);opacity:0;transition:transform .18s ease,opacity .18s ease}
+.indpage.show{transform:none;opacity:1}
+.ip-head{display:flex;align-items:center;gap:6px;height:52px;padding:0 10px 0 6px;padding-top:env(safe-area-inset-top);border-bottom:1px solid var(--line);flex:none}
+.ip-head b{font-size:16px;font-weight:700}
+.ip-sp{flex:1}
+.ip-resetall{font-size:13px;font-weight:600;color:var(--brand);padding:6px 8px}
+.ip-body{flex:1;overflow-y:auto;padding:0 16px calc(24px + env(safe-area-inset-bottom));-webkit-overflow-scrolling:touch}
+.ip-sec{font-size:12px;color:var(--muted);padding:16px 0 6px;font-weight:600}
+.ip-row{border-bottom:1px solid var(--line)}
+.ip-h{display:flex;align-items:center;gap:10px;min-height:48px;cursor:pointer}
+.ip-h b{font-size:15px;font-weight:600}
+.ip-chev{color:var(--muted);display:grid;place-items:center;width:18px;transition:transform .15s}
+.ip-row.open .ip-chev{transform:rotate(180deg)}
+.ip-b{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px;padding:2px 0 14px}
+.ip-b label{display:flex;flex-direction:column;gap:4px;font-size:11px;color:var(--muted)}
+.ip-in{height:36px;border-radius:var(--r-ctl,8px);border:1px solid var(--line);background:var(--input,var(--card));color:var(--text);padding:0 10px;font-size:14px;font-weight:600;width:100%;box-sizing:border-box}
+.ip-b input[type=color]{width:100%;height:36px;padding:2px;border-radius:var(--r-ctl,8px);border:1px solid var(--line);background:var(--input,var(--card))}
+.ip-reset{grid-column:1/-1;justify-self:start;font-size:12px;font-weight:600;color:var(--brand);padding:2px 0}
+.ip-note{font-size:11px;color:var(--muted);padding:16px 0}

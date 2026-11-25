@@ -77,9 +77,9 @@ function marketList(box, o = {}){
     return l;
   }
   const vol = p => p.qv ? CH.fmtVol(p.qv) : ({forex:"Forex", metal:"Spot metal", stock:"Stock", index:"Index", commodity:"Commodity"})[p.type] || "";
-  const tag = p => p.type === "crypto" ? (sub === "spot" ? "" : `<em>Perp</em>`) : (sub === "spot" ? (p.type === "stock" ? `<em class="t">Stock</em>` : "") : p.type === "stock" ? `<em class="t">Stock</em>` : `<em class="t">24/5</em>`);
+  const tag = p => p.pre ? `<em class="t">Pre-market</em>` : p.type === "crypto" ? (sub === "spot" ? "" : `<em>Perp</em>`) : (sub === "spot" ? (p.type === "stock" ? `<em class="t">Stock</em>` : "") : p.type === "stock" ? `<em class="t">Stock</em>` : `<em class="t">24/5</em>`);
   const chgHtml = p => p.closed ? `<span class="hm-chg cl">Closed</span>` : p.chg == null ? `<span class="hm-chg cl">--</span>` : `<span class="hm-chg ${p.chg < 0 ? "neg" : ""}">${p.chg >= 0 ? "+" : ""}${p.chg.toFixed(2)}%</span>`;
-  const usd = p => "$" + M.fmtPx(p, p.quote === "JPY" ? p.price / (M.get("USDJPY")?.price || 1) : p.price);
+  const usd = p => "$" + M.fmtPx(p, p.quote === "JPY" ? p.price / (M.get("USDJPY")?.price || 1) : p.quote === "USDT" ? p.price * M.usdtUsd() : p.price);
   let lazyIO = null;
   function render(){
     if (lazyIO){ lazyIO.disconnect(); lazyIO = null; }

@@ -26,3 +26,19 @@
 .wl-err{min-height:0;font-size:12.5px;color:var(--down);margin-top:-8px}
 .wl-ok{height:48px;border:0;border-radius:var(--r-ctl,10px);background:var(--grad-brand,var(--brand));color:#fff;font-size:16px;font-weight:700;cursor:pointer}
 .wl-ok:active{opacity:.9}
+/* v6.6 Binance-style transfer */
+.wl-pair{padding:6px 8px 6px 16px;gap:6px}
+button.wl-row{width:100%;background:none;border:0;color:var(--text);text-align:left;cursor:pointer;min-height:50px;padding:0}
+button.wl-row .wl-lb{width:44px;flex-shrink:0}
+button.wl-row b{flex:1;font-size:16px;font-weight:700}
+button.wl-row svg{color:var(--muted)}
+.wl-rows>.wl-row+.wl-row{border-top:1px solid var(--line)}
+.wl-swap{transform:none;border:0;background:none;width:40px}
+.wl-coin{width:100%;background:var(--card-2,var(--input));border:0;border-radius:var(--r-ctl,8px);padding:0 14px;height:52px;color:var(--text);text-align:left;cursor:pointer}
+.wl-coin i{margin-left:auto;display:flex;color:var(--muted)}
+.wl-err{color:var(--down);margin-top:-6px;font-size:13px}.wl-err:empty{display:none}
+.wl-ok.dis{opacity:.45}
+.wl-pk{display:flex;flex-direction:column}
+.wl-pi{display:flex;align-items:center;gap:10px;padding:14px 2px;border:0;border-bottom:1px solid var(--line);background:none;color:var(--text);text-align:left;cursor:pointer}
+.wl-pi span{flex:1;min-width:0}.wl-pi b{display:block;font-size:15px}.wl-pi small{color:var(--muted);font-size:11.5px}
+.wl-pi small:empty{display:none}.wl-pi em{font-style:normal;color:var(--muted);font-size:13px}.wl-pi.on b{color:var(--brand-2,var(--brand))}

@@ -28,6 +28,7 @@ window.CONFIG = {
   LEVERAGE_MAX: {crypto:125, forex:500, metal:200, stock:20, index:100, commodity:100},
   FEE: 0.0001, MMR: 0.004,
   BINANCE_REST: ["https://api.binance.com","https://data-api.binance.vision"],
-  BINANCE_WS: ["wss://stream.binance.com:9443","wss://data-stream.binance.vision"],
+  BINANCE_WS: ["wss://data-stream.binance.vision","wss://stream.binance.com:9443"],
+  get APP_VERSION(){ return (() => { try { const m = ((document.querySelector('script[src*="update.js"]') || {}).src || "").match(/[?&]v=([\d.]+)/); return m ? m[1] : "6.6"; } catch (e) { return "6.6"; } })(); },
   BIQUOTE: "https://biquote.io"
 };

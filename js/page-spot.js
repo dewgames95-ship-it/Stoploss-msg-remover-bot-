@@ -184,7 +184,7 @@ Pages.spot = (params) => {
     const tb = bids.reduce((a, b) => a + val(b), 0), ta = asks.reduce((a, b) => a + val(b), 0), bp = tb + ta ? tb / (tb + ta) * 100 : 50;
     box.innerHTML = `<div class="fh"><span>Price<br>(USDT)</span><span>Amount<br>(${esc(unit)})</span></div>
       ${asks.length ? asks.map(a => row(a, "down")).join("") : '<div class="skel" style="height:100px"></div>'}
-      <div class="mid"><b class="num ${p.dir >= 0 ? "up" : "down"}">${M.fmtPx(p)}</b><small class="num">≈ $${money(p.price)}</small></div>
+      <div class="mid"><b class="num ${p.dir >= 0 ? "up" : "down"}">${M.fmtPx(p)}</b><small class="num">≈ $${money(p.price * (p.quote === "USDT" ? M.usdtUsd() : 1))}</small></div>
       ${bids.map(b => row(b, "up")).join("")}${outside ? `<div class="ob-out">${ic("info",11)} ${outside} of your orders outside the visible book</div>` : ""}
       <div class="sp-ratio num"><span class="up">${bp.toFixed(0)}%</span><div class="bar"><i style="width:${bp}%"></i></div><span class="down">${(100 - bp).toFixed(0)}%</span></div>
       <select class="sp-prec" id="spprec" aria-label="Precision">${[1, 10, 100].map((m, i) => `<option value="${i}" ${i === prec ? "selected" : ""}>${fmt(stepOf() * m, Math.max(0, (P().dp ?? 2) - Math.log10(m)))}</option>`).join("")}</select>`;

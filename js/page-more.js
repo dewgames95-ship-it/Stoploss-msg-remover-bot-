@@ -586,7 +586,7 @@ Pages.settings = () => {
     ${psec("Data",
       `<button class="pm-row tap" data-reset><span class="pm-main"><span class="pm-t pm-danger">Reset demo account</span><span class="pm-s" style="display:block">Balance back to ${money(C.START_BALANCE)} USDT, positions and history cleared. Settings are kept.</span></span><span class="chev">${ic("chev", 16)}</span></button>
        <button class="pm-row tap" data-wipe><span class="pm-main"><span class="pm-t pm-danger">Clear all app data</span><span class="pm-s" style="display:block">Delete everything stored on this device, including settings.</span></span><span class="chev">${ic("chev", 16)}</span></button>`)}
-    <div class="pm-foot">Version 5.2 · ${esc(C.APP_NAME)}</div>`, {right:`<span class="icon-btn" aria-hidden="true"></span>`});
+    <div class="pm-foot">Version ${esc(C.APP_VERSION)} · ${esc(C.APP_NAME)}</div>`, {right:`<span class="icon-btn" aria-hidden="true"></span>`});
   return {html, title:"Settings", mount(r){
     const st = () => S().settings, saved = () => { store.save(); toast("Saved", "ok", 1000); };
     const seg = (attr, fn) => r.querySelectorAll(`[${attr}]`).forEach(b => b.onclick = () => { fn(b.getAttribute(attr)); r.querySelectorAll(`[${attr}]`).forEach(x => x.classList.toggle("on", x === b)); saved(); });
@@ -623,7 +623,7 @@ Pages.settings = () => {
 /* ---------- About ---------- */
 Pages.about = () => {
   const html = pwrap("About Us", `
-    <section class="pm-sec"><div class="pm-pad"><div class="row" style="gap:10px"><img src="favicon.svg" alt="" width="32" height="32"><div><div class="pm-t" style="font-size:16px;font-weight:600">${esc(C.APP_NAME)}</div><div class="pm-s">Version 5.2</div></div></div>
+    <section class="pm-sec"><div class="pm-pad"><div class="row" style="gap:10px"><img src="favicon.svg" alt="" width="32" height="32"><div><div class="pm-t" style="font-size:16px;font-weight:600">${esc(C.APP_NAME)}</div><div class="pm-s">Version ${esc(C.APP_VERSION)}</div></div></div>
       <p class="sub" style="margin-top:12px;font-size:14px;line-height:1.55">A mobile-first demo trading platform for binary options and USDT futures. Practice with virtual USDT on real-time Binance and biquote.io prices, with pro charts, indicators, bots and risk tools in one app.</p></div></section>
     <div class="pm-stats">${pstat("Markets", "120+")}${pstat("Tradable pairs", "20")}${pstat("Max leverage", "125x")}${pstat("Binary payout", "+92%")}</div>
     ${psec("What you can do", [["chart", "Live charts", "Tick line and candles from 5s to 4h on real Binance and biquote.io data."], ["zap", "Binary trades", "Predict Up or Down over 30s, 1m or 5m and earn +92% on a win."], ["bot", "Bots and auto trading", "Run simulated strategy bots and an automatic trade engine."], ["crown", "VIP signals", "Momentum-based signals for every tradable pair."], ["shield", "Demo account", "Virtual USDT stored on your device. No real funds."]].map(([i, a, b]) => `<div class="pm-row" style="align-items:flex-start;padding:12px 0"><span class="pm-ico" style="margin-top:1px">${ic(i, 18)}</span><div class="pm-main"><div class="pm-t">${a}</div><div class="pm-s" style="font-size:13px">${b}</div></div></div>`).join(""))}

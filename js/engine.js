@@ -408,4 +408,31 @@ function vaultMove(amount, dir){
 }
 
 window.E = {alignedExpiry, payoutOf, earnValue, setPosLev, refreshLiq, liqPrice, maxLev, futValidate, openFut, futPnl, closeFut, cancelOrder, setTpSl, TASKS, BADGES, award, taskDone, claim, streak, checkIn, CHECKIN, level, dayKey, vaultValue, vaultMove, APR, validate, place, livePnl, stats, todaySeries, BOTS, botPnl, startBot, stopBot, startAuto, stopAuto, runAuto, RATIO};
+/* ---- Binary early close (like Quotex / Olymp): allowed during the first half of the period, priced like an option. No slippage: uses the live mark price. ---- */
+function earlyValue(pos, now=Date.now()){
+  const total = pos.exp - pos.open, left = pos.exp - now, f = total > 0 ? Math.max(0, Math.min(1, left / total)) : 0;
+  const open = f >= 0.5 && left > 0;                                   // first 50% of the duration only
+  const {win} = livePnl(pos);
+  let value;
+  if (win === true) value = pos.amount * (1 + pos.payout * f * 0.8);      // stake + reduced profit (shrinks as time runs out)
+  else { const lossFactor = win === false ? 0.4 + 0.4 * (1 - f) * 2 : 0.1; value = pos.amount * (1 - lossFactor); }   // lose 40-60%
+  value = Math.round(value * 100) / 100;
+  return {open, left, f, win, value, profit: Math.round((value - pos.amount) * 100) / 100, lockIn: Math.max(0, left - total * 0.5) / 1000};
+}
+function closeBinaryEarly(id){
+  const pos = S().positions.find(x => x.id === id); if (!pos) return {err:"Position not found."};
+  const ev = earlyValue(pos), p = M.get(pos.sym);
+  if (!ev.open) return {err:"Early close is only available during the first half of the trade."};
+  if (!p?.price || M.isStale(p)) return {err:"Market data offline. Try again in a moment."};
+  const exit = p.price, credit = ev.value, profit = ev.profit, now = Date.now();
+  const result = profit > 0 ? "win" : profit < 0 ? "loss" : "draw";
+  S().positions = S().positions.filter(x => x.id !== pos.id);
+  const rec = Object.assign({}, pos, {exit, result, profit, credit, closed: now, early:true});
+  S().history.unshift(rec); S().history = S().history.slice(0, 500);
+  store.addWallet("binary", credit, "settle");
+  store.notify("Trade closed early", `${M.label(p)} ${pos.dir === "up" ? "Up" : "Down"} ${money(pos.amount)} USDT → ${signed(profit)} USDT`, profit >= 0 ? "ok" : "bad");
+  bus.emit("positions"); bus.emit("history"); bus.emit("settled", rec);
+  return {rec};
+}
+Object.assign(window.E, {earlyValue, closeBinaryEarly});
 })();
