@@ -8,7 +8,7 @@
 .shr-dots button{width:26px;height:26px;border-radius:50%;border:2px solid transparent;box-shadow:0 0 0 1px var(--line)}
 .shr-dots button.on{border-color:var(--bg);box-shadow:0 0 0 2px var(--text)}
 .shr-act{display:flex;gap:8px}.shr-b{padding:0 6px;white-space:nowrap}
-.shr-b{flex:1 1 0;border:1px solid var(--line-2);height:46px;border-radius:8px;min-width:0;display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:700;background:var(--input);color:var(--text)}
+.shr-b{flex:1 1 0;border:1px solid var(--line-2);height:46px;border-radius:8px;min-width:0;display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px;font-weight:700;background:var(--input);color:var(--text)}
 .shr-b:active{background:var(--hover)}
 .shr-b.pri{background:var(--grad-brand,var(--brand));color:#fff;border-color:transparent}
 .modal:has(.shr){padding:0;max-width:400px;text-align:left}
