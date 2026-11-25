@@ -1,0 +1,115 @@
+/* ===== v6.3 flat layer (loaded LAST): Binance-style flat lists, filled surface only where something must stand out.
+   Shapes: container 12px (--r-card), control/chip 8px (--r-ctl/--r-chip), sheet/modal 16px (--r-sheet). Circles stay round. ===== */
+:root{--r-card:12px;--r-ctl:8px;--r-chip:8px;--r-sheet:16px;--surface:#F5F6F8}
+html[data-theme="dark"]{--surface:#262E3A}
+
+/* ---------- 1. FLAT lists / sections: no box, no border, hairline between rows ---------- */
+:root[data-theme] .card,:root[data-theme] .pm-sec,:root[data-theme] .pf-tile,:root[data-theme] .pf-grid,:root[data-theme] .pf-list,
+:root[data-theme] .px-ah,:root[data-theme] .px-coin,:root[data-theme] .px-acc,:root[data-theme] .px-sec,:root[data-theme] .px-lc,
+:root[data-theme] .px-xrow,:root[data-theme] .px-xprev,:root[data-theme] .bt-card,:root[data-theme] .pn-sec,:root[data-theme] .sp-card,
+:root[data-theme] .op-os,:root[data-theme] .mover,:root[data-theme] .kpi,:root[data-theme] .stats-row,:root[data-theme] .pm-tabs.card,
+:root[data-theme] .px-page>#ll:not(:empty),:root[data-theme] .cf-rows,
+:root[data-theme] .fx-page .pc,:root[data-theme] .bin-page .pc,:root[data-theme] .fxr .pc,:root[data-theme] .pc{
+  background:none;background-image:none;border:0;box-shadow:none;border-radius:0}
+:root[data-theme] .pm-sec{padding:0;margin:0 0 12px}
+:root[data-theme] .pm-st{padding:16px 0 6px}
+:root[data-theme] .pf-tile{padding:10px 4px;background:none}
+:root[data-theme] .pf-tile:active{background:var(--hover);border-radius:var(--r-card)}
+:root[data-theme] .pf-tiles{gap:4px}
+:root[data-theme] .pf-grid{padding:0;margin:0 0 4px}
+:root[data-theme] .pf-list{padding:0}
+:root[data-theme] .px-lc{padding:14px 0;margin:0;border-bottom:1px solid var(--line)}
+:root[data-theme] .px-lc:last-child{border-bottom:0}
+:root[data-theme] .px-lc .b{border-top:0;padding-top:4px}
+:root[data-theme] .px-page .px-sec{margin:0;padding:16px 0;border-bottom:1px solid var(--line)}
+:root[data-theme] .px-page .px-sec:last-child{border-bottom:0}
+:root[data-theme] .px-coin,:root[data-theme] .px-acc{margin:0;border-bottom:1px solid var(--line)}
+:root[data-theme] .px-ah{margin:6px 0 4px;padding:6px 0 0}
+:root[data-theme] .bt-card{padding:14px 0;margin:0;border-bottom:1px solid var(--line)}
+:root[data-theme] .bt-card:last-child{border-bottom:0}
+/* futures / binary position cards: divider between positions */
+:root[data-theme] .pc{padding:14px 0;margin:0;border-bottom:1px solid var(--line)}
+:root[data-theme] .pc:last-child{border-bottom:0}
+:root[data-theme] .pm-strip.pm-flat{background:none}
+
+/* ---------- 2. FILLED surface (soft tint, no border, no shadow) ---------- */
+:root[data-theme] .pm-strip,:root[data-theme] .pm-stats,:root[data-theme] .pn-kpis,:root[data-theme] .px-kpis,:root[data-theme] .sc-hero,
+:root[data-theme] .px-notice,:root[data-theme] .pf-vou,:root[data-theme] .hm-ev,:root[data-theme] .hm-ban,:root[data-theme] .px-promo,
+:root[data-theme] .px-hero,:root[data-theme] .hm-cp,:root[data-theme] .hm-bots .hm-bot,:root[data-theme] .hm-bot,:root[data-theme] .px-nt,
+:root[data-theme] .hm-kp div,:root[data-theme] .bin-page .bx-trow,:root[data-theme] .bx-bet,:root[data-theme] .bx-pay,:root[data-theme] .pnl-mini,
+:root[data-theme] .rf-dark,:root[data-theme] .rf-hero,:root[data-theme] .nt-empty,:root[data-theme] .pm-empty,:root[data-theme] .empty,
+:root[data-theme] .pr-prev,:root[data-theme] .pr-card,:root[data-theme] .wl-pair{
+  background:var(--surface);background-image:none;border:0;box-shadow:none;border-radius:var(--r-card)}
+:root[data-theme] .pm-strip,:root[data-theme] .pm-stats{margin:0 0 12px;padding:14px}
+:root[data-theme] .pm-stats{padding:4px 0}
+:root[data-theme] .pm-stat,:root[data-theme] .px-kpis>div,:root[data-theme] .pn-kpis>div{border-color:var(--line-2);background:none;border-radius:0}
+:root[data-theme] .pn-kpis{padding:0}
+:root[data-theme] .px-kpis>div{border-radius:0}
+:root[data-theme] .hm-ev{padding:12px 14px}
+:root[data-theme] .pr-card.on{outline:2px solid var(--brand);outline-offset:-2px;border:0;padding:8px 6px 10px}
+:root[data-theme] .bin-page .bx-trow{padding:10px}
+:root[data-theme] .hm-ban{border:0}
+:root[data-theme] .pr-prev-h{border-bottom-color:var(--line-2)}
+/* controls sitting on a filled surface need a different fill to stay visible */
+:root[data-theme] .bin-page .bx-time .exp-chip{background:var(--bg);border:0;border-radius:var(--r-chip)}
+:root[data-theme] .bin-page .bx-time .exp-chip.on{background:var(--grad-brand-soft);box-shadow:inset 0 0 0 1px var(--brand)}
+:root[data-theme] .px-nt{border-radius:var(--r-card)}
+
+/* ---------- 3. ONE shape ---------- */
+/* containers */
+.hm-ban,.px-promo,.px-hero,.hm-cp,.hm-bot,.px-nt,.hm-ev,.pm-strip,.pm-stats,.px-kpis,.pn-kpis,.rf-dark,.rf-hero,.px-lv,.rw-lv,.pf-vou,.sc-hero,.tour-card,.tr-card,.sh-card,
+.slide,.hero,.cf-rows,.pr-prev,.pr-card,.px-notice,.wl-pair,.bx-bet,.bx-pay,.bx-trow,.pnl-mini,.hm-kp div,.pop,.menu,.dd{border-radius:var(--r-card)}
+.px-lv,.rw-lv,.tour-card,.tr-card,.sh-card{border-radius:var(--r-card)}
+.hm-strip.open{border-radius:var(--r-sheet) var(--r-sheet) 0 0}
+.sheet,.drawer{border-radius:var(--r-sheet) var(--r-sheet) 0 0}
+.modal{border-radius:var(--r-sheet)}
+/* controls */
+.btn,.btn-primary,.btn-ghost,.btn-up,.btn-down,.fbtn2,.sp-go,.op-go,.px-btn,.pm-btn,.pm-cta,.shr-b,.pf-save,.tr-next,.rf-go,.bt-cb,.bt-run,.bt-stop,.hm-dep,.hm-more,.hm-search,
+.px-lc .cpy,.hm-cp .cp,.cpy,.icon-btn,.rpnl,.wl-ok,.wl-inp,.wl-max,.nt-clear,.pf-sw,.pf-lv,.pf-main,.hm-bi,.hm-chg,.bb-max,.bb-chips button,.bx-step,.bb-top .bx-step,
+.seg,.pm-seg,.pr-seg,.px-seg,.pn-tabs,.pm-step,.pm-fld,.pm-in,.pm-sel,.pm-ta,.pm-num,.fsel,.famt,.input,.sc-in,select,textarea,
+input[type=text],input[type=number],input[type=search],input[type=email],input[type=password],input:not([type]),
+.chips button,.chip-s,.hm-chips button,.hm-sc2 button,.px-chips button,.sc-chips button,.pill,.pr-pills button,.exp-chip,.tfbar .tfs button,.tf-more,.ptabs button,
+.fx-row button,.lev-btn button,.pc-btns button,.oc button,.mode-sw button,.ob-prec,.ptc,.px-tag,.pm-pill,.hm-cnt,.perp,.side-b,.bt-hot,.nt-clear,
+.px-seg button,.pm-seg button,.pr-seg button,.seg button,.pn-tabs button,.px-strip>div,.bt-fnav,nav.bt-fnav,.bt-fnav button{border-radius:var(--r-ctl)}
+.hm-cnt,.perp,.side-b,.px-tag,.pm-pill,.bt-hot,.hm-chg,.pf-main{border-radius:var(--r-chip)}
+.switch{border-radius:13px}.switch::after{border-radius:50%}
+.bt-fnav .on,.bt-fnav button.on{border-radius:var(--r-ctl)}
+.pbox,.pbox.pu,.pbox.pd{border-radius:var(--r-chip)!important}
+.hm-ev em,.pp,.i.go,i.go,.px-lc .cpy{border-radius:var(--r-chip)}
+.hm-ev em{border-radius:var(--r-chip)}
+.pf-lv{border-radius:var(--r-chip)}
+.tour-card .btn{border-radius:var(--r-ctl)}
+
+/* ---------- 4. borderless controls (soft input fill) ---------- */
+.hm-chips button,.hm-sc2 button,.px-chips button,.sc-chips button,.pr-pills button,.chips button,.chip-s,.hm-more,.pill,.px-pills button,.bb-max,.bb-chips button{border-color:transparent}
+.hm-chips button,.hm-sc2 button,.px-chips button,.sc-chips button,.pr-pills button,.chips button,.chip-s,.pill,.hm-more{background:var(--input);border:0}
+.hm-chips button.on,.hm-sc2 button.on,.px-chips button.on,.sc-chips button.on,.pr-pills button.on,.chips button.on,.chip-s.on,.pill.on{background:var(--grad-brand-soft);color:var(--text);font-weight:700;border:0}
+.bb-chips button{border:0;background:var(--input)}
+.bb-chips button.on{background:var(--grad-brand-soft);box-shadow:inset 0 0 0 1px var(--brand)}
+.bb-max{border:0;background:var(--input)}
+.ob-prec,.fsel,.famt{border-color:var(--line)}
+.pf-sw{border-color:transparent;background:var(--input)}
+.sheet .sc-in input,.sheet .px-inp,.sheet .pm-fld{border:0;background:var(--input)}
+.sheet .px-chips button,.sheet .sc-chips button{border:0}
+.px-btn:not(.pri),:root[data-theme] .px-btn:not(.pri){border:0;background:var(--input);color:var(--text)}
+.px-btn.pri,.px-btn.br{background:var(--grad-brand)}
+.pm-btn{background:var(--input)}
+.pm-tabs{border-bottom-color:var(--line)}
+.pm-seg button.on,.pn-tabs button.on,.px-seg button.on,.pr-seg button.on{box-shadow:none;background:var(--card)}
+:root[data-theme="dark"] .pm-seg button.on,:root[data-theme="dark"] .pn-tabs button.on,:root[data-theme="dark"] .px-seg button.on,:root[data-theme="dark"] .pr-seg button.on{background:var(--hover)}
+.seg button.on,.oc button.on{outline:0}
+html[data-theme="dark"] .seg button.on,html[data-theme="dark"] .oc button.on{background:var(--hover)}
+html[data-theme="light"] .seg button.on,html[data-theme="light"] .oc button.on{background:var(--card);box-shadow:0 0 0 1px var(--line)}
+.bt-fnav,nav.bt-fnav{border:0;background:var(--surface);box-shadow:none}
+.bt-fnav button.on{background:var(--hover)}
+.hm-cnt{border:0;background:var(--input)}
+:root[data-theme] .tile .ic,:root[data-theme] .px-acts a span,:root[data-theme] .px-acts button span,:root[data-theme] .as-acts span,:root[data-theme] .as-acts a>span,
+:root[data-theme] .px-ico,:root[data-theme] .list-item .ic{border:0;background-image:none;box-shadow:none;background-color:var(--input)}
+:root[data-theme] .px-acts a.pri span{background:var(--grad-brand);color:#fff}
+.hm-bi{background:var(--brand-soft);border:0}
+.pm-btn,.px-btn{border-radius:var(--r-ctl)}
+html[data-theme="dark"] .sheet,html[data-theme="dark"] .modal{border:0}
+html[data-theme="dark"] .sheet{border-top:0}
+html[data-theme="light"] .sheet{border-top:0}
+.hm-strip{border-top-color:var(--line)}
+:root[data-theme] .px-strip>div{border-radius:var(--r-ctl)}
