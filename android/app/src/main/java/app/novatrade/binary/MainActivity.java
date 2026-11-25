@@ -50,6 +50,7 @@ public class MainActivity extends Activity {
     ValueCallback<Uri[]> fileCb;
     long downloadId = -1;
     boolean errorShown = false;
+    long lastCheck = 0;
 
     @Override
     protected void onCreate(Bundle state) {
@@ -147,6 +148,7 @@ public class MainActivity extends Activity {
 
     /* ---------------- native app update (GitHub Releases) ---------------- */
     void checkForUpdate(boolean manual) {
+        lastCheck = System.currentTimeMillis();
         new Thread(() -> {
             try {
                 HttpURLConnection c = (HttpURLConnection) new URL(RELEASES).openConnection();
@@ -236,6 +238,8 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         if (errorShown && online()) { errorShown = false; web.loadUrl(SITE); }
+        // re-check for a new APK when the app comes back from background (at most every 30 min)
+        if (lastCheck > 0 && System.currentTimeMillis() - lastCheck > 30 * 60 * 1000L) checkForUpdate(false);
     }
 
     @Override
