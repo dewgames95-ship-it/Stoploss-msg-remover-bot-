@@ -39,6 +39,19 @@ function adm(){ return Object.assign(defAdmin(), rd(KM, {}), {}); }
 function saveAdm(a){ a.updated = Date.now(); wr(KM, a); S().admin = a; store.save(); bus.emit("admin"); banner(); }
 function mirror(){ S().admin = adm(); }
 
+/* ---------- login history (v6.7): time + short device name, kept on this device ---------- */
+const KL = "nt_logins";
+function devName(){
+  const u = navigator.userAgent || "", b = /Edg\//.test(u) ? "Edge" : /OPR\//.test(u) ? "Opera" : /Firefox\//.test(u) ? "Firefox" : /Chrome\//.test(u) ? "Chrome" : /Safari\//.test(u) ? "Safari" : "Browser";
+  const o = /Android/.test(u) ? "Android" : /iPhone|iPad|iPod/.test(u) ? "iOS" : /Windows/.test(u) ? "Windows" : /Mac OS/.test(u) ? "macOS" : /Linux/.test(u) ? "Linux" : "";
+  return b + (o ? " on " + o : "");
+}
+function recLogin(acc, how){
+  const l = rd(KL, []); l.unshift({t:Date.now(), dev:devName(), uid:acc && acc.id, how:how || "Password", cur:true});
+  l.slice(1).forEach(x => x.cur = false); wr(KL, l.slice(0, 50));
+}
+const logins = () => rd(KL, []);
+
 /* ---------- routing gate ---------- */
 const pub = n => n === "login" || n === "register";
 function gate(){
@@ -135,7 +148,7 @@ function authPage(mode){
       if (reg){
         if (list.some(x => norm(x.email) === email)) return fail("An account with this email already exists. Log in instead.", ids.e);
         const acc = {id:"u_" + U.uid(), name:ids.n.value.trim(), email, passHash:ph, ref:(ids.r.value || "").trim().toUpperCase(), createdAt:Date.now(), role:"user"};
-        list.push(acc); saveAcc(list); wr(KS, {id:acc.id, t:Date.now()});
+        list.push(acc); saveAcc(list); wr(KS, {id:acc.id, t:Date.now()}); recLogin(acc, "Sign up");
         const p = S().profile; p.name = acc.name; p.email = acc.email; p.joined = acc.createdAt; if (acc.ref) p.refBy = acc.ref; store.saveNow();
         toast("Welcome to NovaTrade, " + acc.name, "ok");
         location.hash = "#/home";
@@ -143,7 +156,7 @@ function authPage(mode){
         const acc = list.find(x => norm(x.email) === email);
         if (!acc || acc.passHash !== ph) return fail("Incorrect email or password.");
         if (acc.blocked) return fail("This account has been suspended. Please contact support.");
-        wr(KS, {id:acc.id, t:Date.now()});
+        wr(KS, {id:acc.id, t:Date.now()}); recLogin(acc);
         if (acc.role !== "admin"){ S().profile.name = acc.name; S().profile.email = acc.email; store.saveNow(); }
         location.hash = acc.role === "admin" ? "#/admin" : "#/home";
       }
@@ -244,5 +257,5 @@ function userSheet(id){
     const b = el.querySelector("[data-blk]"); if (b) b.onclick = () => { const l = accounts(), x = l.find(z => z.id === id); x.blocked = !x.blocked; saveAcc(l); toast(x.blocked ? "User blocked" : "User unblocked", "ok"); U.closeLayer(); setTimeout(() => App.route(), 320); };
   });
 }
-window.Auth = {me, isAdmin, logout, accounts, adminSettings: adm};
+window.Auth = {logins, devName, me, isAdmin, logout, accounts, adminSettings: adm};
 })();

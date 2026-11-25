@@ -76,3 +76,58 @@ body .indbar .il{gap:13px}
 .ip-b input[type=color]{width:100%;height:36px;padding:2px;border-radius:var(--r-ctl,8px);border:1px solid var(--line);background:var(--input,var(--card))}
 .ip-reset{grid-column:1/-1;justify-self:start;font-size:12px;font-weight:600;color:var(--brand);padding:2px 0}
 .ip-note{font-size:11px;color:var(--muted);padding:16px 0}
+
+/* ===== v6.7: drawing tools, full-screen / landscape, generic chart host ===== */
+.drawbar{display:none!important}
+.draw-svg{display:none!important}
+.dw3{position:absolute;inset:0;width:100%;height:100%;z-index:5;pointer-events:none;overflow:hidden}
+.dw3.on{pointer-events:auto;cursor:crosshair;touch-action:none}
+.dw3 .hit{stroke:transparent;stroke-width:22;fill:none;pointer-events:stroke;cursor:pointer;touch-action:none}
+.dw3 rect.hit{fill:none}
+.dw3.on .hit,.dw3.on .hd{pointer-events:none!important}
+.dw3 .vis{stroke:#2E6BFF;stroke-width:1.6;fill:none;pointer-events:none}
+html:not([data-theme="light"]) .dw3 .vis{stroke:#4F8BFF}
+.dw3 .fillr{fill:rgba(46,107,255,.10);stroke:none;pointer-events:none}
+.dw3 .tmp .vis{stroke-dasharray:5 4}
+.dw3 .dg.sel .vis{stroke-width:2.2}
+.dw3 .hd{display:none;fill:#fff;stroke:#2E6BFF;stroke-width:2;pointer-events:all;cursor:grab;touch-action:none}
+.dw3 .dg.sel .hd,.dw3 .tmp .hd{display:block}
+.dw3 .dg.sel[data-id] .hd[data-part="a"]{display:block}
+.dw3 .dtx{fill:#2E6BFF;font-size:10.5px;font-weight:700;text-anchor:end;pointer-events:none;paint-order:stroke;stroke:var(--bg);stroke-width:3px;font-family:Manrope,system-ui,sans-serif}
+html:not([data-theme="light"]) .dw3 .dtx{fill:#7FA6FF}
+.dw3-bar{display:flex;align-items:center;gap:5px;overflow-x:auto;scrollbar-width:none;padding:5px 10px;background:var(--bg);border-bottom:1px solid var(--line);flex:none}
+.dw3-bar::-webkit-scrollbar{display:none}
+.dw3-bar.hide{display:none}
+.dw3-bar button{display:inline-flex;align-items:center;gap:4px;height:28px;padding:0 8px;font-size:12px;font-weight:600;border-radius:var(--r-ctl,8px);background:var(--input,var(--card));color:var(--text-2);white-space:nowrap;flex:none}
+.dw3-bar button.on{background:var(--brand-soft);color:var(--brand-2,#2E6BFF)}
+.dw3-bar button.dis{opacity:.4;pointer-events:none}
+.dw3-bar [data-dsel]:not(.dis){color:var(--down,#F0435A)}
+.dw3-hint{font-size:11px;color:var(--muted);white-space:nowrap;flex:1;min-width:8px}
+.dw3-bar .dw3-x{width:28px;padding:0;justify-content:center;margin-left:auto}
+
+/* generic host (CH.mount on any element) */
+.ch3-box{display:block}
+.ch3-box .tfbar{margin:0;padding:0 4px 0 2px}
+.ch3-box .indbar,.indbar.x3{margin:0;padding:0 4px 0 12px}
+.indbar.x3{margin:0 -16px;padding:0 6px 0 16px;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.ch3-box .cp-chart .chart-wrap{box-shadow:none}
+.ch3-box .tfbar .tfs button{font-size:12.5px;padding:0 8px;height:26px;color:var(--muted)}
+.ch3-box .tfbar .tfs button.on{color:var(--text);font-weight:700}
+.ch3-box .tfbar .ti{width:28px;height:28px;display:grid;place-items:center;color:var(--text-2)}
+.ch3-box .tfbar .ti.on{color:var(--brand-2,#2E6BFF)}
+
+/* full screen / landscape */
+body.fs-on{overflow:hidden}
+.fs3{position:fixed;left:0;top:0;width:100%;height:100%;z-index:300;background:var(--bg);color:var(--text);display:flex;flex-direction:column;transform-origin:0 0;touch-action:none}
+.fs3.rot{width:auto;height:auto}
+.fs3-h{display:flex;align-items:center;gap:8px;height:36px;padding:0 8px;flex:none;border-bottom:1px solid var(--line)}
+.fs3-h b{font-size:14px;font-weight:700}
+.fs3-h .grow{flex:1}
+.fs3-x{width:32px;height:32px;display:grid;place-items:center;border-radius:8px;color:var(--text-2)}
+.fs3 .tfbar{margin:0!important;padding:0 6px!important;flex:none}
+.fs3 .indbar{margin:0!important;padding:0 6px 0 12px!important;flex:none}
+html body .fs3 .cp-chart{flex:1;min-height:0;display:flex;flex-direction:column;margin:0}
+html body .fs3 .cp-chart .chart-wrap{flex:1!important;height:auto!important;max-height:none!important;min-height:0!important}
+.fs3 .cp-chart .fs-head{display:none!important}
+.dw3-hint{display:none;font-size:11px;color:var(--muted);white-space:nowrap;flex:1;min-width:8px}
+.fs3 .dw3-hint{display:block}

@@ -134,8 +134,21 @@ function bindChips(root, ml){
 /* ---------- Home ---------- */
 const SHORT = [
   ["Copy Trading","users","#/copy"],["Rewards Hub","gift","#/rewards"],["Futures","layers","#/futures"],["Spot","chart","#/spot"],["Options","target","#/options"],
-  ["Trading Bots","bot","#/bots"],["Earn","earn","#/earn"],["Refer","share","#/referral"],["More","grid","#/profile"]
+  ["Trading Bots","bot","#/bots"],["Earn","earn","#/earn"],["Referral","share","#/referral"],["Academy","book","#/academy"]
 ];
+/* "More" sheet: every shortcut, grouped (Binance style) */
+const ALLSC = [
+  ["Trade", [["Markets","chart","#/markets"],["Futures","layers","#/futures"],["Spot","swap","#/spot"],["Binary","clock","#/trade"],["Options","target","#/options"],["Copy Trading","users","#/copy"],["Trading Bots","bot","#/bots"],["Auto Trading","auto","#/auto"]]],
+  ["Funds", [["Assets","wallet","#/assets"],["Deposit","down","#/deposit"],["Withdraw","up","#/withdraw"],["Earn","earn","#/earn"],["PnL Analysis","pie","#/pnl"],["Trade History","history","#/history"]]],
+  ["Rewards & Tools", [["Rewards Hub","trophy","#/rewards"],["Referral","share","#/referral"],["VIP Signals","crown","#/vip"],["Price Alerts","ring","#/alerts"],["Academy","book","#/academy"],["Vouchers","gift","#/rewards"]]],
+  ["Account", [["Profile","users","#/profile"],["Security","shield","#/security"],["Settings","gear","#/settings"],["Support","headset","#/support"],["Community","chat","#/community"],["About","info","#/about"]]]
+];
+function moreSheet(){
+  const ico = (n, i, h) => `<a class="hm-mi" href="${h}" data-x><span>${ic(i,22,1.7)}</span><b>${esc(n)}</b></a>`;
+  U.sheet("All shortcuts", ALLSC.map(([g, l]) => `<h4 class="hm-mh">${g}</h4><div class="hm-mg">${l.map(x => ico(...x)).join("")}</div>`).join(""), el => {
+    el.querySelectorAll("[data-x]").forEach(a => a.addEventListener("click", () => U.closeLayer()));
+  });
+}
 const SLIDES = [
   ["Join the Rewards Hub and claim up to 500 USDT","Daily check-in, tasks and badges","#/rewards","trophy"],
   ["Earn up to 12% APR on idle USDT","Flexible and locked Earn products","#/earn","coins"],
@@ -209,7 +222,7 @@ Pages.home = () => {
     </div>
     <a class="hm-dep" href="#/deposit">Deposit</a>
   </section>
-  <nav class="hm-sc" aria-label="Shortcuts">${SHORT.map(([n,i,h]) => `<a href="${h}">${ic(i,22,1.7)}<span>${esc(n).replace(" ", "<br>")}${n.includes(" ") ? "" : "<br>&nbsp;"}</span></a>`).join("")}</nav>
+  <nav class="hm-sc" aria-label="Shortcuts">${SHORT.map(([n,i,h]) => `<a href="${h}">${ic(i,22,1.7)}<span>${esc(n)}</span></a>`).join("")}<button type="button" class="hm-scm" data-scmore aria-label="More shortcuts">${ic("grid",22,1.7)}<span>More</span></button></nav>
   <section class="hm-ban" aria-label="Featured"><div class="hm-bs" id="bs">${SLIDES.map(([h,p,l,a]) => `<a class="hm-sl" href="${l}"><div class="g"><h3>${esc(h)}</h3><p>${esc(p)}</p></div>${art(a)}</a>`).join("")}</div><span class="hm-cnt" id="cnt">1/${SLIDES.length}</span></section>
   <section aria-label="Markets">${chipsHtml()}<div id="mlist"></div></section>
   <section class="hm-sec" id="cpsec" aria-label="Copy Trading"></section>
@@ -241,6 +254,7 @@ Pages.home = () => {
       if (ri === HOT.length) setTimeout(() => { rot.classList.remove("anim"); rot.style.transform = "translateY(0)"; ri = 0; }, 480); }, 3000);
     timers.push(() => clearInterval(rv));
     root.querySelector("[data-bell]").onclick = UI.openNotifs;
+    root.querySelector("[data-scmore]").onclick = moreSheet;
     root.querySelector("[data-eye]").onclick = () => { s.settings.hideBal = !s.settings.hideBal; store.save(); root.querySelector("#ey").style.transform = s.settings.hideBal ? "rotate(180deg)" : ""; renderBal(); };
     root.querySelector("#ey").style.display = "inline-flex";
     /* banner */

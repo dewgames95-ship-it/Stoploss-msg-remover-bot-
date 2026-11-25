@@ -3,6 +3,12 @@
   "private": true,
   "scripts": {
     "test": "node tests/smoke.js",
-    "test:shots": "node tests/smoke.js --shots"
+    "test:shots": "node tests/smoke.js --shots",
+    "build": "node scripts/build.js",
+    "test:dist": "TEST_ROOT=dist node tests/smoke.js",
+    "deploy": "bash scripts/deploy.sh"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.0"
   }
 }

@@ -378,6 +378,7 @@ const LEADS = [
 ].map(a => { const roi = a[4].slice(); if (!roi[2]) roi[2] = +(roi[1] * (2.2 + hash01(a[0]) * .8)).toFixed(1);
   return {id:a[0], name:a[1], style:a[2], sym:a[3], roi, pnl30:a[5], wr:a[6], mdd:a[7], aum:a[8], f:a[9], days:a[10], ai: hash01(a[0] + "ai") > .5, bin: a[0][0] === "b", pay: a[11] || 0, tpd: a[12] || 0,
     ini:a[1].replace(/[^A-Za-z ]/g," ").split(/\s+|(?=[A-Z])/).filter(Boolean).slice(0,2).map(w => w[0]).join("").toUpperCase() || a[1].slice(0,2).toUpperCase()}; });
+window.SIMLEADS = LEADS;   /* v6.7: traders are simulated by SIM (js/x3.js) */
 const PRICE_FB = {BTC:67000, ETH:3300, SOL:160, BNB:600, XRP:.55, DOGE:.15, AVAX:35, LINK:15, XAU:2350, EUR:1.08};
 const PERS = [["7D",0],["30D",1],["90D",2]];
 const baseOf = sym => sym.replace(/USDT$/, "").replace(/USD$/, "");
@@ -388,16 +389,20 @@ const tdesc = mk => mk === "spot" ? .42 : 1;
 window.COPY_LEADERS = LEADS.filter(l => !l.bin).map(l => ({id:l.id, name:l.name, f:l.f, cap:CAP, roi:l.roi[1], pnl30:l.pnl30, aum:l.aum, wr:l.wr, ini:l.ini, tag:"Perp", spark:null, bin:false}));
 window.COPY_LEADERS.forEach(x => { const l = LEADS.find(y => y.id === x.id); x.getSpark = n => curve(l, 1, "futures", n || 24); });
 function lstats(l, per, mk){
+  const sx = window.SIM && SIM.stats(l.id, per);
+  if (sx) return {roi:sx.roi, pnl:sx.pnl, wr:sx.wr, mdd:sx.mdd, aum:sx.aum, pay:l.pay, tpd:Math.round(sx.tpd * 10) / 10 || l.tpd, n:sx.n};
   const f = tdesc(mk), roi = l.roi[per] * f, pnl = l.pnl30 * (l.roi[per] / l.roi[1]) * (mk === "spot" ? .5 : 1);
   return {roi, pnl, wr: Math.min(96, l.wr + (mk === "spot" ? 3 : 0)), mdd: l.mdd * (mk === "spot" ? .55 : 1), aum: l.aum * (mk === "spot" ? .6 : 1), pay: l.pay, tpd: l.tpd};
 }
 function curve(l, per, mk, n){
+  const sc = window.SIM && SIM.curve(l.id, per, n); if (sc) return sc;
   const roi = lstats(l, per, mk).roi, r = rngFor(l.id + per + mk); let w = 0; const out = [];
   for (let k = 0; k < n; k++){ w = w * .72 + (r() - .5) * Math.abs(roi) * .09 + (r() - .5) * 1.2; const x = k / (n - 1); out.push(roi * x + w * Math.sin(Math.PI * x)); }
   return out;
 }
 /* recent binary (Up/Down) trades of a binary leader, deterministic */
 function binTrades(l, n, skip = 0){
+  const sc = window.SIM && SIM.closed(l.id, 40); if (sc) return sc.slice(skip, skip + n).map(c => ({sym:c.sym, up:c.long, amt:c.margin, pay:c.pay || l.pay, win:c.pnl > 0, t:c.ct}));
   const out = [], now = Date.now(), gap = 864e5 / Math.max(6, l.tpd) * 1.1;
   for (let i = skip; i < skip + n; i++){
     const r = rngFor("bt" + l.id + i), amt = [10,20,25,50,100,150][Math.floor(r() * 6)], win = r() < l.wr / 100, pay = Math.round(l.pay + (r() - .5) * 4);
@@ -406,6 +411,7 @@ function binTrades(l, n, skip = 0){
   return out;
 }
 function positionsOf(l, mk){
+  const sc = window.SIM && SIM.closed(l.id, 40); if (sc) return sc;
   const r = rngFor("pos" + l.id + mk), pool = [l.sym, l.sym, "BTCUSDT", "ETHUSDT", l.sym, "SOLUSDT"].filter((v,i,a) => mk === "spot" || true), out = [];
   for (let i = 0; i < 6; i++){
     const sym = pool[i % pool.length], p = M.get(sym), base = p?.price || PRICE_FB[baseOf(sym)] || 100, entry = base * (1 + (r() - .5) * .03), long = r() > .38, lev = mk === "spot" ? 0 : [3,5,8,10,15,20][Math.floor(r() * 6)];
@@ -417,8 +423,9 @@ function positionsOf(l, mk){
 /* ---- live open positions of a leader (deterministic, slowly rotating; entry cached so it stays fixed while mark moves) ---- */
 const POPS = ["BTCUSDT","ETHUSDT","SOLUSDT","XRPUSDT","BNBUSDT","DOGEUSDT","XAUUSD"];
 const ENTRY_CACHE = new Map();
-const openCount = l => 2 + Math.floor(hash01(l.id + "n") * 4);
+const openCount = l => { const o = window.SIM && SIM.open(l.id); return o ? o.length : 2 + Math.floor(hash01(l.id + "n") * 4); };
 function openPositions(l){
+  const so = window.SIM && SIM.open(l.id); if (so) return so;
   const now = Date.now(), n = openCount(l), out = [];
   for (let i = 0; i < n; i++){
     const period = (2 + Math.floor(hash01(l.id + i + "p") * 10)) * 36e5, off = hash01(l.id + i + "o") * period, slot = Math.floor((now + off) / period), start = slot * period - off;
@@ -438,7 +445,7 @@ const symQty = v => v >= 100 ? fmt(v, 2) : v >= 1 ? fmt(v, 3) : fmt(v, 4);
 const OLD = {l1:"CryptoWhale_88", l2:"GoldRush Pro", l3:"ETH Maxi", l4:"SOL Sniper", l5:"FX Samurai", l6:"Meme Hunter"};
 function newCopy(l, o){
   return Object.assign({id:U.uid(), lid:l.id, name:l.name, ini:l.ini, mk:"futures", amt:0, mode:"fixed", sizing:"fixed", modeVal:0, maxOrder:0, sl:0, tp:0, since:Date.now(),
-    seed:U.uid(), drift:Math.max(.003, l.roi[1] / 30 * .35 / 24), vol:1.1 + hash01(l.id) * 1.6}, o);
+    seed:U.uid(), drift:Math.max(.003, l.roi[1] / 30 * .35 / 24), vol:1.1 + hash01(l.id) * 1.6, mir: window.SIM && SIM.ready ? SIM.newMir() : undefined}, o);
 }
 function cstate(){
   let c = S().copies;
@@ -449,6 +456,7 @@ function cstate(){
 }
 /* deterministic, time-based random walk in percent of invested capital */
 function copyPct(c, t = Date.now()){
+  const mp = window.SIM && SIM.copyPct(c, t); if (mp != null) return mp;
   const ms = t - c.since; if (ms <= 0) return 0;
   const h = ms / 36e5, x = ms / 3e5, i = Math.floor(x), f = x - i, sm = f * f * (3 - 2 * f);
   const nz = k => hash01(c.seed + ":" + k) - .5, nv = nz(i) * (1 - sm) + nz(i + 1) * sm, ph = hash01(c.seed + "p") * 6.28;
@@ -465,6 +473,9 @@ function stopCopy(c, reason){
   U.fx("close"); return {pnl, pct};
 }
 
+
+function checkCopies(){ cstate().active.slice().forEach(c => { const p = copyPct(c); if (c.sl && p <= -c.sl){ stopCopy(c, "Stop-loss"); toast(`${c.name}: stop-loss reached`, "bad"); } else if (c.tp && p >= c.tp){ stopCopy(c, "Take-profit"); toast(`${c.name}: take-profit reached`, "ok"); } }); }
+window.COPYX = {cstate, save: () => store.save(), check: checkCopies};
 
 /* ---- derived leader metrics ---- */
 const sharpe = l => +(.4 + Math.max(0, l.roi[1]) / Math.max(4, l.mdd) * .32 + hash01(l.id + "sh") * .6).toFixed(2);
@@ -568,7 +579,7 @@ Pages.copy = (params) => {
       const body = () => { const s = lstats(l, dp, mk);
         return `<div class="row" style="gap:12px;padding:2px 0 4px">${ART.avatar(l.id, 56)}<div class="grow"><b style="font-size:16px">${esc(l.name)}</b><div class="px-mut">${esc(l.style)}</div><div class="px-mut mt">${ic("users",13,1.7)} <span class="num">${fmt(l.f,0)} / ${fmt(CAP,0)}</span> followers</div></div></div>
         <div class="row between" style="margin-top:10px"><div class="px-seg" id="dseg">${PERS.map(([n,i]) => `<button data-p="${i}" class="${dp===i?"on":""}">${n}</button>`).join("")}</div><span class="px-mut">${l.days} trading days</span></div>
-        <div class="px-grid3"><div><span>${PERS[dp][0]} ROI</span><b class="num ${cls(s.roi)}" style="font-size:20px">${sgnPct(s.roi)}</b></div><div><span>${PERS[dp][0]} PnL</span><b class="num ${cls(s.pnl)}">${s.pnl >= 0 ? "+" : "-"}$${fmt(Math.abs(s.pnl),0)}</b></div><div><span>Win rate</span><b class="num">${s.wr.toFixed(1)}%</b></div>${mk === "binary" ? `<div><span>Trades/day</span><b class="num">${l.tpd}</b></div>` : `<div><span>Max drawdown</span><b class="num">${s.mdd.toFixed(1)}%</b></div>`}<div><span>AUM</span><b class="num">$${compact(s.aum)}</b></div>${mk === "binary" ? `<div><span>Avg. payout</span><b class="num">${l.pay}%</b></div>` : `<div><span>Avg. leverage</span><b class="num">${Math.round(3 + hash01(l.id) * 9)}x</b></div>`}</div>
+        <div class="px-grid3"><div><span>${PERS[dp][0]} ROI</span><b class="num ${cls(s.roi)}" style="font-size:20px">${sgnPct(s.roi)}</b></div><div><span>${PERS[dp][0]} PnL</span><b class="num ${cls(s.pnl)}">${s.pnl >= 0 ? "+" : "-"}$${fmt(Math.abs(s.pnl),0)}</b></div><div><span>Win rate</span><b class="num">${s.wr.toFixed(1)}%</b></div>${mk === "binary" ? `<div><span>Trades/day</span><b class="num">${l.tpd}</b></div>` : `<div><span>Max drawdown</span><b class="num">${s.mdd.toFixed(1)}%</b></div>`}<div><span>AUM</span><b class="num">$${compact(s.aum)}</b></div>${mk === "binary" ? `<div><span>Avg. payout</span><b class="num">${l.pay}%</b></div>` : `<div><span>Avg. leverage</span><b class="num">${(() => { const c = positionsOf(l, mk) || []; return c.length ? Math.round(c.reduce((a, x) => a + (x.lev || 1), 0) / c.length) : Math.round(3 + hash01(l.id) * 9); })()}x</b></div>`}</div>
         <div class="px-sec-h" style="margin:4px 0 0"><h2>ROI</h2><span class="px-mut"><i class="px-pulse"></i> Live</span></div><div class="px-big">${spark(curve(l, dp, mk, 60), 320, 110, s.roi >= 0 ? "var(--up)" : "var(--down)")}</div>`; };
       const form = `<div class="px-sec" id="pf" style="margin-top:12px"><div class="px-sec-h"><h2>Copy settings</h2><span class="px-mut">Avbl <b class="num" style="color:var(--text)">${money(bal())}</b> USDT</span></div>
         <div class="px-fld"><label><span>Investment</span><span class="px-mut">Min 10 USDT</span></label><div class="px-inp" id="fi"><input id="inv" type="number" inputmode="decimal" value="${Math.min(500, Math.floor(bal() / 10) * 10 || 100)}"><span>USDT</span></div></div>
@@ -580,19 +591,33 @@ Pages.copy = (params) => {
           <div class="px-fld"><label><span>Take-profit</span></label><div class="px-inp"><input id="tp" type="number" inputmode="decimal" placeholder="Off"><span>%</span></div></div></div>
         <div class="px-notice" style="margin-bottom:12px">${ic("info",14)}<span>Past performance does not guarantee future results. Copying may be closed automatically when your stop-loss or take-profit is reached.</span></div>
         <div class="px-err" id="fe"></div><button class="px-btn pri blk lg" id="go" ${full ? "disabled" : ""}>${full ? "Lead trader is full" : "Start Copying"}</button></div>`;
-      const pos = positionsOf(l, mk);
-      const binRow = x => `<div class="px-pos">${symIcon(x.sym, 28)}<div class="grow"><b>${esc(symLabel(x.sym))}</b> <span class="px-tag ${x.up ? "up" : "dn"}">${x.up ? "Up" : "Down"}</span><div class="px-mut num">Stake ${money(x.amt)} USDT · Payout ${x.pay}% · ${dur(Date.now() - x.t)} ago</div></div><b class="num ${x.win ? "up" : "down"}" style="font-size:13px">${x.win ? "+" + money(x.amt * x.pay / 100) : "-" + money(x.amt)}<br><span style="font-weight:600;font-size:11px">${x.win ? "Win" : "Loss"}</span></b></div>`;
-      const histHtml = `<div class="px-sec"><div class="px-sec-h"><h2>${mk === "binary" ? "Past trades" : "Closed positions"}</h2></div>${mk === "binary" ? binTrades(l, 12, 8).map(binRow).join("") : pos.map(p => `<div class="px-pos">${symIcon(p.sym, 28)}<div class="grow"><b>${esc(symLabel(p.sym))}</b> <span class="px-tag ${p.long ? "up" : "dn"}">${mk === "spot" ? (p.long ? "Buy" : "Sell") : (p.long ? "Long" : "Short") + " " + p.lev + "x"}</span><div class="px-mut num">Entry ${symPx(p.sym, p.entry)} · ${dur(Date.now() - p.t)} ago</div></div><b class="num ${cls(p.pct)}" style="font-size:13px">${sgnPct(p.pct)}</b></div>`).join("")}</div>`;
-      const livePos = () => { if (mk === "binary") return `<div class="px-sec-h" style="margin:4px 0"><h2>Recent trades</h2><span class="px-mut"><i class="px-pulse"></i> Live</span></div>` + binTrades(l, 8).map(binRow).join(""); const ps = openPositions(l); return `<div class="px-sec-h" style="margin:4px 0"><h2>Open positions (${ps.length})</h2><span class="px-mut"><i class="px-pulse"></i> Live</span></div>` + ps.map(p => { const q = posPnl(p);
-        return `<div class="px-opn"><div class="h">${symIcon(p.sym, 28)}<div class="grow"><b>${esc(symLabel(p.sym))}</b> <span class="px-tag ${p.long ? "up" : "dn"}">${p.long ? "Long" : "Short"} ${p.lev}x</span><div class="px-mut">Opened ${dur(Date.now() - p.t)} ago</div></div><div class="r"><b class="num ${cls(q.pnl)}">${(q.pnl >= 0 ? "+" : "") + fmt(q.pnl, 2)}</b><span class="num ${cls(q.roi)}">${sgnPct(q.roi)}</span></div></div>
-          <div class="g"><div><span>Size</span><b class="num">${symQty(p.size)}</b></div><div><span>Entry</span><b class="num">${symPx(p.sym, p.entry)}</b></div><div><span>Mark</span><b class="num">${symPx(p.sym, p.mark)}</b></div></div></div>`; }).join(""); };
-      let dtab = "ov", liv = null; const stopLive = () => { if (liv){ clearInterval(liv); liv = null; } };
-      U.sheet(l.name, `<div class="px-tabs" id="dtabs" style="margin-bottom:12px">${[["ov","Overview"],["pos",mk === "binary" ? "Trades" : "Positions"],["hist","History"]].map(([k,n]) => `<button data-t="${k}" class="${k==="ov"?"on":""}">${n}</button>`).join("")}</div>
-        <div id="t-ov"><div id="dbody">${body()}</div>${form}</div><div id="t-pos" hidden></div><div id="t-hist" hidden>${histHtml}</div>`, el => {
+      const tstr = t => new Date(t).toLocaleString("en-US", {month:"short", day:"numeric", hour:"2-digit", minute:"2-digit", hour12:false});
+      const fresh = t => Date.now() - t < 20000 ? " fresh" : "";
+      const agoS = t => { const sec = Math.max(0, Math.round((Date.now() - t) / 1000)); return sec < 60 ? sec + "s ago" : dur(Date.now() - t) + " ago"; };
+      const tag = p => `<span class="px-tag ${p.long ? "up" : "dn"}">${p.bin ? (p.long ? "Up" : "Down") : (p.long ? "Long " : "Short ") + p.lev + "x"}</span>`;
+      const clk = ms => { const s = Math.max(0, Math.ceil(ms / 1000)); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); };
+      const secH = (t, n, live) => `<div class="px-sec-h" style="margin:4px 0 8px"><h2>${t}${n != null ? " (" + n + ")" : ""}</h2>${live ? `<span class="px-mut"><i class="px-pulse"></i> Live</span>` : ""}</div>`;
+      const histHtml = () => { const cl = positionsOf(l, mk) || [];
+        return `<div class="px-sec">${secH("Position history", null, true)}${cl.length ? cl.map(c => `<div class="px-pos hist${fresh(c.ct)}">${symIcon(c.sym, 28)}<div class="grow"><b>${esc(symLabel(c.sym))}</b> ${tag(c)}<div class="px-mut num">${tstr(c.t)} to ${tstr(c.ct)}</div><div class="px-mut num">${mk === "binary" ? "Stake " + money(c.margin) + " USDT" : "Entry " + symPx(c.sym, c.entry) + " · Close " + symPx(c.sym, c.exit)}</div></div><b class="num ${cls(c.pnl)}" style="font-size:13px;text-align:right">${c.pnl >= 0 ? "+" : "-"}${money(Math.abs(c.pnl))}<br><span style="font-weight:600;font-size:11px">${mk === "binary" ? (c.pnl > 0 ? "Win" : "Loss") : sgnPct(c.roi)}</span></b></div>`).join("") : empty("file", "No closed positions yet")}</div>`; };
+      const recHtml = () => { const fd = (window.SIM && SIM.feed(l.id, 30)) || [];
+        return `<div class="px-sec">${secH("Latest records", null, true)}${fd.length ? fd.map(f => `<div class="px-rec${fresh(f.t)}"><i class="d ${f.tp === "o" ? "o" : f.pnl >= 0 ? "up" : "dn"}"></i><div class="grow"><span>${esc(f.txt)}</span><div class="px-mut">${agoS(f.t)}</div></div></div>`).join("") : empty("clock", "No records yet")}</div>`; };
+      const livePos = () => { const ps = openPositions(l) || [];
+        return secH("Current positions", ps.length, true) + (ps.length ? ps.map(p => {
+          if (p.bin){ const win = (p.mark - p.entry) * (p.long ? 1 : -1) > 0;
+            return `<div class="px-pos${fresh(p.t)}">${symIcon(p.sym, 28)}<div class="grow"><b>${esc(symLabel(p.sym))}</b> ${tag(p)}<div class="px-mut num">Stake ${money(p.margin)} USDT · Payout ${p.pay}% · Entry ${symPx(p.sym, p.entry)}</div></div><b class="num ${win ? "up" : "down"}" style="font-size:13px;text-align:right">${win ? "Winning" : "Losing"}<br><span style="font-weight:600;font-size:11px" class="num">${clk(p.maxT - Date.now())} left</span></b></div>`; }
+          const q = posPnl(p);
+          return `<div class="px-opn${fresh(p.t)}"><div class="h">${symIcon(p.sym, 28)}<div class="grow"><b>${esc(symLabel(p.sym))}</b> ${tag(p)}<div class="px-mut">Opened ${agoS(p.t)}</div></div><div class="r"><b class="num ${cls(q.pnl)}">${(q.pnl >= 0 ? "+" : "") + fmt(q.pnl, 2)}</b><span class="num ${cls(q.roi)}">${sgnPct(q.roi)}</span></div></div>
+          <div class="g"><div><span>Size</span><b class="num">${symQty(p.size)}</b></div><div><span>Entry</span><b class="num">${symPx(p.sym, p.entry)}</b></div><div><span>Mark</span><b class="num">${symPx(p.sym, p.mark)}</b></div></div></div>`; }).join("") : empty("clock", "No open positions right now")); };
+      let dtab = "ov", liv = null, lsn = 0; const stopLive = () => { if (liv){ clearInterval(liv); liv = null; } };
+      if (window.SIM) SIM.watch(l.id);
+      U.sheet(l.name, `<div class="px-tabs" id="dtabs" style="margin-bottom:12px">${[["ov","Overview"],["pos","Positions"],["hist","History"],["rec","Records"]].map(([k,n]) => `<button data-t="${k}" class="${k==="ov"?"on":""}">${n}</button>`).join("")}</div>
+        <div id="t-ov"><div id="dbody">${body()}</div>${form}</div><div id="t-pos" hidden></div><div id="t-hist" hidden></div><div id="t-rec" hidden></div>`, el => {
         const q = s => el.querySelector(s);
-        const refresh = () => { const t = q("#t-pos"); if (!t || !t.isConnected) return stopLive(); if (dtab === "pos") t.innerHTML = livePos(); };
+        const paint = k => { const t = q("#t-" + k); if (t) t.innerHTML = k === "pos" ? livePos() : k === "hist" ? histHtml() : recHtml(); };
+        const refresh = () => { if (!q("#t-pos") || !q("#t-pos").isConnected) return stopLive(); lsn++; if (window.SIM) SIM.watch(l.id); if (dtab === "ov"){ if (lsn % 4 === 0 && !el.querySelector("#inv:focus")) redraw(); } else paint(dtab); };
         q("#dtabs").onclick = e => { const b = e.target.closest("[data-t]"); if (!b) return; dtab = b.dataset.t; q("#dtabs").querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b));
-          ["ov","pos","hist"].forEach(k => q("#t-" + k).hidden = k !== dtab); stopLive(); if (dtab === "pos"){ refresh(); liv = setInterval(refresh, 1000); } };
+          ["ov","pos","hist","rec"].forEach(k => q("#t-" + k).hidden = k !== dtab); if (dtab !== "ov") paint(dtab); };
+        liv = setInterval(refresh, 1000);
         const redraw = () => { q("#dbody").innerHTML = body(); q("#dseg").onclick = segClick; };
         const segClick = e => { const b = e.target.closest("[data-p]"); if (b){ dp = +b.dataset.p; redraw(); } };
         q("#dseg").onclick = segClick;
@@ -612,7 +637,7 @@ Pages.copy = (params) => {
             ["Max per order", `${money(mo)} USDT`], ["Stop-loss", sl ? `-${sl}%` : "Off"], ["Take-profit", tp ? `+${tp}%` : "Off"]]});
           if (!ok) return;
           if (inv > bal() + 1e-9){ toast("Insufficient " + (mk === "binary" ? "Binary" : "Futures") + " balance", "bad"); UI.walletErr("Insufficient " + (mk === "binary" ? "Binary" : "Futures") + " balance"); return; }
-          cstate().active.unshift(newCopy(l, {mk, mode:mk === "binary" ? "binary" : mode, sizing:mode, modeVal:mv, maxOrder:mo, sl, tp}));
+          cstate().active.unshift(newCopy(l, {mk, amt:inv, mode:mk === "binary" ? "binary" : mode, sizing:mode, modeVal:mv, maxOrder:mo, sl, tp}));
           store.addWallet(mk === "binary" ? "binary" : "futures", -inv, "copy"); store.save();
           store.notify("Copy trading started", `Copying ${l.name} with ${money(inv)} USDT`, "ok"); U.fx("open"); toast("Copy trading started", "ok");
           view = "my"; show();
@@ -630,9 +655,13 @@ Pages.copy = (params) => {
     });
     show();
     if (openId) setTimeout(() => { const l = LEADS.find(x => x.id === openId); if (l) detail(l, l.bin ? "binary" : "futures", false); }, 60);
-    const check = () => { cstate().active.slice().forEach(c => { const p = copyPct(c); if (c.sl && p <= -c.sl){ stopCopy(c, "Stop-loss"); toast(`${c.name}: stop-loss reached`, "bad"); } else if (c.tp && p >= c.tp){ stopCopy(c, "Take-profit"); toast(`${c.name}: take-profit reached`, "ok"); } }); };
+    const check = checkCopies;
     check();
-    const iv = setInterval(() => { if (!r.isConnected) return; check(); if (view === "my" && !document.querySelector("#sheet.show")){ nav(); renderMy(); } }, 3000);
+    const liveList = () => { if (view !== "plaza" || !window.SIM) return; const mk = mkOf();
+      r.querySelectorAll(".px-lc[data-ld]").forEach(el => { const l = LEADS.find(x => x.id === el.dataset.ld); if (!l) return; const s = lstats(l, 1, mk), e = el.querySelector(".roi"); if (!e) return;
+        e.textContent = sgnPct(s.roi); e.className = "roi num " + cls(s.roi); const sp = el.querySelector(".spk"); if (sp) sp.innerHTML = spark(curve(l, 1, mk, 36), 130, 52, s.roi >= 0 ? "var(--up)" : "var(--down)");
+        const bs = el.querySelectorAll(".b b"); if (bs.length === 4){ if (mk === "binary"){ bs[0].textContent = s.wr.toFixed(1) + "%"; bs[2].textContent = s.tpd; bs[3].textContent = compact(s.aum); } else { bs[0].textContent = s.mdd.toFixed(2) + "%"; bs[2].textContent = compact(s.aum); bs[3].textContent = openCount(l); } } }); };
+    const iv = setInterval(() => { if (!r.isConnected) return; check(); if (view === "my" && !document.querySelector("#sheet.show")){ nav(); renderMy(); } liveList(); }, 3000);
     this.unmount = () => clearInterval(iv);
   }};
 };

@@ -106,7 +106,8 @@ Pages.options = (params) => {
   let base = String(params[0] || sessionStorage.getItem("lastSym_options") || "BTC").toUpperCase().replace(/USDT$/, "");
   if (!UNDERS.includes(base)) base = "BTC";
   try { sessionStorage.setItem("lastSym_options", base); } catch {}
-  let root, offs = [], side = "call", expKey = "1h", ptab = "pos", tT = 0, tTimer = 0, closeSheetOff = null, tgt = 0, amt = 50, amtMax = false;
+  let root, offs = [], side = "call", expKey = "1h", ptab = "pos", tT = 0, tTimer = 0, closeSheetOff = null, tgt = 0, amt = 50, amtMax = false, pctSel = null, chartEl = null, chartLive = false, chTf = "15m";
+  let chartOpen = true; try { chartOpen = localStorage.getItem("opChart") !== "0"; } catch {}
   let mode = "simple"; try { mode = localStorage.getItem("opMode") === "pro" ? "pro" : "simple"; } catch {}
   const $ = q => root.querySelector(q), s = () => store.s;
 
@@ -115,6 +116,7 @@ Pages.options = (params) => {
   <div class="op-top"><div class="seg op-mode" id="opMode"><button data-mode="simple">Simple</button><button data-mode="pro">Pro</button></div><button class="op-help" id="opHelp" aria-label="How options work">${ic("info",16)}<span>How it works</span></button></div>
   <header class="fx-head" id="opHead"><div class="grow"><button class="nm" data-pick aria-label="Choose underlying">${P(base) ? UI.pairIcon(P(base), 24) : ""}<span>${base}</span><span class="perp">Options</span>${ic("chevd",16)}</button></div>
     <div class="op-hpx"><b class="num" id="opLp">--</b><span class="num" id="opChg"></span></div></header>
+  <div id="opChSlotP"></div>
   <div class="op-wrap">
     <section class="op-main">
       <div id="opSimple" class="op-simple"></div>
@@ -204,9 +206,13 @@ Pages.options = (params) => {
   /* ---- Simple mode ---- */
   const tgtStrikes = S => { const step = stepOf(S), atm = Math.round(S/step)*step;
     return TGTS.map(([nm, sub, k]) => { const K = +(atm + (side === "call" ? k : -k)*step).toPrecision(10); return {nm, sub, K}; }); };
+  const PCTS = [.005, .01, .02, .05];
+  const pctK = (S, p) => +(S*(1 + (side === "call" ? p : -p))).toPrecision(4);
+  const selK = S => pctSel != null ? pctK(S, pctSel) : tgtStrikes(S)[tgt].K;
+  const pctLbl = p => +(p*100).toFixed(1) + "%";
   function simpleCalc(){
     const S = spotOf(base); if (S == null) return null;
-    const exp = expOf(expKey), min = MINQ[base], t = tgtStrikes(S)[tgt], K = t.K;
+    const exp = expOf(expKey), min = MINQ[base], K = selK(S);
     const unit = quote(side, K, exp, 1).cost, bal = store.wb("options");
     const spend = amtMax ? bal : amt;
     let qty = Math.floor(spend/unit/min + 1e-9)*min; qty = +qty.toPrecision(8);
@@ -221,6 +227,7 @@ Pages.options = (params) => {
         <span class="op-und-l">${p ? UI.pairIcon(p, 36) : ""}<span class="op-und-n"><b>${base}</b><small>${base}/USDT · <i class="op-pulse"></i>Live</small></span></span>
         <span class="op-und-spark" id="sSpark"></span>
         <span class="op-und-r"><b class="num" id="sPx">--</b><span class="num" id="sChg"></span></span></button>
+      <div id="opChSlot"></div>
       <div class="op-dir" id="sDir">
         <button class="op-up ${side === "call" ? "on" : ""}" data-side="call"><span class="op-dir-i">${ic("up",18,2)}</span><b>Price will go UP</b><small>Buy Call</small></button>
         <button class="op-dn ${side === "put" ? "on" : ""}" data-side="put"><span class="op-dir-i">${ic("down",18,2)}</span><b>Price will go DOWN</b><small>Buy Put</small></button></div>
@@ -228,6 +235,8 @@ Pages.options = (params) => {
       <div class="op-exps op-sexps" id="sExps"></div>
       <div class="op-sec">Target price (strike)</div>
       <div class="op-tgts" id="sTgts"></div>
+      <div class="op-sec op-sec2">Or pick a distance from the price <small id="sPdir"></small></div>
+      <div class="op-pcts" id="sPcts"></div><div class="op-tgts" id="sPres"></div>
       <div class="op-sec">Amount <span class="op-avbl">Avbl <b class="num" id="sBal">${money(store.wb("options"))}</b> USDT <button class="wl-plus" data-wlto="options" aria-label="Transfer in">${ic("plus",13,3)}</button></span></div>
       <div class="famt op-amt" id="sF"><input id="sAmt" type="number" inputmode="decimal" min="0" aria-label="Amount in USDT" placeholder="0.00"><span>USDT</span></div>
       <div class="op-amts" id="sAmts">${AMTS.map(a => `<button data-a="${a}">${a}</button>`).join("")}<button data-a="max">Max</button></div>
@@ -236,7 +245,7 @@ Pages.options = (params) => {
       <button class="btn op-go" id="sGo">Buy Call</button>
       <div class="op-note">${ic("info",14)}<span>Max loss = amount paid. Cash-settled in USDT at expiry.</span></div>`;
     $("#sAmt").value = amtMax ? "" : amt; $("#sAmt").placeholder = amtMax ? "Max" : "0.00";
-    renderSExps(); renderSLive(); renderSDyn();
+    renderSExps(); renderSLive(); renderSDyn(); placeChart();
   }
   function renderSExps(){
     const b = $("#sExps"); if (!b) return;
@@ -256,8 +265,17 @@ Pages.options = (params) => {
     root.querySelectorAll("#sAmts [data-a]").forEach(b => b.classList.toggle("on", amtMax ? b.dataset.a === "max" : +b.dataset.a === amt));
     if (S == null){ $("#sTgts").innerHTML = UI.emptyState("clock", "Connecting to live prices…"); $("#sSum").innerHTML = ""; $("#sQty").innerHTML = ""; return; }
     const exp = expOf(expKey), ts = tgtStrikes(S);
+    const tgCard = (nm, sub, K, on, attr) => { const g = quote(side, K, exp, 1).g;
+      return `<button class="op-tg ${on ? "on" : ""}" ${attr}><span class="op-tg-n"><b>${nm}</b><small>${sub}</small></span>
+        <span class="op-tg-k"><b class="num">${px(base, K)}</b><small>Strike</small></span>
+        <span class="op-tg-k"><b class="num">${fp(g.price*SPREAD)}</b><small>Premium / ${base}</small></span>
+        <span class="op-tg-p op-tg-k"><b class="num">${Math.round(Math.abs(g.delta)*100)}%</b><small>Probability ≈</small></span></button>`; };
+    $("#sPdir").textContent = isC ? "(above)" : "(below)";
+    $("#sPcts").innerHTML = PCTS.map(p => { const K = pctK(S, p), pr = Math.round(Math.abs(quote(side, K, exp, 1).g.delta)*100);
+      return `<button class="op-pch ${pctSel === p ? "on" : ""}" data-pct="${p}"><b>${isC ? "+" : "-"}${pctLbl(p)}</b><small>≈ ${pr}%</small></button>`; }).join("");
+    $("#sPres").innerHTML = pctSel != null ? tgCard(`${pctLbl(pctSel)} ${isC ? "above" : "below"}`, "Your pick", pctK(S, pctSel), true, 'data-pct-card="1"') : "";
     $("#sTgts").innerHTML = ts.map((t, i) => { const g = quote(side, t.K, exp, 1).g;
-      return `<button class="op-tg ${i === tgt ? "on" : ""}" data-t="${i}"><span class="op-tg-n"><b>${t.nm}</b><small>${t.sub === "ATM" ? "ATM" : t.sub}</small></span>
+      return `<button class="op-tg ${pctSel == null && i === tgt ? "on" : ""}" data-t="${i}"><span class="op-tg-n"><b>${t.nm}</b><small>${t.sub === "ATM" ? "ATM" : t.sub}</small></span>
         <span class="op-tg-k"><b class="num">${px(base, t.K)}</b><small>Strike</small></span>
         <span class="op-tg-k"><b class="num">${fp(g.price*SPREAD)}</b><small>Premium / ${base}</small></span>
         <span class="op-tg-k op-tg-p"><b class="num">${Math.round(Math.abs(g.delta)*100)}%</b><small>Probability ≈</small></span></button>`; }).join("");
@@ -288,14 +306,107 @@ Pages.options = (params) => {
     const c = quote(side, d.K, d.exp, d.qty); if (!c) return;
     if (!commit(d.K, d.exp, d.qty, c)) bad("Insufficient Options balance");
   }
+
+  /* ---- live candle chart (CH singleton, mounted lazily, moved between simple / pro slots) ---- */
+  const CH_TFS = [["1m","1m"],["5m","5m"],["15m","15m"],["1h","1H"],["4h","4H"],["1d","1D"]], CH_IND = ["MA","EMA","BOLL","|","VOL","RSI","MACD"];
+  function buildChart(){
+    const el = document.createElement("section"); el.className = "op-chart"; el.id = "opChart";
+    el.innerHTML = `<button class="op-ch-h" data-chtog aria-expanded="${chartOpen}" aria-label="Show or hide chart"><span class="op-ch-t">${ic("candle",16)}<b>Chart</b><small>${base}/USDT <i id="opChTf"></i></small></span><span class="op-ch-c">${ic("chevd",16)}</span></button>
+      <div class="op-ch-b" ${chartOpen ? "" : "hidden"}>
+        <div class="tfbar"><div class="tfs" id="opTfs">${CH_TFS.map(([k, l]) => `<button data-ctf="${k}">${l}</button>`).join("")}</div></div>
+        <div class="cp-chart"><div class="chart-wrap"><div id="chart"></div><div class="legend" id="lg"></div><div class="chart-msg" id="cmsg"></div></div></div>
+        <div class="indbar"><div class="il" id="inds">${CH_IND.map(k => k === "|" ? `<span style="color:var(--line)">|</span>` : `<button data-ind="${k}">${k}</button>`).join("")}</div></div>
+      </div>`;
+    el.classList.toggle("shut", !chartOpen);
+    return el;
+  }
+  const chTfLabel = () => (CH_TFS.find(x => x[0] === chTf) || [0, chTf])[1];
+  function chSetTf(tf){
+    chTf = tf; try { sessionStorage.setItem("tf_options", tf); } catch {}
+    chartEl.querySelectorAll("[data-ctf]").forEach(b => b.classList.toggle("on", b.dataset.ctf === tf));
+    const i = chartEl.querySelector("#opChTf"); if (i) i.textContent = chTfLabel();
+    if (chartLive) CH.load(base + "USDT", tf);
+  }
+  function chInds(){ chartEl.querySelectorAll("[data-ind]").forEach(b => b.classList.toggle("on", CH.inds.includes(b.dataset.ind))); }
+  function ensureChart(){
+    if (chartLive || !chartEl || !chartOpen || !window.CH || !P(base)) return;
+    try {
+      CH.mount(chartEl.querySelector("#chart"), {legend: chartEl.querySelector("#lg"), msg: chartEl.querySelector("#cmsg"), mode: "fut"});
+      chartLive = true; chInds(); CH.load(base + "USDT", chTf); setTimeout(() => CH.resize && CH.resize(), 80);
+    } catch (e) { console.warn("options chart", e); }
+  }
+  function placeChart(){
+    if (!chartEl || !root) return;
+    const slot = $(mode === "simple" ? "#opChSlot" : "#opChSlotP"); if (!slot) return;
+    if (chartEl.parentElement !== slot) slot.appendChild(chartEl);
+    if (chartLive) setTimeout(() => CH.resize && CH.resize(), 60); else ensureChart();
+  }
+  function initChart(){
+    try { const t = sessionStorage.getItem("tf_options"); if (t && CH_TFS.some(x => x[0] === t)) chTf = t; } catch {}
+    chartEl = buildChart(); chSetTf(chTf);
+    chartEl.addEventListener("click", e => {
+      let b;
+      if (e.target.closest("[data-chtog]")){ chartOpen = !chartOpen; try { localStorage.setItem("opChart", chartOpen ? "1" : "0"); } catch {}
+        chartEl.classList.toggle("shut", !chartOpen); chartEl.querySelector(".op-ch-b").hidden = !chartOpen; chartEl.querySelector("[data-chtog]").setAttribute("aria-expanded", chartOpen);
+        if (chartOpen){ ensureChart(); setTimeout(() => CH.resize && CH.resize(), 60); } return; }
+      if ((b = e.target.closest("[data-ctf]"))) return chSetTf(b.dataset.ctf);
+      if ((b = e.target.closest("[data-ind]"))){ const k = b.dataset.ind, l = CH.inds.includes(k) ? CH.inds.filter(x => x !== k) : [...CH.inds, k]; CH.setInds(l); chInds(); }
+    });
+  }
+
+  /* ---- How it works (inline SVG explainer) ---- */
+  function howData(){
+    const S = spotOf(base), exp = nextExp("1h", Date.now()), b = base;
+    if (S == null) return {b:"BTC", S:60000, K:60300, prem:12, qty:.05, up:61500, pay:48, win:36};
+    const K = +(S*1.005).toPrecision(4), unit = bs(b, "call", S, K, exp, Date.now()).price*SPREAD;
+    const qty = Math.max(MINQ[b], +(Math.max(5, 12)/unit).toPrecision(2)), cost = unit*qty*1.0003, up = +(S*1.015).toPrecision(4), pay = Math.max(0, up - K)*qty;
+    return {b, S, K, prem:cost, qty, up, pay, win:pay - cost};
+  }
+  const nf = (v, d = 0) => v.toLocaleString("en-US", {minimumFractionDigits:d, maximumFractionDigits:d});
+  const svgPath = () => `<svg class="hw-svg" viewBox="0 0 320 156" role="img" aria-label="Price path ending above the strike at expiry">
+    <rect class="hw-win" x="8" y="14" width="304" height="52" rx="6"/>
+    <text class="hw-zt hw-up" x="16" y="30">WIN ZONE: price ends above strike</text>
+    <line class="hw-strike" x1="8" y1="66" x2="312" y2="66"/><text class="hw-lb hw-br" x="14" y="80">Strike (your target)</text>
+    <line class="hw-exp" x1="268" y1="10" x2="268" y2="132"/><text class="hw-lb" x="268" y="146" text-anchor="middle">Expiry</text>
+    <text class="hw-lb" x="22" y="146" text-anchor="middle">Now</text>
+    <path class="hw-path" d="M22 112 C40 104 48 122 66 108 S92 92 108 100 S134 84 150 90 S178 70 194 74 S222 56 240 48 S256 40 268 38"/>
+    <circle class="hw-dot" cx="22" cy="112" r="4"/><circle class="hw-dot hw-dotw" cx="268" cy="38" r="5"/>
+    <path class="hw-tick" d="M265 38l2.4 2.6 4.6-5"/></svg>`;
+  const svgPay = () => `<svg class="hw-svg" viewBox="0 0 320 148" role="img" aria-label="Payoff diagram: loss limited to premium, profit grows past strike">
+    <rect class="hw-gain" x="196" y="22" width="108" height="44"/><path class="hw-gainp" d="M196 66 L304 22 L304 66Z"/>
+    <rect class="hw-loss" x="16" y="66" width="180" height="30"/>
+    <line class="hw-zero" x1="8" y1="66" x2="312" y2="66"/><text class="hw-lb" x="10" y="60">0</text>
+    <line class="hw-strike" x1="132" y1="12" x2="132" y2="124"/>
+    <line class="hw-be" x1="196" y1="12" x2="196" y2="124"/>
+    <path class="hw-pl hw-pld" d="M16 96 L132 96"/><path class="hw-pl hw-plu" d="M132 96 L304 22"/><circle class="hw-dot" cx="132" cy="96" r="3.5"/><circle class="hw-dot hw-dotw" cx="196" cy="66" r="3.5"/>
+    <text class="hw-lb hw-dn" x="74" y="114" text-anchor="middle">Max loss = premium</text>
+    <text class="hw-lb hw-up" x="258" y="18" text-anchor="middle">Profit grows</text>
+    <text class="hw-lb" x="132" y="138" text-anchor="middle">Strike</text><text class="hw-lb" x="196" y="138" text-anchor="middle">Breakeven</text></svg>`;
+  function howHtml(){
+    const d = howData(), step = (i, ico, t, s) => `<li><span class="hw-ic">${ic(ico, 20, 1.9)}<em>${i}</em></span><div><b>${t}</b><small>${s}</small></div></li>`;
+    return `<div class="hw">
+      <p class="hw-lead">An option lets you bet on where the price will be at a set time. You pay a small fee up front (the <b>premium</b>). That fee is the <b>most you can lose</b>.</p>
+      <ol class="hw-steps">${step(1, "trend", "Pick a direction", "UP (Call) if you think the price will rise. DOWN (Put) if you think it will fall.")}${step(2, "target", "Pick a target and expiry", "The target is the strike price. Expiry is when the bet ends: 15 minutes up to a week.")}${step(3, "wallet", "Pay the premium, settle in USDT", "At expiry, a win pays out in USDT. If not, it expires and you lose only the premium.")}</ol>
+      <div class="hw-card"><div class="hw-h"><b>1. Where the price ends</b><span>Call (UP) example</span></div>${svgPath()}<p>You win if the price is <b>above the strike</b> when the time runs out. For a DOWN bet it is the other way round: you win if it ends <b>below</b>.</p></div>
+      <div class="hw-card"><div class="hw-h"><b>2. What you can win or lose</b><span>At expiry</span></div>${svgPay()}<p>Below the strike you lose the premium and nothing more. Above the breakeven you are in profit, and it keeps growing as the price moves further.</p></div>
+      <div class="hw-card hw-ex"><div class="hw-h"><b>3. A real example</b><span>Live price</span></div>
+        <ul><li><span>1</span><div>${d.b} is now <b class="num">${nf(d.S, d.S < 10 ? 4 : 0)}</b> USDT. You expect it to rise, so you buy <b class="hw-up">UP</b> with a target of <b class="num">${nf(d.K, d.K < 10 ? 4 : 0)}</b> (+0.5%), expiring in 1 hour.</div></li>
+        <li><span>2</span><div>You pay a premium of <b class="num">${nf(d.prem, 2)} USDT</b> for ${+d.qty.toPrecision(3)} ${d.b}. This is your maximum loss.</div></li>
+        <li><span>3</span><div><b class="hw-up">Price ends at ${nf(d.up, d.up < 10 ? 4 : 0)} (+1.5%):</b> you receive <b class="num">${nf(d.pay, 2)} USDT</b>, a profit of <b class="num hw-up">+${nf(d.win, 2)} USDT</b>.</div></li>
+        <li><span>4</span><div><b class="hw-dn">Price ends below ${nf(d.K, d.K < 10 ? 4 : 0)}:</b> the option expires worthless and you lose <b class="num hw-dn">-${nf(d.prem, 2)} USDT</b>, never more.</div></li></ul></div>
+      <p class="hw-fine">Demo trading with paper funds. You can also sell an option early at its current value, before expiry.</p>
+      <button class="btn btn-primary btn-block" data-ok style="margin-top:12px;height:46px">Got it</button></div>`;
+  }
+
   function setMode(m){
     mode = m; try { localStorage.setItem("opMode", m); } catch {}
     root.querySelectorAll("#opMode [data-mode]").forEach(b => b.classList.toggle("on", b.dataset.mode === m));
     $("#opSimple").hidden = m !== "simple"; $("#opPro").hidden = m !== "pro"; $("#opHead").hidden = m !== "pro";
     root.querySelectorAll("#opSide button").forEach(x => x.classList.toggle("on", x.dataset.side === side));
     if (m === "simple") renderSimple(); else renderAll();
+    placeChart();
   }
-  function infoSheet(){ U.sheet("How options work", `<ol class="op-how">${INFO.map((t, i) => `<li><i>${i + 1}</i><span>${t}</span></li>`).join("")}</ol><button class="btn btn-primary btn-block" data-ok style="margin-top:12px;height:46px">Got it</button>`, el => el.querySelector("[data-ok]").onclick = () => U.closeLayer()); }
+  function infoSheet(){ U.sheet("How options work", howHtml(), el => el.querySelector("[data-ok]").onclick = () => U.closeLayer()); }
 
   /* ---- order sheet ---- */
   function buySheet(K){
@@ -353,6 +464,7 @@ Pages.options = (params) => {
 
   return {html, title: base + " Options", mount(r){
     root = r; refresh = () => { renderList(); renderChain(); renderSDyn(); };
+    initChart();
     renderExps(); renderAll();
     $("[data-pick]").onclick = pickSheet;
     $("#opMode").onclick = e => { const b = e.target.closest("[data-mode]"); if (b && b.dataset.mode !== mode) setMode(b.dataset.mode); };
@@ -363,7 +475,8 @@ Pages.options = (params) => {
       let b;
       if ((b = x.closest("#sDir [data-side]"))){ side = b.dataset.side; root.querySelectorAll("#sDir button").forEach(y => y.classList.toggle("on", y === b)); return renderSDyn(); }
       if ((b = x.closest("[data-exp]"))){ expKey = b.dataset.exp; renderSExps(); return renderSDyn(); }
-      if ((b = x.closest("[data-t]"))){ tgt = +b.dataset.t; return renderSDyn(); }
+      if ((b = x.closest("[data-t]"))){ tgt = +b.dataset.t; pctSel = null; return renderSDyn(); }
+      if ((b = x.closest("[data-pct]"))){ const v = +b.dataset.pct; pctSel = pctSel === v ? null : v; return renderSDyn(); }
       if ((b = x.closest("#sAmts [data-a]"))){ if (b.dataset.a === "max"){ amtMax = true; } else { amtMax = false; amt = +b.dataset.a; $("#sAmt").value = amt; } $("#sF").classList.remove("err"); return renderSDyn(); }
       if (x.closest("#sGo")) simpleBuy(); };
     sm.addEventListener("input", e => { if (e.target.id !== "sAmt") return; amtMax = false; amt = parseFloat(e.target.value) || 0; $("#sF").classList.remove("err"); renderSDyn(); });
@@ -376,8 +489,8 @@ Pages.options = (params) => {
     const onTick = x => { if (x !== base) return; renderHead(); if (tTimer) return;
       const wait = Math.max(0, 250 - (performance.now() - tT)); tTimer = setTimeout(() => { tTimer = 0; tT = performance.now(); if (!root) return; if (mode === "simple"){ renderSLive(); renderSDyn(); } else renderChain(); tickList(); }, wait); };
     let lastExp = EXPS.map(([k]) => expOf(k)).join();
-    offs.push(bus.on("tick", onTick), bus.on("list", () => { renderAll(); if (mode === "simple") renderSimple(); }), bus.on("meta", x => x === base && renderHead()), bus.on("balance", () => { if (mode === "simple" && amtMax) renderSDyn(); }),
+    offs.push(bus.on("tick", onTick), bus.on("list", () => { renderAll(); if (mode === "simple") renderSimple(); ensureChart(); }), bus.on("meta", x => x === base && renderHead()), bus.on("balance", () => { if (mode === "simple" && amtMax) renderSDyn(); }),
       bus.on("sec", () => { const cur = EXPS.map(([k]) => expOf(k)).join(); if (cur !== lastExp){ lastExp = cur; renderExps(); renderSExps(); renderChain(); renderSDyn(); } else tickExps(); if (mode === "simple") renderSLive(); tickList(); }));
-  }, unmount(){ offs.forEach(f => f()); offs = []; clearTimeout(tTimer); tTimer = 0; refresh = null; root = null; }};
+  }, unmount(){ offs.forEach(f => f()); offs = []; if (chartLive){ try { CH.destroy(); } catch {} } chartLive = false; chartEl = null; clearTimeout(tTimer); tTimer = 0; refresh = null; root = null; }};
 };
 })();
