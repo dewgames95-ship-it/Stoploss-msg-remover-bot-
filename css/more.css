@@ -285,3 +285,6 @@ a.pf-av{color:inherit}
 .rf-sb:active span{background:rgba(255,255,255,.25)}
 .rf-sb em{font-style:normal;font-size:11.5px;color:rgba(255,255,255,.72)}
 .rf-qr{display:grid;place-items:center;padding:6px 0 12px}.rf-qr svg{border-radius:12px;max-width:100%;height:auto}
+
+/* Guide & tips rows */
+[data-guide] .chev,[data-tipsreset] .chev{color:var(--muted)}

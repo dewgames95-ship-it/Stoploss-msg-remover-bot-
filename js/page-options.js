@@ -93,27 +93,40 @@ function payoffSvg(type, K, S, cost, qty, w = 320, h = 104){
     <div class="op-pleg"><span class="num">${(+lo.toPrecision(5))}</span><span class="op-pbe">Breakeven <b class="num">${(+be.toPrecision(5))}</b></span><span class="num">${(+hi.toPrecision(5))}</span></div>`;
 }
 
+/* live price history for the mini line (kept across visits) */
+const HIST = {};
+function sample(){ UNDERS.forEach(b => { const S = spotOf(b); if (S == null) return; const h = HIST[b] ||= []; h.push(S); if (h.length > 90) h.shift(); }); }
+let sampN = 0; U.bus.on("sec", () => { if (++sampN % 4 === 0) sample(); });
+const TGTS = [["Near", "ATM", 0], ["Moderate", "+1 step", 1], ["Aggressive", "+3 steps", 3]];
+const AMTS = [10, 50, 100, 500];
+const INFO = ["<b>Pick a direction.</b> Call = you expect the price to go up. Put = you expect it to go down.", "<b>Pay a small premium.</b> That premium is the most you can lose. There are no liquidations and no margin calls.", "<b>Settled at expiry.</b> If the price ends beyond your target (strike), you receive the difference in USDT. Otherwise the option expires worthless.", "<b>Sell early anytime.</b> You can close before expiry at the current mark value, so you do not have to wait."];
+
 /* ---------- page ---------- */
 Pages.options = (params) => {
   let base = String(params[0] || sessionStorage.getItem("lastSym_options") || "BTC").toUpperCase().replace(/USDT$/, "");
   if (!UNDERS.includes(base)) base = "BTC";
   try { sessionStorage.setItem("lastSym_options", base); } catch {}
-  let root, offs = [], side = "call", expKey = "1h", ptab = "pos", tT = 0, tTimer = 0, closeSheetOff = null;
+  let root, offs = [], side = "call", expKey = "1h", ptab = "pos", tT = 0, tTimer = 0, closeSheetOff = null, tgt = 0, amt = 50, amtMax = false;
+  let mode = "simple"; try { mode = localStorage.getItem("opMode") === "pro" ? "pro" : "simple"; } catch {}
   const $ = q => root.querySelector(q), s = () => store.s;
 
   const html = `
   <div class="tabs" style="gap:20px;margin:0 -16px;padding:4px 16px 0;border:0"><a class="tab" href="#/futures/BTCUSDT" style="font-size:17px">USDⓈ-M</a><a class="tab" href="#/spot/BTCUSDT" style="font-size:17px">Spot</a><a class="tab" href="#/trade/BTCUSDT" style="font-size:17px">Binary</a><button class="tab on" style="font-size:17px">Options</button><a class="tab" href="#/copy" style="font-size:17px">Copy</a><a class="tab" href="#/bots" style="font-size:17px">Bots</a></div>
-  <header class="fx-head"><div class="grow"><button class="nm" data-pick aria-label="Choose underlying">${P(base) ? UI.pairIcon(P(base), 24) : ""}<span>${base}</span><span class="perp">Options</span>${ic("chevd",16)}</button></div>
+  <div class="op-top"><div class="seg op-mode" id="opMode"><button data-mode="simple">Simple</button><button data-mode="pro">Pro</button></div><button class="op-help" id="opHelp" aria-label="How options work">${ic("info",16)}<span>How it works</span></button></div>
+  <header class="fx-head" id="opHead"><div class="grow"><button class="nm" data-pick aria-label="Choose underlying">${P(base) ? UI.pairIcon(P(base), 24) : ""}<span>${base}</span><span class="perp">Options</span>${ic("chevd",16)}</button></div>
     <div class="op-hpx"><b class="num" id="opLp">--</b><span class="num" id="opChg"></span></div></header>
   <div class="op-wrap">
     <section class="op-main">
+      <div id="opSimple" class="op-simple"></div>
+      <div id="opPro">
       <div class="op-exps" id="opExps"></div>
       <div class="op-bar"><div class="seg op-seg" id="opSide"><button data-side="call" class="on">Calls</button><button data-side="put">Puts</button></div></div>
       <div class="op-note">${ic("info",14)}<span>Max loss = premium paid. Cash-settled in USDT at expiry.</span></div>
       <div class="op-chain" id="opChain"></div>
+      </div>
     </section>
     <section class="op-side">
-      <div class="ptabs op-ptabs"><button class="on" data-pt="pos">Positions (<span id="opPc">0</span>)</button><button data-pt="hist">History</button></div>
+      <h3 class="op-h3">My options</h3><div class="ptabs op-ptabs"><button class="on" data-pt="pos">Positions (<span id="opPc">0</span>)</button><button data-pt="hist">History</button></div>
       <div id="opList"></div>
     </section>
   </div>`;
@@ -153,8 +166,8 @@ Pages.options = (params) => {
     if (ptab === "pos"){
       list.innerHTML = o.positions.length ? o.positions.slice().reverse().map(pos => `<div class="pc op-pc" data-id="${pos.id}">
         <div class="pc-h"><span class="sym op-sym">${esc(symName(pos))}</span><span class="perp op-${pos.type}">${pos.type === "call" ? "Call" : "Put"}</span><span class="grow"></span><b class="num brand-c" data-cd></b></div>
-        <div class="pc-g"><div><span>Quantity</span><b class="num">${fq(pos.qty, pos.base)} ${pos.base}</b></div><div><span>Cost (USDT)</span><b class="num">${money(pos.cost)}</b></div><div><span>Mark value</span><b class="num" data-val></b></div>
-          <div><span>Strike</span><b class="num">${px(pos.base, pos.strike)}</b></div><div><span>PNL (USDT)</span><b class="num" data-pnl></b></div><div><span>ROI</span><b class="num" data-roi></b></div></div>
+        <div class="op-hero"><div><span>Unrealized PNL (USDT)</span><b class="num" data-pnl>--</b></div><div class="op-r"><span>ROI</span><b class="num" data-roi>--</b></div></div>
+        <div class="pc-g"><div><span>Quantity</span><b class="num">${fq(pos.qty, pos.base)} ${pos.base}</b></div><div><span>Strike</span><b class="num">${px(pos.base, pos.strike)}</b></div><div><span>Cost (USDT)</span><b class="num">${money(pos.cost)}</b></div><div><span>Mark value</span><b class="num" data-val></b></div></div>
         <div class="op-act"><span class="op-exl">Expires ${expLabel(pos.exp)}</span><button class="btn btn-ghost btn-sm" data-close="${pos.id}">Close</button></div></div>`).join("") : UI.emptyState("file", "No open options");
       tickList();
     } else {
@@ -175,6 +188,113 @@ Pages.options = (params) => {
       a.textContent = signed(pnl); b.textContent = pct(roi); a.className = b.className = "num " + c; });
   }
   function renderAll(){ renderHead(); renderChain(); renderList(); }
+
+  function commit(K, exp, qty, c){
+    const cost = Math.round(c.cost*100)/100; if (cost > s().balance) return false;
+    store.setBalance(s().balance - cost, "option");
+    st().positions.push({id: U.uid(), base, type: side, strike: K, exp, qty, cost, entryMark: c.g.price, iv: c.g.iv, open: Date.now()});
+    store.save(); U.fx("open"); toast("Option bought", "ok");
+    store.notify("Option bought", `${qty} ${base} ${side} ${px(base, K)} for ${money(cost)} USDT`, "ok");
+    setPtab("pos"); renderList(); return true;
+  }
+  const quote = (sd, K, exp, qty) => { const S = spotOf(base); if (S == null) return null; const g = bs(base, sd, S, K, exp, Date.now());
+    const prem = g.price*qty*SPREAD, fee = Math.min(qty*S*FEE, prem*.1), cost = prem + fee;
+    return {S, g, prem, fee, cost, be: sd === "call" ? K + cost/qty : K - cost/qty}; };
+
+  /* ---- Simple mode ---- */
+  const tgtStrikes = S => { const step = stepOf(S), atm = Math.round(S/step)*step;
+    return TGTS.map(([nm, sub, k]) => { const K = +(atm + (side === "call" ? k : -k)*step).toPrecision(10); return {nm, sub, K}; }); };
+  function simpleCalc(){
+    const S = spotOf(base); if (S == null) return null;
+    const exp = expOf(expKey), min = MINQ[base], t = tgtStrikes(S)[tgt], K = t.K;
+    const unit = quote(side, K, exp, 1).cost, bal = s().balance;
+    const spend = amtMax ? bal : amt;
+    let qty = Math.floor(spend/unit/min + 1e-9)*min; qty = +qty.toPrecision(8);
+    const c = qty > 0 ? quote(side, K, exp, qty) : null;
+    return {S, exp, min, K, unit, qty, c, spend, bal};
+  }
+  function renderSimple(){
+    const box = $("#opSimple"); if (!box) return;
+    const p = P(base), S = spotOf(base);
+    box.innerHTML = `
+      <button class="op-und" data-pick2 aria-label="Choose underlying">
+        <span class="op-und-l">${p ? UI.pairIcon(p, 36) : ""}<span class="op-und-n"><b>${base}</b><small>${base}/USDT · <i class="op-pulse"></i>Live</small></span></span>
+        <span class="op-und-spark" id="sSpark"></span>
+        <span class="op-und-r"><b class="num" id="sPx">--</b><span class="num" id="sChg"></span></span></button>
+      <div class="op-dir" id="sDir">
+        <button class="op-up ${side === "call" ? "on" : ""}" data-side="call"><span class="op-dir-i">${ic("up",18,2)}</span><b>Price will go UP</b><small>Buy Call</small></button>
+        <button class="op-dn ${side === "put" ? "on" : ""}" data-side="put"><span class="op-dir-i">${ic("down",18,2)}</span><b>Price will go DOWN</b><small>Buy Put</small></button></div>
+      <div class="op-sec">Expiry</div>
+      <div class="op-exps op-sexps" id="sExps"></div>
+      <div class="op-sec">Target price (strike)</div>
+      <div class="op-tgts" id="sTgts"></div>
+      <div class="op-sec">Amount <span class="op-avbl">Avbl <b class="num" id="sBal">${money(s().balance)}</b> USDT</span></div>
+      <div class="famt op-amt" id="sF"><input id="sAmt" type="number" inputmode="decimal" min="0" aria-label="Amount in USDT" placeholder="0.00"><span>USDT</span></div>
+      <div class="op-amts" id="sAmts">${AMTS.map(a => `<button data-a="${a}">${a}</button>`).join("")}<button data-a="max">Max</button></div>
+      <div class="op-qty" id="sQty"></div>
+      <div class="op-sum" id="sSum"></div>
+      <button class="btn op-go" id="sGo">Buy Call</button>
+      <div class="op-note">${ic("info",14)}<span>Max loss = amount paid. Cash-settled in USDT at expiry.</span></div>`;
+    $("#sAmt").value = amtMax ? "" : amt; $("#sAmt").placeholder = amtMax ? "Max" : "0.00";
+    renderSExps(); renderSLive(); renderSDyn();
+  }
+  function renderSExps(){
+    const b = $("#sExps"); if (!b) return;
+    b.innerHTML = EXPS.map(([k, l]) => `<button class="op-exp ${k === expKey ? "on" : ""}" data-exp="${k}"><b>${l}</b><small class="num" data-ecd="${k}">${cd(expOf(k) - Date.now())}</small></button>`).join("");
+  }
+  function renderSLive(){
+    const el = $("#sPx"); if (!el) return; const p = P(base);
+    if (!p || !(p.price > 0)){ el.textContent = "--"; $("#sChg").textContent = ""; }
+    else { el.textContent = M.fmtPx(p); const c = $("#sChg"); c.className = "num " + ((p.chg||0) < 0 ? "down" : "up"); c.textContent = p.chg == null ? "" : pct(p.chg); }
+    const h = HIST[base] || [], sp = $("#sSpark");
+    if (sp) sp.innerHTML = h.length >= 2 ? U.spark(h, 90, 34) : `<i class="op-flat"></i>`;
+  }
+  function renderSDyn(){
+    if (mode !== "simple" || !$("#sTgts")) return;
+    const S = spotOf(base), isC = side === "call";
+    const go = $("#sGo"); go.className = "btn op-go " + (isC ? "btn-up" : "btn-down"); go.textContent = isC ? "Buy Call" : "Buy Put";
+    root.querySelectorAll("#sAmts [data-a]").forEach(b => b.classList.toggle("on", amtMax ? b.dataset.a === "max" : +b.dataset.a === amt));
+    if (S == null){ $("#sTgts").innerHTML = UI.emptyState("clock", "Connecting to live prices…"); $("#sSum").innerHTML = ""; $("#sQty").innerHTML = ""; return; }
+    const exp = expOf(expKey), ts = tgtStrikes(S);
+    $("#sTgts").innerHTML = ts.map((t, i) => { const g = quote(side, t.K, exp, 1).g;
+      return `<button class="op-tg ${i === tgt ? "on" : ""}" data-t="${i}"><span class="op-tg-n"><b>${t.nm}</b><small>${t.sub === "ATM" ? "ATM" : t.sub}</small></span>
+        <span class="op-tg-k"><b class="num">${px(base, t.K)}</b><small>Strike</small></span>
+        <span class="op-tg-k"><b class="num">${fp(g.price*SPREAD)}</b><small>Premium / ${base}</small></span>
+        <span class="op-tg-k op-tg-p"><b class="num">${Math.round(Math.abs(g.delta)*100)}%</b><small>Probability ≈</small></span></button>`; }).join("");
+    const d = simpleCalc(); if (!d) return;
+    const aEl = $("#sAmt"); if (amtMax && document.activeElement !== aEl) aEl.value = "";
+    $("#sBal").textContent = money(d.bal);
+    const q = $("#sQty");
+    if (!d.c){ q.innerHTML = `<span>Quantity</span><b class="num">Min ${fq(d.min, base)} ${base} ≈ ${money(d.unit*d.min)} USDT</b>`; $("#sSum").innerHTML = ""; return; }
+    const c = d.c; q.innerHTML = `<span>Quantity</span><b class="num">${fq(d.qty, base)} ${base}</b>`;
+    const rowsT = (isC ? [2, 5, 10] : [-2, -5, -10]).map(pc => { const T = d.S*(1 + pc/100), pr = intrinsic(side, T, d.K)*d.qty - c.cost, roi = pr/c.cost*100;
+      return `<div><span class="num">${pc > 0 ? "+" : ""}${pc}% · ${px(base, T)}</span><b class="num ${pr > 0 ? "up" : "down"}">${signed(pr)}</b><em class="num ${pr > 0 ? "up" : "down"}">${pct(roi)}</em></div>`; }).join("");
+    $("#sSum").innerHTML = `
+      <div class="op-sum-big"><div><span>You pay (max loss)</span><b class="num">${money(c.cost)} <small>USDT</small></b></div><div class="op-r"><span>Breakeven</span><b class="num">${px(base, c.be)}</b></div></div>
+      <div class="op-sum-mid"><span>Max profit</span><b class="num ${""}">${isC ? "Unlimited" : "up to " + money(Math.max(0, d.K*d.qty - c.cost)) + " USDT"}</b></div>
+      <div class="op-pw">${payoffSvg(side, d.K, d.S, c.cost, d.qty)}</div>
+      <div class="op-sec" style="margin:14px 0 6px">Profit if price reaches</div><div class="op-pi">${rowsT}</div>`;
+  }
+  async function simpleBuy(){
+    const d = simpleCalc(); if (!d) return toast("Waiting for live price", "bad");
+    const bad = m => { $("#sF").classList.add("err"); toast(m, "bad"); };
+    if (!d.c) return bad(`Minimum is about ${money(d.unit*d.min)} USDT`);
+    if (d.exp - Date.now() < 30000) return toast("This expiry is about to close. Pick another.", "bad");
+    if (Math.round(d.c.cost*100)/100 > s().balance) return bad("Insufficient balance");
+    const isC = side === "call", k = d.c;
+    const ok = U.confirmTrade ? await U.confirmTrade({kind: "option", title: isC ? "Confirm Buy Call" : "Confirm Buy Put", sub: `${base}-${isC ? "C" : "P"} ${px(base, d.K)}`,
+      rows: [["Expires", expLabel(d.exp)], ["Strike", px(base, d.K)], ["Quantity", `${fq(d.qty, base)} ${base}`], ["Total cost", `${money(k.cost)} USDT`], ["Breakeven", px(base, k.be)]], okText: isC ? "Buy Call" : "Buy Put", tone: isC ? "up" : "down"}) : true;
+    if (!ok) return;
+    const c = quote(side, d.K, d.exp, d.qty); if (!c) return;
+    if (!commit(d.K, d.exp, d.qty, c)) bad("Insufficient balance");
+  }
+  function setMode(m){
+    mode = m; try { localStorage.setItem("opMode", m); } catch {}
+    root.querySelectorAll("#opMode [data-mode]").forEach(b => b.classList.toggle("on", b.dataset.mode === m));
+    $("#opSimple").hidden = m !== "simple"; $("#opPro").hidden = m !== "pro"; $("#opHead").hidden = m !== "pro";
+    if (m === "simple") renderSimple(); else renderAll();
+  }
+  function infoSheet(){ U.sheet("How options work", `<ol class="op-how">${INFO.map((t, i) => `<li><i>${i + 1}</i><span>${t}</span></li>`).join("")}</ol><button class="btn btn-primary btn-block" data-ok style="margin-top:12px;height:46px">Got it</button>`, el => el.querySelector("[data-ok]").onclick = () => U.closeLayer()); }
 
   /* ---- order sheet ---- */
   function buySheet(K){
@@ -208,12 +328,8 @@ Pages.options = (params) => {
         if (!(qty > 0)) return bad("Enter a quantity");
         if (qty < min - 1e-12) return bad(`Minimum quantity is ${fq(min, base)} ${base}`);
         if (exp - Date.now() < 30000) return bad("This expiry is about to close. Pick another.");
-        const cost = Math.round(c.cost*100)/100; if (cost > s().balance) return bad("Insufficient balance");
-        store.setBalance(s().balance - cost, "option");
-        st().positions.push({id: U.uid(), base, type: side, strike: K, exp, qty, cost, entryMark: c.g.price, iv: c.g.iv, open: Date.now()});
-        store.save(); U.closeLayer(); U.fx("open"); toast("Option bought", "ok");
-        store.notify("Option bought", `${qty} ${base} ${side} ${px(base, K)} for ${money(cost)} USDT`, "ok");
-        setPtab("pos"); renderList();
+        if (!commit(K, exp, qty, c)) return bad("Insufficient balance");
+        U.closeLayer();
       };
       const t = bus.on("tick", x => { if (x === base && performance.now() - tT > 250){ tT = performance.now(); upd(); } }), sc = bus.on("balance", upd);
       off = () => { t(); sc(); };
@@ -235,19 +351,32 @@ Pages.options = (params) => {
   }
 
   return {html, title: base + " Options", mount(r){
-    root = r; refresh = () => { renderList(); renderChain(); };
+    root = r; refresh = () => { renderList(); renderChain(); renderSDyn(); };
     renderExps(); renderAll();
     $("[data-pick]").onclick = pickSheet;
+    $("#opMode").onclick = e => { const b = e.target.closest("[data-mode]"); if (b && b.dataset.mode !== mode) setMode(b.dataset.mode); };
+    $("#opHelp").onclick = infoSheet;
+    const sm = $("#opSimple");
+    sm.onclick = e => { const x = e.target;
+      if (x.closest("[data-pick2]")) return pickSheet();
+      let b;
+      if ((b = x.closest("#sDir [data-side]"))){ side = b.dataset.side; root.querySelectorAll("#sDir button").forEach(y => y.classList.toggle("on", y === b)); return renderSDyn(); }
+      if ((b = x.closest("[data-exp]"))){ expKey = b.dataset.exp; renderSExps(); return renderSDyn(); }
+      if ((b = x.closest("[data-t]"))){ tgt = +b.dataset.t; return renderSDyn(); }
+      if ((b = x.closest("#sAmts [data-a]"))){ if (b.dataset.a === "max"){ amtMax = true; } else { amtMax = false; amt = +b.dataset.a; $("#sAmt").value = amt; } $("#sF").classList.remove("err"); return renderSDyn(); }
+      if (x.closest("#sGo")) simpleBuy(); };
+    sm.addEventListener("input", e => { if (e.target.id !== "sAmt") return; amtMax = false; amt = parseFloat(e.target.value) || 0; $("#sF").classList.remove("err"); renderSDyn(); });
+    setMode(mode);
     $("#opExps").onclick = e => { const b = e.target.closest("[data-exp]"); if (!b) return; expKey = b.dataset.exp; renderExps(); renderChain(); };
     $("#opSide").onclick = e => { const b = e.target.closest("[data-side]"); if (!b) return; side = b.dataset.side; root.querySelectorAll("#opSide button").forEach(x => x.classList.toggle("on", x === b)); renderChain(); };
     $("#opChain").onclick = e => { const b = e.target.closest("[data-buy]"); if (b) buySheet(+b.dataset.buy); };
     $("#opList").onclick = e => { const b = e.target.closest("[data-close]"); if (b) closePos(b.dataset.close); };
     root.querySelectorAll("[data-pt]").forEach(b => b.onclick = () => setPtab(b.dataset.pt));
     const onTick = x => { if (x !== base) return; renderHead(); if (tTimer) return;
-      const wait = Math.max(0, 250 - (performance.now() - tT)); tTimer = setTimeout(() => { tTimer = 0; tT = performance.now(); if (!root) return; renderChain(); tickList(); }, wait); };
+      const wait = Math.max(0, 250 - (performance.now() - tT)); tTimer = setTimeout(() => { tTimer = 0; tT = performance.now(); if (!root) return; if (mode === "simple"){ renderSLive(); renderSDyn(); } else renderChain(); tickList(); }, wait); };
     let lastExp = EXPS.map(([k]) => expOf(k)).join();
-    offs.push(bus.on("tick", onTick), bus.on("list", renderAll), bus.on("meta", x => x === base && renderHead()), bus.on("balance", () => {}),
-      bus.on("sec", () => { const cur = EXPS.map(([k]) => expOf(k)).join(); if (cur !== lastExp){ lastExp = cur; renderExps(); renderChain(); } else tickExps(); tickList(); }));
+    offs.push(bus.on("tick", onTick), bus.on("list", () => { renderAll(); if (mode === "simple") renderSimple(); }), bus.on("meta", x => x === base && renderHead()), bus.on("balance", () => { if (mode === "simple" && amtMax) renderSDyn(); }),
+      bus.on("sec", () => { const cur = EXPS.map(([k]) => expOf(k)).join(); if (cur !== lastExp){ lastExp = cur; renderExps(); renderSExps(); renderChain(); renderSDyn(); } else tickExps(); if (mode === "simple") renderSLive(); tickList(); }));
   }, unmount(){ offs.forEach(f => f()); offs = []; clearTimeout(tTimer); tTimer = 0; refresh = null; root = null; }};
 };
 })();

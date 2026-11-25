@@ -1,0 +1,19 @@
+/* ===== Guide / coach-mark tour ===== */
+.tr-ov{position:fixed;inset:0;z-index:600;opacity:0;transition:opacity .25s;touch-action:none}
+.tr-ov.on{opacity:1}
+.tr-spot{position:fixed;box-shadow:0 0 0 9999px rgba(0,0,0,.64),0 0 0 2px rgba(255,255,255,.55) inset;pointer-events:none;transition:left .3s cubic-bezier(.3,.8,.3,1),top .3s cubic-bezier(.3,.8,.3,1),width .3s cubic-bezier(.3,.8,.3,1),height .3s cubic-bezier(.3,.8,.3,1),border-radius .3s;outline:2px solid var(--brand);outline-offset:0}
+.tr-card{position:fixed;background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:16px;padding:14px 16px 12px;box-shadow:0 12px 36px rgba(0,0,0,.35);opacity:0;transform:translateY(6px);transition:opacity .2s,transform .2s,left .3s cubic-bezier(.3,.8,.3,1),top .3s cubic-bezier(.3,.8,.3,1);box-sizing:border-box}
+.tr-card.in{opacity:1;transform:none}
+.tr-t{font-size:15px;font-weight:700;margin-bottom:4px}
+.tr-x{font-size:13px;line-height:1.45;color:var(--text-2,var(--muted))}
+.tr-f{display:flex;align-items:center;gap:8px;margin-top:12px}
+.tr-f .grow{flex:1}
+.tr-n{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.tr-skip{background:none;border:0;color:var(--muted);font:inherit;font-size:13px;font-weight:600;padding:8px 10px;border-radius:10px;cursor:pointer}
+.tr-skip:active{background:var(--hover)}
+.tr-next{background:var(--brand);color:#fff;border:0;font:inherit;font-size:13px;font-weight:700;padding:9px 18px;border-radius:999px;cursor:pointer;min-height:36px}
+.tr-next:active{transform:scale(.97)}
+.tr-arr{position:absolute;width:14px;height:14px;background:var(--card);border:1px solid var(--line);transform:translateX(-50%) rotate(45deg);transition:left .3s}
+.tr-arr.up{top:-8px;border-right:0;border-bottom:0}
+.tr-arr.dn{bottom:-8px;border-left:0;border-top:0}
+@media (prefers-reduced-motion:reduce){.tr-spot,.tr-card,.tr-ov{transition:none}}
