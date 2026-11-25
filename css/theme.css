@@ -31,3 +31,7 @@ html[data-theme="dark"] .pm-strip{border-color:var(--line);box-shadow:none;backg
 
 /* Earn subscribe pills: neutral like Binance (brand blue only for the one primary CTA) */
 .pm-btn{background:var(--card-2);color:var(--text)}
+
+/* Live price tag on the chart: Binance outlined box (page-bg fill, thin border), readable in both themes */
+.pbox,.pbox.pu,.pbox.pd{background:var(--chart-bg)!important;color:var(--text)!important;border:1px solid var(--text-2)!important;border-radius:6px!important;box-shadow:none!important;font-weight:600!important;font-size:11px!important;line-height:1.3!important;padding:2px 6px!important}
+html[data-theme="light"] .pbox{border-color:#1E2329!important;color:#1E2329!important}

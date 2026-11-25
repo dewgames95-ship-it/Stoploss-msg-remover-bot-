@@ -57,7 +57,7 @@ const pwrap = (title, body, opts) => UI.pageHead(title, opts) + `<div class="pm-
 const pstat = (l, v, cls="") => `<div class="pm-stat"><span>${l}</span><b class="num ${cls}">${v}</b></div>`;
 const pemp = (t, s="") => `<div class="pm-empty"><b>${esc(t)}</b>${esc(s)}</div>`;
 const DAY = 864e5;
-const fdate = t => new Date(t).toLocaleDateString([], {month:"short", day:"numeric", year:"numeric"});
+const fdate = t => new Date(t).toLocaleDateString("en-US", {month:"short", day:"numeric", year:"numeric"});
 const runtime = since => { const m = Math.max(0, Math.floor((Date.now() - since)/60000)); return m >= 1440 ? Math.floor(m/1440) + "d " + Math.floor(m%1440/60) + "h" : m >= 60 ? Math.floor(m/60) + "h " + (m%60) + "m" : m + "m"; };
 const getP = (o, p) => p.split(".").reduce((a, k) => a == null ? a : a[k], o);
 const setP = (o, p, v) => { const ks = p.split("."), l = ks.pop(); ks.reduce((a, k) => (a[k] = a[k] || {}), o)[l] = v; };

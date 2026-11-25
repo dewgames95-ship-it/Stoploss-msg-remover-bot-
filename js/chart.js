@@ -55,9 +55,9 @@ function build(){
   S = {};
   const lineMode = tf === "tick" || type === "line";
   if (lineMode){
-    S.main = chart.addSeries(LW.AreaSeries, {lineColor:"#2E6BFF", topColor:"rgba(46,107,255,.30)", bottomColor:"rgba(46,107,255,0)", lineWidth:1.5, lineType: tf === "tick" ? 2 : 0, priceFormat:pf, lastPriceAnimation:1, lastValueVisible:false, priceLineVisible:true, priceLineColor: "#2E6BFF", priceLineStyle:2, crosshairMarkerRadius:3});
+    S.main = chart.addSeries(LW.AreaSeries, {lineColor:"#2E6BFF", topColor:"rgba(46,107,255,.30)", bottomColor:"rgba(46,107,255,0)", lineWidth:1.5, lineType: tf === "tick" ? 2 : 0, priceFormat:pf, lastPriceAnimation:1, lastValueVisible:false, priceLineVisible:true, priceLineColor: dark() ? "#B7BDC6" : "#474D57", priceLineStyle:2, crosshairMarkerRadius:3});
   } else {
-    S.main = chart.addSeries(LW.CandlestickSeries, {upColor:UP, downColor:DN, borderVisible:false, wickUpColor:UP, wickDownColor:DN, priceFormat:pf, lastValueVisible:false, priceLineVisible:true, priceLineColor: "#2E6BFF", priceLineStyle:2});
+    S.main = chart.addSeries(LW.CandlestickSeries, {upColor:UP, downColor:DN, borderVisible:false, wickUpColor:UP, wickDownColor:DN, priceFormat:pf, lastValueVisible:false, priceLineVisible:true, priceLineColor: dark() ? "#B7BDC6" : "#474D57", priceLineStyle:2});
   }
   chart.priceScale("right").applyOptions({mode: pctMode ? 2 : 0});
   try { LW.createTextWatermark(chart.panes()[0], {horzAlign:"center", vertAlign:"center", lines:[{text:"NovaTrade", color: dark() ? "rgba(148,163,184,.07)" : "rgba(100,116,139,.07)", fontSize:28, fontStyle:"700"}]}); } catch {}
@@ -341,7 +341,7 @@ function overlay(){
 /* ---- Tap a B/S marker → trade details ---- */
 let lastMarks = [];
 function markSheet(m){
-  const P = M.get(sym), r = m.r, f = v => v == null ? "--" : M.fmtPx(P, v), dt = t => t ? new Date(t).toLocaleString() : "--";
+  const P = M.get(sym), r = m.r, f = v => v == null ? "--" : M.fmtPx(P, v), dt = t => t ? new Date(t).toLocaleString("en-US") : "--";
   let rows;
   if (m.k === "bo" || m.k === "bh") rows = [["Type", "Binary " + (r.dir === "up" ? "Up" : "Down")], ["Amount", money(r.amount) + " USDT"], ["Entry price", f(r.entry)], ["Close price", f(r.exit)], ["Result", r.result ? `<span class="${r.profit >= 0 ? "up" : "down"}">${r.result === "win" ? "Won" : r.result === "loss" ? "Lost" : "Refunded"} ${signed(r.profit)} USDT</span>` : "Open"], ["Opened", dt(r.open)], ["Expires / closed", dt(r.closed || r.exp)]];
   else rows = [["Type", `Futures ${r.side === "long" ? "Long" : "Short"} ${r.lev}x`], [m.k === "fc" ? "Close price" : "Entry price", f(m.p)], ["Size", money((r.qty || r.closedVol || 0) * r.entry) + " USDT"], ["Margin", money(r.margin) + " USDT"], ...(r.profit != null ? [["Realized PnL", `<span class="${r.profit >= 0 ? "up" : "down"}">${signed(r.profit)} USDT</span>`]] : [["Unrealized PnL", `<span class="${E.futPnl(r).pnl >= 0 ? "up" : "down"}">${signed(E.futPnl(r).pnl)} USDT</span>`]]), ["Time", dt(m.t)]];

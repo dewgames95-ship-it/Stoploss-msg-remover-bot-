@@ -10,8 +10,8 @@ const money = n => fmt(n, 2);
 const signed = (n,d=2) => (n>0?"+":n<0?"-":"") + fmt(Math.abs(n), d);
 const pct = n => (n>0?"+":"") + fmt(n, 2) + "%";
 const mmss = s => { s = Math.max(0, Math.ceil(s)); return String(Math.floor(s/60)).padStart(2,"0")+":"+String(s%60).padStart(2,"0"); };
-const timeStr = t => new Date(t).toLocaleTimeString([], {hour:"2-digit",minute:"2-digit",second:"2-digit"});
-const dateStr = t => new Date(t).toLocaleString([], {month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"});
+const timeStr = t => new Date(t).toLocaleTimeString("en-US", {hour:"2-digit",minute:"2-digit",second:"2-digit"});
+const dateStr = t => new Date(t).toLocaleString("en-US", {month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"});
 const uid = () => Math.random().toString(36).slice(2,10) + Date.now().toString(36).slice(-4);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 

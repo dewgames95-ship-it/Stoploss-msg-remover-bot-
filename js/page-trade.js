@@ -184,7 +184,7 @@ function candleDetail(sym, onAct){ return d => {
   const p = M.get(sym), b = d.bar, f = v => v == null ? "--" : M.fmtPx(p, v), ch = d.prev ? (b.close - d.prev.close) : (b.close - b.open), chp = ch / (d.prev ? d.prev.close : b.open) * 100;
   const bull = b.close >= b.open, body = Math.abs(b.close - b.open), rng = b.high - b.low || 1;
   const kind = body / rng < 0.1 ? "Doji (indecision)" : body / rng > 0.7 ? (bull ? "Strong bullish candle" : "Strong bearish candle") : (bull ? "Bullish candle" : "Bearish candle");
-  U.sheet("Candle analysis", `<div class="row" style="gap:10px;margin-bottom:10px"><div class="grow"><b>${esc(fsym(p))} · ${d.tf.toUpperCase()}</b><div class="label">${new Date(b.time*1000).toLocaleString()}</div></div><b class="num ${chp>=0?"up":"down"}" style="font-size:18px">${chp>=0?"+":""}${chp.toFixed(2)}%</b></div>
+  U.sheet("Candle analysis", `<div class="row" style="gap:10px;margin-bottom:10px"><div class="grow"><b>${esc(fsym(p))} · ${d.tf.toUpperCase()}</b><div class="label">${new Date(b.time*1000).toLocaleString("en-US")}</div></div><b class="num ${chp>=0?"up":"down"}" style="font-size:18px">${chp>=0?"+":""}${chp.toFixed(2)}%</b></div>
     <div class="label" style="margin-bottom:8px">${kind}${d.rsiFull != null ? ` · RSI ${d.rsiFull.toFixed(1)} ${d.rsiFull > 70 ? "overbought" : d.rsiFull < 30 ? "oversold" : "neutral"}` : ""}</div>
     <div class="cdetail">${[["Open",f(b.open)],["High",f(b.high)],["Low",f(b.low)],["Close",f(b.close)],["Volume",CH.fmtVol(b.volume||0)],["Body / Range",(body/rng*100).toFixed(0)+"%"],["MA/EMA 7",f(d.ind.e7)],["MA/EMA 25",f(d.ind.e25)],["BOLL mid",f(d.ind.bm)],["SuperTrend",d.ind.st == null ? "--" : f(d.ind.st) + (d.ind.stDir === 1 ? " ▲" : " ▼")]].map(([a,v]) => `<div><span>${a}</span><b class="num">${v}</b></div>`).join("")}</div>
     ${onAct ? `<div class="ud" style="margin-top:14px">${onAct.html}</div>` : ""}`, el => onAct && onAct.bind(el));
@@ -763,13 +763,13 @@ Pages.history = () => {
     <p class="label" style="margin:10px 0">Last updated: <span id="lu"></span></p><div id="hl"></div>`;
   return {html, title:"My Trades", mount(r){
     const render = () => {
-      r.querySelector("#lu").textContent = new Date().toLocaleString();
+      r.querySelector("#lu").textContent = new Date().toLocaleString("en-US");
       const f = S().fut, log = (f.log || []).slice().reverse();
       const box = r.querySelector("#hl");
       if (tab === "pos") box.innerHTML = historyHtml(f.history);
       else if (tab === "bin") box.innerHTML = S().history.length ? S().history.slice(0,100).map(x => { const p = M.get(x.sym) || {dp:2,type:"crypto",base:x.sym,quote:""}; return `<div class="pc"><div class="pc-h"><span class="side-b ${x.dir==="up"?"l":"s"}">${x.dir==="up"?"▲":"▼"}</span><span class="sym">${esc(M.label(p))}</span><span class="perp">Binary ${x.expiry<60?x.expiry+"s":x.expiry/60+"m"}</span><span class="grow"></span><b class="num ${x.profit>0?"up":x.profit<0?"down":""}">${signed(x.profit)}</b></div><div class="ph-t"><span>${M.fmtPx(p,x.entry)} → ${M.fmtPx(p,x.exit)}</span><b>${U.dateStr(x.closed)}</b></div></div>`; }).join("") : UI.emptyState("history","No records");
       else box.innerHTML = log.filter(x => tab === "ord" || x.status === "Filled").length ? log.filter(x => tab === "ord" || x.status === "Filled").slice(0,100).map(x => { const p = M.get(x.sym) || {dp:2,type:"crypto",base:x.sym}; return `<div class="pc"><div class="pc-h"><span class="side-b ${x.side==="long"?"l":"s"}">${x.side==="long"?"B":"S"}</span><span class="sym">${esc(fsym(p))}</span><span class="perp">${x.type}</span><span class="grow"></span><span class="label">${x.status}</span></div>
-        <div class="ph-g"><div><span>Price</span><b class="num">${M.fmtPx(p,x.price)}</b></div><div><span>Qty</span><b class="num">${fmt(x.qty,4)}</b></div><div><span>${x.pnl != null ? "Realized PNL" : "Fee"}</span><b class="num ${x.pnl != null ? (x.pnl>=0?"up":"down") : ""}">${x.pnl != null ? signed(x.pnl) : fmt(x.fee||0,4)}</b></div></div><div class="ph-t"><span>Time</span><b>${new Date(x.t).toLocaleString()}</b></div></div>`; }).join("") : UI.emptyState("history","No records");
+        <div class="ph-g"><div><span>Price</span><b class="num">${M.fmtPx(p,x.price)}</b></div><div><span>Qty</span><b class="num">${fmt(x.qty,4)}</b></div><div><span>${x.pnl != null ? "Realized PNL" : "Fee"}</span><b class="num ${x.pnl != null ? (x.pnl>=0?"up":"down") : ""}">${x.pnl != null ? signed(x.pnl) : fmt(x.fee||0,4)}</b></div></div><div class="ph-t"><span>Time</span><b>${new Date(x.t).toLocaleString("en-US")}</b></div></div>`; }).join("") : UI.emptyState("history","No records");
     };
     render();
     r.querySelectorAll("[data-ht]").forEach(b => b.onclick = () => { tab = b.dataset.ht; r.querySelectorAll("[data-ht]").forEach(x => x.classList.toggle("on", x===b)); render(); });

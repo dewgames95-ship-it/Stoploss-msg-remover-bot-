@@ -37,7 +37,7 @@ function allTrades(){
 /* ---------- SVG charts ---------- */
 function niceTicks(lo, hi, n){ if (hi - lo < 1e-9){ hi += 1; lo -= 1; } const raw = (hi - lo) / n, mag = Math.pow(10, Math.floor(Math.log10(raw))), f = raw / mag, st = (f < 1.5 ? 1 : f < 3 ? 2 : f < 7 ? 5 : 10) * mag, a = Math.floor(lo / st) * st, r = []; for (let v = a; v <= hi + st * .5; v += st) r.push(+v.toFixed(8)); return r; }
 const ax = v => Math.abs(v) >= 1000 ? (v / 1000).toFixed(Math.abs(v) >= 10000 ? 0 : 1).replace(/\.0$/, "") + "k" : String(Math.round(v * 100) / 100);
-const lbl = t => new Date(t).toLocaleDateString([], {month:"short", day:"numeric"});
+const lbl = t => new Date(t).toLocaleDateString("en-US", {month:"short", day:"numeric"});
 function chartFrame(days, vals, W, H, kind){
   const L = 38, R = 8, T = 10, B = 22, w = W - L - R, h = H - T - B;
   let lo = Math.min(0, ...vals), hi = Math.max(0, ...vals);
@@ -119,7 +119,7 @@ Pages.pnl = (params) => {
         const tip = box.querySelector(".pn-tip"), kind = box.dataset.ch, svg = box.querySelector("svg");
         box.querySelectorAll("[data-i]").forEach(r => r.addEventListener("click", () => {
           const i = +r.dataset.i, v = (kind === "cum" ? d.cum : d.daily)[i];
-          tip.hidden = false; tip.innerHTML = `${new Date(d.days[i]).toLocaleDateString([], {weekday:"short", month:"short", day:"numeric", year:"numeric"})}<b class="num ${cls(v)}">${signed(v)} USDT</b>`;
+          tip.hidden = false; tip.innerHTML = `${new Date(d.days[i]).toLocaleDateString("en-US", {weekday:"short", month:"short", day:"numeric", year:"numeric"})}<b class="num ${cls(v)}">${signed(v)} USDT</b>`;
           const bx = r.getBBox(), pc = (bx.x + bx.width / 2) / 340 * 100; tip.style.left = Math.min(Math.max(pc, 26), 74) + "%";
           box.querySelectorAll("rect.sel").forEach(q => q.classList.remove("sel")); if (kind === "day"){ const bar = r.previousElementSibling; bar && bar.classList.add("sel"); }
           const dot = svg.querySelector(".pn-dot"); if (dot){ const f = svg.viewBox.baseVal; dot.setAttribute("cx", bx.x + bx.width / 2); const ys = svg.querySelectorAll("path")[1]; const len = ys.getTotalLength(), n = d.days.length; const pt = ys.getPointAtLength(n > 1 ? len * i / (n - 1) : 0); dot.setAttribute("cx", pt.x); dot.setAttribute("cy", pt.y); }
@@ -136,7 +136,7 @@ Pages.pnl = (params) => {
       let c = ["S","M","T","W","T","F","S"].map(x => `<i class="pn-wd">${x}</i>`).join("") + '<i></i>'.repeat(off);
       for (let k = 1; k <= dim; k++){ const v = by[k], a = v == null ? 0 : Math.min(85, 22 + Math.abs(v) / mx * 63), isT = calOff === 0 && k === today.getDate();
         c += `<div class="pn-d${isT ? " t" : ""}" ${v != null ? `style="background:color-mix(in srgb, var(${v >= 0 ? "--up" : "--down"}) ${a}%, transparent)" title="${signed(v)}"` : ""}><span>${k}</span>${v != null ? `<em class="num">${Math.abs(v) >= 1000 ? ax(v) : (v >= 0 ? "+" : "") + Math.round(v)}</em>` : ""}</div>`; }
-      return `<div class="pn-cm"><button data-cm="-1" aria-label="Previous month">${ic("back",16)}</button><b>${ref.toLocaleDateString([], {month:"long", year:"numeric"})}</b><button data-cm="1" aria-label="Next month" ${calOff >= 0 ? "disabled" : ""}>${ic("chev",16)}</button><span class="num ${cls(mt)}">${signed(mt)}</span></div><div class="pn-cal">${c}</div>`;
+      return `<div class="pn-cm"><button data-cm="-1" aria-label="Previous month">${ic("back",16)}</button><b>${ref.toLocaleDateString("en-US", {month:"long", year:"numeric"})}</b><button data-cm="1" aria-label="Next month" ${calOff >= 0 ? "disabled" : ""}>${ic("chev",16)}</button><span class="num ${cls(mt)}">${signed(mt)}</span></div><div class="pn-cal">${c}</div>`;
     }
     render();
     root.querySelector("[data-share]").onclick = () => {

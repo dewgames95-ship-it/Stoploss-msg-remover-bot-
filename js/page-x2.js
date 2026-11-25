@@ -87,7 +87,7 @@ Pages.assets = (params) => {
     let cells = ["M","T","W","T","F","S","S"].map(d => `<div class="w">${d}</div>`).join("") + Array(off).fill("<div></div>").join("");
     for (let d = 1; d <= days; d++){ const v = byDay[d];
       cells += `<div class="d ${d === now.getDate() ? "t" : ""} ${v == null ? "" : v >= 0 ? "u" : "l"}">${d}${v != null ? `<small>${v >= 0 ? "+" : ""}${Math.abs(v) >= 1000 ? (v/1000).toFixed(1) + "K" : v.toFixed(0)}</small>` : ""}</div>`; }
-    return `<div class="px-sec-h"><h2>${now.toLocaleString([], {month:"long", year:"numeric"})} PnL</h2><b class="num ${cls(tot)}" style="font-size:13px">${signed(tot)} USDT</b></div><div class="px-cal">${cells}</div>`;
+    return `<div class="px-sec-h"><h2>${now.toLocaleString("en-US", {month:"long", year:"numeric"})} PnL</h2><b class="num ${cls(tot)}" style="font-size:13px">${signed(tot)} USDT</b></div><div class="px-cal">${cells}</div>`;
   }
   const txList = list => list.length ? list.map(x => { const dep = x.kind === "deposit";
       return `<div class="px-row"><span class="px-ico n">${ic(dep ? "down" : "up",16)}</span><div class="grow"><b>${dep ? "Deposit" : "Transfer"} ${esc(x.coin || "USDT")}</b><div class="px-mut">${U.dateStr(x.t)} · ${esc(x.method || "")}</div></div><div class="r"><b class="num ${dep?"up":""}">${dep?"+":""}${fmt(x.coinAmt ?? x.amount, x.coinAmt ? 6 : 2)}</b><span class="px-mut">Completed</span></div></div>`; }).join("") : empty("file","No transactions yet");
