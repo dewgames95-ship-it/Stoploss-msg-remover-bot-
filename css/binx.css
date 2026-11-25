@@ -58,8 +58,8 @@ body .cp-bottom{padding:6px 12px calc(6px + env(safe-area-inset-bottom))}
 body .cp-bottom .in.qt{display:flex;align-items:center;gap:8px}
 body .cp-bottom .ib{background:none;border:0;padding:0;display:flex;flex-direction:column;align-items:center;gap:1px;font-size:10px;color:var(--text-2);min-width:38px;line-height:1.1}
 body .cp-bottom .in.qt .btn{flex:1;height:38px;border-radius:8px;font-size:14px;font-weight:700}
-body .cp-bottom .in.qt .btn-up{background:var(--up);color:#fff}
-body .cp-bottom .in.qt .btn-down{background:var(--down);color:#fff}
+body .cp-bottom .in.qt .btn-up{color:#fff}
+body .cp-bottom .in.qt .btn-down{color:#fff}
 body.no-nav #app,body.no-nav .page{padding-bottom:calc(64px + env(safe-area-inset-bottom))}
 #cpOther .cp-coin{margin-top:16px}
 

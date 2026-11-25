@@ -656,8 +656,8 @@ Pages.trade = (params) => {
       </div>
       <div class="bx-pay"><small>Payout (win)</small><b class="num" id="po"></b><span class="pp" id="ppct"></span></div>
     </div>
-    <div class="bx-tl">Select your time period</div>
-    <div class="bx-time" id="exps">${C.EXPIRIES.map(x => `<button class="exp-chip" data-e="${x}"><b>${x<60?x+"s":x/60+"m"}</b></button>`).join("")}</div>
+    <div class="bx-trow"><div class="bx-tl">Time period</div>
+    <div class="bx-time" id="exps">${C.EXPIRIES.map(x => `<button class="exp-chip" data-e="${x}"><b>${x<60?x+"s":x/60+"m"}</b></button>`).join("")}</div></div>
     <div class="ud"><button class="btn btn-up" data-dir="up"><span class="row" style="gap:4px">${ic("up",18,3)} ${esc(t("Up"))}</span><small id="upP"></small></button><button class="btn btn-down" data-dir="down"><span class="row" style="gap:4px">${ic("down",18,3)} ${esc(t("Down"))}</span><small id="dnP"></small></button></div>
     <div class="bx-meta"><span>Avbl <b class="num" id="ob"></b> USDT <a href="#/deposit" class="brand-c" aria-label="Deposit">${ic("plus",12,3)}</a></span><span class="label">Min 0.1 · Max 10,000 USDT</span></div>
     <div id="note" style="margin-top:8px"></div><div class="err-msg" id="err" role="alert"></div>

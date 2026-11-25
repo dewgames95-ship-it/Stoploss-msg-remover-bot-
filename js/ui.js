@@ -72,12 +72,30 @@ function pageHead(title, opts={}){
 function emptyState(icon, text){ return `<div class="empty">${ic(icon,32,1.5)}<p>${esc(text)}</p></div>`; }
 
 /* ---- Global sheets ---- */
+function notifCat(n){
+  const x = (n.title + " " + (n.body || "")).toLowerCase();
+  if (/order|trade|position|liquidat|option|spot|copy trading|bot|settled|limit|tp\/sl|funding/.test(x)) return "trade";
+  return "system";
+}
 function openNotifs(){
   const s = store.s; s.unread = 0; store.save(); U.bus.emit("notifs");
-  const items = s.notifs.length ? s.notifs.map(n => `<div class="list-item"><span class="ic ${n.kind==="ok"?"ic-g":n.kind==="bad"?"ic-r":"ic-y"}">${ic(n.kind==="ok"?"check":n.kind==="bad"?"x":"bell",16)}</span>
-    <div class="grow"><div style="font-weight:500;font-size:14px">${esc(n.title)}</div><div class="sub" style="font-size:12px">${esc(n.body)}</div><div class="label">${U.dateStr(n.t)}</div></div></div>`).join("")
-    : emptyState("bell", "No notifications yet.");
-  U.sheet(t("Notifications"), items + (s.notifs.length ? `<button class="btn btn-ghost btn-block" data-clear style="margin-top:12px">Clear all</button>` : ""), el => {
+  const icn = n => n.kind === "ok" ? "check" : n.kind === "bad" ? "x" : /alert/i.test(n.title) ? "bell" : "info";
+  const rel = ts => { const d = Date.now() - ts; if (d < 60e3) return "Just now"; if (d < 3600e3) return Math.floor(d / 60e3) + "m ago"; if (d < 86400e3) return Math.floor(d / 3600e3) + "h ago"; return U.dateStr(ts); };
+  const TABS = [["all", "All"], ["trade", "Trades"], ["system", "System"]];
+  let tab = "all";
+  const row = n => `<div class="nt-row ${n.read ? "" : "unread"}"><span class="nt-ic ${n.kind || "info"}">${ic(icn(n), 15, 2.2)}</span>
+    <div class="nt-bd"><div class="nt-t">${esc(n.title)}</div><div class="nt-s">${esc(n.body || "")}</div></div><div class="nt-tm">${rel(n.t)}${n.read ? "" : `<i class="nt-dot"></i>`}</div></div>`;
+  const body = () => {
+    const list = s.notifs.filter(n => tab === "all" || notifCat(n) === tab);
+    return list.length ? list.map(row).join("") : `<div class="nt-empty">${ic("bell", 34, 1.4)}<b>No notifications</b><span>${tab === "all" ? "Order fills, alerts and account updates will show up here." : "Nothing in this category yet."}</span></div>`;
+  };
+  // rows from before this opening count as unread only if newer than the last visit
+  const seen = s.notifSeen || 0; s.notifs.forEach(n => { n.read = n.t <= seen; }); s.notifSeen = Date.now(); store.save();
+  const html = `<div class="nt-tabs">${TABS.map(([k, l]) => `<button class="${k === tab ? "on" : ""}" data-nt="${k}">${l}</button>`).join("")}<span class="grow"></span>${s.notifs.length ? `<button class="nt-act" data-allread>Mark all as read</button>` : ""}</div><div class="nt-list" id="ntl">${body()}</div>${s.notifs.length ? `<button class="nt-clear" data-clear>Clear all</button>` : ""}`;
+  U.sheet(t("Notifications"), html, el => {
+    const list = el.querySelector("#ntl");
+    el.querySelectorAll("[data-nt]").forEach(b => b.onclick = () => { tab = b.dataset.nt; el.querySelectorAll("[data-nt]").forEach(x => x.classList.toggle("on", x === b)); list.innerHTML = body(); });
+    el.querySelector("[data-allread]")?.addEventListener("click", () => { s.notifs.forEach(n => n.read = true); list.innerHTML = body(); });
     el.querySelector("[data-clear]")?.addEventListener("click", () => { s.notifs = []; store.save(); U.closeLayer(); U.toast("Notifications cleared", "ok"); });
   });
 }

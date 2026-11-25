@@ -143,15 +143,15 @@ const t = k => k; // English only
 /* ----- Toast ----- */
 function toast(msg, kind="info", ms=2600){
   const box = $("#toasts"); const el = document.createElement("div");
-  const icn = {ok:"check", bad:"x", warn:"info", info:"info"}[kind];
+  const icn = {ok:"check", bad:"x", warn:"info", info:"info"}[kind] || "info";
   el.className = "toast " + kind; el.setAttribute("role","status");
   if (kind === "bad") fx("err");
-  // exchange-style notice card: bold title + optional detail line (split on ": " or " · ")
+  // compact notice: bold title + optional muted detail (split on ": " or " · ")
   let ti = String(msg), sub = "";
   const m = ti.match(/^(.{3,40}?)(?::\s| · )(.+)$/); if (m){ ti = m[1]; sub = m[2]; }
-  el.innerHTML = `<span class="ti">${ic(icn,14,3)}</span><span class="tx"><b>${esc(ti)}</b>${sub ? `<small>${esc(sub)}</small>` : ""}</span>`;
+  el.innerHTML = `<span class="ti">${ic(icn,12,3)}</span><span class="tx"><b>${esc(ti)}</b>${sub ? `<small>${esc(sub)}</small>` : ""}</span>`;
   box.appendChild(el);
-  setTimeout(() => { el.classList.add("out"); setTimeout(() => el.remove(), 300); }, ms);
+  setTimeout(() => { el.classList.add("out"); setTimeout(() => el.remove(), 200); }, ms);
   while (box.children.length > 2) box.firstChild.remove();
 }
 
