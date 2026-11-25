@@ -34,3 +34,9 @@
 .fxr .pc-h,.bin-page .pc-h{margin-bottom:10px}
 .fxr .ph-t,.bin-page .ph-t{padding-top:8px;border-top:1px solid var(--line)}
 .fxr .pc .prog,.bin-page .pc .prog{margin-top:10px}
+/* indicator row: scrolls instead of clipping under the guide icon */
+.indbar{display:flex;align-items:center;min-width:0}
+.indbar .il{flex:1;min-width:0;overflow-x:auto;flex-wrap:nowrap;scrollbar-width:none}
+.indbar .il::-webkit-scrollbar{display:none}
+.indbar .il button{flex:0 0 auto;min-height:30px}
+.indbar .ti{flex:0 0 auto}

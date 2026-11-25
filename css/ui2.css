@@ -130,3 +130,6 @@ html[data-theme="dark"] .sheet,html[data-theme="dark"] .drawer{border-top:1px so
 html[data-theme="dark"] .modal{border:1px solid var(--line-2)}
 html[data-theme="dark"] .toast{border-color:var(--line-2)}
 html[data-theme="light"] .card,html[data-theme="light"] .bt-card,html[data-theme="light"] .pf-tile,html[data-theme="light"] .kpi,html[data-theme="light"] .sp-card{border:1px solid #E6E8EB}
+.toasts{top:calc(58px + env(safe-area-inset-top))}
+.scrim,.scrim.show{backdrop-filter:none!important;-webkit-backdrop-filter:none!important;background:rgba(0,0,0,.45)}
+html[data-theme="light"] .scrim.show{background:rgba(20,25,35,.35)}

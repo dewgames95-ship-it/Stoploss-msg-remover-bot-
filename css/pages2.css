@@ -1,0 +1,140 @@
+/* ===== v6.2 pages layer (non-trading pages): bordered cards, Binance density, blue-gradient accent =====
+   Loaded after the per-page css, before brand.css. Card = 1px var(--line-2) + var(--r-card) + 12-14px padding. */
+:root{--pg-bd:var(--line-2)}
+
+/* ---------- Generic card look ---------- */
+.pm-sec,.pm-strip,.pm-stats,.pn-kpis,.sc-hero,.px-kpis,.px-lc,.px-promo,.px-hero,.bt-card,.pf-vou,.hm-cp,.hm-bot,.hm-kp div,.px-notice,.px-coin,.px-acc,.pm-tabs.card{
+  border:1px solid var(--pg-bd);border-radius:var(--r-card);background:var(--card);background-image:none;box-shadow:none}
+:root[data-theme] .pm-sec,:root[data-theme] .pm-strip,:root[data-theme] .pm-stats,:root[data-theme] .sc-hero,:root[data-theme] .px-kpis,
+:root[data-theme] .px-lc,:root[data-theme] .px-promo,:root[data-theme] .px-hero,:root[data-theme] .bt-card,:root[data-theme] .pf-vou,
+:root[data-theme] .hm-cp,:root[data-theme] .hm-bot,:root[data-theme] .px-notice,:root[data-theme] .px-coin,:root[data-theme] .px-acc,
+:root[data-theme] .pn-kpis{border:1px solid var(--pg-bd);background:var(--card);background-image:none;box-shadow:none}
+:root[data-theme] .hm-kp div{border:1px solid var(--pg-bd);background:var(--card);box-shadow:none}
+
+/* pm-* (settings, security, earn, vip, community, auto, profile edit, support, about) */
+.pm-sec,.pm-strip{margin:0 0 12px;overflow:hidden}
+.pm-sec{padding:0 14px}
+.pm-strip{padding:14px}
+.pm-row.tap,.pm-row[data-rsw]{margin:0 -14px;padding:8px 14px;width:calc(100% + 28px)}
+.pm-st{padding:14px 0 6px;color:var(--text);font-size:14px;font-weight:700}
+.pm-stats{margin:0 0 12px;overflow:hidden}
+.pm-stat{padding:12px 14px}
+.pm-tabs{margin:0 -16px 12px;border-bottom:1px solid var(--line-2)}
+.pm-tabs a.on::after,.px-tabs button.on::after,.bt-tabs button.on::after,.hm-strip.open .hm-st-t button.on::after{background:var(--grad-brand);height:2px}
+.pm-seg button.on,.pn-tabs button.on,.px-seg button.on{background:var(--card);box-shadow:0 0 0 1px var(--line-2);color:var(--text)}
+.pm-prod{padding:12px 0}
+.pm-nm{flex-wrap:wrap;row-gap:2px}
+.pm-pill,.px-tag{white-space:nowrap}
+.pm-btn{border-radius:var(--r-ctl)}
+.pm-note{padding:8px 2px 14px}
+.pm-bar i,.pm-prog i{background:var(--grad-brand)}
+.pm-seg,.pn-tabs,.px-seg,.pm-step,.pm-fld,.pm-in,.pm-sel,.pm-ta{border-radius:var(--r-ctl)}
+/* inputs inside cards: never clipped, align to card padding */
+.pm-sec .pm-fld,.pm-sec .pm-in,.pm-sec .pm-sel,.pm-sec .pm-ta{width:100%}
+
+/* profile hub */
+.pf-tiles{gap:10px;margin-bottom:12px}
+.pf-tile{border:1px solid var(--pg-bd);background:var(--card);border-radius:var(--r-card);padding:14px 4px 12px}
+:root[data-theme] .pf-tile{border:1px solid var(--pg-bd);background:var(--card)}
+.pf-h{font-size:15px;font-weight:700;margin:18px 0 8px}
+.pf-grid{margin:0 0 4px;padding:6px 6px 4px;border:1px solid var(--pg-bd);border-radius:var(--r-card);background:var(--card);gap:2px}
+.pf-list{border:1px solid var(--pg-bd);border-radius:var(--r-card);background:var(--card);padding:0 14px;overflow:hidden}
+.pf-row{min-height:52px}
+.pf-row+.pf-row{border-top:1px solid var(--line)}
+.pf-sw{border-radius:var(--r-ctl);border-color:var(--line-2)}
+.pf-main{background:var(--brand-soft);color:var(--brand)}
+
+/* referral */
+.rf-dark{margin:0 0 12px;border-radius:var(--r-card);border:1px solid var(--pg-bd)}
+.rf-hero{margin:0 0 12px;border-radius:var(--r-card);border:1px solid var(--pg-bd)}
+.rf-code button{background:var(--grad-brand)}
+
+/* assets */
+.px-ah{margin:10px 0 12px;padding:14px;border:1px solid var(--pg-bd);border-radius:var(--r-card);background:var(--card)}
+.px-coin{padding:12px 14px 12px;margin-bottom:10px;border-bottom:1px solid var(--pg-bd)}
+.px-acc{padding:8px 14px;margin-bottom:10px;border-bottom:1px solid var(--pg-bd)}
+.px-promo,.px-hero{margin-bottom:12px}
+.px-lc{margin-bottom:12px}
+.px-lc .cpy,.bt-cb,.px-btn.pri,.hm-cp .cp{background:var(--grad-brand);color:#fff}
+.px-chips button.on,.hm-chips button.on,.hm-sc2 button.on{background:var(--grad-brand-soft);border-color:var(--brand);color:var(--text);font-weight:700}
+.px-kpis div{border-color:var(--line)}
+.px-kpis{border-radius:var(--r-card)}
+.px-tabs{border-bottom-color:var(--line-2)}
+
+/* pnl */
+.pn-kpis{margin:0 0 14px;padding:0 14px;overflow:hidden}
+.pn-kpis>div:nth-child(even){padding-left:14px}
+.pn-sec{padding:14px;margin-bottom:12px;border:1px solid var(--pg-bd);border-radius:var(--r-card);background:var(--card)}
+.pn-sec>h3{margin-bottom:10px}
+.pn-hero{padding:6px 0 14px}
+
+/* bots */
+.bt-card{padding:14px;margin-bottom:12px}
+.bt-cb{border-radius:var(--r-ctl)}
+.bt-run{border-radius:var(--r-ctl)}
+.bt-stop{border-radius:var(--r-ctl)}
+nav.bt-fnav{box-shadow:none;border-color:var(--line-2)}
+
+/* ---------- Home ---------- */
+.hm-top{padding-top:8px;padding-bottom:8px}
+.hm-search{border-radius:var(--r-ctl);height:36px}
+.hm-assets{padding:6px 0 12px}
+.hm-bal{font-size:32px}
+.hm-dep{background:var(--grad-brand);color:#fff;border-radius:var(--r-ctl);height:36px;box-shadow:none}
+.hm-sc{padding:2px 12px 10px}
+.hm-sc a svg{width:22px;height:22px}
+.hm-ban{border-radius:var(--r-card);margin-bottom:4px;border:1px solid var(--brand-soft-2);background:var(--grad-brand-soft);background-image:var(--grad-brand-soft)}
+:root[data-theme] .hm-ban{background:var(--card);background-image:var(--grad-brand-soft);border:1px solid var(--brand-soft-2)}
+.hm-sl{min-height:112px;padding:14px 14px}
+.hm-sl h3{font-size:17px}
+.hm-cnt{background:var(--card);border:1px solid var(--line-2)}
+.hm-chips button{height:30px;border-radius:var(--r-chip);border-color:var(--line-2)}
+.hm-chips button.on,.hm-sc2 button.on{border-color:var(--brand)}
+.hm-sc2 button{border-radius:var(--r-chip);border-color:var(--line-2)}
+.hm-sub button.on{position:relative}
+.hm-sub button.on::after{content:"";position:absolute;left:0;right:0;bottom:-6px;height:2px;border-radius:1px;background:var(--grad-brand)}
+.hm-sub{padding-bottom:8px}
+.hm-chg{border-radius:var(--r-chip);background:var(--grad-up);width:76px}
+.hm-chg.neg{background:var(--grad-down)}
+.hm-chg.cl{background:var(--input)}
+.hm-row{padding:10px 0;border-bottom:1px solid var(--line)}
+.hm-row:last-of-type{border-bottom:0}
+:root[data-theme="dark"] .hm-row{border-bottom:1px solid var(--line)}
+.hm-more{border-radius:var(--r-ctl);border-color:var(--line-2)}
+.hm-kp{gap:8px}
+.hm-kp div{border-radius:var(--r-card);padding:8px 10px}
+.hm-sh h2,.px-sec-h h2{font-size:16px}
+.hm-cp{padding:14px}
+.hm-cp .cp{border-radius:var(--r-ctl);height:30px}
+.hm-bots .hm-bot{padding:12px;border-radius:var(--r-card)}
+.hm-bi{border-radius:var(--r-ctl);background:var(--brand-soft);border-color:transparent;color:var(--brand)}
+.hm-ev{border:1px solid var(--pg-bd);border-radius:var(--r-card);background:var(--card)}
+.hm-strip{border-top:1px solid var(--line-2)}
+.hm-strip.open{border-radius:var(--r-sheet) var(--r-sheet) 0 0;box-shadow:none;border:1px solid var(--line-2);border-bottom:0}
+.hm-fc img{border-radius:var(--r-ctl)}
+.hm-err button{background:var(--grad-brand);color:#fff;border-radius:var(--r-ctl)}
+.hm-pg h1{font-size:18px}
+
+/* rewards hub level card + misc blue banners: gradient instead of flat blue */
+.rw-lv,.px-lv{background:var(--grad-brand)!important}
+
+/* sheet top corners (global sheet in app.css) */
+.sheet{border-top-left-radius:var(--r-sheet);border-top-right-radius:var(--r-sheet)}
+
+/* tap targets */
+.hm-ib,.pf-ib{min-width:36px;min-height:36px}
+.hm-ib{width:36px;height:36px}
+
+/* guided tour / share: keep surfaces consistent */
+.tour-card,.tr-card,.sh-card{border-radius:var(--r-card)}
+
+/* earn / product rows: keep names on one line, compact action */
+.pm-prod .pm-btn{min-width:0;padding:0 12px}
+.pm-prod .pm-main{min-width:0}
+.pm-apr{min-width:48px}
+.pm-nm{flex-wrap:wrap;column-gap:6px}
+.pm-nm>*{white-space:nowrap}
+.rf-glass{backdrop-filter:none;-webkit-backdrop-filter:none;background:rgba(255,255,255,.07)}
+.hm-rows{contain:content}
+.hm-sentinel{height:1px}
+.hm-row,.px-coin,.pm-prod{content-visibility:auto;contain-intrinsic-size:auto 56px}

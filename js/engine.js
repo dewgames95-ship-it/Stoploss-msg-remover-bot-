@@ -19,7 +19,7 @@ function validate(sym, amount){
   if (M.isStale(p)) return "Market data offline. Reconnecting… please try again in a moment.";
   if (!(amount > 0) || isNaN(amount)) return "Enter a valid amount.";
   if (amount < 0.1) return "Minimum trade amount is 0.1 USDT.";
-  if (amount > 10000) return "Maximum trade amount is 10,000 USDT.";
+  if (amount > 5000) return "Maximum trade amount is 5,000 USDT.";
   if (amount > S().balance) return "Insufficient balance. Add funds from Deposit.";
   if (S().positions.length >= C.MAX_OPEN) return `Maximum ${C.MAX_OPEN} open positions reached.`;
   return null;

@@ -80,16 +80,32 @@ function marketList(box, o = {}){
   const tag = p => p.type === "crypto" ? (sub === "spot" ? "" : `<em>Perp</em>`) : (sub === "spot" ? (p.type === "stock" ? `<em class="t">Stock</em>` : "") : p.type === "stock" ? `<em class="t">Stock</em>` : `<em class="t">24/5</em>`);
   const chgHtml = p => p.closed ? `<span class="hm-chg cl">Closed</span>` : p.chg == null ? `<span class="hm-chg cl">--</span>` : `<span class="hm-chg ${p.chg < 0 ? "neg" : ""}">${p.chg >= 0 ? "+" : ""}${p.chg.toFixed(2)}%</span>`;
   const usd = p => "$" + M.fmtPx(p, p.quote === "JPY" ? p.price / (M.get("USDJPY")?.price || 1) : p.price);
+  let lazyIO = null;
   function render(){
+    if (lazyIO){ lazyIO.disconnect(); lazyIO = null; }
     let l = applySort(list()); rows.clear();
     const more = limit && l.length > limit; if (limit) l = l.slice(0, limit);
     if (!M.cryptoOrder.length && !q && !["forex","metals","fav","stocks","indices","commod"].includes(chip)){ box.innerHTML = Array(6).fill('<div class="skel"></div>').join(""); return; }
     if (!l.length){ box.innerHTML = UI.emptyState(chip === "fav" ? "star" : "search", q ? `No results for “${q}”` : chip === "fav" ? "No favorites yet. Tap the star on a trading screen to add one." : "No markets here right now."); return; }
-    box.innerHTML = `<div class="hm-hd"><span class="hm-hn">${hb("name","Name")}<u>/</u>${hb("vol","Vol")}</span><span>${hb("px","Last Price")}</span><span>${hb("chg","24h Chg%")}</span></div>` + l.map(p => `<div class="hm-row" data-sym="${p.sym}" role="button" tabindex="0" aria-label="Open ${esc(M.label(p))}">
+    const rowHtml = p => `<div class="hm-row" data-sym="${p.sym}" role="button" tabindex="0" aria-label="Open ${esc(M.label(p))}">
       <div class="hm-nm">${UI.pairIcon(p, 32)}<div class="hm-tx"><div class="hm-sym"><span class="hm-sy">${esc(p.type === "crypto" ? p.base + "USDT" : p.sym)}</span>${tag(p)}</div><div class="hm-s2"><span class="hm-fn">${esc(UI.fullName(p))}</span><span class="hm-vl">${vol(p)}</span></div></div></div>
-      <div class="hm-px"><b class="num" data-px>${M.fmtPx(p)}</b><span class="num" data-usd>${usd(p)}</span></div><div data-chg>${chgHtml(p)}</div></div>`).join("")
+      <div class="hm-px"><b class="num" data-px>${M.fmtPx(p)}</b><span class="num" data-usd>${usd(p)}</span></div><div data-chg>${chgHtml(p)}</div></div>`;
+    const reg = from => box.querySelectorAll(".hm-row").forEach((r, i) => { if (i >= from) rows.set(r.dataset.sym, {px:r.querySelector("[data-px]"), usd:r.querySelector("[data-usd]"), chg:r.querySelector("[data-chg]")}); });
+    /* lazy rendering: first PAGE rows now, the rest as the user scrolls (keeps long lists fast) */
+    const PAGE = 40; let shown = Math.min(l.length, PAGE);
+    box.innerHTML = `<div class="hm-hd"><span class="hm-hn">${hb("name","Name")}<u>/</u>${hb("vol","Vol")}</span><span>${hb("px","Last Price")}</span><span>${hb("chg","24h Chg%")}</span></div><div class="hm-rows">${l.slice(0, shown).map(rowHtml).join("")}</div>`
+      + (shown < l.length ? '<div class="hm-sentinel" aria-hidden="true"></div>' : "")
       + (more ? `<a class="hm-more" href="#/markets">See all</a>` : "");
-    box.querySelectorAll(".hm-row").forEach(r => rows.set(r.dataset.sym, {px:r.querySelector("[data-px]"), usd:r.querySelector("[data-usd]"), chg:r.querySelector("[data-chg]")}));
+    reg(0);
+    const sen = box.querySelector(".hm-sentinel");
+    if (sen && window.IntersectionObserver){
+      const rb = box.querySelector(".hm-rows");
+      lazyIO = new IntersectionObserver(es => { if (!es.some(x => x.isIntersecting)) return;
+        const from = shown; shown = Math.min(l.length, shown + PAGE);
+        rb.insertAdjacentHTML("beforeend", l.slice(from, shown).map(rowHtml).join("")); reg(from);
+        if (shown >= l.length){ lazyIO.disconnect(); lazyIO = null; sen.remove(); } }, {rootMargin:"600px 0px"});
+      lazyIO.observe(sen);
+    }
   }
   function flush(){
     dirty.forEach(sym => { const r = rows.get(sym), p = M.get(sym); if (!r || !p) return;
@@ -104,7 +120,7 @@ function marketList(box, o = {}){
   offs.push(bus.on("tick", s => dirty.add(s)), bus.on("meta", s => dirty.add(s)), bus.on("list", render));
   const iv = setInterval(flush, 500);
   render();
-  return {render, setTab(k){ chip = k; sessionStorage.setItem("mktChip", k); render(); }, setSub(k){ sub = k; sessionStorage.setItem("mktSub", k); render(); }, setQ(v){ q = v; render(); }, get tab(){ return chip; }, get sub(){ return sub; }, destroy(){ offs.forEach(f => f()); clearInterval(iv); }};
+  return {render, setTab(k){ chip = k; sessionStorage.setItem("mktChip", k); render(); }, setSub(k){ sub = k; sessionStorage.setItem("mktSub", k); render(); }, setQ(v){ q = v; render(); }, get tab(){ return chip; }, get sub(){ return sub; }, destroy(){ offs.forEach(f => f()); clearInterval(iv); lazyIO?.disconnect(); }};
 }
 window.UI.marketList = marketList;
 const curChip = () => sessionStorage.getItem("mktChip") || "hot", curSub = () => sessionStorage.getItem("mktSub") || "perp";
