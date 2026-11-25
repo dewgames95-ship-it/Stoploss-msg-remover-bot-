@@ -104,7 +104,7 @@ Pages.withdraw = () => {
   const apr = v => fmt(v * 100, 2) + "%";
   const html = pwrap("Earn", `
     <div class="pm-strip"><div class="lbl">Total Earn balance (USDT)</div><div class="big num" data-tot>0.00</div>
-      <div class="pm-cols c2"><div><span>Cumulative interest</span><b class="num up" data-int>0.0000</b></div><div><span>Today's estimated earnings</span><b class="num up" data-today>0.0000</b></div></div>
+      <div class="pm-cols c2"><div><span>Cumulative interest</span><b class="num up" data-int>0.00</b></div><div><span>Today's estimated earnings</span><b class="num up" data-today>0.00</b></div></div>
       <div class="pm-acts"><button class="btn btn-primary" data-sub>Subscribe</button><button class="btn btn-ghost" data-red>Redeem</button></div></div>
     <section class="pm-sec"><h3 class="pm-st">Simple Earn products</h3>
       <div class="pm-prod" data-p="flex" style="cursor:pointer">${UI.coinImg("USDT", 28)}<div class="grow"><div class="pm-nm">USDT Flexible</div><div class="pm-s">Redeem any time</div></div>
@@ -112,20 +112,20 @@ Pages.withdraw = () => {
       ${LOCKED.map(p => `<div class="pm-prod" data-p="${p.days}" style="cursor:pointer">${UI.coinImg("USDT", 28)}<div class="grow"><div class="pm-nm">USDT Locked <span class="pm-pill b">${p.days} Days</span></div><div class="pm-s">Interest paid at maturity</div></div>
         <div class="pm-apr"><b class="num">${apr(p.apr)}</b><span>APR</span></div><button class="pm-btn" data-p="${p.days}">Subscribe</button></div>`).join("")}</section>
     <section class="pm-sec" id="pmPos"></section>
-    <p class="pm-risk">Interest is simulated on a demo balance. Early redemption of a locked product forfeits all accrued interest.</p>`);
+    <p class="pm-risk">Interest is simulated on a demo balance. Early redemption of a locked product forfeits all accrued interest.</p>`, {right:`<button class="icon-btn" data-txh aria-label="History">${ic("history",22)}</button>`});
   return {html, title:"Earn", mount(r){
     const $ = q => r.querySelector(q);
-    const upd = () => { const t = earnTotals(); $("[data-tot]").textContent = money(t.total); $("[data-int]").textContent = fmt(t.interest, 4); $("[data-today]").textContent = fmt(t.today, 4);
-      r.querySelectorAll("[data-acc]").forEach(el => { const id = el.dataset.acc; if (id === "flex") el.textContent = "+" + fmt(flexAcc(), 4); else { const p = earnS().locked.find(x => x.id === id); if (p) el.textContent = "+" + fmt(lockedAcc(p), 4); } });
+    const upd = () => { const t = earnTotals(); $("[data-tot]").textContent = money(t.total); $("[data-int]").textContent = fmt(t.interest, 2); $("[data-today]").textContent = fmt(t.today, 2);
+      r.querySelectorAll("[data-acc]").forEach(el => { const id = el.dataset.acc; if (id === "flex") el.textContent = "+" + fmt(flexAcc(), 2); else { const p = earnS().locked.find(x => x.id === id); if (p) el.textContent = "+" + fmt(lockedAcc(p), 2); } });
       r.querySelectorAll("[data-pg]").forEach(el => { const p = earnS().locked.find(x => x.id === el.dataset.pg); if (p) el.style.width = Math.min(100, (Date.now() - p.start) / (p.days * DAY) * 100).toFixed(2) + "%"; }); };
     const renderPos = () => {
       const e = earnS(), t = earnTotals(); let h = "";
       if (t.vv > 0.0001) h += `<div class="pm-pos"><div class="pm-pos-h">${UI.coinImg("USDT", 28)}<div class="grow"><div class="pm-nm">USDT Flexible <span class="pm-pill g">${apr(E.APR)} APR</span></div></div><button class="pm-btn line" data-rf>Redeem</button></div>
-        <div class="pm-pos-g"><div><span>Amount</span><b class="num">${fmt(t.vv, 4)}</b></div><div><span>Accrued interest</span><b class="num up" data-acc="flex">+0.0000</b></div><div><span>Est. daily</span><b class="num">${fmt(t.vv * E.APR / 365, 4)}</b></div></div></div>`;
+        <div class="pm-pos-g"><div><span>Amount</span><b class="num">${fmt(t.vv, 2)}</b></div><div><span>Accrued interest</span><b class="num up" data-acc="flex">+0.00</b></div><div><span>Est. daily</span><b class="num">${fmt(t.vv * E.APR / 365, 2)}</b></div></div></div>`;
       e.locked.slice().sort((a, b) => a.start + a.days * DAY - b.start - b.days * DAY).forEach(p => {
         const mat = p.start + p.days * DAY, left = Math.max(0, Math.ceil((mat - Date.now()) / DAY));
         h += `<div class="pm-pos"><div class="pm-pos-h">${UI.coinImg("USDT", 28)}<div class="grow"><div class="pm-nm">USDT Locked <span class="pm-pill b">${p.days} Days</span></div></div><button class="pm-btn line" data-rl="${p.id}">Redeem</button></div>
-          <div class="pm-pos-g"><div><span>Amount</span><b class="num">${money(p.amount)}</b></div><div><span>APR</span><b class="num up">${apr(p.apr)}</b></div><div><span>Accrued interest</span><b class="num up" data-acc="${p.id}">+0.0000</b></div></div>
+          <div class="pm-pos-g"><div><span>Amount</span><b class="num">${money(p.amount)}</b></div><div><span>APR</span><b class="num up">${apr(p.apr)}</b></div><div><span>Accrued interest</span><b class="num up" data-acc="${p.id}">+0.00</b></div></div>
           <div class="pm-bar"><i data-pg="${p.id}" style="width:0"></i></div><div class="pm-pos-f"><span>Matures ${fdate(mat)}</span><span>${left} day${left === 1 ? "" : "s"} left</span></div></div>`;
       });
       $("#pmPos").innerHTML = `<h3 class="pm-st">My positions</h3>` + (h || pemp("No active positions", "Subscribe to a product above to start earning."));
@@ -140,7 +140,7 @@ Pages.withdraw = () => {
           <div class="pm-kv"><span>APR</span><b class="num up">${apr(pr[2])}</b></div>
           <span class="pm-lbl">Amount</span><div class="pm-fld" id="pmAf"><input id="pmAmt" type="number" inputmode="decimal" min="1" placeholder="Min ${days ? 10 : 1}" aria-label="Amount"><span class="u">USDT</span><button type="button" class="mx" data-max>Max</button></div>
           <div class="pm-kv" style="margin-top:8px"><span>Available</span><b class="num">${money(S().balance)} USDT</b></div>
-          <div class="pm-kv"><span>${days ? "Est. interest at maturity" : "Est. daily interest"}</span><b class="num up" id="pmEi">0.0000 USDT</b></div>
+          <div class="pm-kv"><span>${days ? "Est. interest at maturity" : "Est. daily interest"}</span><b class="num up" id="pmEi">0.00 USDT</b></div>
           <div class="pm-kv"><span>Redemption date</span><b>${days ? fdate(Date.now() + days * DAY) : "Any time"}</b></div>
           <label class="pm-chk"><input type="checkbox" id="pmAg"><span>I have read and agree to the Simple Earn terms</span></label>
           <div class="pm-err" id="pmEr"></div><button class="btn btn-primary pm-cta" data-ok>Confirm subscription</button>`;
@@ -148,7 +148,7 @@ Pages.withdraw = () => {
       U.sheet("Subscribe", `<div class="pm-seg w" id="pmPs">${prods.map(p => `<button data-k="${p[0]}" class="${String(cur) === p[0] ? "on" : ""}">${p[1]}</button>`).join("")}</div><div id="pmSb" style="margin-top:8px"></div>`, el => {
         const mount = () => {
           const pr = prods.find(x => x[0] === String(cur)), days = pr[3], b = el.querySelector("#pmSb"); b.innerHTML = body();
-          const inp = b.querySelector("#pmAmt"), ei = () => { const a = parseFloat(inp.value) || 0; b.querySelector("#pmEi").textContent = fmt(days ? a * pr[2] * days / 365 : a * pr[2] / 365, 4) + " USDT"; };
+          const inp = b.querySelector("#pmAmt"), ei = () => { const a = parseFloat(inp.value) || 0; b.querySelector("#pmEi").textContent = fmt(days ? a * pr[2] * days / 365 : a * pr[2] / 365, 2) + " USDT"; };
           inp.oninput = ei; b.querySelector("[data-max]").onclick = () => { inp.value = Math.floor(S().balance * 100) / 100; ei(); };
           b.querySelector("[data-ok]").onclick = () => {
             const a = Math.round(parseFloat(inp.value) * 100) / 100, min = days ? 10 : 1;
@@ -168,7 +168,7 @@ Pages.withdraw = () => {
     function openRedeemFlex(){
       const vv = E.vaultValue();
       if (vv < 0.01) return toast("No flexible balance to redeem.", "info");
-      U.sheet("Redeem Flexible", `<div class="pm-kv" style="padding-top:2px"><span>Redeemable</span><b class="num">${fmt(vv, 4)} USDT</b></div>
+      U.sheet("Redeem Flexible", `<div class="pm-kv" style="padding-top:2px"><span>Redeemable</span><b class="num">${fmt(vv, 2)} USDT</b></div>
         <span class="pm-lbl">Amount</span><div class="pm-fld" id="pmRf"><input id="pmRa" type="number" inputmode="decimal" min="0.01" aria-label="Amount"><span class="u">USDT</span><button type="button" class="mx" data-max>Max</button></div>
         <div class="pm-kv" style="margin-top:8px"><span>Arrives</span><b>Instantly in Trading account</b></div><div class="pm-err" id="pmRe"></div><button class="btn btn-primary pm-cta" data-ok>Confirm redemption</button>`, el => {
         const inp = el.querySelector("#pmRa");
@@ -183,13 +183,14 @@ Pages.withdraw = () => {
       });
     }
     settleMatured(); renderPos();
+    $("[data-txh]").onclick = () => U.sheet("Earn history", txList());
     $("[data-sub]").onclick = () => openSub("flex");
     $("[data-red]").onclick = openRedeemFlex;
     r.addEventListener("click", async e => {
       const rl = e.target.closest("[data-rl]");
       if (rl){
         const p = earnS().locked.find(x => x.id === rl.dataset.rl); if (!p) return;
-        if (!await U.confirmBox("Redeem early?", `Early redemption forfeits all accrued interest (${fmt(lockedAcc(p), 4)} USDT). ${money(p.amount)} USDT principal returns to your Trading account now.`, "Redeem early", true)) return;
+        if (!await U.confirmBox("Redeem early?", `Early redemption forfeits all accrued interest (${fmt(lockedAcc(p), 2)} USDT). ${money(p.amount)} USDT principal returns to your Trading account now.`, "Redeem early", true)) return;
         const e2 = earnS(); e2.locked = e2.locked.filter(x => x.id !== p.id); store.setBalance(S().balance + p.amount, "earn"); store.save();
         S().tx.unshift({id:U.uid(), kind:"deposit", amount:p.amount, method:"Earn early redemption", t:Date.now()}); store.save();
         U.fx("claim"); toast(`Redeemed ${money(p.amount)} USDT, interest forfeited`, "ok"); return renderPos();
@@ -204,14 +205,14 @@ Pages.withdraw = () => {
 Pages.earn = Pages.withdraw;
 
 /* ---------- Bots (BingX style) ---------- */
-const BOT_TAG = {grid:"Spot Grid", combo:"Futures Martingale", gold:"Futures Grid", fx:"Futures Grid", dca:"DCA"};
+const BOT_TAG = {grid:"Spot Grid", combo:"Futures Martingale", gold:"Futures Grid", fx:"Futures Grid", dca:"DCA Perp"};
 const STRATS = [
-  {k:"fgrid", name:"Futures Grid", def:"gold", hot:true, desc:"Profit from price swings inside a range, with leverage"},
-  {k:"fmart", name:"Futures Martingale", def:"combo", hot:true, desc:"Scale into dips to lower your average entry price"},
-  {k:"sgrid", name:"Spot Grid", def:"grid", hot:false, desc:"Buy low and sell high automatically, 24/7"},
-  {k:"sinf", name:"Spot Infinity Grid", def:"grid", hot:false, desc:"A grid with no upper limit, built for uptrends"},
-  {k:"dca", name:"DCA", def:"dca", hot:false, desc:"Average into a coin at regular intervals with safety orders"},
-  {k:"auto", name:"Auto Trade", href:"#/auto", hot:true, desc:"Let signals place binary trades for you automatically"}
+  {k:"fgrid", g:"perp", name:"Futures Grid", def:"gold", hot:true, desc:"Profit from price swings inside a range, with leverage"},
+  {k:"fmart", g:"perp", name:"Futures Martingale", def:"combo", hot:true, desc:"Scale into dips to lower your average entry price"},
+  {k:"dcap", g:"perp", name:"DCA Perp", def:"dca", hot:false, desc:"Average into a perpetual position at regular intervals with safety orders"},
+  {k:"auto", g:"binary", name:"Auto Trade", href:"#/auto", hot:true, desc:"Let signals place binary trades for you automatically"},
+  {k:"bmart", g:"binary", name:"Binary Martingale", href:"#/auto", preset:{strategy:"reversal", expiry:60}, hot:false, desc:"Counter-trend entries on 60s expiries, sized to recover after a loss"},
+  {k:"trend", g:"binary", name:"Trend Follower", href:"#/auto", preset:{strategy:"trend", expiry:30}, hot:false, desc:"Follows momentum and opens trades in the direction of the trend"}
 ];
 const demoInv = k => { const h = HM.hash(k); return fmt2(1e9 + (h % 4e9) + (h % 100) / 100); };
 const fmt2 = v => v.toLocaleString("en-US", {minimumFractionDigits:2, maximumFractionDigits:2});
@@ -219,7 +220,7 @@ const demoUsers = k => (20000 + HM.hash(k + "u") % 980000).toLocaleString("en-US
 const avs = k => `<span class="bt-avs">${[0,1,2].map(i => `<span>${HM.avatar(k + i, 22)}</span>`).join("")}</span>`;
 
 Pages.bots = (params) => {
-  let view = "bots", tab = "create";
+  let view = "bots", tab = "perp";
   const html = `<div class="bt-page"><header class="bt-head"><button class="icon-btn" data-back aria-label="Go back">${ic("back",22)}</button><h1>Bots</h1><button class="icon-btn" data-dots aria-label="More">${ic("dots",22)}</button></header>
     <section class="bt-sum"><button class="bt-lbl" data-eye>Total Assets (USDT) <span data-ey>${ic(S().settings.hideBal ? "eyeoff" : "eye",15)}</span></button><div class="bt-big num" data-ta></div><div class="bt-pn"><u>Today's PnL</u> <b class="num" data-tp></b></div></section>
     <div id="btBody"></div>
@@ -238,12 +239,9 @@ Pages.bots = (params) => {
       return `<div class="bt-card"><div class="bt-ch"><b>${esc(s.name)}</b>${s.hot ? `<span class="bt-hot">Hot</span>` : ""}</div><p>${esc(s.desc)}</p>
         <div class="bt-ti"><span>Total Investment</span><b class="num">${demoInv(s.k)} USDT</b></div>
         <div class="bt-cf"><div><span>Users</span><div class="bt-us">${avs(s.k)}<b class="num">${demoUsers(s.k)}</b></div></div>${on ? `<span class="bt-run">Running</span>` : `<button class="bt-cb" data-create="${s.k}">Create</button>`}</div></div>`; };
-    const recCard = s => { const d = s.def && defOf(s.def); if (!d) return card(s); const p = M.get(d.pair), on = S().bots[d.id]?.running;
-      return `<div class="bt-card"><div class="bt-ch">${UI.pairIcon(p, 26)}<b>${esc(s.name)}</b><span class="bt-pill ${d.risk === "High" ? "r" : ""}">${d.risk} risk</span></div><p>${esc(d.desc)}</p>
-        <div class="bt-cf"><div><span>Est. APY</span><b class="num up" style="font-size:20px">${esc(d.apy)}</b></div>${on ? `<span class="bt-run">Running</span>` : `<button class="bt-cb" data-create="${s.k}">Create</button>`}</div></div>`; };
     const drawBots = () => {
-      $("#btBody").innerHTML = `<div class="bt-tabs"><button data-t="create" class="${tab === "create" ? "on" : ""}">Create a strategy</button><button data-t="rec" class="${tab === "rec" ? "on" : ""}">Recommended</button></div>
-        <div class="bt-list">${tab === "create" ? STRATS.map(card).join("") : STRATS.filter(s => s.def).sort((a,b) => parseFloat(defOf(b.def).apy.split("–")[1]) - parseFloat(defOf(a.def).apy.split("–")[1])).map(recCard).join("")}</div>
+      $("#btBody").innerHTML = `<div class="bt-tabs"><button data-t="perp" class="${tab === "perp" ? "on" : ""}">Perp</button><button data-t="binary" class="${tab === "binary" ? "on" : ""}">Binary</button></div>
+        <div class="bt-list">${STRATS.filter(s => s.g === tab).map(card).join("")}</div>
         <p class="pm-risk" style="margin-top:12px">Bots are simulated on live prices with demo funds. Past performance does not guarantee future results.</p>`;
     };
     const drawInv = () => {
@@ -273,7 +271,7 @@ Pages.bots = (params) => {
       const cr = e.target.closest("[data-create]");
       if (cr){
         const s = STRATS.find(x => x.k === cr.dataset.create);
-        if (s.href){ location.hash = s.href; return; }
+        if (s.href){ if (s.preset && !S().auto.on){ Object.assign(S().auto, s.preset); store.save(); } location.hash = s.href; return; }
         const d = defOf(s.def), p = M.get(d.pair);
         return U.sheet("Create " + s.name, `<div class="pm-kv" style="padding-top:2px"><span>Strategy</span><b>${esc(s.name)}</b></div><div class="pm-kv"><span>Pair</span><b>${esc(M.label(p || {type:"crypto", base:d.pair}))}</b></div><div class="pm-kv"><span>Risk</span><b>${d.risk}</b></div><div class="pm-kv"><span>Est. APY</span><b class="num up">${esc(d.apy)}</b></div>
           <p class="pm-s" style="margin:6px 0 0">${esc(s.desc)}</p>
@@ -363,34 +361,147 @@ Pages.vip = () => {
   }};
 };
 
+/* ---------- User avatar helper ---------- */
+const initialsAv = (name, size) => `<span style="display:grid;place-items:center;width:${size}px;height:${size}px;border-radius:50%;background:var(--card-2);color:var(--text);font-weight:700;font-size:${Math.round(size * .42)}px">${esc((name || "T")[0].toUpperCase())}</span>`;
+window.UserAvatar = (size = 34) => {
+  const p = S().profile || {};
+  if (p.avatar) return `<img src="${p.avatar}" alt="" width="${size}" height="${size}" style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;display:block">`;
+  return window.HM && HM.avatar ? HM.avatar(p.name || "Trader", size) : initialsAv(p.name, size);
+};
+const sec = () => { const s = S(); s.security = Object.assign({passkey:false, ga:false, email:true, phone:true, fund:false, password:true, trusted:true, phish:"", face:false, applock:false}, s.security || {}); return s.security; };
+const maskEmail = e => { const [u, d] = String(e || "").split("@"); return d ? (u.slice(0, 2) + "***@" + d) : ""; };
+const COUNTRIES = ["India","United States","United Kingdom","Canada","Australia","Singapore","United Arab Emirates","Saudi Arabia","Pakistan","Bangladesh","Sri Lanka","Nepal","Indonesia","Malaysia","Philippines","Vietnam","Thailand","Japan","South Korea","China","Hong Kong","Germany","France","Spain","Italy","Netherlands","Turkey","Brazil","Nigeria","South Africa","Kenya","Russia","Ukraine"];
+const chevR = ic("chev", 16);
+
+/* ---------- Profile edit (BingX "Personal Information") ---------- */
+Pages.profileedit = () => {
+  const row = (label, f, right) => `<button class="pm-row tap pe-row" data-f="${f}"><div class="pm-main"><div class="pm-t">${label}</div></div><span class="pe-v" data-v="${f}">${right}</span><span class="pe-ch">${chevR}</span></button>`;
+  const vals = () => { const p = S().profile; return {
+    avatar: `<span class="pe-av">${UserAvatar(44)}</span>`, name: esc(p.name), gender: esc(p.gender || "Not set"), bio: esc(p.bio ? (p.bio.length > 18 ? p.bio.slice(0, 18) + "…" : p.bio) : "Not set"),
+    country: esc(p.country || "Not set"), email: esc(p.email ? maskEmail(p.email) : "Link now"), ref: esc(p.refBy || "None") }; };
+  const v0 = vals();
+  const html = pwrap("Personal Information", `<input type="file" accept="image/*" id="peFile" hidden>
+    <section class="pm-sec pe-sec">${row("Avatar", "avatar", v0.avatar)}${row("Nickname", "name", v0.name)}${row("Gender", "gender", v0.gender)}${row("Bio / Homepage", "bio", v0.bio)}${row("Location", "country", v0.country)}</section>
+    <section class="pm-sec pe-sec">${row("Link Email", "email", v0.email)}${row("My Referrer", "ref", v0.ref)}</section>
+    <p class="pm-note">Your profile is stored on this device only. Demo account.</p>`, {right:`<span class="icon-btn" aria-hidden="true"></span>`});
+  return {html, title:"Personal Information", mount(r){
+    const $ = q => r.querySelector(q), P = () => S().profile;
+    const refresh = () => { const v = vals(); Object.keys(v).forEach(k => { const el = $(`[data-v="${k}"]`); if (el) el.innerHTML = v[k]; }); };
+    const saved = m => { store.save(); refresh(); toast(m || "Saved", "ok"); };
+    const opts = (title, list, cur, onPick) => U.sheet(title, `<div class="pe-opts">${list.map(x => `<button class="pe-opt ${x === cur ? "on" : ""}" data-o="${esc(x)}"><span>${esc(x)}</span>${x === cur ? ic("check", 18, 2) : ""}</button>`).join("")}</div>`, el => el.querySelectorAll("[data-o]").forEach(b => b.onclick = () => { U.closeLayer(); onPick(b.dataset.o); }));
+    const inputSheet = (title, val, ph, max, check, onSave, multi) => U.sheet(title, `${multi ? `<textarea class="pm-ta" id="peI" maxlength="${max}" placeholder="${esc(ph)}">${esc(val)}</textarea>` : `<input class="pm-in" id="peI" maxlength="${max}" placeholder="${esc(ph)}" value="${esc(val)}" aria-label="${esc(title)}">`}<div class="pm-err" id="peE"></div><button class="btn btn-primary pm-cta" data-sv style="margin-top:12px">Save</button>`, el => {
+      el.querySelector("[data-sv]").onclick = () => { const v = el.querySelector("#peI").value.trim(), e = check(v); if (e){ el.querySelector("#peE").textContent = e; return; } U.closeLayer(); onSave(v); }; });
+    const resize = file => new Promise((ok, no) => { const fr = new FileReader(); fr.onerror = no; fr.onload = () => { const im = new Image(); im.onerror = no; im.onload = () => {
+      const S2 = 256, c = document.createElement("canvas"); c.width = c.height = S2; const x = c.getContext("2d"), m = Math.min(im.width, im.height);
+      x.fillStyle = "#fff"; x.fillRect(0, 0, S2, S2); x.drawImage(im, (im.width - m) / 2, (im.height - m) / 2, m, m, 0, 0, S2, S2); ok(c.toDataURL("image/jpeg", .86)); }; im.src = fr.result; }; fr.readAsDataURL(file); });
+    $("#peFile").onchange = async e => { const f = e.target.files[0]; e.target.value = ""; if (!f) return;
+      try { P().avatar = await resize(f); saved("Photo updated"); } catch { toast("Could not read that image", "bad"); } };
+    r.addEventListener("click", e => { const b = e.target.closest("[data-f]"); if (!b) return; const f = b.dataset.f;
+      if (f === "avatar") return U.sheet("Avatar", `<div style="display:flex;justify-content:center;padding:6px 0 16px">${UserAvatar(96)}</div><button class="btn btn-primary pm-cta" data-up>Choose photo</button>${P().avatar ? `<button class="btn btn-ghost pm-cta" data-rm style="margin-top:10px">Remove photo</button>` : ""}`, el => {
+        el.querySelector("[data-up]").onclick = () => { U.closeLayer(); $("#peFile").click(); };
+        const rm = el.querySelector("[data-rm]"); if (rm) rm.onclick = () => { delete P().avatar; U.closeLayer(); saved("Photo removed"); }; });
+      if (f === "name") return inputSheet("Nickname", P().name, "2-20 characters", 20, v => v.length < 2 || v.length > 20 ? "Nickname must be 2-20 characters." : "", v => { P().name = v; saved("Nickname updated"); });
+      if (f === "gender") return opts("Gender", ["Male", "Female", "Prefer not to say"], P().gender, v => { P().gender = v; saved(); });
+      if (f === "bio") return inputSheet("Bio / Homepage", P().bio || "", "Tell traders about yourself", 120, () => "", v => { P().bio = v; saved(); }, true);
+      if (f === "country") return opts("Location", COUNTRIES, P().country, v => { P().country = v; saved(); });
+      if (f === "email") return inputSheet("Link Email", P().email || "", "name@example.com", 60, v => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v) ? "" : "Enter a valid email address.", v => { P().email = v; sec().email = true; saved("Email linked"); });
+      if (f === "ref") return U.sheet("My Referrer", P().refBy ? `<div class="pm-kv"><span>Referrer code</span><b>${esc(P().refBy)}</b></div>` : `<p class="pm-s" style="font-size:13px;line-height:1.6">You did not sign up with a referral code.</p>`);
+    });
+  }};
+};
+
+/* ---------- Security Center (BingX style) ---------- */
+Pages.security = () => {
+  const ITEMS = [["passkey", "Passkeys", "key", "Sign in with your fingerprint, face or screen lock instead of a password."], ["ga", "Google Authenticator", "shield", "Generate one-time codes for login and withdrawals."], ["email", "Email", "mail", "Receive login alerts and verification codes by email."], ["phone", "Phone Number", "phone", "Receive SMS verification codes."], ["fund", "Fund Password", "lock", "A separate password to authorise withdrawals and transfers."], ["password", "Password", "lock", "The password you use to log in."]];
+  const level = () => { const s = sec(); return Math.min(5, ITEMS.filter(i => s[i[0]]).length); };
+  const lvName = n => n >= 4 ? "High" : n >= 3 ? "Medium" : "Low";
+  const ring = n => { const R = 34, C2 = 2 * Math.PI * R, off = C2 * (1 - n / 5); return `<svg width="84" height="84" viewBox="0 0 84 84" aria-hidden="true"><circle cx="42" cy="42" r="${R}" fill="none" stroke="var(--line)" stroke-width="7"/><circle cx="42" cy="42" r="${R}" fill="none" stroke="${n >= 4 ? "var(--up)" : n >= 3 ? "#F7931A" : "var(--down)"}" stroke-width="7" stroke-linecap="round" stroke-dasharray="${C2.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}" transform="rotate(-90 42 42)"/><text x="42" y="47" text-anchor="middle" font-size="18" font-weight="800" fill="var(--text)" font-family="inherit">${n}/5</text></svg>`; };
+  const st = (on, a = "Enabled", b = "Not set") => `<span class="sc-st ${on ? "on" : ""}">${on ? a : b}</span>`;
+  const trow = (label, f, right, sub) => `<button class="pm-row tap" data-f="${f}"><div class="pm-main"><div class="pm-t">${label}</div>${sub ? `<div class="pm-s">${sub}</div>` : ""}</div>${right}<span class="pe-ch">${chevR}</span></button>`;
+  const srow = (label, f, on, sub) => `<div class="pm-row"><div class="pm-main"><div class="pm-t">${label}</div><div class="pm-s">${sub}</div></div>${swb("sec." + f, on)}</div>`;
+  const draw = () => { const s = sec(), n = level();
+    return `<section class="sc-hero"><div class="sc-ring" data-ring>${ring(n)}</div><div><div class="sc-lv">Security level: <b>${lvName(n)}</b></div><p>Enable more protections to keep your account safe.</p></div></section>
+    ${psec("Security", ITEMS.map(i => trow(i[1], i[0], st(s[i[0]], i[0] === "password" ? "Set" : "Enabled")) ).join(""))}
+    ${psec("Advanced", trow("Trusted Device", "trusted", st(s.trusted, "1 device"), "Devices that skip extra verification") + trow("Anti-Phishing Code", "phish", st(!!s.phish, "Set"), "Shown in every email from us") + srow("Facial recognition", "face", s.face, "Unlock sensitive actions with Face ID") + srow("App Lock", "applock", s.applock, "Require unlock when opening the app"))}
+    ${psec("Account Management", trow("Account activities", "acts", "", "Last login " + U.dateStr(Date.now())) + trow("Lock account", "lock", "") + trow('<span class="pm-danger">Delete account</span>', "del", ""))}`; };
+  return {html: pwrap("Security Center", `<div id="scBody">${draw()}</div><p class="pm-note">Demo only. No real credentials are stored in NovaTrade.</p>`, {right:`<span class="icon-btn" aria-hidden="true"></span>`}), title:"Security Center", mount(r){
+    const body = r.querySelector("#scBody"), redraw = () => { body.innerHTML = draw(); };
+    const setupSheet = k => { const it = ITEMS.find(i => i[0] === k), s = sec(), on = s[k], pw = k === "fund" || k === "password";
+      U.sheet(it[1], `<p class="pm-s" style="font-size:13px;line-height:1.6;margin:0 0 12px">${it[3]}</p>${pw ? `<input class="pm-in" id="scP" type="password" placeholder="${on ? "New " : ""}${k === "fund" ? "fund password" : "password"} (min 6 characters)" autocomplete="off" aria-label="${it[1]}"><div class="pm-err" id="scE"></div>` : ""}
+        <button class="btn btn-primary pm-cta" data-ok style="margin-top:12px">${pw ? (on ? "Change" : "Set") : (on ? "Disable" : "Enable")}</button>`, el => {
+        el.querySelector("[data-ok]").onclick = () => { if (pw){ if (el.querySelector("#scP").value.length < 6){ el.querySelector("#scE").textContent = "Use at least 6 characters."; return; } s[k] = true; } else s[k] = !on;
+          store.save(); U.closeLayer(); redraw(); toast(it[1] + (pw ? " updated" : s[k] ? " enabled" : " disabled"), "ok"); }; }); };
+    r.addEventListener("click", async e => {
+      const sw = e.target.closest("[data-sw]"); if (sw){ const k = sw.dataset.sw.split(".")[1], s = sec(); s[k] = !s[k]; store.save(); sw.classList.toggle("on", s[k]); sw.setAttribute("aria-checked", s[k]); return; }
+      const b = e.target.closest("[data-f]"); if (!b) return; const f = b.dataset.f, s = sec();
+      if (ITEMS.some(i => i[0] === f)) return setupSheet(f);
+      if (f === "trusted") return U.sheet("Trusted Device", `<div class="pm-row"><div class="pm-main"><div class="pm-t">This device</div><div class="pm-s">Browser · active now</div></div><b class="pm-s">Current</b></div><div class="pm-row"><div class="pm-main"><div class="pm-t">Trust this device</div><div class="pm-s">Skip extra verification here</div></div>${swb("trusted", s.trusted)}</div>`, el => { const w = el.querySelector("[data-sw]"); w.onclick = () => { s.trusted = !s.trusted; store.save(); w.classList.toggle("on", s.trusted); w.setAttribute("aria-checked", s.trusted); redraw(); }; });
+      if (f === "phish") return U.sheet("Anti-Phishing Code", `<p class="pm-s" style="font-size:13px;line-height:1.6;margin:0 0 12px">This code appears in every email we send, so you can spot fakes.</p><input class="pm-in" id="scA" maxlength="20" value="${esc(s.phish)}" placeholder="4-20 letters or numbers" aria-label="Anti-phishing code"><div class="pm-err" id="scE"></div><button class="btn btn-primary pm-cta" data-ok style="margin-top:12px">Save</button>`, el => { el.querySelector("[data-ok]").onclick = () => { const v = el.querySelector("#scA").value.trim(); if (!/^[A-Za-z0-9]{4,20}$/.test(v)){ el.querySelector("#scE").textContent = "Use 4-20 letters or numbers."; return; } s.phish = v; store.save(); U.closeLayer(); redraw(); toast("Anti-phishing code saved", "ok"); }; });
+      if (f === "acts") { const now = Date.now(); return U.sheet("Account activities", [["Login", "This device", now], ["Trade placed", "This device", now - 36e5 * 3], ["Login", "This device", now - 864e5]].map(([a, d, t]) => `<div class="pm-row"><div class="pm-main"><div class="pm-t">${a}</div><div class="pm-s">${d}</div></div><span class="pm-s">${U.dateStr(t)}</span></div>`).join("")); }
+      if (f === "lock" && await U.confirmBox("Lock account?", "You will be signed out and trading is disabled until you unlock.", "Lock account", true)) toast("Demo account", "info");
+      if (f === "del" && await U.confirmBox("Delete account?", "All data and funds are permanently removed.", "Delete account", true)) toast("Demo account", "info");
+    });
+  }};
+};
+
 /* ---------- Referral (BingX style) ---------- */
 Pages.referral = () => {
-  const p = S().profile, link = location.origin + location.pathname + "#/home?ref=" + p.ref;
+  const p = S().profile, link = location.origin + location.pathname + "#/referral?ref=" + p.ref;
+  const short = u => { const x = u.replace(/^https?:\/\//, ""), h = x.split("/")[0]; return x.length > 30 ? h + "/…?ref=" + p.ref : x; };
   const invited = Array.isArray(p.invited) ? p.invited : [], n = invited.length, earned = invited.reduce((a, x) => a + (x.reward || 0), 0);
-  const TIERS = [["Bronze", 0, 4, 20], ["Silver", 5, 19, 25], ["Gold", 20, 49, 30], ["Diamond", 50, 1e9, 40]];
+  const TIERS = [["Bronze", 0, 4, 10], ["Silver", 5, 19, 20], ["Gold", 20, 49, 30], ["Diamond", 50, 1e9, 50]];
   const tier = TIERS.find(x => n >= x[1] && n <= x[2]) || TIERS[0];
   const sv = d => `<svg width="40" height="40" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
   const steps = [
     [sv('<circle cx="12" cy="20" r="4"/><circle cx="29" cy="11" r="4"/><circle cx="29" cy="29" r="4"/><path d="M15.5 18l10-5M15.5 22l10 5"/>'), "Share your link", "Send your invite link or code to friends."],
     [sv('<circle cx="20" cy="14" r="6"/><path d="M8 33c1-7 6-10 12-10s11 3 12 10"/><path d="M30 6v6M27 9h6"/>'), "Friend signs up", "They join NovaTrade with your invite code and get a 100 USDT demo bonus."],
     [sv('<circle cx="20" cy="20" r="13"/><path d="M20 12v16M24 15.5c-1-1.2-2.600-1.700-4-1.700-2.500 0-4 1.200-4 2.900 0 4.200 8.200 2 8.200 6.400 0 1.700-1.700 3-4.200 3-1.700 0-3.400-.6-4.400-1.800"/>'), "Earn commission", "Receive a share of their trading fees, credited instantly."]];
-  const art = `<svg class="rf-art" width="96" height="84" viewBox="0 0 96 84" aria-hidden="true"><defs><linearGradient id="rfg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#cfd6e4"/><stop offset="1" stop-color="#7d8aa3"/></linearGradient><linearGradient id="rfb" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5b8dff"/><stop offset="1" stop-color="#1f4fd6"/></linearGradient></defs>
-    <rect x="14" y="30" width="68" height="44" rx="8" fill="url(#rfg)"/><rect x="14" y="30" width="68" height="14" rx="6" fill="url(#rfb)"/><rect x="44" y="30" width="8" height="44" fill="#fff" opacity=".8"/>
-    <path d="M48 30c-8-14-22-12-18-5 3 5 12 5 18 5zM48 30c8-14 22-12 18-5-3 5-12 5-18 5z" fill="url(#rfb)"/><circle cx="82" cy="18" r="9" fill="url(#rfb)"/><path d="M82 13v10M78.500 16c0-1.500 1.500-2.200 3.500-2.200s3.500.8 3.500 2.200c0 3-7 1.500-7 4.500 0 1.400 1.500 2.200 3.500 2.200s3.500-.8 3.500-2.200" fill="none" stroke="#fff" stroke-width="1.500" stroke-linecap="round"/></svg>`;
+  const art = `<svg class="rf-art" viewBox="0 0 150 150" aria-hidden="true"><defs>
+    <radialGradient id="rs1" cx=".32" cy=".28" r=".8"><stop offset="0" stop-color="#f4f7fb"/><stop offset=".5" stop-color="#a9b7cc"/><stop offset="1" stop-color="#4b5a73"/></radialGradient>
+    <radialGradient id="rs2" cx=".3" cy=".25" r=".85"><stop offset="0" stop-color="#e3ecff"/><stop offset=".55" stop-color="#7f9bc9"/><stop offset="1" stop-color="#33456b"/></radialGradient>
+    <radialGradient id="rs3" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#ffffff" stop-opacity=".95"/><stop offset=".6" stop-color="#b7c4d8" stop-opacity=".7"/><stop offset="1" stop-color="#6b7b96" stop-opacity=".6"/></radialGradient>
+    <linearGradient id="rd1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#cfd9e8"/><stop offset=".5" stop-color="#7c8ca6"/><stop offset="1" stop-color="#3a475e"/></linearGradient>
+    <linearGradient id="rd2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e8eef8"/><stop offset="1" stop-color="#8d9db7"/></linearGradient>
+    <radialGradient id="rsh"><stop offset="0" stop-color="#000" stop-opacity=".35"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient></defs>
+    <ellipse cx="78" cy="132" rx="52" ry="9" fill="url(#rsh)"/>
+    <ellipse cx="78" cy="108" rx="50" ry="15" fill="url(#rd1)"/><ellipse cx="78" cy="102" rx="50" ry="15" fill="url(#rd2)"/><ellipse cx="78" cy="102" rx="38" ry="10" fill="none" stroke="#fff" stroke-opacity=".5"/>
+    <circle cx="62" cy="62" r="34" fill="url(#rs1)"/><ellipse cx="52" cy="48" rx="12" ry="7" fill="#fff" opacity=".45" transform="rotate(-30 52 48)"/>
+    <circle cx="112" cy="46" r="20" fill="url(#rs2)"/><ellipse cx="106" cy="38" rx="7" ry="4" fill="#fff" opacity=".5" transform="rotate(-30 106 38)"/>
+    <circle cx="112" cy="88" r="13" fill="url(#rs3)" stroke="#fff" stroke-opacity=".5"/><circle cx="26" cy="96" r="8" fill="url(#rs3)" stroke="#fff" stroke-opacity=".4"/></svg>`;
+  const shareTxt = "Trade on live markets with NovaTrade. Use my code " + p.ref + " " + link;
+  const ico = {
+    contacts: ic("users", 22, 1.7), more: ic("dots", 22, 1.7), qr: ic("qr", 22, 1.7),
+    x: `<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.8 3h3.1l-6.8 7.7L22 21h-6.2l-4.9-6.3L5.300 21H2.200l7.300-8.300L2 3h6.300l4.400 5.800zm-1.100 16.200h1.700L7.400 4.700H5.600z"/></svg>`,
+    tg: `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M21 4 3 11l5.500 2L10 19l3-3.500 4.500 3.300z"/><path d="m8.500 13 8-6"/></svg>`};
+  const sh = (k, label, i) => `<button class="rf-sb" data-sh="${k}"><span>${i}</span><em>${label}</em></button>`;
   const html = pwrap("Refer and Earn", `
-    <section class="rf-hero">${art}<h2>Invite friends, earn up to 40%</h2><p>Earn a commission on every trade your friends make.</p>
-      <div class="rf-code"><div><span>My invite code</span><b>${esc(p.ref)}</b></div><button data-cc>Copy</button></div></section>
-    <section class="pm-sec"><h3 class="pm-st">Invite link</h3><div class="pm-pad"><div class="pm-copy"><code>${esc(link)}</code><button data-cl>Copy</button></div>
-      <button class="btn btn-primary pm-cta" data-share style="margin-top:12px">${ic("share", 16)} Share invite</button></div></section>
+    <section class="rf-dark"><div class="rf-top"><div class="rf-tx"><h2>Refer Friends, Earn Up to <i>50%</i> Commission</h2>
+      <button class="rf-mng" data-mng>Referral Code Management ${ic("chev", 14)}</button></div>${art}</div>
+      <div class="rf-glass">
+        <div class="rf-gr"><span>My Commission</span><b>${tier[3]}%</b><button class="rf-up" data-up>Upgrade</button></div>
+        <div class="rf-gr"><span>Referral Code</span><b class="rf-mono">${esc(p.ref)}</b><button class="rf-ci" data-cc aria-label="Copy referral code">${ic("copy", 16)}</button></div>
+        <div class="rf-gr"><span>Referral Link</span><b class="rf-lk">${esc(short(link))}</b><button class="rf-ci" data-cl aria-label="Copy referral link">${ic("copy", 16)}</button></div>
+        <div class="rf-shr">${sh("contacts", "Contacts", ico.contacts)}${sh("x", "X", ico.x)}${sh("tg", "Telegram", ico.tg)}${sh("qr", "QR Code", ico.qr)}${sh("more", "More", ico.more)}</div>
+      </div></section>
     <div class="pm-stats">${pstat("Friends invited", n)}${pstat("Rewards earned", fmt(earned, 2) + " USDT")}${pstat("Your tier", tier[0])}${pstat("Commission rate", tier[3] + "%")}</div>
     ${psec("How it works", steps.map(([i, a, b], k) => `<div class="rf-step">${i}<div class="pm-main"><div class="pm-t">${k + 1}. ${a}</div><div class="pm-s">${b}</div></div></div>`).join(""))}
-    ${psec("Commission tiers", `<table class="pm-tbl"><thead><tr><th>Tier</th><th>Friends</th><th>Commission</th></tr></thead><tbody>${TIERS.map(x => `<tr class="${x === tier ? "rf-tier-on" : ""}"><td>${x[0]}${x === tier ? ' <span class="pm-pill g">You</span>' : ""}</td><td>${x[2] > 1e8 ? x[1] + "+" : x[1] + "-" + x[2]}</td><td>${x[3]}%</td></tr>`).join("")}</tbody></table>`)}
     ${psec("Invite history", n ? invited.slice(0, 30).map(x => prow(esc(x.name || "Friend"), fdate(x.t || Date.now()), `<b class="num up">+${fmt(x.reward || 0, 2)}</b>`)).join("") : `<div class="rf-hist">${pemp("No invites yet", "Friends who join with your code will show up here.")}</div>`)}
-    ${psec("FAQ", faq([["Who can I invite?", "Anyone. Share your link on any app or chat."], ["When are rewards paid?", "Commissions are credited instantly when a referred friend trades."], ["How do I move up a tier?", "Invite more friends. Your tier and commission rate rise automatically."], ["Is there a limit?", "No limit on the number of friends you can invite."], ["Is this real money?", "No. NovaTrade is a demo platform, rewards are virtual USDT."]]))}`);
+    ${psec("FAQ", faq([["Who can I invite?", "Anyone. Share your link on any app or chat."], ["When are rewards paid?", "Commissions are credited instantly when a referred friend trades."], ["How do I move up a tier?", "Invite more friends. Your tier and commission rate rise automatically."], ["Is there a limit?", "No limit on the number of friends you can invite."], ["Is this real money?", "No. NovaTrade is a demo platform, rewards are virtual USDT."]]))}`, {right:`<span class="icon-btn" aria-hidden="true"></span>`});
   return {html, title:"Referral", mount(r){
-    r.querySelector("[data-cc]").onclick = () => U.copyText(p.ref, "Invite code copied");
-    r.querySelector("[data-cl]").onclick = () => U.copyText(link, "Invite link copied");
-    r.querySelector("[data-share]").onclick = () => navigator.share ? navigator.share({title:C.APP_NAME, text:"Trade on live markets with NovaTrade. Use my code " + p.ref, url:link}).catch(() => {}) : U.copyText(link, "Invite link copied");
+    const $ = q => r.querySelector(q);
+    const nativeShare = () => navigator.share ? navigator.share({title:C.APP_NAME, text:"Trade on live markets with NovaTrade. Use my code " + p.ref, url:link}).catch(() => {}) : U.copyText(link, "Invite link copied");
+    const qrSvg = () => { try { if (typeof window.qrcode !== "function") return ""; const q = window.qrcode(0, "M"); q.addData(link); q.make(); const c = q.getModuleCount(); let d = "";
+      for (let y = 0; y < c; y++) for (let x = 0; x < c; x++) if (q.isDark(y, x)) d += `M${x + 2} ${y + 2}h1v1h-1z`;
+      return `<svg viewBox="0 0 ${c + 4} ${c + 4}" width="220" height="220" shape-rendering="crispEdges" role="img" aria-label="Referral QR code"><rect width="100%" height="100%" fill="#fff"/><path d="${d}" fill="#111"/></svg>`; } catch { return ""; } };
+    $("[data-cc]").onclick = () => U.copyText(p.ref, "Referral code copied");
+    $("[data-cl]").onclick = () => U.copyText(link, "Referral link copied");
+    $("[data-mng]").onclick = () => U.sheet("Referral Code Management", `<div class="pm-row"><div class="pm-main"><div class="pm-t rf-mono">${esc(p.ref)}</div><div class="pm-s">Default code · ${tier[3]}% commission</div></div><button class="pm-btn" data-c>Copy</button></div><p class="pm-s" style="margin-top:10px">Additional codes are not available in the demo.</p>`, el => el.querySelector("[data-c]").onclick = () => U.copyText(p.ref, "Referral code copied"));
+    $("[data-up]").onclick = () => U.sheet("Commission tiers", `<table class="pm-tbl"><thead><tr><th>Tier</th><th>Friends</th><th>Commission</th></tr></thead><tbody>${TIERS.map(x => `<tr class="${x === tier ? "rf-tier-on" : ""}"><td>${x[0]}${x === tier ? ' <span class="pm-pill g">You</span>' : ""}</td><td>${x[2] > 1e8 ? x[1] + "+" : x[1] + "-" + x[2]}</td><td>${x[3]}%</td></tr>`).join("")}</tbody></table><p class="pm-s" style="margin-top:10px">You have invited ${n} friend${n === 1 ? "" : "s"}. Invite more to move up a tier automatically.</p>`);
+    r.querySelectorAll("[data-sh]").forEach(b => b.onclick = () => { const k = b.dataset.sh;
+      if (k === "contacts" || k === "more") return nativeShare();
+      if (k === "x") return window.open("https://twitter.com/intent/tweet?text=" + encodeURIComponent("Trade on live markets with NovaTrade. Use my code " + p.ref) + "&url=" + encodeURIComponent(link), "_blank", "noopener");
+      if (k === "tg") return window.open("https://t.me/share/url?url=" + encodeURIComponent(link) + "&text=" + encodeURIComponent("Trade on live markets with NovaTrade. Use my code " + p.ref), "_blank", "noopener");
+      if (k === "qr") { const q = qrSvg(); U.sheet("QR Code", `<div class="rf-qr">${q || '<p class="pm-s">QR code is not available.</p>'}</div><p class="pm-s" style="text-align:center">Scan to open your invite link</p><button class="btn btn-primary pm-cta" data-c style="margin-top:12px">Copy link</button>`, el => el.querySelector("[data-c]").onclick = () => U.copyText(link, "Referral link copied")); } });
   }};
 };
 Pages.invite = Pages.referral; Pages.refer = Pages.referral;
@@ -403,7 +514,7 @@ Pages.profile = () => {
   const dark = () => document.documentElement.dataset.theme === "dark";
   const G = items => `<div class="pf-grid">${items.map(([i, n, h]) => `<a class="pf-gi" href="${h}">${ic(i, 24, 1.6)}<span>${n}</span></a>`).join("")}</div>`;
   const html = `<div class="pf-page"><header class="pf-top"><button class="pf-circ" data-back aria-label="Go back">${ic("back",20)}</button><span class="grow"></span><button class="pf-ib" data-scan aria-label="Scan">${scan}</button><button class="pf-ib" data-th aria-label="Toggle theme"></button><a class="pf-ib" href="#/settings" aria-label="Settings">${ic("gear",22,1.7)}</a></header>
-    <section class="pf-id"><span class="pf-av" id="pa"></span><div class="grow" style="min-width:0"><div class="row" style="gap:8px;flex-wrap:nowrap"><button class="pf-nm ellipsis" id="pn" data-edit></button><button class="pf-lv" data-lv>Regular user ${ic("chev",12)}</button></div>
+    <section class="pf-id"><a class="pf-av" id="pa" href="#/profileedit" aria-label="Edit profile"></a><div class="grow" style="min-width:0"><div class="row" style="gap:8px;flex-wrap:nowrap"><button class="pf-nm ellipsis" id="pn" data-edit></button><button class="pf-lv" data-lv>Regular user ${ic("chev",12)}</button></div>
       <div class="row" style="gap:8px;margin-top:6px"><button class="pf-uid" data-uid>UID:<span id="pu"></span> ${ic("copy",13)}</button><span class="pf-main">Main Account</span></div></div></section>
     <div class="pf-tiles">${tile("share","Refer",'href="#/referral"')}${tile("gift","Vouchers",'data-vou')}${tile("cal","Events",'href="#/rewards"')}</div>
     <h3 class="pf-h">Trade</h3>
@@ -411,13 +522,13 @@ Pages.profile = () => {
     <h3 class="pf-h">Earn &amp; Rewards</h3>
     ${G([["earn","Earn","#/earn"],["wallet","Assets","#/assets"],["pie","PnL Analysis","#/pnl"],["trophy","Rewards Hub","#/rewards"],["share","Referral","#/referral"],["crown","VIP Signals","#/vip"],["ring","Price Alerts","#/alerts"],["book","Academy","#/academy"]])}
     <h3 class="pf-h">Account</h3>
-    <section class="pf-list">${L("shield","Verification",'<span class="pf-ok">Verified</span>',"data-ver")}${L("lock","Security Center","","data-sec")}${L("history","Trade History","",'href="#/history"')}${L("gear","Settings & Preferences","",'href="#/settings"')}${L("grid","Practical Functions","","data-prac")}</section>
+    <section class="pf-list">${L("shield","Verification",'<span class="pf-ok">Verified</span>',"data-ver")}${L("lock","Security Center","",'href="#/security"')}${L("history","Trade History","",'href="#/history"')}${L("gear","Settings & Preferences","",'href="#/settings"')}${L("grid","Practical Functions","","data-prac")}</section>
     <h3 class="pf-h">Help</h3>
     <section class="pf-list">${L("headset","Support","",'href="#/support"')}${L("users","Community","",'href="#/community"')}${L("chat","Feedback","","data-fb")}${L("info","About NovaTrade","",'href="#/about"')}</section>
     <button class="pf-sw" data-switch>Switch Account</button></div>`;
   return {html, title:"Profile", mount(r){
     const $ = q => r.querySelector(q);
-    const render = () => { const p = S().profile; $("#pa").innerHTML = HM.avatar(p.name, 64); $("#pn").textContent = p.name; $("#pu").textContent = p.uid; };
+    const render = () => { const p = S().profile; $("#pa").innerHTML = UserAvatar(64); $("#pn").textContent = p.name; $("#pu").textContent = p.uid; };
     const syncTh = () => { $("[data-th]").innerHTML = ic(dark() ? "sun" : "moon", 22, 1.7); };
     render(); syncTh();
     $("[data-th]").onclick = () => { App.setTheme(dark() ? "light" : "dark"); syncTh(); };
@@ -425,12 +536,9 @@ Pages.profile = () => {
     $("[data-uid]").onclick = () => U.copyText(S().profile.uid, "UID copied");
     $("[data-switch]").onclick = () => toast("Demo account", "info");
     $("[data-lv]").onclick = () => { const lv = E.level(); U.sheet("Account level", `<div class="pm-kv"><span>Level</span><b>Lv.${lv.lvl}</b></div><div class="pm-kv"><span>XP to next level</span><b class="num">${Math.max(0, lv.need - lv.cur)}</b></div><div class="pm-bar"><i style="width:${Math.min(100, lv.cur / lv.need * 100)}%"></i></div><p class="pm-s" style="margin-top:12px">Trade, complete tasks and check in daily to level up.</p>`); };
-    $("[data-edit]").onclick = () => U.sheet("Edit nickname", `<input class="pm-in" id="nn" maxlength="20" value="${esc(S().profile.name)}" aria-label="Nickname"><div class="pm-err" id="nne"></div><button class="btn btn-primary pm-cta" data-sv>Save</button>`, el => {
-      el.querySelector("[data-sv]").onclick = () => { const v = el.querySelector("#nn").value.trim(); if (v.length < 2){ el.querySelector("#nne").textContent = "Nickname must be at least 2 characters."; return; } S().profile.name = v; store.save(); U.closeLayer(); render(); toast("Nickname updated", "ok"); };
-    });
+    $("[data-edit]").onclick = () => { location.hash = "#/profileedit"; };
     $("[data-vou]").onclick = () => U.sheet("Vouchers", [["Trading fee coupon","5 USDT","Valid for 30 days"],["Futures bonus voucher","20 USDT","Valid for 14 days"]].map(([n,v,e]) => `<div class="pf-vou"><div><b>${n}</b><span>${e}</span></div><b class="num">${v}</b></div>`).join("") + `<p class="pm-s" style="margin-top:10px">Demo vouchers. They cannot be redeemed.</p>`);
     $("[data-ver]").onclick = () => U.sheet("Verification", `<div class="pm-kv" style="padding-top:2px"><span>Identity (KYC)</span><b class="up">Verified</b></div><div class="pm-kv"><span>Address proof</span><b class="up">Verified</b></div><div class="pm-kv"><span>Withdrawal limit</span><b>Unlimited (demo)</b></div>`);
-    $("[data-sec]").onclick = () => U.sheet("Security Center", `<div class="pm-kv" style="padding-top:2px"><span>Two-factor authentication</span><b class="up">Enabled</b></div><div class="pm-kv"><span>Anti-phishing code</span><b>Not set</b></div><div class="pm-kv"><span>Login password</span><b>Last changed 30 days ago</b></div><p class="pm-s" style="margin-top:10px">Demo only. No real credentials are stored in NovaTrade.</p>`);
     $("[data-fb]").onclick = () => U.sheet("Feedback", `<textarea class="pm-ta" id="fbt" placeholder="Tell us what to improve" aria-label="Feedback"></textarea><div class="pm-err" id="fbe"></div><button class="btn btn-primary pm-cta" data-sv>Submit</button>`, el => {
       el.querySelector("[data-sv]").onclick = () => { if (el.querySelector("#fbt").value.trim().length < 3){ el.querySelector("#fbe").textContent = "Please write a few words."; return; } U.closeLayer(); toast("Thanks for your feedback", "ok"); };
     });
@@ -473,7 +581,7 @@ Pages.settings = () => {
     ${psec("Data",
       `<button class="pm-row tap" data-reset><span class="pm-main"><span class="pm-t pm-danger">Reset demo account</span><span class="pm-s" style="display:block">Balance back to ${money(C.START_BALANCE)} USDT, positions and history cleared. Settings are kept.</span></span><span class="chev">${ic("chev", 16)}</span></button>
        <button class="pm-row tap" data-wipe><span class="pm-main"><span class="pm-t pm-danger">Clear all app data</span><span class="pm-s" style="display:block">Delete everything stored on this device, including settings.</span></span><span class="chev">${ic("chev", 16)}</span></button>`)}
-    <div class="pm-foot">Version 5.2 · ${esc(C.APP_NAME)}</div>`);
+    <div class="pm-foot">Version 5.2 · ${esc(C.APP_NAME)}</div>`, {right:`<span class="icon-btn" aria-hidden="true"></span>`});
   return {html, title:"Settings", mount(r){
     const st = () => S().settings, saved = () => { store.save(); toast("Saved", "ok", 1000); };
     const seg = (attr, fn) => r.querySelectorAll(`[${attr}]`).forEach(b => b.onclick = () => { fn(b.getAttribute(attr)); r.querySelectorAll(`[${attr}]`).forEach(x => x.classList.toggle("on", x === b)); saved(); });

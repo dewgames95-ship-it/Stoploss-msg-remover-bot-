@@ -1290,3 +1290,71 @@ html[data-theme="light"] .cbox{background:rgba(255,255,255,.96);color:#111;borde
 .qt-cost{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:92px;height:44px;border-radius:999px;background:var(--input);line-height:1.1}
 .qt-cost b{font-size:14px}.qt-cost small{font-size:10.5px;color:var(--muted)}
 .qt-top .oc button.on[data-sd="long"]{background:var(--up);color:#fff}.qt-top .oc button.on[data-sd="short"]{background:var(--down);color:#fff}
+
+/* binary bet panel */
+.bin-page [data-ctype]{display:none}
+.bx2{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:8px;margin-bottom:8px}
+.bx-bet,.bx-pay{border-radius:14px;padding:8px;background:linear-gradient(180deg,var(--card-2),var(--input));border:1px solid var(--line)}
+html[data-theme="dark"] .bx-bet,html[data-theme="dark"] .bx-pay{border-color:rgba(255,255,255,.08);box-shadow:inset 0 1px 0 rgba(255,255,255,.05)}
+.bb-top{display:flex;align-items:center;gap:6px}
+.bb-top .bx-step{width:30px;height:30px;border-radius:9px;background:var(--hover)}
+.bb-in{flex:1;min-width:0;text-align:center;line-height:1.1}
+.bb-in small{display:block;font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.bb-v{display:flex;align-items:baseline;justify-content:center;gap:3px}
+.bb-v input{width:100%;min-width:0;max-width:90px;border:0;background:transparent;outline:0;text-align:right;font-size:17px;font-weight:800;color:var(--up);font-variant-numeric:tabular-nums}
+.bb-v em{font-style:normal;font-size:11px;font-weight:700;color:var(--up)}
+.bb-max{height:30px;padding:0 9px;border-radius:9px;font-size:11px;font-weight:800;color:var(--amber);border:1px solid rgba(232,155,12,.55)}
+.bb-chips{display:grid;grid-template-columns:repeat(8,1fr);gap:4px;margin-top:7px}
+.bb-chips button{height:24px;border-radius:7px;font-size:11px;font-weight:700;background:var(--hover);color:var(--text-2)}
+.bb-chips button.on{background:var(--brand);color:#fff}
+.bx-pay{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+.bx-pay small{font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:700}
+.bx-pay b{font-size:19px;font-weight:800;color:var(--up);margin:2px 0}
+.bx-pay .pp{font-size:10.5px;font-weight:700;color:var(--up);background:var(--up-bg);padding:1px 7px;border-radius:999px}
+.bin-page .bx-time{height:44px;margin-bottom:8px}
+.bx-time .exp-chip{display:flex;flex-direction:column;gap:0;line-height:1.1}
+.bx-time .exp-chip small{font-size:9.5px;color:var(--up);font-weight:700}
+
+/* v5.8 futures: chart on top, form, positions, then order book */
+.fx-page{display:flex;flex-direction:column}
+.fx-page>.tabs{order:1}.fx-page>.fx-head{order:2}.fx-page>.fx-chartbox{order:3}
+.fx-page>.fx-grid{display:contents}
+.fx-page>.fx-grid>div:first-child{order:4;margin-top:10px}
+.fx-page>.ptabs{order:5}.fx-page>.ptools{order:6}.fx-page>#plist{order:7}
+.fx-page>.fx-grid>.fbook{order:8;margin-top:18px;padding-top:12px;border-top:1px solid var(--line)}
+.fx-page>.fx-grid>.fbook::before{content:"Order Book";display:block;font-size:15px;font-weight:700;margin-bottom:8px;color:var(--text)}
+.fx-chartbox{margin:0 -16px}
+.fx-chartbox .tfbar{margin:0;border-top:1px solid var(--line)}
+.fx-chartbox .cp-chart{margin:0}
+.fx-chartbox .cp-chart .chart-wrap{height:clamp(230px,36vh,340px);min-height:0;max-height:none}
+.fx-chartbox .legend{display:none}
+#openBox{display:grid;grid-template-columns:1fr 1fr;column-gap:8px}
+#openBox>*{grid-column:1/-1}
+#openBox>.fbtn2{grid-column:auto;margin-top:8px!important}
+.fx-page .fkv u,.fx-page .pc-g u,.fx-page .pc-big u,.fund u{text-decoration:underline dotted;text-underline-offset:3px;cursor:pointer}
+.fund{cursor:pointer}
+.tsm{font-size:12px;font-weight:600;color:var(--text-2);padding:4px 8px;border-radius:8px;background:var(--input)}
+.tsh{font-size:11.5px;color:var(--muted);line-height:1.6;margin:-2px 0 6px}
+.tsh:empty{display:none}
+.dslider .th.bub::after{content:attr(data-v);position:absolute;left:50%;bottom:22px;transform:translateX(-50%) rotate(-45deg);background:var(--hover);color:var(--text);font-size:11px;font-weight:700;padding:2px 6px;border-radius:6px;white-space:nowrap;pointer-events:none}
+.dslider .th{transform:translateX(-50%) rotate(45deg)}
+.info-p{font-size:13.5px;line-height:1.6;color:var(--text-2);margin:4px 0}
+/* subtle top-lit gradient on primary surfaces */
+html[data-theme="dark"] .pc,html[data-theme="dark"] .fx-page>.fx-grid>div:first-child{background:linear-gradient(180deg,rgba(255,255,255,.025),rgba(255,255,255,0) 60%)}
+
+.dslider .th{transform:translateX(-50%)!important}
+.dslider .th.bub::after{transform:translateX(-50%)}
+/* BingX chart page: pill tabs, interval "More", ask/bid tags */
+.cp-tabs{gap:8px;border:0;padding-top:6px;padding-bottom:6px}
+.cp-tabs button{padding:6px 16px;border-radius:999px;border:1px solid var(--line-2);font-size:13.5px}
+.cp-tabs button.on{background:var(--card-2);border-color:var(--card-2);color:var(--text);font-weight:700}
+.cp-tabs button.on::after{display:none}
+.tf-more{display:inline-flex;align-items:center;gap:2px}
+.tf-more.on{color:var(--text);background:var(--input);font-weight:700}
+.tf-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding-bottom:6px}
+.tf-grid button{height:40px;border-radius:10px;background:var(--input);font-weight:600}
+.tf-grid button.on{background:var(--text);color:var(--bg)}
+.abtag{position:absolute;right:66px;transform:translateY(-50%);display:flex;flex-direction:column;gap:1px;pointer-events:none}
+.abtag span{font-size:9.5px;font-weight:700;padding:1px 5px;border-radius:3px;color:#fff;white-space:nowrap}
+.abtag .a{background:var(--down)}.abtag .b{background:var(--up)}
+.pplus{right:auto;left:8px}

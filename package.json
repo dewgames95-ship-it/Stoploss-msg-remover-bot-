@@ -1,0 +1,8 @@
+{
+  "name": "novatrade-tests",
+  "private": true,
+  "scripts": {
+    "test": "node tests/smoke.js",
+    "test:shots": "node tests/smoke.js --shots"
+  }
+}

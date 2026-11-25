@@ -3,6 +3,14 @@
 const C = window.CONFIG, {store, bus, toast, fmt, money, signed, uid} = U;
 const S = () => store.s;
 const RATIO = 1 + C.PAYOUT;
+/* Per-pair, per-expiry payout like real binary brokers: 80%–95%. Majors pay more, longer expiries pay slightly more. */
+function payoutOf(sym, expiry=30){
+  const p = M.get(sym); if (!p) return C.PAYOUT;
+  let h = 0; for (const c of sym) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  const base = ["BTCUSDT","ETHUSDT","XAUUSD","EURUSD"].includes(sym) ? 0.92 : p.type === "crypto" && (p.rank || 99) <= 10 ? 0.90 : p.type === "forex" || p.type === "metal" ? 0.88 : 0.82 + (h % 7) / 100;
+  const bonus = expiry >= 300 ? 0.03 : expiry >= 60 ? 0.015 : 0;
+  return Math.min(0.95, Math.max(0.80, Math.round((base + bonus) * 100) / 100));
+}
 
 function validate(sym, amount){
   const p = M.get(sym);
@@ -11,7 +19,7 @@ function validate(sym, amount){
   if (p.closed) return "Market closed for " + M.label(p) + ". Trading resumes when the market opens.";
   if (M.isStale(p)) return "Market data offline. Reconnecting… please try again in a moment.";
   if (!(amount > 0) || isNaN(amount)) return "Enter a valid amount.";
-  if (amount < 1) return "Minimum trade amount is 1 USDT.";
+  if (amount < 0.1) return "Minimum trade amount is 0.1 USDT.";
   if (amount > 50000) return "Maximum trade amount is 50,000 USDT.";
   if (amount > S().balance) return "Insufficient balance. Add funds from Deposit.";
   if (S().positions.length >= C.MAX_OPEN) return `Maximum ${C.MAX_OPEN} open positions reached.`;
@@ -23,7 +31,7 @@ function place(sym, dir, amount, expiry, source="manual"){
   const err = validate(sym, amount);
   if (err) return {err};
   const p = M.get(sym), now = Date.now();
-  const pos = {id:uid(), sym, dir, amount, entry:p.price, open:now, exp:now + expiry*1000, expiry, payout:C.PAYOUT, source};
+  const pos = {id:uid(), sym, dir, amount, entry:p.price, open:now, exp:now + expiry*1000, expiry, payout:payoutOf(sym, expiry), source};
   S().positions.push(pos);
   store.setBalance(S().balance - amount, "trade");
   bus.emit("positions"); bus.emit("placed", pos);
@@ -49,12 +57,12 @@ function settle(pos){
   else {
     const diff = exit - pos.entry;
     if (diff === 0){ result = "draw"; credit = pos.amount; }
-    else if ((pos.dir === "up") === (diff > 0)){ result = "win"; credit = Math.round(pos.amount * RATIO * 100) / 100; }
+    else if ((pos.dir === "up") === (diff > 0)){ result = "win"; credit = Math.round(pos.amount * (1 + (pos.payout ?? C.PAYOUT)) * 100) / 100; }
     else result = "loss";
   }
   const profit = Math.round((credit - pos.amount) * 100) / 100;
   S().positions = S().positions.filter(x => x.id !== pos.id);
-  const rec = Object.assign({}, pos, {exit, result, profit, closed: now});
+  const rec = Object.assign({}, pos, {exit, result, profit, credit, closed: now});
   S().history.unshift(rec); S().history = S().history.slice(0, 500);
   store.setBalance(S().balance + credit, "settle");
   const lbl = M.label(p || {type:"crypto", base:pos.sym});
@@ -396,5 +404,5 @@ function vaultMove(amount, dir){
   store.save(); bus.emit("vault"); return null;
 }
 
-window.E = {earnValue, setPosLev, refreshLiq, liqPrice, maxLev, futValidate, openFut, futPnl, closeFut, cancelOrder, setTpSl, TASKS, BADGES, award, taskDone, claim, streak, checkIn, CHECKIN, level, dayKey, vaultValue, vaultMove, APR, validate, place, livePnl, stats, todaySeries, BOTS, botPnl, startBot, stopBot, startAuto, stopAuto, runAuto, RATIO};
+window.E = {payoutOf, earnValue, setPosLev, refreshLiq, liqPrice, maxLev, futValidate, openFut, futPnl, closeFut, cancelOrder, setTpSl, TASKS, BADGES, award, taskDone, claim, streak, checkIn, CHECKIN, level, dayKey, vaultValue, vaultMove, APR, validate, place, livePnl, stats, todaySeries, BOTS, botPnl, startBot, stopBot, startAuto, stopAuto, runAuto, RATIO};
 })();

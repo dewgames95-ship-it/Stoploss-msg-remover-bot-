@@ -1,7 +1,7 @@
 /* ===== Spot trading (#/spot/SYM): engine + screen ===== */
 (function(){
 const {esc, ic, store, bus, money, signed, pct, toast, fmt} = U;
-const FEE = 0.001, S = () => store.s;
+const FEE = 0.0002, S = () => store.s;
 const spot = () => { const s = S(); if (!s.spot) s.spot = {hold:{}, orders:[], history:[]}; s.spot.hold ||= {}; s.spot.orders ||= []; s.spot.history ||= []; return s.spot; };
 const baseOf = sym => sym.replace(/USDT$/, "");
 /* holdings key: base for crypto/stock, full sym for forex/metal/index/commodity */
@@ -107,7 +107,7 @@ Pages.spot = (params) => {
       <div class="sp-kv"><span>Total</span><b id="sptot">-- USDT</b></div>
       <div class="sp-kv"><span>Avbl</span><b><span id="spav"></span> <a href="#/deposit" aria-label="Deposit">${ic("plus",13,3)}</a></b></div>
       <button class="sp-go b" id="spgo"></button>
-      <div class="sp-fee">Fee 0.1% (taker)</div>
+      <div class="sp-fee">Fee 0.02% (taker)</div>
       <div class="sp-closed hide" id="spclosed">Market closed — reopens with the next session</div>
       <div class="err-msg" id="sperr" role="alert"></div>
     </div>

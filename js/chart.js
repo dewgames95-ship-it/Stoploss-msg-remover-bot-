@@ -89,7 +89,8 @@ function build(){
   const sub = Math.max(64, Math.round(el.clientHeight * 0.18));
   chart.panes().forEach((pn, i) => { if (i > 0) pn.setHeight(sub); });
   chart.subscribeCrosshairMove(prm => {
-    if (!prm || prm.time == null || !prm.point){ hover = null; hoverPt = null; legend(); crossBox(); return; }
+    if (!prm || !prm.point){ hover = null; hoverPt = null; legend(); crossBox(); return; }
+    if (prm.time == null){ hover = null; hoverPt = prm.point; legend(); crossBox(); priceLabel(); return; }   // right / empty area: price + % only
     const i = findIdx(prm.time - TZ); hover = i >= 0 ? i : null; hoverPt = prm.point; legend(); crossBox();
   });
   chart.subscribeClick(() => { if (hover == null) ui.cbox?.classList.add("hide"); });
@@ -197,7 +198,7 @@ function legend(){
 /* ---- Crosshair window (Time/Open/High/Low/Close/Chg/%Chg/Range/Vol) + price/% label ---- */
 function crossBox(){
   const box = ui.cbox; if (!box) return;
-  if (hover == null || !hoverPt){ box.classList.add("hide"); ui.xlab && ui.xlab.remove(); ui.xlab = null; return; }
+  if (hover == null || !hoverPt){ box.classList.add("hide"); if (!hoverPt){ ui.xlab && ui.xlab.remove(); ui.xlab = null; } return; }
   const b = bars[hover], p = M.get(sym), f = v => M.fmtPx(p, v), prev = hover ? bars[hover-1].close : b.open;
   const ch = b.close - prev, chp = ch / prev * 100, rng = (b.high - b.low) / (b.low || 1) * 100, d = new Date(b.time*1000);
   const ts = `${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")},${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}${sec < 60 ? ":" + String(d.getSeconds()).padStart(2,"0") : ""}`;
@@ -207,7 +208,10 @@ function crossBox(){
   if (bt.length) box.innerHTML += bt.slice(0, 3).map(m => `<div class="cb-t"><span class="${m.s === "B" ? "up" : "down"}">${m.s === "B" ? "Buy" : "Sell"}</span><b>${M.fmtPx(p, m.p)}</b></div>`).join("");
   const w = el.clientWidth; box.classList.remove("hide");
   box.style.left = hoverPt.x > w/2 ? "6px" : ""; box.style.right = hoverPt.x > w/2 ? "" : "70px";
-  // custom horizontal label on price axis: price + % vs last
+  priceLabel();
+}
+function priceLabel(){
+  if (!hoverPt || !bars.length || !S.main) return; const p = M.get(sym);
   const pr = S.main.coordinateToPrice(hoverPt.y), last = bars[bars.length-1].close;
   if (pr == null) return;
   if (!ui.xlab){ ui.xlab = document.createElement("div"); ui.xlab.className = "xlab"; el.parentElement.appendChild(ui.xlab); }
@@ -261,6 +265,8 @@ function overlay(){
     const left = sec >= 60 && cp.cd !== false ? Math.max(0, last.time + sec - now/1000) : null;
     const cd = left == null ? "" : left >= 3600 ? `${Math.floor(left/3600)}:${String(Math.floor(left%3600/60)).padStart(2,"0")}:${String(Math.floor(left%60)).padStart(2,"0")}` : mmss(left);
     h += `<div class="pbox ${last.close >= last.open ? "pu" : "pd"}" style="top:${y}px">${M.fmtPx(p, last.close)}${cd ? `<br>${cd}` : ""}</div>`;
+    const bk = M.book, ask = bk && bk.sym === sym && bk.asks?.[0] ? +bk.asks[0][0] : null, bid = bk && bk.sym === sym && bk.bids?.[0] ? +bk.bids[0][0] : null;
+    if (ask && bid && sec >= 60) h += `<div class="abtag" style="top:${y}px"><span class="a">Ask ${M.fmtPx(p, ask)}</span><span class="b">Bid ${M.fmtPx(p, bid)}</span></div>`;
     // "+" next to the live price: drag it up/down to create TP (profit side) or SL (loss side) for the latest position
     const myPos = ui.mode !== "bin" ? s.fut.positions.filter(x => x.sym === sym).slice(-1)[0] : null;
     if (myPos && !(dragS && dragS.kind === "new")) h += `<div class="pplus drag" data-drag="new:${myPos.id}" style="top:${y}px" title="Drag to set TP / SL">+</div>`;
@@ -320,7 +326,7 @@ function overlay(){
     const xs = timeToX(pos.open/1000), xe = timeToX(pos.exp/1000);
     if (xs != null && xs > 0 && xs < axisX) h += `<div class="start-line" style="left:${xs}px"></div>`;
     if (xe != null){ const x = Math.min(Math.max(xe, 30), axisX - 4); h += `<div class="exp-line" style="left:${x}px"><span style="top:${4 + (used.length-1)*18}px">⏱ ${mmss(lft)}</span></div>`; }
-    h += `<div class="plab ${win == null ? "n" : win ? "g" : "r"}" style="top:${yy}px;right:66px"><span>${pos.dir === "up" ? "▲ Up" : "▼ Down"}</span><span>Payout ${money(pos.amount * E.RATIO)} · ${mmss(lft)}</span></div>`;
+    h += `<div class="plab ${win == null ? "n" : win ? "g" : "r"}" style="top:${yy}px;right:66px"><span>${pos.dir === "up" ? "▲ Up" : "▼ Down"}</span><span>Payout ${money(pos.amount * (1 + (pos.payout ?? 0.92)))} · ${mmss(lft)}</span></div>`;
   });
   if (h !== box._h){ box._h = h; box.innerHTML = h; }
 }

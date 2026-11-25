@@ -32,6 +32,23 @@ async function coinInfo(p, box){
   } catch { box.innerHTML = UI.emptyState("info", "Coin info is unavailable right now. Check your connection and try again."); }
 }
 
+/* ---------------- Tap-for-details sheets ---------------- */
+const INFO = {
+  funding: () => { const now = new Date(), h = now.getUTCHours(), nx = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), (Math.floor(h/8)+1)*8), l = Math.max(0, (nx - Date.now())/1000), z = n => String(Math.floor(n)).padStart(2,"0");
+    return ["Funding Rate", `<div class="cf-rows"><div><span>Current Rate / Annualized</span><b class="num">0.0100% / 10.950%</b></div><div><span>Funding Interval</span><b>Every 8 hours</b></div><div><span>Settlement</span><b class="num">${z(l/3600)}:${z(l%3600/60)}:${z(l%60)}</b></div><div><span>Side</span><b><span class="up">Long</span> pays <span class="down">Short</span></b></div><div><span>Funding Floor / Cap</span><b class="num">-2.0000% / 2.0000%</b></div></div><p class="info-p">Funding keeps the perpetual price close to the spot index. It is exchanged between traders every 8 hours (00:00, 08:00, 16:00 UTC) based on position notional — NovaTrade does not keep it.</p>`]; },
+  liq: () => ["Est. Liq. Price", `<p class="info-p">The estimated liquidation price is where your margin ratio would reach 100% (maintenance margin ${(C.MMR*100).toFixed(2)}% of notional), assuming other positions and your balance stay the same. For cross margin your whole available balance backs the position, so it is further away. Reference only.</p>`],
+  mr: () => ["Margin Ratio", `<p class="info-p">Margin Ratio = Maintenance Margin ÷ Margin Balance. Below 50% is healthy, 50–80% is a warning, and at 100% the position is liquidated. Add margin, reduce size or lower leverage to bring it down.</p>`],
+  roi: () => ["ROI", `<p class="info-p">ROI = Unrealized PnL ÷ Initial Margin × 100%. With leverage, a 1% price move changes ROI by about (1% × leverage).</p>`],
+  pnl: () => ["Unrealized PnL", `<p class="info-p">Profit or loss of the open position at the current Mark Price: (Mark − Entry) × Size for Long, (Entry − Mark) × Size for Short. Fees and funding are shown in Realized PnL.</p>`],
+  mark: () => ["Mark Price", `<p class="info-p">A fair price derived from the index and the live order book. PnL and liquidation use the Mark Price, not the last trade, to avoid manipulation.</p>`],
+  size: () => ["Size", `<p class="info-p">Position notional value in USDT = quantity × mark price. Size = Margin × Leverage at entry.</p>`],
+  margin: () => ["Margin", `<p class="info-p">Collateral locked for this position. Isolated: only this margin can be lost. Cross: your available balance is shared across positions.</p>`],
+  tpsl: () => ["TP / SL", `<p class="info-p">Take Profit and Stop Loss are trigger orders. When the Mark Price reaches your trigger, a market order closes the position. Use ROI % mode to set them by return instead of price.</p>`],
+  fee: () => ["Trading Fees", `<div class="cf-rows"><div><span>Futures (open & close)</span><b class="num">${(C.FEE*100).toFixed(2)}%</b></div><div><span>Spot</span><b class="num">0.02%</b></div><div><span>Binary</span><b>No fee</b></div></div>`]
+};
+function showInfo(k){ const f = INFO[k]; if (!f) return; const [t, h] = f(); U.sheet(t, h + `<button class="btn btn-primary btn-block" style="margin-top:14px" data-x>OK</button>`, el => el.querySelector("[data-x]").onclick = U.closeLayer); }
+document.addEventListener("click", e => { const t = e.target.closest("[data-info]"); if (t){ e.preventDefault(); showInfo(t.dataset.info); } });
+
 /* ---------------- Quick trade sheet (open a futures position without leaving the chart) ---------------- */
 function quickTrade(sym, side){
   const s = S(), p = M.get(sym); let lev = Math.min(s.settings.lev || 20, E.maxLev(p)), mode = s.settings.marginMode || "cross", pctv = 0;
@@ -69,7 +86,8 @@ function loadingPage(title){
   return {title:"Loading", html: UI.pageHead(title) + `<div>${Array(8).fill('<div class="skel"></div>').join("")}</div>`, mount(){ off = bus.on("list", () => App.route()); }, unmount(){ off?.(); }};
 }
 function chartBlock(){
-  return `<div class="tfbar"><div class="tfs" id="tfs">${TFS.map(x => `<button data-tf="${x}">${TFL[x] || x}</button>`).join("")}</div>
+  const MAIN = ["tick","1m","15m","1h","4h","1d"];
+  return `<div class="tfbar"><div class="tfs" id="tfs">${MAIN.map(x => `<button data-tf="${x}">${TFL[x] || x}</button>`).join("")}<button class="tf-more" data-tfmore><span id="tfml">More</span> ${ic("chevd",12)}</button></div>
       <button class="ti" data-ctype aria-label="Chart type">${ic("candle",18)}</button><button class="ti" data-drawt aria-label="Drawing tools">${ic("pen",17)}</button><button class="ti" data-indset aria-label="Indicator settings">${ic("grid",17)}</button></div>
     <div class="drawbar hide" id="drawbar">${[["trend","Trend line"],["ray","Ray"],["hline","Horizontal"],["rect","Rectangle"],["fib","Fib"]].map(([k,n]) => `<button data-tool="${k}">${n}</button>`).join("")}<button data-undo>${ic("reset",13)} Undo</button><button data-clear>${ic("trash",13)} Clear</button></div>
     <div class="cp-chart" id="cc"><div class="fs-head"><button class="icon-btn" data-fsx aria-label="Exit fullscreen">${ic("back",20)}</button><b id="fsl"></b><span class="grow"></span><b class="num" id="fsp"></b></div>
@@ -82,7 +100,9 @@ function bindChart(root, sym, tfKey, defTf, detailCb, opt={}){
   if (opt.tfs && !opt.tfs.includes(tf)) tf = defTf;
   CH.mount($("#chart"), {legend:$("#lg"), msg:$("#cmsg"), mode: tfKey === "tf_binary" ? "bin" : "fut", noInd: !!opt.mini}, detailCb);
   const renderInds = () => root.querySelectorAll("[data-ind]").forEach(b => b.classList.toggle("on", CH.inds.includes(b.dataset.ind)));
-  const setTf = x => { tf = x; sessionStorage.setItem(tfKey, tf); root.querySelectorAll("#tfs [data-tf]").forEach(b => b.classList.toggle("on", b.dataset.tf === tf)); CH.load(sym, tf); };
+  const setTf = x => { tf = x; sessionStorage.setItem(tfKey, tf); let hit = false; root.querySelectorAll("#tfs [data-tf]").forEach(b => { const on = b.dataset.tf === tf; hit ||= on; b.classList.toggle("on", on); });
+    const mb = $("[data-tfmore]"); if (mb){ mb.classList.toggle("on", !hit); $("#tfml").textContent = hit ? "More" : (TFL[tf] || tf); } CH.load(sym, tf); };
+  on("[data-tfmore]", () => U.sheet("Interval", `<div class="tf-grid">${TFS.map(x => `<button data-tfp="${x}" class="${x === tf ? "on" : ""}">${TFL[x] || x}</button>`).join("")}</div>`, el => el.querySelectorAll("[data-tfp]").forEach(b => b.onclick = () => { U.closeLayer(); setTf(b.dataset.tfp); })));
   renderInds(); setTf(tf);
   root.querySelectorAll("#tfs [data-tf]").forEach(b => b.onclick = () => setTf(b.dataset.tf));
   root.querySelectorAll("[data-ind]").forEach(b => b.onclick = () => { const k = b.dataset.ind, l = CH.inds.includes(k) ? CH.inds.filter(x => x !== k) : [...CH.inds, k]; CH.setInds(l); renderInds(); if (l.length >= 3) E.award("ind"); });
@@ -258,12 +278,13 @@ Pages.futures = (params) => {
   if (!M.get(sym)) return M.cryptoOrder.length ? Pages.notfound() : loadingPage("Futures");
   sessionStorage.setItem("lastSym_futures", sym);
   const s = S(), P = () => M.get(sym);
-  let root, offs = [], timers = [], oc = "open", otype = "market", lev = Math.min(s.settings.lev || 20, E.maxLev(P())), mode = s.settings.marginMode || "cross", tpsl = false, ptab = sessionStorage.getItem("fx_ptab") || "pos", hideOther = false, chartOpen = false, unChart = null, sliderPct = 0;
+  let tsMode = "price", root, offs = [], timers = [], oc = "open", otype = "market", lev = Math.min(s.settings.lev || 20, E.maxLev(P())), mode = s.settings.marginMode || "cross", tpsl = false, ptab = sessionStorage.getItem("fx_ptab") || "pos", hideOther = false, chartOpen = false, unChart = null, sliderPct = 0;
   const $ = q => root.querySelector(q);
-  const html = `
+  const html = `<div class="fx-page">
   <div class="tabs" style="gap:20px;margin:0 -16px;padding:4px 16px 0;border:0"><button class="tab on" style="font-size:17px">USDⓈ-M</button><a class="tab" href="#/spot/${sym}" style="font-size:17px">Spot</a><a class="tab" href="#/trade/${sym}" style="font-size:17px">Binary</a><a class="tab" href="#/options" style="font-size:17px">Options</a><a class="tab" href="#/copy" style="font-size:17px">Copy</a><a class="tab" href="#/bots" style="font-size:17px">Bots</a></div>
   <header class="fx-head"><div class="grow"><button class="nm" data-pick>${esc(fsym(P()))} <span class="perp">Perp</span>${ic("chevd",16)}</button><div class="num" id="fchg" style="font-size:13px"></div></div>
     <a class="icon-btn" href="#/chart/${sym}" aria-label="Chart">${ic("candle",22,1.6)}</a><button class="icon-btn" data-menu aria-label="More">${ic("dots",22)}</button></header>
+  <section class="fx-chartbox">${miniChartBlock(sym)}</section>
   <div class="fx-grid">
     <div>
       <div class="oc"><button class="on" data-oc="open">Open</button><button data-oc="close">Close</button></div>
@@ -274,9 +295,9 @@ Pages.futures = (params) => {
       <div class="dslider"><div class="tr"></div><div class="fl" id="sfl"></div>${[0,25,50,75,100].map(v => `<i class="nd" style="left:${v}%" data-nd="${v}"></i>`).join("")}<div class="th" id="sth"></div><input type="range" min="0" max="100" step="1" value="0" id="sl" aria-label="Amount percent"></div>
       <div class="fkv"><span>Avbl</span><b><span id="avb"></span> USDT <a href="#/deposit" style="color:var(--brand-2)">${ic("plus",13,3)}</a></b></div>
       <div id="openBox">
-        <label class="fchk"><input type="checkbox" id="tpc"> TP/SL</label>
-        <div id="tpsl" class="hide"><div class="famt"><input id="tp" type="number" inputmode="decimal" placeholder="Take Profit"><span>Mark</span></div><div class="famt"><input id="sl2" type="number" inputmode="decimal" placeholder="Stop Loss"><span>Mark</span></div></div>
-        <div class="fkv"><span>Est. Liq.</span><b id="lqp2" class="num"></b></div>
+        <div class="row between"><label class="fchk"><input type="checkbox" id="tpc"> <u data-info="tpsl">TP/SL</u></label><button class="tsm hide" id="tsm" type="button">⇄ <span>ROI %</span></button></div>
+        <div id="tpsl" class="hide"><div class="tsh" id="tsh"></div><div class="famt"><input id="tp" type="number" inputmode="decimal" placeholder="Take Profit"><span>Mark</span></div><div class="famt"><input id="sl2" type="number" inputmode="decimal" placeholder="Stop Loss"><span>Mark</span></div></div>
+        <div class="fkv"><span data-info="liq"><u>Est. Liq.</u></span><b id="lqp2" class="num"></b></div>
         <button class="fbtn2 l" data-go="long"><span>Open Long</span><small id="cl"></small></button>
         <button class="fbtn2 s" data-go="short" style="margin-top:8px"><span>Open Short</span><small id="cs"></small></button>
         <div class="fkv" style="margin-top:6px"><span>Max</span><b id="mxl" class="num"></b></div><span id="mxs" hidden></span>
@@ -294,7 +315,7 @@ Pages.futures = (params) => {
   <div class="ptools" id="ptools"><label class="fchk" style="margin:0"><input type="checkbox" id="hide"> Hide Other Symbols</label><button class="btn btn-ghost btn-sm" data-closeall>Close All (<span id="cac">0</span>)</button></div>
   <div id="plist"></div>
 
-  <div style="height:64px"></div><section class="fxc ${sessionStorage.getItem("fx_chart") === "1" ? "open" : ""}" id="cch"><button class="fxc-bar" data-cch><span>${esc(fsym(P()))} Perp Chart</span><span class="fxc-i">${ic("chevd",16)}</span></button><div class="fxc-body">${miniChartBlock(sym)}</div></section>`;
+  </div>`;
 
   /* --- order form --- */
   const inputs = () => { const p = P(), amt = parseFloat($("#amt").value) || 0, px = otype === "limit" ? (parseFloat($("#lp").value) || p.price) : p.price; return {p, amt, px}; };
@@ -316,10 +337,13 @@ Pages.futures = (params) => {
     $("#af span").textContent = oc === "open" ? "USDT" : "%";
     renderSlider();
   }
-  function renderSlider(){ const v = sliderPct; $("#sfl").style.width = v + "%"; $("#sth").style.left = v + "%"; root.querySelectorAll("[data-nd]").forEach(n => n.classList.toggle("on", +n.dataset.nd <= v)); }
+  function renderSlider(){ const v = sliderPct; $("#sfl").style.width = v + "%"; $("#sth").style.left = v + "%"; $("#sth").dataset.v = Math.round(v) + "%"; $("#sth").classList.toggle("bub", v > 0); root.querySelectorAll("[data-nd]").forEach(n => n.classList.toggle("on", +n.dataset.nd <= v)); }
   async function submit(side){
     const {p, amt} = inputs(), err = $("#ferr");
-    const tp = tpsl ? parseFloat($("#tp").value) || null : null, sl = tpsl ? parseFloat($("#sl2").value) || null : null, lp = otype === "limit" ? parseFloat($("#lp").value) : null;
+    const lp = otype === "limit" ? parseFloat($("#lp").value) : null, ep = lp || p.price;
+    const roiPx = (r, k) => { if (!(r > 0)) return null; const d = r / 100 / lev * ep; return side === "long" ? (k === "tp" ? ep + d : ep - d) : (k === "tp" ? ep - d : ep + d); };
+    const tp = tpsl ? (tsMode === "roi" ? roiPx(parseFloat($("#tp").value), "tp") : parseFloat($("#tp").value) || null) : null;
+    const sl = tpsl ? (tsMode === "roi" ? roiPx(Math.abs(parseFloat($("#sl2").value)), "sl") : parseFloat($("#sl2").value) || null) : null;
     if (otype === "limit" && !(lp > 0)){ err.textContent = "Please enter the price."; return toast("Please enter the price", "bad"); }
     if (!(amt > 0)){ err.textContent = "Please enter the amount."; $("#af").classList.add("err"); return toast("Please enter the amount", "bad"); }
     const px = lp || p.price, q = amt / px, liq = E.liqPrice(side, px, lev, mode, q, amt / lev);
@@ -387,7 +411,7 @@ Pages.futures = (params) => {
     const marked = new Set(myO.filter(x => x >= lo - half && x <= hi + half).map(x => all.reduce((b, y) => Math.abs(y - x) < Math.abs(b - x) ? y : b, all[0])));
     const mine = r => marked.has(+r[0]);
     const tb = bids.reduce((a,b) => a + val(b), 0), ta = asks.reduce((a,b) => a + val(b), 0), bp = tb + ta ? tb/(tb+ta)*100 : 50;
-    box.innerHTML = `<div class="fund">Funding (8h) / Countdown<br><b class="num">0.0100%/${String(Math.floor(left/3600)).padStart(2,"0")}:${String(Math.floor(left%3600/60)).padStart(2,"0")}:${String(Math.floor(left%60)).padStart(2,"0")}</b></div>
+    box.innerHTML = `<div class="fund" data-info="funding"><u>Funding (8h) / Countdown</u><br><b class="num">0.0100%/${String(Math.floor(left/3600)).padStart(2,"0")}:${String(Math.floor(left%3600/60)).padStart(2,"0")}:${String(Math.floor(left%60)).padStart(2,"0")}</b></div>
       <div class="fh"><span>Price<br>(USDT)</span><span>Amount<br>(USDT)</span></div>
       ${asks.length ? asks.map((a, i) => `<div class="r${mine(a, asks, i, true) ? " me" : ""}" data-bp="${+a[0]}"><i style="width:${val(a)/mx*100}%;background:var(--down)"></i><span class="down">${M.fmtPx(p,+a[0])}</span><span>${v(val(a))}</span></div>`).join("") : '<div class="skel" style="height:110px"></div>'}
       <div class="mid"><b class="num ${p.dir>=0?"up":"down"}">${M.fmtPx(p)}</b><small class="num">${M.fmtPx(p)}</small></div>
@@ -400,9 +424,9 @@ Pages.futures = (params) => {
   function posCard(pos){
     const p = M.get(pos.sym);
     return `<div class="pc" data-id="${pos.id}"><div class="pc-h"><span class="side-b ${pos.side==="long"?"l":"s"}">${pos.side==="long"?"L":"S"}</span><button class="sym" data-open="${pos.sym}">${esc(fsym(p))}</button><span class="perp">Perp</span><span class="perp">${pos.mode === "isolated" ? "Isolated" : "Cross"} ${pos.lev}x</span><span class="bars-i" data-mrb>||||</span>${pos.source === "auto" || pos.auto ? '<span class="perp auto">Auto</span>' : ""}</div>
-      <div class="pc-big"><div><span>PNL (USDT) <button data-share="${pos.id}" aria-label="Share">${ic("share",15)}</button></span><b class="num" data-pnl></b></div><div style="text-align:right"><span style="justify-content:flex-end">ROI</span><b class="num" data-roe></b></div></div>
-      <div class="pc-g"><div><span>Size (USDT)</span><b class="num" data-size></b></div><div><span>Margin (USDT)</span><b class="num">${money(pos.margin)}</b></div><div><span>Margin Ratio</span><b class="num" data-mr></b></div>
-        <div><span>Entry Price (USDT)</span><b class="num">${M.fmtPx(p, pos.entry)}</b></div><div><span>Mark Price (USDT)</span><b class="num" data-mark></b></div><div><span>Liq. Price (USDT)</span><b class="num" style="color:#F7931A">${pos.liq > 0 ? M.fmtPx(p, pos.liq) : "--"}</b></div></div>
+      <div class="pc-big"><div><span><u data-info="pnl">PNL (USDT)</u> <button data-share="${pos.id}" aria-label="Share">${ic("share",15)}</button></span><b class="num" data-pnl></b></div><div style="text-align:right"><span style="justify-content:flex-end"><u data-info="roi">ROI</u></span><b class="num" data-roe></b></div></div>
+      <div class="pc-g"><div><span data-info="size"><u>Size (USDT)</u></span><b class="num" data-size></b></div><div><span data-info="margin"><u>Margin (USDT)</u></span><b class="num">${money(pos.margin)}</b></div><div><span data-info="mr"><u>Margin Ratio</u></span><b class="num" data-mr></b></div>
+        <div><span>Entry Price (USDT)</span><b class="num">${M.fmtPx(p, pos.entry)}</b></div><div><span data-info="mark"><u>Mark Price (USDT)</u></span><b class="num" data-mark></b></div><div><span data-info="liq"><u>Liq. Price (USDT)</u></span><b class="num" style="color:#F7931A">${pos.liq > 0 ? M.fmtPx(p, pos.liq) : "--"}</b></div></div>
       <div class="fkv" style="margin-top:10px"><span>TP/SL</span><b class="num"><span class="up">${pos.tp ? M.fmtPx(p,pos.tp) : "--"}</span> / <span class="down">${pos.sl ? M.fmtPx(p,pos.sl) : "--"}</span></b></div>
       <button class="rpnl" data-rz="${pos.id}"><span>Realized PNL (USDT)</span><b class="num ${(pos.realized||0)>=0?"up":"down"}">${signed(pos.realized || 0)} ${ic("chev",13)}</b></button>
       <div class="pc-btns"><button data-plev="${pos.id}">Leverage</button><button data-tpsl="${pos.id}">TP/SL</button><button data-close="${pos.id}">Close</button></div></div>`;
@@ -501,7 +525,7 @@ Pages.futures = (params) => {
   return {html, title: fsym(P()) + " Futures", mount(r){
     root = r; M.watchTrades(sym);
     renderForm(); renderBook(); setPtab(ptab);
-    if ($("#cch").classList.contains("open")){ chartOpen = false; toggleChart(); }
+    unChart = bindChart(root, sym, "tf_fut", "15m", candleDetail(sym), {mini:true, tfs:MINI_TFS});
     $("[data-pick]").onclick = () => pickSheet(sym, x => location.hash = "#/futures/" + x);
     $("[data-menu]").onclick = () => U.sheet("", [["ring","Price alert", () => alertSheet(sym)],["candle","Chart", () => location.hash = "#/chart/" + sym],["history","Position history", () => location.hash = "#/history"],["percent","Futures calculator", calcSheet]].map(([i,n],k) => `<button class="list-item" style="width:100%" data-k="${k}"><span class="ic">${ic(i,18)}</span><span class="grow">${n}</span>${ic("chev",16)}</button>`).join(""), el => {
       const acts = [() => alertSheet(sym), () => location.hash = "#/chart/" + sym, () => location.hash = "#/history", calcSheet];
@@ -515,13 +539,17 @@ Pages.futures = (params) => {
       $("#amt").value = sliderPct ? (oc === "open" ? Math.floor(s.balance / (1/lev + C.FEE) * sliderPct) / 100 : sliderPct) : ""; renderForm(); };
     $("#amt").addEventListener("input", () => { $("#ferr").textContent = ""; $("#af").classList.remove("err"); const v = parseFloat($("#amt").value) || 0; sliderPct = oc === "open" ? U.clamp(v / (s.balance / (1/lev + C.FEE)) * 100, 0, 100) : U.clamp(v, 0, 100); renderForm(); });
     $("#lp").addEventListener("input", renderForm);
-    $("#tpc").onchange = e => { tpsl = e.target.checked; $("#tpsl").classList.toggle("hide", !tpsl); };
+    $("#tpc").onchange = e => { tpsl = e.target.checked; $("#tpsl").classList.toggle("hide", !tpsl); $("#tsm").classList.toggle("hide", !tpsl); };
+    const tsHint = () => { if (tsMode !== "roi"){ $("#tsh").innerHTML = ""; return; } const p = P(), ep = parseFloat($("#lp").value) || p.price, t = parseFloat($("#tp").value), sv = Math.abs(parseFloat($("#sl2").value)), f = (r, up) => r > 0 ? M.fmtPx(p, ep * (1 + (up ? 1 : -1) * r / 100 / lev)) : "--";
+      $("#tsh").innerHTML = `<div>Long: TP <b class="up">${f(t, true)}</b> · SL <b class="down">${f(sv, false)}</b></div><div>Short: TP <b class="up">${f(t, false)}</b> · SL <b class="down">${f(sv, true)}</b></div>`; };
+    $("#tsm").onclick = () => { tsMode = tsMode === "roi" ? "price" : "roi"; $("#tsm span").textContent = tsMode === "roi" ? "Price" : "ROI %"; $("#tp").placeholder = tsMode === "roi" ? "TP ROI %" : "Take Profit"; $("#sl2").placeholder = tsMode === "roi" ? "SL ROI %" : "Stop Loss"; $("#tpsl").querySelectorAll(".famt span").forEach(x => x.textContent = tsMode === "roi" ? "%" : "Mark"); $("#tp").value = $("#sl2").value = ""; tsHint(); };
+    $("#tp").addEventListener("input", tsHint); $("#sl2").addEventListener("input", tsHint);
     root.querySelectorAll("[data-go]").forEach(b => b.onclick = () => submit(b.dataset.go));
     root.querySelectorAll("[data-cls]").forEach(b => b.onclick = () => closeSide(b.dataset.cls));
     root.querySelectorAll("[data-pt]").forEach(b => b.onclick = () => setPtab(b.dataset.pt));
     $("#hide").onchange = e => { hideOther = e.target.checked; renderPositions(); };
     $("[data-closeall]").onclick = async () => { if (!s.fut.positions.length) return toast("No open positions", "info"); if (await U.confirmTrade({kind:"close", title:"Close All Positions", tone:"down", okText:"Close All", rows:[["Positions", String(s.fut.positions.filter(x => !hideOther || x.sym === sym).length)], ["Price", "Market"], ["Total est. PNL", (() => { const v = s.fut.positions.filter(x => !hideOther || x.sym === sym).reduce((a, x) => a + E.futPnl(x).pnl, 0); return `<span class="${v >= 0 ? "up" : "down"}">${signed(v)} USDT</span>`; })()]]})){ [...s.fut.positions].filter(x => !hideOther || x.sym === sym).forEach(x => E.closeFut(x.id)); U.fx("open"); toast("All positions closed", "ok"); } };
-    $("[data-cch]").onclick = toggleChart;
+
     $("#fbook").addEventListener("click", e => { if (e.target.closest("[data-prec]")) return precSheet(); const r = e.target.closest("[data-bp]"); if (!r) return; otype = "limit"; $("#lp").value = r.dataset.bp; renderForm(); toast("Limit price set to " + M.fmtPx(P(), +r.dataset.bp), "info", 1200); });
     $("#plist").addEventListener("click", e => {
       const g = (k) => e.target.closest(`[data-${k}]`)?.dataset[k];
@@ -573,21 +601,24 @@ Pages.trade = (params) => {
   const $ = q => root.querySelector(q);
   const html = `<div class="bin-page">
   <div class="tabs" style="gap:20px;margin:0 -16px;padding:4px 16px 0;border:0"><a class="tab" href="#/futures/${sym}" style="font-size:17px">USDⓈ-M</a><a class="tab" href="#/spot/${sym}" style="font-size:17px">Spot</a><button class="tab on" style="font-size:17px">Binary</button><a class="tab" href="#/options" style="font-size:17px">Options</a><a class="tab" href="#/copy" style="font-size:17px">Copy</a><a class="tab" href="#/bots" style="font-size:17px">Bots</a></div>
-  <header class="fx-head"><div class="grow"><button class="nm" data-pick>${esc(M.label(P()))} ${P().tradable ? `<span class="perp" style="color:var(--brand-2)">+92%</span>` : `<span class="perp">Chart only</span>`}${ic("chevd",16)}</button></div>
+  <header class="fx-head"><div class="grow"><button class="nm" data-pick>${esc(M.label(P()))} ${P().tradable ? `<span class="perp" style="color:var(--up)" id="hpp">92%</span>` : `<span class="perp">Chart only</span>`}${ic("chevd",16)}</button></div>
     <button class="icon-btn" data-alert aria-label="Price alert">${ic("bell",22)}</button><a class="icon-btn" href="#/chart/${sym}" aria-label="Full chart">${ic("candle",22,1.6)}</a></header>
   <div class="cp-price" style="border:0;padding-top:6px"><div><div class="lp" id="lp">--</div><div class="row num" style="gap:6px;font-size:13px"><b id="lusd"></b><span id="lc"></span></div></div>
     <div class="k"><span>24h High</span><b id="hi"></b><span>24h Low</span><b id="lo"></b><span>Sentiment</span><b id="sen"></b></div></div>
   ${chartBlock()}
   <section class="bx">
-    <div class="bx-ctl">
-      <div class="bx-amt" id="af"><button class="bx-step" data-minus aria-label="Decrease amount">${ic("minus",16,2.4)}</button>
-        <label class="bx-in"><small>Amount (USDT)</small><input id="amt" type="number" inputmode="decimal" min="1" step="1" aria-label="Amount in USDT"></label>
-        <button class="bx-step" data-plus aria-label="Increase amount">${ic("plus",16,2.4)}</button></div>
-      <div class="bx-time" id="exps">${C.EXPIRIES.map(x => `<button class="exp-chip" data-e="${x}"><b>${x<60?x+"s":x/60+"m"}</b></button>`).join("")}</div>
+    <div class="bx2">
+      <div class="bx-bet" id="af">
+        <div class="bb-top"><button class="bx-step" data-minus aria-label="Decrease amount">${ic("minus",15,2.4)}</button>
+          <label class="bb-in"><small>Bet amount</small><span class="bb-v"><input id="amt" type="number" inputmode="decimal" min="0.1" step="0.1" aria-label="Amount in USDT"><em>USDT</em></span></label>
+          <button class="bx-step" data-plus aria-label="Increase amount">${ic("plus",15,2.4)}</button><button class="bb-max" data-v="max">MAX</button></div>
+        <div class="bb-chips" id="qa">${[0.1,0.5,1,2,5,10,50,100].map(v => `<button data-v="${v}">${v}</button>`).join("")}</div>
+      </div>
+      <div class="bx-pay"><small>Payout (win)</small><b class="num" id="po"></b><span class="pp" id="ppct"></span></div>
     </div>
-    <div class="chips bx-q" id="qa">${[1,2,5,10,20,50,100].map(v => `<button data-v="${v}">${v}</button>`).join("")}<button data-v="max">Max</button></div>
+    <div class="bx-time" id="exps">${C.EXPIRIES.map(x => `<button class="exp-chip" data-e="${x}"><b>${x<60?x+"s":x/60+"m"}</b><small data-ep="${x}"></small></button>`).join("")}</div>
     <div class="ud"><button class="btn btn-up" data-dir="up"><span class="row" style="gap:4px">${ic("up",18,3)} ${esc(t("Up"))}</span><small id="upP"></small></button><button class="btn btn-down" data-dir="down"><span class="row" style="gap:4px">${ic("down",18,3)} ${esc(t("Down"))}</span><small id="dnP"></small></button></div>
-    <div class="bx-meta"><span>${esc(t("Payout (if win)"))} <b class="up num" id="po"></b></span><span>Avbl <b class="num" id="ob"></b> USDT <a href="#/deposit" class="brand-c" aria-label="Deposit">${ic("plus",12,3)}</a></span></div>
+    <div class="bx-meta"><span>Avbl <b class="num" id="ob"></b> USDT <a href="#/deposit" class="brand-c" aria-label="Deposit">${ic("plus",12,3)}</a></span><span class="label">Min 0.1 · Max 50,000 USDT</span></div>
     <div id="note" style="margin-top:8px"></div><div class="err-msg" id="err" role="alert"></div>
   </section>
   <div class="ptabs" style="margin-top:0"><button class="on" data-pt="pos">Positions (<span id="pc">0</span>)</button><button data-pt="hist">History</button></div>
@@ -603,9 +634,13 @@ Pages.trade = (params) => {
   }
   function renderOrder(){
     const p = P(), a = parseFloat($("#amt").value) || 0;
-    $("#ob").textContent = money(s.balance); $("#po").textContent = "+" + money(a * E.RATIO) + " USDT";
+    const pp = E.payoutOf(sym, exp), pct = Math.round(pp * 100) + "%";
+    $("#ob").textContent = money(s.balance); $("#po").textContent = money(a * (1 + pp)) + " USDT"; $("#ppct").textContent = "+" + pct + " profit";
     root.querySelectorAll("[data-e]").forEach(b => b.classList.toggle("on", +b.dataset.e === exp));
-    $("#upP").textContent = $("#dnP").textContent = "Get " + money(a * E.RATIO) + " · " + (exp < 60 ? exp + "s" : exp/60 + "m");
+    root.querySelectorAll("[data-ep]").forEach(e => e.textContent = Math.round(E.payoutOf(sym, +e.dataset.ep) * 100) + "%");
+    const hp = $("#hpp"); if (hp) hp.textContent = pct;
+    root.querySelectorAll("#qa [data-v]").forEach(b => b.classList.toggle("on", +b.dataset.v === a));
+    $("#upP").textContent = $("#dnP").textContent = pct + " · " + (exp < 60 ? exp + "s" : exp/60 + "m");
     let note = "";
     if (!p.tradable) note = `<div class="notice">${ic("lock",14)}<span>Binary is not available for ${esc(M.label(p))}. <a href="#/futures/${sym}" style="text-decoration:underline">Trade on USDⓈ-M</a></span></div>`;
     else if (p.closed) note = `<div class="notice">${ic("clock",14)}<span>Market closed. Forex & metals reopen Monday.</span></div>`;
@@ -616,7 +651,7 @@ Pages.trade = (params) => {
     const a = parseFloat($("#amt").value), err = $("#err"), msg = E.validate(sym, a);
     if (msg){ err.textContent = msg; $("#af").classList.add("err"); toast(msg, "bad"); return; }
     if (!skipConfirm && !await U.confirmTrade({kind:"binary", title:`${M.label(P())} · ${dir === "up" ? "Up" : "Down"}`, tone: dir === "up" ? "up" : "down", okText: dir === "up" ? "Confirm Up" : "Confirm Down",
-      rows:[["Amount", money(a) + " USDT"], ["Expiry", exp < 60 ? exp + "s" : exp/60 + " min"], ["Entry price", "Market (" + M.fmtPx(P()) + ")"], ["Payout if win", `<span class="up">+${money(a * E.RATIO)} USDT</span>`], ["If lose", `<span class="down">-${money(a)} USDT</span>`]]})) return;
+      rows:[["Amount", money(a) + " USDT"], ["Expiry", exp < 60 ? exp + "s" : exp/60 + " min"], ["Entry price", "Market (" + M.fmtPx(P()) + ")"], ["Payout if win", `<span class="up">${money(a * (1 + E.payoutOf(sym, exp)))} USDT (${Math.round(E.payoutOf(sym, exp) * 100)}%)</span>`], ["If lose", `<span class="down">-${money(a)} USDT</span>`]]})) return;
     const r = E.place(sym, dir, a, exp); if (r.err){ err.textContent = r.err; return toast(r.err, "bad"); }
     err.textContent = ""; $("#af").classList.remove("err"); s.settings.defAmt = a; s.settings.defExp = exp; store.save();
     toast("Order placed successfully!", "ok"); U.fx("open"); setPtab("pos");
@@ -631,7 +666,7 @@ Pages.trade = (params) => {
     } else {
       const h = s.history.slice(0, 60);
       list.innerHTML = h.length ? h.map(x => { const p = M.get(x.sym) || {dp:2, type:"crypto", base:x.sym, quote:""}; return `<div class="pc"><div class="pc-h"><span class="side-b ${x.dir==="up"?"l":"s"}">${x.dir==="up"?"▲":"▼"}</span><span class="sym">${esc(M.label(p))}</span><span class="perp">${x.expiry<60?x.expiry+"s":x.expiry/60+"m"}</span><span class="grow"></span><span class="label">${x.result === "win" ? "Won" : x.result === "loss" ? "Lost" : "Refunded"}</span></div>
-        <div class="ph-g"><div><span>PNL (USDT)</span><b class="num ${x.profit>0?"up":x.profit<0?"down":""}">${signed(x.profit)}</b></div><div><span>Entry Price</span><b class="num">${M.fmtPx(p,x.entry)}</b></div><div><span>Close Price</span><b class="num">${M.fmtPx(p,x.exit)}</b></div></div><div class="ph-t"><span>Closed</span><b>${U.dateStr(x.closed)}</b></div></div>`; }).join("") : UI.emptyState("history", "No history");
+        <div class="ph-g"><div><span>Payout (USDT)</span><b class="num ${x.result==="win"?"up":x.result==="loss"?"down":""}">${money(x.credit ?? (x.result === "win" ? x.amount * (1 + (x.payout ?? C.PAYOUT)) : x.result === "loss" ? 0 : x.amount))}</b></div><div><span>Entry Price</span><b class="num">${M.fmtPx(p,x.entry)}</b></div><div><span>Close Price</span><b class="num">${M.fmtPx(p,x.exit)}</b></div></div><div class="ph-t"><span>Closed</span><b>${U.dateStr(x.closed)}</b></div></div>`; }).join("") : UI.emptyState("history", "No history");
     }
   }
   function tick(){
@@ -660,12 +695,12 @@ Pages.trade = (params) => {
     unChart = bindChart(root, sym, "tf_binary", "tick", candleDetail(sym, {html:`<button class="btn btn-up" data-q="up">Up</button><button class="btn btn-down" data-q="down">Down</button>`, bind: el => el.querySelectorAll("[data-q]").forEach(x => x.onclick = () => { U.closeLayer(); trade(x.dataset.q); })}));
     const amt = $("#amt");
     amt.addEventListener("input", () => { $("#err").textContent = ""; $("#af").classList.remove("err"); renderOrder(); });
-    const stepOf = v => v < 20 ? 1 : v < 100 ? 5 : v < 1000 ? 10 : 100;
-    $("[data-minus]").onclick = () => { const v = parseFloat(amt.value) || 0; amt.value = Math.max(1, v - stepOf(v - 0.01)); renderOrder(); };
-    $("[data-plus]").onclick = () => { const v = parseFloat(amt.value) || 0; amt.value = Math.min(Math.floor(s.balance), v + stepOf(v)) || 1; renderOrder(); };
+    const stepOf = v => v < 1 ? 0.1 : v < 20 ? 1 : v < 100 ? 5 : v < 1000 ? 10 : 100;
+    $("[data-minus]").onclick = () => { const v = parseFloat(amt.value) || 0; amt.value = Math.max(0.1, +(v - stepOf(v - 0.01)).toFixed(2)); renderOrder(); };
+    $("[data-plus]").onclick = () => { const v = parseFloat(amt.value) || 0; amt.value = +Math.min(Math.floor(s.balance), v + stepOf(v)).toFixed(2) || 1; renderOrder(); };
     if ($("[data-half]")) $("[data-half]").onclick = () => { amt.value = Math.max(1, Math.floor((parseFloat(amt.value)||0) / 2 * 100) / 100); renderOrder(); };
     if ($("[data-dbl]")) $("[data-dbl]").onclick = () => { amt.value = Math.min(Math.floor(s.balance*100)/100, Math.round((parseFloat(amt.value)||0) * 2 * 100) / 100) || 1; renderOrder(); };
-    root.querySelectorAll("#qa [data-v]").forEach(b => b.onclick = () => { amt.value = b.dataset.v === "max" ? Math.floor(Math.min(s.balance, 50000)*100)/100 : b.dataset.v; renderOrder(); });
+    root.querySelectorAll("[data-v]").forEach(b => b.onclick = () => { amt.value = b.dataset.v === "max" ? Math.floor(Math.min(s.balance, 50000)*100)/100 : b.dataset.v; renderOrder(); });
     root.querySelectorAll("[data-e]").forEach(b => b.onclick = () => { exp = +b.dataset.e; renderOrder(); });
     root.querySelectorAll("[data-dir]").forEach(b => b.onclick = () => trade(b.dataset.dir));
     root.querySelectorAll("[data-pt]").forEach(b => b.onclick = () => setPtab(b.dataset.pt));

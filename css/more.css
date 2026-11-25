@@ -244,3 +244,44 @@ nav.bt-fnav button.on{background:var(--card-2);color:var(--text);font-weight:800
 .pf-gi:active{background:var(--hover)}
 .pf-gi span{max-width:100%;overflow:hidden;text-overflow:ellipsis}
 .pf-top .pf-ib+.pf-ib{margin-left:-2px}
+
+/* ===== v5.8: profile edit, security, referral hero, bots bottom pad ===== */
+.bt-page{padding-bottom:170px}
+.pf-av img{display:block;width:100%;height:100%;object-fit:cover}
+a.pf-av{color:inherit}
+.pe-sec .pe-row{background:transparent}
+.pe-v{font-size:14px;color:var(--muted);max-width:55%;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:flex;align-items:center;justify-content:flex-end}
+.pe-ch{color:var(--muted);display:grid;place-items:center;flex-shrink:0}
+.pe-av{display:block;width:44px;height:44px;border-radius:50%;overflow:hidden}.pe-av svg,.pe-av img{display:block;width:44px;height:44px}
+.pe-opts{display:flex;flex-direction:column;max-height:56vh;overflow:auto}
+.pe-opt{display:flex;align-items:center;justify-content:space-between;min-height:48px;padding:0 4px;border-bottom:1px solid var(--line);font-size:15px;color:var(--text);text-align:left;width:100%;background:none}
+.pe-opt:active{background:var(--hover)}.pe-opt.on{font-weight:700}
+.pm-ta{width:100%;min-height:92px;padding:12px;border-radius:10px;background:var(--input);border:1px solid transparent;outline:0;font:inherit;font-size:14px;color:var(--text);resize:none}
+.pm-ta:focus{border-color:var(--brand)}
+/* security */
+.sc-hero{display:flex;align-items:center;gap:16px;margin:4px 0 12px;padding:16px;border-radius:16px;border:1px solid var(--line);background:linear-gradient(180deg,var(--card-2),var(--card))}
+.sc-lv{font-size:15px;color:var(--text-2)}.sc-lv b{font-weight:800;color:var(--text)}
+.sc-hero p{margin:4px 0 0;font-size:12.5px;color:var(--muted);line-height:1.45}
+.sc-st{font-size:13px;color:var(--muted)}.sc-st.on{color:var(--up)}
+/* referral hero */
+.rf-dark{margin:0 -16px 10px;padding:20px 16px 18px;background:radial-gradient(120% 90% at 85% 0%,#2b3750 0%,rgba(43,55,80,0) 60%),linear-gradient(180deg,#171c27,#0b0e14);color:#fff}
+.rf-top{display:flex;align-items:center;gap:8px;min-height:150px}
+.rf-tx{flex:1;min-width:0}
+.rf-tx h2{margin:0 0 14px;font-size:24px;line-height:1.22;font-weight:800;letter-spacing:-.01em}
+.rf-tx h2 i{font-style:normal;color:#8fb8ff}
+.rf-mng{display:inline-flex;align-items:center;gap:2px;font-size:13px;color:rgba(255,255,255,.72);padding:0;background:none}
+.rf-art{width:140px;height:140px;flex-shrink:0;margin-right:-6px}
+.rf-glass{margin-top:10px;padding:6px 14px 14px;border-radius:16px;background:linear-gradient(180deg,rgba(255,255,255,.10),rgba(255,255,255,.04));border:1px solid rgba(255,255,255,.12);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+.rf-gr{display:flex;align-items:center;gap:10px;min-height:50px;border-bottom:1px solid rgba(255,255,255,.08)}
+.rf-gr span{font-size:13px;color:rgba(255,255,255,.62);width:112px;flex-shrink:0}
+.rf-gr b{flex:1;min-width:0;font-size:15px;font-weight:700;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rf-mono{letter-spacing:.08em}
+.rf-lk{font-size:13px!important;font-weight:500!important}
+.rf-up{height:26px;padding:0 12px;border-radius:999px;background:rgba(255,255,255,.14);color:#fff;font-size:12px;font-weight:700}
+.rf-ci{width:32px;height:32px;display:grid;place-items:center;border-radius:8px;color:rgba(255,255,255,.85);background:none}.rf-ci:active,.rf-up:active{background:rgba(255,255,255,.2)}
+.rf-shr{display:flex;justify-content:space-between;gap:4px;padding-top:16px}
+.rf-sb{display:flex;flex-direction:column;align-items:center;gap:6px;flex:1;min-width:0;background:none;color:#fff}
+.rf-sb span{width:46px;height:46px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(180deg,rgba(255,255,255,.18),rgba(255,255,255,.07));border:1px solid rgba(255,255,255,.14)}
+.rf-sb:active span{background:rgba(255,255,255,.25)}
+.rf-sb em{font-style:normal;font-size:11.5px;color:rgba(255,255,255,.72)}
+.rf-qr{display:grid;place-items:center;padding:6px 0 12px}.rf-qr svg{border-radius:12px;max-width:100%;height:auto}

@@ -88,7 +88,7 @@ function marketList(box, o = {}){
     box.innerHTML = `<div class="hm-hd"><span class="hm-hn">${hb("name","Name")}<u>/</u>${hb("vol","Vol")}</span><span>${hb("px","Last Price")}</span><span>${hb("chg","24h Chg%")}</span></div>` + l.map(p => `<div class="hm-row" data-sym="${p.sym}" role="button" tabindex="0" aria-label="Open ${esc(M.label(p))}">
       <div class="hm-nm">${UI.pairIcon(p, 32)}<div class="hm-tx"><div class="hm-sym"><span class="hm-sy">${esc(p.type === "crypto" ? p.base + "USDT" : p.sym)}</span>${tag(p)}</div><div class="hm-s2"><span class="hm-fn">${esc(UI.fullName(p))}</span><span class="hm-vl">${vol(p)}</span></div></div></div>
       <div class="hm-px"><b class="num" data-px>${M.fmtPx(p)}</b><span class="num" data-usd>${usd(p)}</span></div><div data-chg>${chgHtml(p)}</div></div>`).join("")
-      + (more ? `<a class="hm-more" href="#/markets">View all markets</a>` : "");
+      + (more ? `<a class="hm-more" href="#/markets">See all</a>` : "");
     box.querySelectorAll(".hm-row").forEach(r => rows.set(r.dataset.sym, {px:r.querySelector("[data-px]"), usd:r.querySelector("[data-usd]"), chg:r.querySelector("[data-chg]")}));
   }
   function flush(){
@@ -136,6 +136,25 @@ function seedFavs(){
   if (s.favs.length >= 10){ s.favSeeded = true; }
   store.save();
 }
+const BOTS = [["Spot Grid","Buy low, sell high in a range","+18.4%","Avg. 30D"],["Futures Grid","Grid with leverage and auto-stop","+26.1%","Avg. 30D"],["DCA Bot","Scheduled recurring buys","+9.7%","Avg. 30D"]];
+function areaSpark(vals, w = 120, h = 40){
+  const mn = Math.min(...vals), mx = Math.max(...vals), rg = (mx - mn) || 1, id = "hs" + (++gid);
+  const pts = vals.map((v, i) => [i / (vals.length - 1) * w, 3 + (1 - (v - mn) / rg) * (h - 8)]);
+  const line = pts.map((p, i) => (i ? "L" : "M") + p[0].toFixed(1) + " " + p[1].toFixed(1)).join("");
+  return `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--up)" stop-opacity=".28"/><stop offset="1" stop-color="var(--up)" stop-opacity="0"/></linearGradient></defs><path d="${line}L${w} ${h}L0 ${h}Z" fill="url(#${id})"/><path d="${line}" fill="none" stroke="var(--up)" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/></svg>`;
+}
+const cmp = v => { const a = Math.abs(v); return "$" + (a >= 1e6 ? (v/1e6).toFixed(2) + "M" : a >= 1e3 ? (v/1e3).toFixed(1) + "K" : v.toFixed(0)); };
+function drawCopy(root){
+  const box = root.querySelector("#cpsec"); if (!box) return;
+  const L = (window.COPY_LEADERS || []).slice().sort((a,b) => b.roi - a.roi).slice(0, 8);
+  if (!L.length){ box.hidden = true; return; }
+  box.innerHTML = `<a class="hm-sh" href="#/copy"><h2>Copy Trading</h2>${ic("chev",16,2)}</a><div class="hm-cps">${L.map(l => `<div class="hm-cp" data-ld="${l.id}" role="button" tabindex="0">
+    <div class="hd">${window.ART && ART.avatar ? ART.avatar(l.id, 40) : avatar(l.name, 40)}<div class="nm"><b class="ellipsis">${esc(l.name)}</b><span>${esc(l.tag)} <i></i> ${ic("users",12,1.7)} <span class="num">${l.f}/2000</span></span></div></div>
+    <div class="lb">30D PnL</div><div class="roi num">+${l.roi.toFixed(2)}%</div><div class="sp">${areaSpark(l.getSpark(28))}</div>
+    <div class="ft"><span>AUM <b class="num">${cmp(l.aum)}</b></span><button class="cp" tabindex="-1">Copy</button></div></div>`).join("")}</div>`;
+  box.onclick = e => { const c = e.target.closest("[data-ld]"); if (c) location.hash = "#/copy/" + c.dataset.ld; };
+  box.onkeydown = e => { const c = e.target.closest("[data-ld]"); if (c && e.key === "Enter") c.click(); };
+}
 const HOT = ["BTC","SOL","ETH","XRP","DOGE","BNB"];
 const EVENTS = [["Futures Trading Competition","Share a 100,000 USDT prize pool","#/futures","Live","podium"],["Rewards Hub","Daily check-in, tasks and badges","#/rewards","Daily","trophy"],["Copy Trading Carnival","Follow top traders and share profit bonuses","#/copy","Hot","rocket"],["Invite Friends","Earn up to 40% commission","#/referral","Ongoing","gift"],["Earn Boost","Up to 12% APR on idle USDT","#/earn","New","coins"],["Options Launch","Calls and puts with capped risk","#/options","New","shield"]];
 const LESSONS = [["Candlestick patterns for beginners","5 min"],["How leverage and liquidation work","7 min"],["Risk management: sizing a position","6 min"],["Reading order books and depth","6 min"],["Stop loss and take profit explained","5 min"],["Funding rates in perpetual futures","8 min"],["Spot vs futures: which to choose","4 min"],["Support, resistance and trend lines","7 min"],["What are options and how do they work","9 min"],["Building a simple trading plan","6 min"]];
@@ -160,7 +179,7 @@ Pages.home = () => {
   const s = S();
   const html = `
   <header class="hm-top">
-    <a class="hm-av" href="#/profile" aria-label="Profile">${avatar(s.profile.name, 34)}</a>
+    <a class="hm-av" href="#/profile" aria-label="Profile">${window.UserAvatar ? window.UserAvatar(34) : avatar(s.profile.name, 34)}</a>
     <label class="hm-search" id="hs">${ic("flame",16)}<span class="hm-rot"><span class="hm-rot-in" id="rot">${[...HOT, HOT[0]].map(x => `<span>${x} Hot Searched</span>`).join("")}</span></span><input id="q" type="search" aria-label="Search markets" autocomplete="off" enterkeyhint="search"></label>
     <a class="hm-ib" href="#/support" aria-label="Support">${ic("headset",21)}<i></i></a>
     <a class="hm-ib" href="#/rewards" aria-label="Rewards">${ic("gift",21)}</a>
@@ -177,6 +196,8 @@ Pages.home = () => {
   <nav class="hm-sc" aria-label="Shortcuts">${SHORT.map(([n,i,h]) => `<a href="${h}">${ic(i,22,1.7)}<span>${esc(n).replace(" ", "<br>")}${n.includes(" ") ? "" : "<br>&nbsp;"}</span></a>`).join("")}</nav>
   <section class="hm-ban" aria-label="Featured"><div class="hm-bs" id="bs">${SLIDES.map(([h,p,l,a]) => `<a class="hm-sl" href="${l}"><div class="g"><h3>${esc(h)}</h3><p>${esc(p)}</p></div>${art(a)}</a>`).join("")}</div><span class="hm-cnt" id="cnt">1/${SLIDES.length}</span></section>
   <section aria-label="Markets">${chipsHtml()}<div id="mlist"></div></section>
+  <section class="hm-sec" id="cpsec" aria-label="Copy Trading"></section>
+  <section class="hm-sec" aria-label="Trading Bots"><a class="hm-sh" href="#/bots"><h2>Trading Bots</h2>${ic("chev",16,2)}</a><div class="hm-bots">${BOTS.map(([n,d,v,l]) => `<a class="hm-bot" href="#/bots"><span class="hm-bi">${ic("bot",18,1.7)}</span><b>${esc(n)}</b><small>${esc(d)}</small><i class="num">${esc(v)}</i><u>${esc(l)}</u></a>`).join("")}</div></section>
   <div class="hm-strip-sp"></div><div class="hm-strip" id="strip"><div class="hm-st-t" role="tablist"><button data-st="feed" role="tab">Feed</button><button data-st="announce" role="tab">Announcements</button><button data-st="events" role="tab">Events</button><button data-st="academy" role="tab">Academy</button><span class="x" data-sx role="button" tabindex="0" aria-label="Expand">${ic("chevd",16)}</span></div><div class="hm-st-b" id="stb"></div></div>`;
 
   function renderBal(){
@@ -192,6 +213,7 @@ Pages.home = () => {
     seedFavs(); offs.push(bus.on("list", () => { seedFavs(); }));
     ml = marketList(root.querySelector("#mlist"), {limit:15});
     bindChips(root, ml);
+    drawCopy(root);
     const qi = root.querySelector("#q"), hs = root.querySelector("#hs");
     qi.addEventListener("input", () => { hs.classList.toggle("has", !!qi.value); ml.setQ(qi.value); });
     qi.addEventListener("focus", () => hs.classList.add("has"));
