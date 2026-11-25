@@ -112,3 +112,5 @@ body.auth-mode .app{padding-bottom:24px}
 .ad-addrow{display:flex;gap:8px;margin-top:14px}.ad-addrow .btn{flex:none}
 .ad-btns{display:flex;gap:8px;margin-top:10px}.ad-btns .btn{flex:1}
 @media (min-width:760px){.ad-kpis{grid-template-columns:repeat(5,1fr)}.ad-k:first-child{grid-column:auto}.ad-k{flex-direction:column;align-items:flex-start}.ad-cols{grid-template-columns:1.1fr 1fr;align-items:start}.ad-ud{display:block}}
+.au-btn.btn-primary,.ad-addrow .btn-primary,.ad-btns .btn-primary{background:var(--brand)!important;color:#fff!important;background-image:none!important}
+.au-main{background:var(--brand)!important;background-image:none!important}
