@@ -28,11 +28,14 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleRelease --no-daemon -q
           cp app/build/outputs/apk/release/app-release.apk ../binary-trading.apk
+          echo ${{ github.run_number }} > ../version.txt
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: apk-v${{ github.run_number }}
           name: Binary Trading APK (build ${{ github.run_number }})
           body: Web content updates automatically. Install this APK once; later builds are offered in-app.
-          files: binary-trading.apk
+          files: |
+            binary-trading.apk
+            version.txt
           make_latest: true

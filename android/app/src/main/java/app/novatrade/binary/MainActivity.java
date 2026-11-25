@@ -147,43 +147,66 @@ public class MainActivity extends Activity {
     }
 
     /* ---------------- native app update (GitHub Releases) ---------------- */
+    static final String DL = "https://github.com/dewgames95-ship-it/Stoploss-msg-remover-bot-/releases/latest/download/";
+
+    /** Reads a small text/JSON response; follows the github.com -> CDN redirect. Returns null on any non-200. */
+    static String get(String url) throws Exception {
+        HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();
+        c.setInstanceFollowRedirects(true);
+        c.setRequestProperty("User-Agent", "BinaryTradingApp");
+        c.setRequestProperty("Cache-Control", "no-cache");
+        c.setUseCaches(false);
+        c.setConnectTimeout(10000); c.setReadTimeout(10000);
+        if (c.getResponseCode() != 200) return null;
+        BufferedReader br = new BufferedReader(new InputStreamReader(c.getInputStream()));
+        StringBuilder sb = new StringBuilder(); String line;
+        while ((line = br.readLine()) != null) sb.append(line);
+        br.close();
+        return sb.toString();
+    }
+
     void checkForUpdate(boolean manual) {
         lastCheck = System.currentTimeMillis();
         new Thread(() -> {
+            int latest = 0; String url = DL + "binary-trading.apk";
             try {
-                HttpURLConnection c = (HttpURLConnection) new URL(RELEASES).openConnection();
-                c.setRequestProperty("Accept", "application/vnd.github+json");
-                c.setConnectTimeout(8000); c.setReadTimeout(8000);
-                if (c.getResponseCode() != 200) { if (manual) toast("No update found"); return; }
-                BufferedReader br = new BufferedReader(new InputStreamReader(c.getInputStream()));
-                StringBuilder sb = new StringBuilder(); String line;
-                while ((line = br.readLine()) != null) sb.append(line);
-                br.close();
-                JSONObject j = new JSONObject(sb.toString());
-                String tag = j.optString("tag_name", "");          // apk-v12
-                int latest = Integer.parseInt(tag.replaceAll("[^0-9]", "").isEmpty() ? "0" : tag.replaceAll("[^0-9]", ""));
-                String apk = null;
-                JSONArray assets = j.optJSONArray("assets");
-                for (int i = 0; assets != null && i < assets.length(); i++) {
-                    JSONObject a = assets.getJSONObject(i);
-                    if (a.optString("name").endsWith(".apk")) { apk = a.optString("browser_download_url"); break; }
-                }
-                final String url = apk; final String notes = j.optString("body", "");
-                if (latest > BuildConfigVersion() && url != null) runOnUiThread(() -> promptUpdate(url, latest, notes));
-                else if (manual) toast("You have the latest version");
-            } catch (Exception e) { if (manual) toast("Update check failed"); }
+                // 1) release asset version.txt: plain download, no GitHub API rate limit (mobile networks share IPs)
+                String v = get(DL + "version.txt?t=" + System.currentTimeMillis());
+                if (v != null) latest = Integer.parseInt(v.replaceAll("[^0-9]", ""));
+            } catch (Exception ignored) {}
+            if (latest == 0) {
+                try {   // 2) fallback: GitHub API
+                    String body = get(RELEASES);
+                    if (body != null) {
+                        JSONObject j = new JSONObject(body);
+                        String n = j.optString("tag_name", "").replaceAll("[^0-9]", "");
+                        latest = n.isEmpty() ? 0 : Integer.parseInt(n);
+                        JSONArray assets = j.optJSONArray("assets");
+                        for (int i = 0; assets != null && i < assets.length(); i++) {
+                            JSONObject a = assets.getJSONObject(i);
+                            if (a.optString("name").endsWith(".apk")) { url = a.optString("browser_download_url"); break; }
+                        }
+                    }
+                } catch (Exception ignored) {}
+            }
+            final int lv = latest; final String u = url;
+            if (lv > BuildConfigVersion()) runOnUiThread(() -> promptUpdate(u, lv, ""));
+            else if (manual) toast(lv == 0 ? "Update check failed. Check internet and try again" : "You have the latest version (build " + BuildConfigVersion() + ")");
         }).start();
     }
 
     void toast(String m) { runOnUiThread(() -> Toast.makeText(this, m, Toast.LENGTH_SHORT).show()); }
 
+    boolean dialogOpen = false;
     void promptUpdate(String url, int v, String notes) {
-        if (isFinishing()) return;
+        if (isFinishing() || dialogOpen) return;
+        dialogOpen = true;
         new AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert)
             .setTitle("Update available")
             .setMessage("A new version of the app (build " + v + ") is ready." + (notes.isEmpty() ? "" : "\n\n" + notes))
             .setPositiveButton("Update", (d, w) -> download(url, v))
             .setNegativeButton("Later", null)
+            .setOnDismissListener(d -> dialogOpen = false)
             .show();
     }
 
@@ -239,7 +262,7 @@ public class MainActivity extends Activity {
         super.onResume();
         if (errorShown && online()) { errorShown = false; web.loadUrl(SITE); }
         // re-check for a new APK when the app comes back from background (at most every 30 min)
-        if (lastCheck > 0 && System.currentTimeMillis() - lastCheck > 30 * 60 * 1000L) checkForUpdate(false);
+        if (lastCheck > 0 && System.currentTimeMillis() - lastCheck > 10 * 60 * 1000L) checkForUpdate(false);
     }
 
     @Override
