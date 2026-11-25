@@ -52,7 +52,7 @@ async function binance(path){
 }
 
 /* ---- Crypto list: ALL Binance USDT pairs, auto-refreshed (new listings appear, delisted ones disappear) ---- */
-const MIN_QV = 100e3, BINARY_QV = 1e6;   // list pairs with >= $100K 24h volume; binary on >= $1M (highly liquid)
+const MIN_QV = 1e6, BINARY_QV = 1e6;   // only actively traded pairs (>= $1M 24h volume) — binary on all of them
 let wsOpen = false, cryptoTimer;
 const inUse = sym => { const s = U.store.s; return s.positions.some(x => x.sym === sym) || s.fut.positions.some(x => x.sym === sym) || s.fut.orders.some(x => x.sym === sym) || (s.favs || []).includes(sym); };
 async function loadCrypto(attempt=0){
@@ -62,7 +62,8 @@ async function loadCrypto(attempt=0){
     const st = new Set(C.STABLES), stocks = new Set(C.STOCKS);
     const isStock = b => b.length > 2 && b.endsWith("B") && stocks.has(b.slice(0,-1));
     const rows = all.filter(x => x.symbol.endsWith("USDT") && !st.has(x.symbol.slice(0,-4)) && !/(UP|DOWN|BULL|BEAR)$/.test(x.symbol.slice(0,-4)) && /^[A-Z0-9]+$/.test(x.symbol.slice(0,-4)) && +x.count > 0 && !isStock(x.symbol.slice(0,-4))
-        && (+x.quoteVolume >= MIN_QV || C.TRADABLE_CRYPTO.includes(x.symbol.slice(0,-4))))
+        && (+x.quoteVolume >= MIN_QV || C.TRADABLE_CRYPTO.includes(x.symbol.slice(0,-4)))
+        && (window.LOCAL_ICONS || {})[x.symbol.slice(0,-4).toLowerCase()])   // only coins with an official logo
       .sort((a,b) => b.quoteVolume - a.quoteVolume);
     const live = new Set(rows.map(r => r.symbol));
     // delisted / dead pairs drop out automatically (kept only while you still hold or watch them)
@@ -152,8 +153,14 @@ const CCY = {USD:"us",EUR:"eu",GBP:"gb",JPY:"jp",CHF:"ch",AUD:"au",NZD:"nz",CAD:
 const IDX_FLAG = {US30:"us",USTEC:"us",US500:"us",SPX500:"us",NAS100:"us",US2000:"us",DXY:"us",VIX:"us",UK100:"gb",DE30:"de",GER40:"de",FR40:"fr",FRA40:"fr",JP225:"jp",JPN225:"jp",AUS200:"au",HK50:"hk",STOXX50:"eu",ESTX50:"eu",CHINA50:"cn"};
 const METAL = {XAUUSD:"gold",XAGUSD:"silver",XPTUSD:"platinum",XPDUSD:"palladium"};
 const COMMOD = {USOIL:"WTI Crude Oil",UKOIL:"Brent Crude Oil",XNGUSD:"Natural Gas",NATGASUSDT:"Natural Gas",COPPERUSDT:"Copper",XALUSD:"Aluminium",XPBUSD:"Lead"};
+const POP_STOCKS = new Set("AAPL MSFT NVDA AMZN GOOGL META TSLA AVGO AMD NFLX ORCL CRM ADBE INTC QCOM TXN MU ARM TSM ASML PLTR COIN MSTR HOOD UBER SHOP PYPL BABA JPM GS V MA BAC WMT COST KO PEP MCD DIS NKE LLY UNH XOM CVX BA IBM SPY QQQ IWM DIA".split(" "));
+const POP_FX = new Set("EURUSD GBPUSD USDJPY AUDUSD USDCAD USDCHF NZDUSD EURJPY GBPJPY EURGBP EURCHF AUDJPY EURAUD GBPCHF CADJPY CHFJPY AUDCAD AUDNZD EURCAD GBPAUD USDSGD USDHKD USDMXN USDZAR USDTRY USDCNH".split(" "));
+const POP_COMMOD = new Set(["USOIL","UKOIL","XNGUSD","COPPERUSDT"]);
 function classify(x){
   const n = x.name; if (!x.isActive || !x.hasData || n.includes("_")) return null;
+  if (x.type === "Stock" && n.endsWith("USDT") && !POP_STOCKS.has(n.slice(0,-4))) return null;
+  if (x.type === "Forex" && !POP_FX.has(n)) return null;
+  if (COMMOD[n] && !POP_COMMOD.has(n)) return null;
   if (x.type === "Stock" && n.endsWith("USDT") && n.length > 4) return {sym:n, type:"stock", base:n.slice(0,-4), quote:"USDT", name:x.description || n.slice(0,-4)};
   if (x.type === "Index" && IDX_FLAG[n]) return {sym:n, type:"index", base:n, quote:"", name:x.description || n, flag:IDX_FLAG[n]};
   if (METAL[n]) return {sym:n, type:"metal", base:n.slice(0,3), quote:"USD", name:x.description || n, metal:METAL[n]};
@@ -163,7 +170,7 @@ function classify(x){
 }
 async function loadCatalog(){
   try {
-    let list; const key = "bq_cat_v1";
+    let list; const key = "bq_cat_v2";
     try { const c = JSON.parse(localStorage.getItem(key) || "null"); if (c && Date.now() - c.t < 6 * 3600e3) list = c.d; } catch {}
     if (!list){ const r = await fetch(C.BIQUOTE + "/api/symbols"); if (!r.ok) throw 0; list = (await r.json()).map(classify).filter(Boolean); try { localStorage.setItem(key, JSON.stringify({t:Date.now(), d:list})); } catch {} }
     const live = new Set(list.map(x => x.sym));

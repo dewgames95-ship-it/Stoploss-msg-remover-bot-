@@ -8,12 +8,14 @@ function letter(txt, size=28){
   return `<span class="letter" style="width:${size}px;height:${size}px;background:${COLORS[h%COLORS.length]};font-size:${Math.round(size*.38)}px">${esc(txt.slice(0,2))}</span>`;
 }
 const METAL_SVG = {
+  platinum:`<svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="20" fill="#2A2E36"/><path d="M8 27h11l2-6H10z" fill="#C9CED6"/><path d="M21 27h11l-2-6H23z" fill="#E3E7ED"/><path d="M14 20h12l-2-6h-8z" fill="#F4F6F9"/><path d="M16 14h8l-.6 1.6h-6.8z" fill="#fff" opacity=".8"/></svg>`,
+  palladium:`<svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="20" fill="#2B2A30"/><path d="M8 27h11l2-6H10z" fill="#A9A3B5"/><path d="M21 27h11l-2-6H23z" fill="#C4BFCE"/><path d="M14 20h12l-2-6h-8z" fill="#DCD8E3"/><path d="M16 14h8l-.6 1.6h-6.8z" fill="#fff" opacity=".7"/></svg>`,
   gold:`<svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="20" fill="#3A3214"/><path d="M8 27h11l2-6H10z" fill="#E8B10E"/><path d="M21 27h11l-2-6H23z" fill="#F5C842"/><path d="M14 20h12l-2-6h-8z" fill="#FFD966"/><path d="M16 14h8l-.6 1.6h-6.8z" fill="#fff" opacity=".6"/></svg>`,
   silver:`<svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="20" fill="#2B3139"/><path d="M8 27h11l2-6H10z" fill="#9AA5B4"/><path d="M21 27h11l-2-6H23z" fill="#B8C1CD"/><path d="M14 20h12l-2-6h-8z" fill="#D4DAE2"/><path d="M16 14h8l-.6 1.6h-6.8z" fill="#fff" opacity=".7"/></svg>`
 };
 function pairIcon(p, size=28){
   if (!p) return letter("?", size);
-  if (p.type === "metal") return `<span style="width:${size}px;height:${size}px;display:block;flex-shrink:0">${METAL_SVG[p.metal]}</span>`;
+  if (p.type === "metal") return `<span style="width:${size}px;height:${size}px;display:block;flex-shrink:0">${METAL_SVG[p.metal] || METAL_SVG.gold}</span>`;
   const flag = (cc, sz, extra="") => `<img class="coin" src="assets/flags/${cc}.webp" onerror="this.onerror=null;this.src='https://flagcdn.com/w80/${cc}.png'" alt="" loading="lazy" style="width:${sz}px;height:${sz}px;${extra}">`;
   if (p.type === "forex") return `<span style="position:relative;width:${size}px;height:${size}px;flex-shrink:0;display:block">${flag(p.flags[0], size*.78, "position:absolute;left:0;top:0")}${flag(p.flags[1], size*.55, "position:absolute;right:0;bottom:0;border:1.5px solid var(--card)")}</span>`;
   if (p.type === "index") return `<span class="ix-ic" style="width:${size}px;height:${size}px">${flag(p.flag || "us", size)}</span>`;

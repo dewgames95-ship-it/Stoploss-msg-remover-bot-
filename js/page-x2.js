@@ -223,7 +223,7 @@ Pages.assets = (params) => {
     box.querySelectorAll("[data-xfer]").forEach(b => b.onclick = () => transferSheet(() => render(r)));
     box.querySelectorAll("[data-conv]").forEach(b => b.onclick = () => convertSheet(() => render(r)));
     box.querySelectorAll("[data-eye]").forEach(b => b.onclick = () => { s.settings.hideBal = !s.settings.hideBal; store.save(); render(r); });
-    box.querySelectorAll("[data-pnl]").forEach(b => b.onclick = () => pnlSheet(t));
+    box.querySelectorAll("[data-pnl]").forEach(b => b.onclick = () => { if (window.Pages && Pages.pnl) location.hash = "#/pnl"; else pnlSheet(t); });
     const sm = box.querySelector("[data-small]"); if (sm) sm.onchange = () => { s.settings.hideSmall = sm.checked; store.save(); render(r); };
     box.querySelectorAll("[data-v]").forEach(b => { b.classList.toggle("on", b.dataset.v === view); b.onclick = () => { view = b.dataset.v; render(r); }; });
     box.querySelectorAll("[data-go]").forEach(b => b.onclick = () => { tab = b.dataset.go; r.querySelectorAll("[data-at]").forEach(x => x.classList.toggle("on", x.dataset.at === tab)); render(r); });

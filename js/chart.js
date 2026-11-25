@@ -261,6 +261,11 @@ function overlay(){
     const left = sec >= 60 && cp.cd !== false ? Math.max(0, last.time + sec - now/1000) : null;
     const cd = left == null ? "" : left >= 3600 ? `${Math.floor(left/3600)}:${String(Math.floor(left%3600/60)).padStart(2,"0")}:${String(Math.floor(left%60)).padStart(2,"0")}` : mmss(left);
     h += `<div class="pbox" style="top:${y}px">${M.fmtPx(p, last.close)}${cd ? `<br>${cd}` : ""}</div>`;
+    // "+" next to the live price: drag it up/down to create TP (profit side) or SL (loss side) for the latest position
+    const myPos = ui.mode !== "bin" ? s.fut.positions.filter(x => x.sym === sym).slice(-1)[0] : null;
+    if (myPos && !(dragS && dragS.kind === "new")) h += `<div class="pplus drag" data-drag="new:${myPos.id}" style="top:${y}px" title="Drag to set TP / SL">+</div>`;
+    if (dragS && dragS.kind === "new" && dragS.price != null){ const yy2 = S.main.priceToCoordinate(dragS.price), pos2 = s.fut.positions.find(x => x.id === dragS.id);
+      if (yy2 != null && pos2){ const est = E.futPnl(pos2, dragS.price).pnl; h += `<div class="dline ${dragS.as || "tp"}" style="top:${yy2}px"></div><div class="dtag ${est >= 0 ? "g" : "r"}" style="top:${yy2}px">${(dragS.as || "tp").toUpperCase()} ${M.fmtPx(p, dragS.price)} · ${signed(est)} USDT (${(est / (pos2.margin || 1) * 100).toFixed(1)}%)</div>`; } }
   }
   // visible high / low
   const vr = chart.timeScale().getVisibleLogicalRange();
@@ -279,7 +284,7 @@ function overlay(){
     const {pnl} = E.futPnl(pos), ye = S.main.priceToCoordinate(pos.entry), c = pnl >= 0 ? "g" : "r";
     if (ye != null){
       h += `<div class="plab ${c}" style="top:${ye}px;left:0"><span>PnL ${signed(pnl)}</span><span>${money(pos.qty * pos.entry)}</span></div>`;
-      if (ui.mode !== "bin" && !(dragS && dragS.id === pos.id && dragS.kind === "new")) h += `<div class="dh drag" data-drag="new:${pos.id}" style="top:${ye}px;right:70px">${dragIcon} TP/SL</div>`;
+
     }
     const pv = k => dragS && dragS.id === pos.id && (dragS.kind === k || (dragS.kind === "new" && dragS.as === k)) ? dragS.price : pos[k];
     [["tp","TP"],["sl","SL"]].forEach(([k, n]) => { const v = pv(k); if (!v) return; const yy = S.main.priceToCoordinate(v); if (yy == null) return;
