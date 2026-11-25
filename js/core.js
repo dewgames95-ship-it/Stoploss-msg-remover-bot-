@@ -80,7 +80,7 @@ const ic = (n, s=20, sw=2) => `<svg width="${s}" height="${s}" viewBox="0 0 24 2
 const handlers = {};
 const bus = {
   on(e, f){ (handlers[e] ||= new Set()).add(f); return () => handlers[e].delete(f); },
-  emit(e, ...a){ handlers[e]?.forEach(f => { try{ f(...a); }catch(err){ console.error(err); } }); }
+  emit(e, ...a){ handlers[e] && [...handlers[e]].forEach(f => { try{ f(...a); }catch(err){ console.error(err); } }); }
 };
 
 /* ----- Store (localStorage) ----- */

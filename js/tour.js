@@ -35,10 +35,14 @@ const TOURS = {
     {sel:"#spbook", title:"Order book", text:"Tap any price to copy it into the order form."}
   ],
   options: [
-    {sel:"#opExps", title:"Expiry", text:"Choose when the option settles, from 15 minutes to a week."},
-    {sel:"#opSide", title:"Calls or Puts", text:"Calls gain when price rises above the strike, puts when it falls below."},
-    {sel:"#opChain", title:"Option chain", text:"Each row is a strike price with its premium. Max loss is the premium you pay."},
-    {sel:".op-buy", title:"Buy", text:"Tap Buy on a strike to review and confirm your option."}
+    {sel:"#opMode", title:"Simple or Pro", text:"Simple is a guided flow. Switch to Pro for the full option chain."},
+    {sel:"#sDir", title:"Rise or fall", text:"Pick Up (call) if you expect the price to rise, Down (put) if you expect a fall."},
+    {sel:"#sExps", title:"Expiry", text:"Choose when the option settles, from 15 minutes to a week."},
+    {sel:"#sTgts", title:"Target price", text:"Pick the strike. Closer to the market costs more but wins more often."},
+    {sel:"#sAmt", title:"Amount", text:"Your maximum loss is the premium you pay, nothing more."},
+    {sel:"#sGo", title:"Confirm", text:"Review the summary, then place your option."},
+    {sel:"#opExps", title:"Expiry", text:"Choose when the option settles."},
+    {sel:"#opChain", title:"Option chain", text:"Each row is a strike with its premium. Tap Buy to trade it."}
   ],
   copy: [
     {sel:".px-hero", title:"Copy trading", text:"Follow top traders and mirror their trades automatically."},

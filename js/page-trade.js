@@ -83,7 +83,7 @@ function resolveSym(params, key){
 }
 function loadingPage(title){
   let off;
-  return {title:"Loading", html: UI.pageHead(title) + `<div>${Array(8).fill('<div class="skel"></div>').join("")}</div>`, mount(){ off = bus.on("list", () => App.route()); }, unmount(){ off?.(); }};
+  return {title:"Loading", html: UI.pageHead(title) + `<div>${Array(8).fill('<div class="skel"></div>').join("")}</div>`, mount(){ off = bus.on("list", () => { if (M.cryptoOrder.length) setTimeout(App.route, 0); }); }, unmount(){ off?.(); }};
 }
 function chartBlock(){
   const MAIN = ["tick","1m","15m","1h","4h","1d"];

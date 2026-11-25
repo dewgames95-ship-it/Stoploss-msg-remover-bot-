@@ -1,7 +1,7 @@
 /* ===== Guide / coach-mark tour ===== */
 .tr-ov{position:fixed;inset:0;z-index:600;opacity:0;transition:opacity .25s;touch-action:none}
 .tr-ov.on{opacity:1}
-.tr-spot{position:fixed;box-shadow:0 0 0 9999px rgba(0,0,0,.64),0 0 0 2px rgba(255,255,255,.55) inset;pointer-events:none;transition:left .3s cubic-bezier(.3,.8,.3,1),top .3s cubic-bezier(.3,.8,.3,1),width .3s cubic-bezier(.3,.8,.3,1),height .3s cubic-bezier(.3,.8,.3,1),border-radius .3s;outline:2px solid var(--brand);outline-offset:0}
+.tr-spot{position:fixed;box-shadow:0 0 0 200vmax rgba(0,0,0,.64);pointer-events:none;transition:left .3s cubic-bezier(.3,.8,.3,1),top .3s cubic-bezier(.3,.8,.3,1),width .3s cubic-bezier(.3,.8,.3,1),height .3s cubic-bezier(.3,.8,.3,1),border-radius .3s;outline:2px solid var(--brand);outline-offset:0}
 .tr-card{position:fixed;background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:16px;padding:14px 16px 12px;box-shadow:0 12px 36px rgba(0,0,0,.35);opacity:0;transform:translateY(6px);transition:opacity .2s,transform .2s,left .3s cubic-bezier(.3,.8,.3,1),top .3s cubic-bezier(.3,.8,.3,1);box-sizing:border-box}
 .tr-card.in{opacity:1;transform:none}
 .tr-t{font-size:15px;font-weight:700;margin-bottom:4px}
