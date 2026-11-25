@@ -195,7 +195,7 @@ function calcLiq(){
   if (L < 20 || !levs.length) return null;
   const from = Math.max(0, L - 500), k = 3, lw = {10:1, 25:.85, 50:.65, 100:.45}, evs = [];
   let lo = Infinity, hi = -Infinity; for (let i = from; i <= L; i++){ lo = Math.min(lo, bars[i].low); hi = Math.max(hi, bars[i].high); }
-  const pad = (hi - lo) * 0.25, rLo = lo - pad, rHi = hi + pad, nb = Math.round(q.bins), bw = (rHi - rLo) / nb;
+  const pad = Math.max((hi - lo) * 0.25, (hi + lo) / 2 * 0.025), rLo = lo - pad, rHi = hi + pad, nb = Math.round(q.bins), bw = (rHi - rLo) / nb;
   let vmax = 0; for (let i = from; i <= L; i++) vmax = Math.max(vmax, bars[i].volume || 0); const vfb = vmax || 1;
   const minAfter = new Array(L + 2).fill(Infinity), maxAfter = new Array(L + 2).fill(-Infinity);
   for (let i = L; i >= 0; i--){ minAfter[i] = Math.min(minAfter[i+1], bars[i].low); maxAfter[i] = Math.max(maxAfter[i+1], bars[i].high); }
@@ -231,7 +231,7 @@ function drawLiq(){
   const dpr = Math.min(2, window.devicePixelRatio || 1), W = el.clientWidth, H = chart.panes()[0].getHeight(), pw = chart.timeScale().width();
   if (cv._w !== W || cv._h !== H || cv._d !== dpr){ cv._w = W; cv._h = H; cv._d = dpr; cv.width = W * dpr; cv.height = H * dpr; cv.style.width = W + "px"; cv.style.height = H + "px"; }
   const c = cv.getContext("2d"); c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, W, H); cv._on = true;
-  window.__liq = liqData; if (liqData.none) return;
+  if (liqData.none) return;
   const d = liqData, px = bars[bars.length - 1].close, ts = chart.timeScale();
   const vis = []; let vmx = 0, smx = 0;
   d.bins.forEach((b, n) => { const y1 = S.main.priceToCoordinate(d.rLo + (n + 1) * d.bw), y0 = S.main.priceToCoordinate(d.rLo + n * d.bw); if (y1 == null || y0 == null || y0 < 0 || y1 > H) return;

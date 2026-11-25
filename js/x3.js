@@ -140,7 +140,7 @@ function addAgg(tr, t, pnl){ const i = dIdx(tr, t); while (tr.dn.length <= i){ t
 function trim(tr){ if (tr.dn.length > 130){ tr.dn.splice(0, 30); tr.dw.splice(0, 30); tr.dp.splice(0, 30); tr.eq.splice(0, 360); tr.d0 += 30 * DAY; tr.eq0 += 30 * DAY; } }
 const sideTxt = p => p.bin ? (p.long ? "UP" : "DOWN") : (p.long ? "Long" : "Short");
 function feedOpen(p){ return {t:p.t, tp:"o", sym:p.sym, txt: p.bin ? `Bought ${sideTxt(p)} ${p.sym}, ${r2(p.margin)} USDT, ${Math.max(1, Math.round((p.maxT - p.t) / MIN))}m` : `Opened ${sideTxt(p)} ${p.sym} ${p.lev}x at ${fmtPx(p.sym, p.entry)}`}; }
-function feedClose(c){ return {t:c.ct, tp:"c", sym:c.sym, pnl:c.pnl, txt: c.bin ? `${c.sym} ${sideTxt(c)} ${c.pnl > 0 ? "won" : "lost"} ${c.pnl >= 0 ? "+" : "-"}${Math.abs(c.pnl).toFixed(2)} USDT` : `Closed ${sideTxt(c)} ${c.sym} ${c.lev}x at ${fmtPx(c.sym, c.exit)}, ${c.pnl >= 0 ? "+" : "-"}${Math.abs(c.roi).toFixed(1)}% ROI`}; }
+function feedClose(c){ return {t:c.ct, tp:"c", sym:c.sym, pnl:c.pnl, txt: c.bin ? `${c.sym} ${sideTxt(c)} ${c.pnl > 0 ? "won" : "lost"} ${c.pnl >= 0 ? "+" : "-"}${Math.abs(c.pnl).toFixed(2)} USDT` : `Closed ${sideTxt(c)} ${c.sym} ${c.lev}x at ${fmtPx(c.sym, c.exit)}, ${c.pnl >= 0 ? "+" : "-"}${Math.abs(c.roi).toFixed(Math.abs(c.roi) < 1 ? 2 : 1)}% ROI`}; }
 const mkClosed = e => { const roi = e.margin ? e.pnl / e.margin * 100 : 0; return {id:e.id, sym:e.sym, long:e.long, lev:e.lev, entry:r6(e.entry), exit:r6(e.exit), margin:r2(e.margin), t:e.t, ct:e.ct, pnl:r2(e.pnl), roi:r2(roi), bin:e.bin || 0, pay:e.pay || 0}; };
 
 /* hindsight generator over a real price path: sides are chosen so the win rate matches the trader's profile */
