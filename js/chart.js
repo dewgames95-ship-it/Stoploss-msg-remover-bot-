@@ -333,7 +333,8 @@ function overlay(){
     const xs = timeToX(pos.open/1000), xe = timeToX(pos.exp/1000);
     if (xs != null && xs > 0 && xs < axisX) h += `<div class="start-line" style="left:${xs}px"></div>`;
     if (xe != null){ const x = Math.min(Math.max(xe, 30), axisX - 4); h += `<div class="exp-line" style="left:${x}px"><span style="top:${4 + (used.length-1)*18}px">⏱ ${mmss(lft)}</span></div>`; }
-    h += `<div class="plab ${win == null ? "n" : win ? "g" : "r"}" style="top:${yy}px;right:66px"><span>${pos.dir === "up" ? "▲ Up" : "▼ Down"}</span><span>Payout ${money(pos.amount * (1 + (pos.payout ?? 0.92)))} · ${mmss(lft)}</span></div>`;
+    // left-aligned tag so it never collides with the live price box on the right axis; the timer lives on the expiry line
+    h += `<div class="plab bin-pl ${win == null ? "n" : win ? "g" : "r"}" style="top:${yy}px;left:6px"><span>${pos.dir === "up" ? "▲ Up" : "▼ Down"} ${money(pos.amount)}</span><span>Payout ${money(pos.amount * (1 + (pos.payout ?? 0.92)))}</span></div>`;
   });
   if (h !== box._h){ box._h = h; box.innerHTML = h; }
 }

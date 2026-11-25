@@ -18,7 +18,7 @@ function txList(kind){
 /* ---------- Deposit (instant top-up of virtual USDT) ---------- */
 Pages.deposit = () => {
   const html = wrap("Deposit", `<div class="two-col"><div class="stack">
-    <div class="hero">${UI.usdt(36)}<div class="label" style="margin-top:10px">Trading account balance</div><div class="bal num" id="db"></div><div class="sub" style="font-size:12px">Virtual USDT is credited instantly — no payment, card or wallet needed.</div></div>
+    <div class="hero">${UI.usdt(36)}<div class="label" style="margin-top:10px">Spot wallet balance</div><div class="bal num" id="db"></div><div class="sub" style="font-size:12px">Virtual USDT is credited instantly — no payment, card or wallet needed.</div></div>
     <section class="card">
       <form id="df" novalidate>
         <div class="form-row"><label>Coin</label><div class="field" style="justify-content:space-between">${UI.usdt(22)}<b class="grow">USDT</b><span class="label">Tether USD</span></div></div>
@@ -31,7 +31,7 @@ Pages.deposit = () => {
     </section></div>
     <section class="card"><div class="title" style="margin-bottom:4px">Recent deposits</div><div id="dl"></div></section></div>`);
   return {html, title:"Deposit", mount(r){
-    const render = () => { r.querySelector("#db").textContent = money(S().balance) + " USDT"; r.querySelector("#dl").innerHTML = txList("deposit"); };
+    const render = () => { r.querySelector("#db").textContent = money(store.wb("spot")) + " USDT"; r.querySelector("#dl").innerHTML = txList("deposit"); };
     render();
     r.querySelectorAll("[data-v]").forEach(b => b.onclick = () => { r.querySelector("#da").value = b.dataset.v; r.querySelector("#de").textContent = ""; });
     r.querySelector("#df").onsubmit = async e => {
@@ -42,7 +42,7 @@ Pages.deposit = () => {
       if (m) return toast(m, "bad");
       await processing(e.submitter || r.querySelector("[type=submit]"), 900);
       S().tx.unshift({id:U.uid(), kind:"deposit", amount:a, method:"Instant top-up", t:Date.now()});
-      store.setBalance(S().balance + a, "deposit");
+      store.addWallet("spot", a, "deposit");
       store.notify("Deposit successful", `+${money(a)} USDT credited to your account`, "ok");
       toast(`Deposit successful! +${money(a)} USDT`, "ok"); U.fx("claim"); render();
     };
@@ -88,7 +88,7 @@ function settleMatured(){
   done.forEach(p => {
     const int = Math.round(p.amount * p.apr * p.days / 365 * 100) / 100;
     e.lockedInt += int; e.locked = e.locked.filter(x => x.id !== p.id);
-    store.setBalance(S().balance + p.amount + int, "earn");
+    store.addWallet("earn", p.amount + int, "earn");
     store.notify("Earn position matured", `${p.days}D Locked: ${money(p.amount)} USDT + ${money(int)} USDT interest credited`, "ok");
     S().tx.unshift({id:U.uid(), kind:"deposit", amount:p.amount + int, method:"Earn maturity", t:now});
   });
@@ -139,7 +139,7 @@ Pages.withdraw = () => {
         return `<div class="pm-kv" style="padding-top:2px"><span>Product</span><b>USDT ${days ? days + "-day Locked" : "Flexible"}</b></div>
           <div class="pm-kv"><span>APR</span><b class="num up">${apr(pr[2])}</b></div>
           <span class="pm-lbl">Amount</span><div class="pm-fld" id="pmAf"><input id="pmAmt" type="number" inputmode="decimal" min="1" placeholder="Min ${days ? 10 : 1}" aria-label="Amount"><span class="u">USDT</span><button type="button" class="mx" data-max>Max</button></div>
-          <div class="pm-kv" style="margin-top:8px"><span>Available</span><b class="num">${money(S().balance)} USDT</b></div>
+          <div class="pm-kv" style="margin-top:8px"><span>Avbl (Earn)</span><b class="num">${money(store.wb("earn"))} USDT <button class="wl-plus" data-wlto="earn" aria-label="Transfer in">${ic("plus",13,3)}</button></b></div>
           <div class="pm-kv"><span>${days ? "Est. interest at maturity" : "Est. daily interest"}</span><b class="num up" id="pmEi">0.00 USDT</b></div>
           <div class="pm-kv"><span>Redemption date</span><b>${days ? fdate(Date.now() + days * DAY) : "Any time"}</b></div>
           <label class="pm-chk"><input type="checkbox" id="pmAg"><span>I have read and agree to the Simple Earn terms</span></label>
@@ -149,13 +149,13 @@ Pages.withdraw = () => {
         const mount = () => {
           const pr = prods.find(x => x[0] === String(cur)), days = pr[3], b = el.querySelector("#pmSb"); b.innerHTML = body();
           const inp = b.querySelector("#pmAmt"), ei = () => { const a = parseFloat(inp.value) || 0; b.querySelector("#pmEi").textContent = fmt(days ? a * pr[2] * days / 365 : a * pr[2] / 365, 2) + " USDT"; };
-          inp.oninput = ei; b.querySelector("[data-max]").onclick = () => { inp.value = Math.floor(S().balance * 100) / 100; ei(); };
+          inp.oninput = ei; b.querySelector("[data-max]").onclick = () => { inp.value = Math.floor(store.wb("earn") * 100) / 100; ei(); };
           b.querySelector("[data-ok]").onclick = () => {
             const a = Math.round(parseFloat(inp.value) * 100) / 100, min = days ? 10 : 1;
-            const err = !(a > 0) ? "Enter a valid amount." : a < min ? `Minimum subscription is ${min} USDT.` : a > S().balance + 1e-9 ? "Amount exceeds your available balance." : !b.querySelector("#pmAg").checked ? "Please accept the Simple Earn terms." : "";
-            b.querySelector("#pmEr").textContent = err; b.querySelector("#pmAf").classList.toggle("err", !!err && !(a > 0 && a >= min && a <= S().balance));
-            if (err) return;
-            if (days){ store.setBalance(S().balance - a, "earn"); earnS().locked.push({id:U.uid(), days, apr:pr[2], amount:a, start:Date.now()}); store.save(); }
+            const err = !(a > 0) ? "Enter a valid amount." : a < min ? `Minimum subscription is ${min} USDT.` : a > store.wb("earn") + 1e-9 ? "Insufficient Earn balance" : !b.querySelector("#pmAg").checked ? "Please accept the Simple Earn terms." : "";
+            b.querySelector("#pmEr").textContent = err; b.querySelector("#pmAf").classList.toggle("err", !!err && !(a > 0 && a >= min && a <= store.wb("earn")));
+            if (err){ UI.walletErr(err); return; }
+            if (days){ store.addWallet("earn", -a, "earn"); earnS().locked.push({id:U.uid(), days, apr:pr[2], amount:a, start:Date.now()}); store.save(); }
             else { const e2 = flexMove(a, "in"); if (e2) return toast(e2, "bad"); }
             S().tx.unshift({id:U.uid(), kind:"withdraw", amount:a, method:"Earn · " + (days ? days + "D Locked" : "Flexible"), t:Date.now()}); store.save();
             U.fx("claim"); toast(`Subscribed ${money(a)} USDT`, "ok"); U.closeLayer(); renderPos();
@@ -170,7 +170,7 @@ Pages.withdraw = () => {
       if (vv < 0.01) return toast("No flexible balance to redeem.", "info");
       U.sheet("Redeem Flexible", `<div class="pm-kv" style="padding-top:2px"><span>Redeemable</span><b class="num">${fmt(vv, 2)} USDT</b></div>
         <span class="pm-lbl">Amount</span><div class="pm-fld" id="pmRf"><input id="pmRa" type="number" inputmode="decimal" min="0.01" aria-label="Amount"><span class="u">USDT</span><button type="button" class="mx" data-max>Max</button></div>
-        <div class="pm-kv" style="margin-top:8px"><span>Arrives</span><b>Instantly in Trading account</b></div><div class="pm-err" id="pmRe"></div><button class="btn btn-primary pm-cta" data-ok>Confirm redemption</button>`, el => {
+        <div class="pm-kv" style="margin-top:8px"><span>Arrives</span><b>Instantly in your Earn wallet</b></div><div class="pm-err" id="pmRe"></div><button class="btn btn-primary pm-cta" data-ok>Confirm redemption</button>`, el => {
         const inp = el.querySelector("#pmRa");
         el.querySelector("[data-max]").onclick = () => inp.value = Math.floor(E.vaultValue() * 100) / 100;
         el.querySelector("[data-ok]").onclick = () => {
@@ -190,8 +190,8 @@ Pages.withdraw = () => {
       const rl = e.target.closest("[data-rl]");
       if (rl){
         const p = earnS().locked.find(x => x.id === rl.dataset.rl); if (!p) return;
-        if (!await U.confirmBox("Redeem early?", `Early redemption forfeits all accrued interest (${fmt(lockedAcc(p), 2)} USDT). ${money(p.amount)} USDT principal returns to your Trading account now.`, "Redeem early", true)) return;
-        const e2 = earnS(); e2.locked = e2.locked.filter(x => x.id !== p.id); store.setBalance(S().balance + p.amount, "earn"); store.save();
+        if (!await U.confirmBox("Redeem early?", `Early redemption forfeits all accrued interest (${fmt(lockedAcc(p), 2)} USDT). ${money(p.amount)} USDT principal returns to your Earn wallet now.`, "Redeem early", true)) return;
+        const e2 = earnS(); e2.locked = e2.locked.filter(x => x.id !== p.id); store.addWallet("earn", p.amount, "earn"); store.save();
         S().tx.unshift({id:U.uid(), kind:"deposit", amount:p.amount, method:"Earn early redemption", t:Date.now()}); store.save();
         U.fx("claim"); toast(`Redeemed ${money(p.amount)} USDT, interest forfeited`, "ok"); return renderPos();
       }
@@ -276,11 +276,11 @@ Pages.bots = (params) => {
         return U.sheet("Create " + s.name, `<div class="pm-kv" style="padding-top:2px"><span>Strategy</span><b>${esc(s.name)}</b></div><div class="pm-kv"><span>Pair</span><b>${esc(M.label(p || {type:"crypto", base:d.pair}))}</b></div><div class="pm-kv"><span>Risk</span><b>${d.risk}</b></div><div class="pm-kv"><span>Est. APY</span><b class="num up">${esc(d.apy)}</b></div>
           <p class="pm-s" style="margin:6px 0 0">${esc(s.desc)}</p>
           <span class="pm-lbl">Investment</span><div class="pm-fld" id="pmBf"><input id="pmBa" type="number" inputmode="decimal" min="10" value="100" aria-label="Investment amount"><span class="u">USDT</span><button type="button" class="mx" data-max>Max</button></div>
-          <div class="pm-kv" style="margin-top:8px"><span>Available</span><b class="num">${money(S().balance)} USDT</b></div><div class="pm-kv"><span>Minimum</span><b class="num">10 USDT</b></div>
+          <div class="pm-kv" style="margin-top:8px"><span>Avbl (${d.wallet === "spot" ? "Spot" : "Futures"})</span><b class="num">${money(store.wb(d.wallet))} USDT <button class="wl-plus" data-wlto="${d.wallet}" aria-label="Transfer in">${ic("plus",13,3)}</button></b></div><div class="pm-kv"><span>Minimum</span><b class="num">10 USDT</b></div>
           <div class="pm-err" id="pmBe"></div><button class="btn btn-primary pm-cta" data-ok>Start bot</button>`, el => {
-          el.querySelector("[data-max]").onclick = () => el.querySelector("#pmBa").value = Math.floor(S().balance * 100) / 100;
+          el.querySelector("[data-max]").onclick = () => el.querySelector("#pmBa").value = Math.floor(store.wb(d.wallet) * 100) / 100;
           el.querySelector("[data-ok]").onclick = () => { const err = E.startBot(d.id, parseFloat(el.querySelector("#pmBa").value));
-            el.querySelector("#pmBe").textContent = err || ""; el.querySelector("#pmBf").classList.toggle("err", !!err); if (err) return;
+            el.querySelector("#pmBe").textContent = err || ""; if (err) UI.walletErr(err); el.querySelector("#pmBf").classList.toggle("err", !!err); if (err) return;
             U.closeLayer(); toast("Bot started", "ok"); view = "inv"; draw(); };
         });
       }
@@ -325,9 +325,9 @@ Pages.auto = () => {
       e.preventDefault();
       if (S().auto.on){ E.stopAuto(); toast("Auto trading stopped", "info"); return render(); }
       const amount = parseFloat($("#aa").value), max = parseInt($("#amx").value), pair = $("#ap2").value;
-      const err = !(amount >= 1) ? "Minimum amount is 1 USDT." : amount > S().balance ? "Amount exceeds your balance." : !(max >= 1 && max <= 500) ? "Stop after must be between 1 and 500." : M.get(pair).closed ? "Market closed for this pair. Choose a crypto pair." : M.isStale(M.get(pair)) ? "Market data offline for this pair. Try again shortly." : "";
+      const err = !(amount >= 1) ? "Minimum amount is 1 USDT." : amount > store.wb("binary") + 1e-9 ? "Insufficient Binary balance" : !(max >= 1 && max <= 500) ? "Stop after must be between 1 and 500." : M.get(pair).closed ? "Market closed for this pair. Choose a crypto pair." : M.isStale(M.get(pair)) ? "Market data offline for this pair. Try again shortly." : "";
       $("#ae").textContent = err; $("#aaf").classList.toggle("err", !!err);
-      if (err) return toast(err, "bad");
+      if (err){ toast(err, "bad"); UI.walletErr(err); return; }
       E.startAuto({pair, amount, max, ...sel}); toast("Auto trading started", "ok"); render();
     };
     const offs = [bus.on("auto", render), bus.on("history", render)];

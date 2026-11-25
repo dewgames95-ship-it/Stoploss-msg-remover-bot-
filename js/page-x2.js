@@ -59,6 +59,7 @@ const ART = {
 window.ART = ART;
 
 /* ======================= ASSETS ======================= */
+const WL = ["spot","futures","binary","options","earn"];
 const NAMES = c => c === "USDT" ? "TetherUS" : (window.COIN_NAMES && window.COIN_NAMES[c]) || c;
 function spotHoldings(){
   try { const h = window.SPOT?.holdings?.() || []; return (Array.isArray(h) ? h : []).map(x => {
@@ -69,7 +70,7 @@ const copyNow = () => cstate().active.reduce((a, c) => a + c.amt * (1 + copyPct(
 Pages.assets = (params) => {
   let tab = params[0] || "overview"; if (tab === "binary") tab = "spot"; if (tab === "funding") tab = "fund"; if (tab === "copying") tab = "copy";
   let view = "crypto", q = "", showQ = false, sortBy = "value";
-  const TABS = [["overview","Overview"],["fund","Fund"],["spot","Spot"],["futures","Futures"],["copy","Copy"],["earn","Earn"]];
+  const TABS = [["overview","Overview"],["fund","Wallets"],["spot","Spot"],["futures","Futures"],["copy","Copy"],["earn","Earn"]];
   const html = `<div class="px-page px-as"><div class="px-tabs" id="atabs">${TABS.map(([k,n]) => `<button data-at="${k}" class="${tab===k?"on":""}">${n}</button>`).join("")}</div><div id="ab"></div></div>`;
   function totals(){
     const s = S(), bin = s.positions.reduce((a,p) => a + p.amount, 0), fm = s.fut.positions.reduce((a,p) => a + p.margin, 0) + s.fut.orders.reduce((a,o) => a + o.margin + o.fee, 0);
@@ -95,7 +96,7 @@ Pages.assets = (params) => {
   function rowsFor(t){
     const usdt = (val, sub, pnl, amt) => ({coin:"USDT", amt: amt ?? val, val, pnl, sub});
     const hold = t.hold.map(x => ({coin:x.coin, amt:x.amt, val:x.val, pnl:x.pnl, sub:null}));
-    if (tab === "fund") return [usdt(t.fund, "Trading balance", 0)];
+    if (tab === "fund") return WL.map(k => usdt(store.wb(k), UI.walletName(k) + " wallet", 0));
     if (tab === "spot") return [...hold, ...(t.bin > 0 ? [usdt(t.bin, "Open binary stake", 0)] : [])];
     if (tab === "futures") return [usdt(t.fut, "Margin + unrealized PnL", t.up)];
     if (tab === "copy") return [usdt(t.cv, "Copy trading", t.cpn)];
@@ -147,7 +148,7 @@ Pages.assets = (params) => {
     const fromC = ["USDT", ...H.map(h => h.coin)], toC = ["USDT","BTC","ETH","BNB","SOL","XRP","DOGE"];
     let f = "USDT", t = "BTC";
     const px = c => c === "USDT" ? 1 : (M.get(c + "USDT")?.price || 0);
-    const have = c => c === "USDT" ? S().balance : (H.find(h => h.coin === c)?.avail || 0);
+    const have = c => c === "USDT" ? store.wb("spot") : (H.find(h => h.coin === c)?.avail || 0);
     const op = (l, sel) => l.map(c => `<option ${c === sel ? "selected" : ""}>${c}</option>`).join("");
     U.sheet("Convert", `<div class="px-xf">
       <div class="px-xrow"><span class="lb">From</span><select id="cf">${op(fromC, f)}</select></div>
@@ -177,10 +178,10 @@ Pages.assets = (params) => {
         if (v > have(f) + 1e-9) return toast("Insufficient balance", "bad");
         const sp = S().spot || (S().spot = {hold:{}, orders:[], history:[]}); sp.hold ||= {}; sp.history ||= []; sp.orders ||= [];
         let usdt = v * px(f);
-        if (f === "USDT") store.setBalance(S().balance - v, "convert");
+        if (f === "USDT") store.addWallet("spot", -v, "convert");
         else { const h = sp.hold[f], ac = h.cost / h.qty, q = Math.min(v, h.qty); h.cost = Math.max(0, h.cost - ac * q); h.qty -= q; if (h.qty < 1e-9) delete sp.hold[f];
           usdt *= 0.999; sp.history.unshift({id:U.uid(), sym:f + "USDT", side:"sell", price:px(f), qty:q, fee:q * px(f) * 0.001, ts:Date.now(), type:"convert"}); }
-        if (t === "USDT") store.setBalance(S().balance + usdt, "convert");
+        if (t === "USDT") store.addWallet("spot", usdt, "convert");
         else { const q = usdt / px(t) * 0.999, h = sp.hold[t] ||= {qty:0, cost:0}; h.qty += q; h.cost += usdt;
           sp.history.unshift({id:U.uid(), sym:t + "USDT", side:"buy", price:px(t), qty:usdt / px(t), fee:usdt * 0.001, ts:Date.now(), type:"convert"}); }
         sp.history = sp.history.slice(0, 200);
@@ -200,14 +201,14 @@ Pages.assets = (params) => {
     const promo = `<a class="px-promo" href="#/earn"><div class="tx"><b>Earn up to 12% APR on USDT</b><span>Flexible and locked plans, redeem anytime</span></div>${ART.coins(84)}<i class="arr">${ic("chev",14,2)}</i></a>`;
     let body = "";
     if (tab === "overview" && view === "account"){
-      const parts = [["Fund","fund",t.fund,"#2E6BFF"],["Spot","spot",t.spot,"#7FA6FF"],["Futures","futures",Math.max(0,t.fut),"#5B6575"],["Copy Trading","copy",t.cv,"#A8B3C4"],["Earn","earn",t.vault,"#D3D9E2"]], sum = parts.reduce((a,p) => a + p[2], 0) || 1;
+      const parts = [["Wallets","fund",t.fund,"#2E6BFF"],["Spot","spot",t.spot,"#7FA6FF"],["Futures","futures",Math.max(0,t.fut),"#5B6575"],["Copy Trading","copy",t.cv,"#A8B3C4"],["Earn","earn",t.vault,"#D3D9E2"]], sum = parts.reduce((a,p) => a + p[2], 0) || 1;
       body = `<div class="px-alloc">${parts.filter(p => p[2] > 0).map(p => `<i style="flex:${p[2]/sum};background:${p[3]}"></i>`).join("")}</div>
         ${parts.map(([n,k,v,c]) => `<button class="px-acc" data-go="${k}"><i style="background:${c}"></i><div class="grow"><b>${n}</b><span class="px-mut">${hide ? "**" : (v/sum*100).toFixed(1) + "% of total"}</span></div><div class="r"><b class="num">${H(money(v))}</b><span class="px-mut">USDT</span></div><span class="ch">${ic("chev",14)}</span></button>`).join("")}`;
     } else {
       let rows = rowsFor(t); if (s.settings.hideSmall) rows = rows.filter(x => x.val >= 1);
       if (q) rows = rows.filter(x => (x.coin + NAMES(x.coin)).toUpperCase().includes(q.toUpperCase()));
       rows.sort(sortBy === "name" ? (a,b) => a.coin.localeCompare(b.coin) : sortBy === "pnl" ? (a,b) => b.pnl - a.pnl : (a,b) => b.val - a.val);
-      body = (tab === "overview" ? `<div class="px-chips2"><div class="px-chip-g"><button data-v="crypto" class="on">Crypto</button><button data-v="account">Account</button></div><span class="sp"></span><button class="icon-btn" data-sq aria-label="Search">${ic("search",18,1.7)}</button><button class="icon-btn" data-filter aria-label="Sort">${ic("sort",18,1.7)}</button></div>` : "")
+      body = (tab === "overview" ? `<div class="px-sec-h"><h2>Wallets</h2><button class="px-link" data-xfer>Transfer</button></div>${WL.map(k => `<button class="px-acc" data-wl="${k}"><div class="grow"><b>${UI.walletName(k)}</b></div><div class="r"><b class="num">${H(money(store.wb(k)))}</b><span class="px-mut">USDT</span></div><span class="ch">${ic("chev",14)}</span></button>`).join("")}<div class="px-sec-h" style="margin-top:14px"><h2>Coins</h2></div><div class="px-chips2"><div class="px-chip-g"><button data-v="crypto" class="on">Crypto</button><button data-v="account">Account</button></div><span class="sp"></span><button class="icon-btn" data-sq aria-label="Search">${ic("search",18,1.7)}</button><button class="icon-btn" data-filter aria-label="Sort">${ic("sort",18,1.7)}</button></div>` : "")
         + (showQ ? `<label class="px-search" style="margin:0 0 8px">${ic("search",16)}<input id="aq" value="${esc(q)}" placeholder="Search coins" autocomplete="off" aria-label="Search coins"></label>` : "")
         + `<label class="px-chk" style="margin:4px 0"><input type="checkbox" data-small ${s.settings.hideSmall ? "checked" : ""}><span>Hide small balances</span></label>`
         + (rows.length ? rows.map(x => coinRow(x, H)).join("") : empty("wallet", s.settings.hideSmall ? "No balances above 1 USDT" : "No assets"));
@@ -220,7 +221,8 @@ Pages.assets = (params) => {
     box.innerHTML = `<div class="px-ah"><div class="top"><div class="lb">${label}<button data-eye aria-label="${hide ? "Show" : "Hide"} balance">${ic(hide?"eyeoff":"eye",16)}</button></div><span class="sp"></span><button class="icon-btn" data-pnl aria-label="PnL analysis">${ic("chart",20,1.7)}</button><a class="icon-btn" href="#/history" aria-label="History">${ic("clockh",20,1.7)}</a></div>
       <div class="big num">${H(money(val))}<small>USDT ${ic("chevd",12,2)}</small></div><div class="eq num">${H("≈ $" + money(val))}</div>
       ${pnl != null ? `<button class="pl" data-pnl>Today's PnL <b class="num ${cls(pnl)}">${H(sgnUsd(pnl) + " (" + sgnPct(pc) + ")")}</b>${ic("chev",12,2)}</button>` : ""}</div>${acts}${promo}<div id="alist">${body}</div>`;
-    box.querySelectorAll("[data-xfer]").forEach(b => b.onclick = () => transferSheet(() => render(r)));
+    box.querySelectorAll("[data-xfer]").forEach(b => b.onclick = () => UI.transferSheet({done: () => render(r)}));
+    box.querySelectorAll("[data-wl]").forEach(b => b.onclick = () => UI.transferSheet({to: b.dataset.wl}));
     box.querySelectorAll("[data-conv]").forEach(b => b.onclick = () => convertSheet(() => render(r)));
     box.querySelectorAll("[data-eye]").forEach(b => b.onclick = () => { s.settings.hideBal = !s.settings.hideBal; store.save(); render(r); });
     box.querySelectorAll("[data-pnl]").forEach(b => b.onclick = () => { if (window.Pages && Pages.pnl) location.hash = "#/pnl"; else pnlSheet(t); });
@@ -321,7 +323,7 @@ function depositPage(coin, net){
           setTimeout(() => { const pc = r.querySelector("#pc"); if (pc) pc.textContent = `${fmt(v,6)} ${coin} · 1/1 confirmations`; }, 1800);
           setTimeout(() => {
             S().tx.unshift({id, kind:"deposit", amount:usd, coin, coinAmt:v, method: net + " network", t:Date.now()});
-            store.setBalance(S().balance + usd, "deposit");
+            store.addWallet("spot", usd, "deposit");
             store.notify("Deposit successful", `${fmt(v,6)} ${coin} (≈ ${money(usd)} USDT) has been credited`, "ok");
             U.fx("claim");
             if (r.isConnected) r.querySelector("#pend").innerHTML = `<div class="px-row" style="margin-top:8px"><span class="px-ico g">${ic("check",16)}</span><div class="grow"><b>Deposit successful</b><div class="px-mut">${fmt(v,6)} ${coin} · ≈ ${money(usd)} USDT credited</div></div><a class="px-btn sm" href="#/assets">View</a></div>`;
@@ -450,7 +452,7 @@ function stopCopy(c, reason){
   const st = cstate(), pct = copyPct(c), pnl = c.amt * pct / 100, val = Math.max(0, c.amt + pnl);
   st.active = st.active.filter(x => x.id !== c.id);
   st.history.unshift(Object.assign({}, c, {end:Date.now(), pct, pnl, val, reason:reason || "Manual"})); st.history = st.history.slice(0, 60);
-  store.setBalance(S().balance + val, "copy");
+  store.addWallet(c.mk === "binary" ? "binary" : "futures", val, "copy");
   store.notify("Copy trading closed", `${c.name}: ${signed(pnl)} USDT${reason ? " (" + reason + ")" : ""}`, pnl >= 0 ? "ok" : "bad");
   U.fx("close"); return {pnl, pct};
 }
@@ -554,7 +556,7 @@ Pages.copy = (params) => {
     const show = () => { nav(); view === "my" ? renderMy() : view === "say" ? renderSay() : renderPlaza(); };
     function detail(l, mk, focus){
       let dp = 1;
-      const full = l.f >= CAP, bal = () => S().balance;
+      const full = l.f >= CAP, bal = () => store.wb(mk === "binary" ? "binary" : "futures");
       const body = () => { const s = lstats(l, dp, mk);
         return `<div class="row" style="gap:12px;padding:2px 0 4px">${ART.avatar(l.id, 56)}<div class="grow"><b style="font-size:16px">${esc(l.name)}</b><div class="px-mut">${esc(l.style)}</div><div class="px-mut mt">${ic("users",13,1.7)} <span class="num">${fmt(l.f,0)} / ${fmt(CAP,0)}</span> followers</div></div></div>
         <div class="row between" style="margin-top:10px"><div class="px-seg" id="dseg">${PERS.map(([n,i]) => `<button data-p="${i}" class="${dp===i?"on":""}">${n}</button>`).join("")}</div><span class="px-mut">${l.days} trading days</span></div>
@@ -595,15 +597,15 @@ Pages.copy = (params) => {
         if (focus) setTimeout(() => q("#pf")?.scrollIntoView({block:"start"}), 360);
         q("#go").onclick = async () => {
           const inv = parseFloat(q("#inv").value), mv = parseFloat(q("#mv").value), mo = parseFloat(q("#mo").value), sl = q("#sl").value === "" ? 0 : parseFloat(q("#sl").value), tp = q("#tp").value === "" ? 0 : parseFloat(q("#tp").value);
-          const err = !(inv >= 10) ? "Minimum investment is 10 USDT." : inv > bal() ? "Insufficient balance." : inv > 100000 ? "Maximum investment is 100,000 USDT." : !(mv > 0) ? "Enter the copy " + (mode === "fixed" ? "amount per order." : "ratio.") : (mode === "fixed" && mv > inv) ? "Per-order amount cannot exceed your investment." : (mode === "ratio" && mv > 10) ? "Maximum copy ratio is 10x." : !(mo > 0) ? "Enter the maximum per order." : (q("#sl").value !== "" && !(sl >= 1 && sl <= 90)) ? "Stop-loss must be between 1% and 90%." : (q("#tp").value !== "" && !(tp >= 1)) ? "Take-profit must be at least 1%." : "";
+          const err = !(inv >= 10) ? "Minimum investment is 10 USDT." : inv > bal() ? "Insufficient " + (mk === "binary" ? "Binary" : "Futures") + " balance" : inv > 100000 ? "Maximum investment is 100,000 USDT." : !(mv > 0) ? "Enter the copy " + (mode === "fixed" ? "amount per order." : "ratio.") : (mode === "fixed" && mv > inv) ? "Per-order amount cannot exceed your investment." : (mode === "ratio" && mv > 10) ? "Maximum copy ratio is 10x." : !(mo > 0) ? "Enter the maximum per order." : (q("#sl").value !== "" && !(sl >= 1 && sl <= 90)) ? "Stop-loss must be between 1% and 90%." : (q("#tp").value !== "" && !(tp >= 1)) ? "Take-profit must be at least 1%." : "";
           q("#fe").textContent = err; if (err) return;
           const ok = await U.confirmTrade({kind:"market", title:"Confirm Copy Trading", okText:"Start Copying", tone:"primary", rows:[
             ["Lead trader", esc(l.name)], ["Market", mk === "binary" ? "Binary (Up/Down)" : "Futures"], ["Investment", `${money(inv)} USDT`], ["Copy mode", mode === "fixed" ? `Fixed amount, ${fmt(mv, 2)} USDT` : `Fixed ratio, ${fmt(mv, 2)}x`],
             ["Max per order", `${money(mo)} USDT`], ["Stop-loss", sl ? `-${sl}%` : "Off"], ["Take-profit", tp ? `+${tp}%` : "Off"]]});
           if (!ok) return;
-          if (inv > S().balance){ toast("Insufficient balance", "bad"); return; }
+          if (inv > bal() + 1e-9){ toast("Insufficient " + (mk === "binary" ? "Binary" : "Futures") + " balance", "bad"); UI.walletErr("Insufficient " + (mk === "binary" ? "Binary" : "Futures") + " balance"); return; }
           cstate().active.unshift(newCopy(l, {mk, mode:mk === "binary" ? "binary" : mode, sizing:mode, modeVal:mv, maxOrder:mo, sl, tp}));
-          store.setBalance(S().balance - inv, "copy"); store.save();
+          store.addWallet(mk === "binary" ? "binary" : "futures", -inv, "copy"); store.save();
           store.notify("Copy trading started", `Copying ${l.name} with ${money(inv)} USDT`, "ok"); U.fx("open"); toast("Copy trading started", "ok");
           view = "my"; show();
         };

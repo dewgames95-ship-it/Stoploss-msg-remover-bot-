@@ -40,3 +40,10 @@
 .indbar .il::-webkit-scrollbar{display:none}
 .indbar .il button{flex:0 0 auto;min-height:30px}
 .indbar .ti{flex:0 0 auto}
+
+/* binary position tag on chart: compact, left side */
+.plab.bin-pl{font-size:10px;max-width:calc(100% - 90px)}
+.plab.bin-pl span{padding:1px 6px}
+.exp-line>span{white-space:nowrap}
+/* upcoming-expiry countdown sits at the bottom of its line so it never covers the live price box */
+.exp-line.next>span{top:auto!important;bottom:34px}
