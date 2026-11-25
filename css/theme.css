@@ -27,3 +27,4 @@ html[data-theme="dark"] .sheet .grab{background:var(--line-2)}
 html[data-theme="dark"] .sheet .sc-in{background:var(--card-2)}
 html[data-theme="dark"] .sc-in input{background:var(--bg)}
 html[data-theme="dark"] .sheet-h,html[data-theme="dark"] .sheet-b{background:transparent}
+html[data-theme="dark"] .pm-strip{border-color:var(--line);box-shadow:none;background-image:none}

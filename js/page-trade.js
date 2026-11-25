@@ -222,7 +222,7 @@ Pages.chart = (params) => {
     root.querySelector("#vb").textContent = p.qv && p.price ? CH.fmtVol(p.qv / p.price) : "--"; root.querySelector("#vq").textContent = p.qv ? CH.fmtVol(p.qv) : "--";
     const fs = root.querySelector("#fsp"); if (fs){ fs.textContent = M.fmtPx(p); root.querySelector("#fsl").textContent = fsym(p); }
   }
-  function renderStar(){ const on = S().favs.includes(sym); root.querySelector("[data-star]").innerHTML = `<span style="color:${on ? "var(--brand)" : "var(--text)"}">${ic("star",22)}</span>`; root.querySelector("[data-star] svg").setAttribute("fill", on ? "currentColor" : "none"); }
+  function renderStar(){ const on = S().favs.includes(sym); root.querySelector("[data-star]").innerHTML = `<span style="color:${on ? "#F0B90B" : "var(--text)"}">${ic("star",19)}</span>`; root.querySelector("[data-star] svg").setAttribute("fill", on ? "currentColor" : "none"); }
   function renderBook(){
     const box = root.querySelector("#obox"); if (!box) return; const p = M.get(sym);
     if (obTab === "trades"){

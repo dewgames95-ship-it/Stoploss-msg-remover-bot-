@@ -877,8 +877,8 @@ Pages.settings = (...a) => { const p = _st(...a); p.html = p.html.replace('<div 
   Pages.settings = (...a) => {
     const p = _st2(...a), app = window.IS_APP && window.NativeApp;
     const row = app
-      ? `<button class="pm-row tap" data-appupd style="width:100%;text-align:left"><span class="pm-main"><span class="pm-t">App update</span><span class="pm-s" style="display:block">Build ${NativeApp.version()} · tap to check for a new version</span></span><span class="chev">${ic("chev", 16)}</span></button>`
-      : `<a class="pm-row tap" href="${APK}" target="_blank" rel="noopener"><span class="pm-main"><span class="pm-t">Android app</span><span class="pm-s" style="display:block">Download the APK · updates itself</span></span><span class="chev">${ic("chev", 16)}</span></a>`;
+      ? `<button class="pm-row tap" data-appupd style="width:100%;text-align:left"><span class="pm-main"><span class="pm-t">App update</span><span class="pm-s" style="display:block">Build ${NativeApp.version()} · tap to check for a new version</span></span><span class="chev">${U.ic("chev", 16)}</span></button>`
+      : `<a class="pm-row tap" href="${APK}" target="_blank" rel="noopener"><span class="pm-main"><span class="pm-t">Android app</span><span class="pm-s" style="display:block">Download the APK · updates itself</span></span><span class="chev">${U.ic("chev", 16)}</span></a>`;
     p.html = p.html.replace('<div class="pm-page">', `<div class="pm-page"><section class="pm-sec">${row}</section>`);
     const m = p.mount;
     p.mount = function(r){ const out = m && m.apply(this, arguments); const b = r.querySelector("[data-appupd]"); if (b) b.onclick = () => { NativeApp.checkUpdate(); U.toast("Checking for updates…", "info"); }; return out; };
