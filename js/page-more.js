@@ -363,24 +363,37 @@ Pages.vip = () => {
   }};
 };
 
-/* ---------- Referral ---------- */
+/* ---------- Referral (BingX style) ---------- */
 Pages.referral = () => {
   const p = S().profile, link = location.origin + location.pathname + "#/home?ref=" + p.ref;
+  const invited = Array.isArray(p.invited) ? p.invited : [], n = invited.length, earned = invited.reduce((a, x) => a + (x.reward || 0), 0);
+  const TIERS = [["Bronze", 0, 4, 20], ["Silver", 5, 19, 25], ["Gold", 20, 49, 30], ["Diamond", 50, 1e9, 40]];
+  const tier = TIERS.find(x => n >= x[1] && n <= x[2]) || TIERS[0];
+  const sv = d => `<svg width="40" height="40" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+  const steps = [
+    [sv('<circle cx="12" cy="20" r="4"/><circle cx="29" cy="11" r="4"/><circle cx="29" cy="29" r="4"/><path d="M15.5 18l10-5M15.5 22l10 5"/>'), "Share your link", "Send your invite link or code to friends."],
+    [sv('<circle cx="20" cy="14" r="6"/><path d="M8 33c1-7 6-10 12-10s11 3 12 10"/><path d="M30 6v6M27 9h6"/>'), "Friend signs up", "They join NovaTrade with your invite code and get a 100 USDT demo bonus."],
+    [sv('<circle cx="20" cy="20" r="13"/><path d="M20 12v16M24 15.5c-1-1.2-2.600-1.700-4-1.700-2.500 0-4 1.200-4 2.900 0 4.200 8.200 2 8.200 6.400 0 1.700-1.700 3-4.200 3-1.700 0-3.400-.6-4.400-1.800"/>'), "Earn commission", "Receive a share of their trading fees, credited instantly."]];
+  const art = `<svg class="rf-art" width="96" height="84" viewBox="0 0 96 84" aria-hidden="true"><defs><linearGradient id="rfg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#cfd6e4"/><stop offset="1" stop-color="#7d8aa3"/></linearGradient><linearGradient id="rfb" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5b8dff"/><stop offset="1" stop-color="#1f4fd6"/></linearGradient></defs>
+    <rect x="14" y="30" width="68" height="44" rx="8" fill="url(#rfg)"/><rect x="14" y="30" width="68" height="14" rx="6" fill="url(#rfb)"/><rect x="44" y="30" width="8" height="44" fill="#fff" opacity=".8"/>
+    <path d="M48 30c-8-14-22-12-18-5 3 5 12 5 18 5zM48 30c8-14 22-12 18-5-3 5-12 5-18 5z" fill="url(#rfb)"/><circle cx="82" cy="18" r="9" fill="url(#rfb)"/><path d="M82 13v10M78.500 16c0-1.500 1.500-2.200 3.500-2.200s3.500.8 3.500 2.200c0 3-7 1.500-7 4.500 0 1.400 1.500 2.200 3.500 2.200s3.500-.8 3.500-2.200" fill="none" stroke="#fff" stroke-width="1.500" stroke-linecap="round"/></svg>`;
   const html = pwrap("Refer and Earn", `
-    <section class="pm-sec"><div class="pm-pad"><div class="pm-t" style="font-size:16px;font-weight:600">Invite friends, earn 20% commission</div><div class="pm-s">Share your link. Friends get a 100 USDT demo bonus.</div>
-      <span class="pm-lbl">Referral code</span><div class="pm-copy"><code style="font-weight:700;letter-spacing:.08em;font-size:15px">${esc(p.ref)}</code><button data-cc>Copy</button></div>
-      <span class="pm-lbl">Invite link</span><div class="pm-copy"><code>${esc(link)}</code><button data-cl>Copy</button></div>
-      <button class="btn btn-primary pm-cta" data-share style="margin-top:14px">${ic("share", 16)} Share invite</button></div></section>
-    <div class="pm-stats">${pstat("Friends invited", "0")}${pstat("Commission rate", "20%")}${pstat("Rewards earned", "0.00 USDT")}${pstat("Your tier", "Bronze")}</div>
-    ${psec("How it works", [["Share your link", "Send your invite link or code to friends."], ["Friend signs up", "They join with your invite code."], ["Earn rewards", "Get 20% of their trading fees."]].map(([a, b], k) => `<div class="pm-row"><span class="pm-step-n">${k + 1}</span><div class="pm-main"><div class="pm-t">${a}</div><div class="pm-s">${b}</div></div></div>`).join(""))}
-    ${psec("Reward tiers", `<table class="pm-tbl"><thead><tr><th>Tier</th><th>Friends</th><th>Commission</th></tr></thead><tbody><tr><td>Bronze</td><td>0-4</td><td>20%</td></tr><tr><td>Silver</td><td>5-19</td><td>25%</td></tr><tr><td>Gold</td><td>20-49</td><td>30%</td></tr><tr><td>Diamond</td><td>50+</td><td>40%</td></tr></tbody></table>`)}
-    ${psec("FAQ", faq([["Who can I invite?", "Anyone. Share your link on any app or chat."], ["When are rewards paid?", "Commissions are credited instantly when a referred friend trades."], ["Is there a limit?", "No limit on the number of friends you can invite."]]))}`);
+    <section class="rf-hero">${art}<h2>Invite friends, earn up to 40%</h2><p>Earn a commission on every trade your friends make.</p>
+      <div class="rf-code"><div><span>My invite code</span><b>${esc(p.ref)}</b></div><button data-cc>Copy</button></div></section>
+    <section class="pm-sec"><h3 class="pm-st">Invite link</h3><div class="pm-pad"><div class="pm-copy"><code>${esc(link)}</code><button data-cl>Copy</button></div>
+      <button class="btn btn-primary pm-cta" data-share style="margin-top:12px">${ic("share", 16)} Share invite</button></div></section>
+    <div class="pm-stats">${pstat("Friends invited", n)}${pstat("Rewards earned", fmt(earned, 2) + " USDT")}${pstat("Your tier", tier[0])}${pstat("Commission rate", tier[3] + "%")}</div>
+    ${psec("How it works", steps.map(([i, a, b], k) => `<div class="rf-step">${i}<div class="pm-main"><div class="pm-t">${k + 1}. ${a}</div><div class="pm-s">${b}</div></div></div>`).join(""))}
+    ${psec("Commission tiers", `<table class="pm-tbl"><thead><tr><th>Tier</th><th>Friends</th><th>Commission</th></tr></thead><tbody>${TIERS.map(x => `<tr class="${x === tier ? "rf-tier-on" : ""}"><td>${x[0]}${x === tier ? ' <span class="pm-pill g">You</span>' : ""}</td><td>${x[2] > 1e8 ? x[1] + "+" : x[1] + "-" + x[2]}</td><td>${x[3]}%</td></tr>`).join("")}</tbody></table>`)}
+    ${psec("Invite history", n ? invited.slice(0, 30).map(x => prow(esc(x.name || "Friend"), fdate(x.t || Date.now()), `<b class="num up">+${fmt(x.reward || 0, 2)}</b>`)).join("") : `<div class="rf-hist">${pemp("No invites yet", "Friends who join with your code will show up here.")}</div>`)}
+    ${psec("FAQ", faq([["Who can I invite?", "Anyone. Share your link on any app or chat."], ["When are rewards paid?", "Commissions are credited instantly when a referred friend trades."], ["How do I move up a tier?", "Invite more friends. Your tier and commission rate rise automatically."], ["Is there a limit?", "No limit on the number of friends you can invite."], ["Is this real money?", "No. NovaTrade is a demo platform, rewards are virtual USDT."]]))}`);
   return {html, title:"Referral", mount(r){
-    r.querySelector("[data-cc]").onclick = () => U.copyText(p.ref, "Referral code copied");
+    r.querySelector("[data-cc]").onclick = () => U.copyText(p.ref, "Invite code copied");
     r.querySelector("[data-cl]").onclick = () => U.copyText(link, "Invite link copied");
-    r.querySelector("[data-share]").onclick = () => navigator.share ? navigator.share({title:C.APP_NAME, text:"Trade binary options & futures on live markets. Use my code " + p.ref, url:link}).catch(() => {}) : U.copyText(link, "Invite link copied");
+    r.querySelector("[data-share]").onclick = () => navigator.share ? navigator.share({title:C.APP_NAME, text:"Trade on live markets with NovaTrade. Use my code " + p.ref, url:link}).catch(() => {}) : U.copyText(link, "Invite link copied");
   }};
 };
+Pages.invite = Pages.referral; Pages.refer = Pages.referral;
 
 /* ---------- Profile (BingX style) ---------- */
 Pages.profile = () => {
@@ -388,14 +401,19 @@ Pages.profile = () => {
   const scan = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3M4 12h16"/></svg>`;
   const tile = (icon, n, attrs) => `<${attrs.startsWith("href") ? "a" : "button"} class="pf-tile" ${attrs}>${ic(icon, 22, 1.7)}<span>${n}</span></${attrs.startsWith("href") ? "a" : "button"}>`;
   const dark = () => document.documentElement.dataset.theme === "dark";
-  const html = `<div class="pf-page"><header class="pf-top"><button class="pf-circ" data-back aria-label="Go back">${ic("back",20)}</button><span class="grow"></span><button class="pf-ib" data-scan aria-label="Scan">${scan}</button><button class="pf-ib" data-th aria-label="Toggle theme"></button></header>
+  const G = items => `<div class="pf-grid">${items.map(([i, n, h]) => `<a class="pf-gi" href="${h}">${ic(i, 24, 1.6)}<span>${n}</span></a>`).join("")}</div>`;
+  const html = `<div class="pf-page"><header class="pf-top"><button class="pf-circ" data-back aria-label="Go back">${ic("back",20)}</button><span class="grow"></span><button class="pf-ib" data-scan aria-label="Scan">${scan}</button><button class="pf-ib" data-th aria-label="Toggle theme"></button><a class="pf-ib" href="#/settings" aria-label="Settings">${ic("gear",22,1.7)}</a></header>
     <section class="pf-id"><span class="pf-av" id="pa"></span><div class="grow" style="min-width:0"><div class="row" style="gap:8px;flex-wrap:nowrap"><button class="pf-nm ellipsis" id="pn" data-edit></button><button class="pf-lv" data-lv>Regular user ${ic("chev",12)}</button></div>
       <div class="row" style="gap:8px;margin-top:6px"><button class="pf-uid" data-uid>UID:<span id="pu"></span> ${ic("copy",13)}</button><span class="pf-main">Main Account</span></div></div></section>
     <div class="pf-tiles">${tile("share","Refer",'href="#/referral"')}${tile("gift","Vouchers",'data-vou')}${tile("cal","Events",'href="#/rewards"')}</div>
-    <h3 class="pf-h">Settings</h3>
-    <section class="pf-list">${L("shield","Verification",'<span class="pf-ok">Verified</span>',"data-ver")}${L("lock","Security Center","","data-sec")}${L("gear","Preferences","",'href="#/settings"')}${L("grid","Practical Functions","","data-prac")}</section>
-    <h3 class="pf-h">Others</h3>
-    <section class="pf-list">${L("headset","Contact Support","",'href="#/support"')}${L("book","Help Center","",'href="#/academy"')}${L("chat","Feedback","","data-fb")}${L("info","About NovaTrade","",'href="#/about"')}</section>
+    <h3 class="pf-h">Trade</h3>
+    ${G([["chart","Markets","#/markets"],["swap","Spot","#/spot"],["candle","Futures","#/futures"],["clock","Binary","#/trade"],["layers","Options","#/options"],["users","Copy Trading","#/copy"],["bot","Trading Bots","#/bots"],["auto","Auto Trading","#/auto"]])}
+    <h3 class="pf-h">Earn &amp; Rewards</h3>
+    ${G([["earn","Earn","#/earn"],["wallet","Assets","#/assets"],["pie","PnL Analysis","#/pnl"],["trophy","Rewards Hub","#/rewards"],["share","Referral","#/referral"],["crown","VIP Signals","#/vip"],["ring","Price Alerts","#/alerts"],["book","Academy","#/academy"]])}
+    <h3 class="pf-h">Account</h3>
+    <section class="pf-list">${L("shield","Verification",'<span class="pf-ok">Verified</span>',"data-ver")}${L("lock","Security Center","","data-sec")}${L("history","Trade History","",'href="#/history"')}${L("gear","Settings & Preferences","",'href="#/settings"')}${L("grid","Practical Functions","","data-prac")}</section>
+    <h3 class="pf-h">Help</h3>
+    <section class="pf-list">${L("headset","Support","",'href="#/support"')}${L("users","Community","",'href="#/community"')}${L("chat","Feedback","","data-fb")}${L("info","About NovaTrade","",'href="#/about"')}</section>
     <button class="pf-sw" data-switch>Switch Account</button></div>`;
   return {html, title:"Profile", mount(r){
     const $ = q => r.querySelector(q);
@@ -566,5 +584,7 @@ Pages.community = () => {
 };
 
 /* ---------- 404 ---------- */
+/* ---------- route aliases: no link may reach the 404 page ---------- */
+[["transfer","assets"],["notifications","profile"],["notifs","profile"],["me","profile"],["menu","profile"],["account","profile"],["pnl-analysis","pnl"],["analysis","pnl"],["wallet","assets"],["funds","assets"],["portfolio","assets"],["perp","futures"],["perpetual","futures"],["binary","trade"],["bot","bots"],["copytrading","copy"],["copy-trading","copy"],["reward","rewards"],["tasks","rewards"],["alert","alerts"],["learn","academy"],["help","support"],["faq","support"],["signals","vip"],["preferences","settings"],["trades","history"],["orders","history"],["staking","earn"],["savings","earn"],["market","markets"],["exchange","spot"]].forEach(([a, b]) => { if (!Pages[a]) Pages[a] = (p) => Pages[b](p); });
 Pages.notfound = () => ({title:"Page not found", html:`<div class="nf"><div class="big">404</div><div class="h1" style="margin:8px 0">Page not found</div><p class="sub" style="margin-bottom:24px">The page you’re looking for doesn’t exist or was moved.</p><a class="btn btn-primary" href="#/home">${ic("home",18)} Back to Home</a></div>${UI.footer()}`});
 })();
