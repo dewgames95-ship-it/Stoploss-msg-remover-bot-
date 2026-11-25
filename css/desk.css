@@ -1,1 +1,7 @@
-/* v6.7 */
+/* v6.7 misc: tap targets, desktop trading layout, quick grid, export, KYC */
+
+/* ---- small tap targets: same look, >=32px hit area via an invisible pseudo element ---- */
+.px-sec-h .px-link,.px-link,.hm-hd button,.pf-uid,.pf-lv,.pr-i,.rf-mng,.pm-tabs a{position:relative}
+.px-sec-h .px-link::before,.px-link::before,.hm-hd button::before,.pf-uid::before,.pf-lv::before,.pr-i::before,.rf-mng::before,.pm-tabs a::before{content:"";position:absolute;left:-6px;right:-6px;top:50%;height:max(100%,34px);transform:translateY(-50%);min-width:34px}
+.pr-i::before{left:50%;right:auto;width:34px;transform:translate(-50%,-50%)}
+.pm-tabs a::before{left:-4px;right:-4px}
