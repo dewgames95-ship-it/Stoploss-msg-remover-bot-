@@ -2,8 +2,8 @@
    - App shell (index.html): network first with a short timeout, cached copy as fallback.
    - Versioned files (js/css ?v=, vendor libs, coin logos, fonts): cache first — they never change at the same URL.
    - Market data APIs and websockets: never cached (always live). */
-const CACHE = "nt-static-v4";
-const SHELL = "nt-shell-v4";
+const CACHE = "nt-static-v5";
+const SHELL = "nt-shell-v5";
 const MAX_ENTRIES = 500;
 
 self.addEventListener("install", e => {
