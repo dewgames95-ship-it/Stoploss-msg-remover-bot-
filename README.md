@@ -21,6 +21,13 @@ npm install playwright
 npm test
 ```
 
+## Android app
+`android/` is a small WebView shell (Java, no extra libraries) that opens the live site.
+- Web changes show up in the app automatically (it always loads the live GitHub Pages site).
+- Native changes: push to `main` under `android/` and the "Android APK" GitHub Action builds a signed APK and publishes it as a Release (`apk-v<build>`). The installed app checks the latest Release on start and offers a one-tap **Update**.
+- Download: Releases page of this repo, file `binary-trading.apk`.
+- Local build: `cd android && ./gradlew assembleRelease` (needs Android SDK 34).
+
 ## Deploy
 GitHub Pages serves the `gh-pages` branch. Push to `main` and `gh-pages` to update.
 

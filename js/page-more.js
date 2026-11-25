@@ -714,17 +714,17 @@ Pages.preferences = Pages.prefs = () => {
   const st = () => S().settings;
   const F = () => st().futp, L = () => st().layout;
   const save = () => store.save();
-  const chev = `<span class="pf-chev">${ic("chev", 16)}</span>`;
-  const info = k => `<button class="pf-i" data-info="${k}" aria-label="More info">${ic("info", 15)}</button>`;
+  const chev = `<span class="pr-chev">${ic("chev", 16)}</span>`;
+  const info = k => `<button class="pr-i" data-info="${k}" aria-label="More info">${ic("info", 15)}</button>`;
   const INFO = {
     protect:["Price Protection", "Price Protection prevents orders from being filled at a price that deviates too far from the mark price. Orders that would fill beyond the allowed range are rejected instead of executed at a bad price."],
     tapFill:["Tap to fill in Price", "When on, tapping a price in the order book or a recent trade automatically fills it into the Price field of your order form."],
     trig:["Trigger Type", "Choose which price triggers your conditional orders and TP/SL: Last Price follows the latest trade, Mark Price follows the fair index-based price and is harder to manipulate."]
   };
   const sw = (path, on) => `<button class="switch ${on ? "on" : ""}" data-sw="${path}" role="switch" aria-checked="${!!on}" aria-label="${esc(path)}"></button>`;
-  const trow = (title, subt, path, on, i) => `<div class="pf-row pf-tg" data-rsw><div class="pf-main"><div class="pf-t">${title}${i ? " " + info(i) : ""}</div>${subt ? `<div class="pf-s">${subt}</div>` : ""}</div>${sw(path, on)}</div>`;
-  const vrow = (k, title, val, i) => `<button class="pf-row pf-v" data-open="${k}"><div class="pf-main"><div class="pf-t">${title}${i ? ` <span class="pf-i" data-info="${i}" role="button" aria-label="More info">${ic("info", 15)}</span>` : ""}</div></div><span class="pf-val">${val}</span>${chev}</button>`;
-  const seg = (attr, val, items) => `<div class="pf-seg">${items.map(([k, n]) => `<button ${attr}="${k}" class="${val === k ? "on" : ""}">${n}</button>`).join("")}</div>`;
+  const trow = (title, subt, path, on, i) => `<div class="pr-row pr-tg" data-rsw><div class="pr-main"><div class="pr-t">${title}${i ? " " + info(i) : ""}</div>${subt ? `<div class="pr-s">${subt}</div>` : ""}</div>${sw(path, on)}</div>`;
+  const vrow = (k, title, val, i) => `<button class="pr-row pr-v" data-open="${k}"><div class="pr-main"><div class="pr-t">${title}${i ? ` <span class="pr-i" data-info="${i}" role="button" aria-label="More info">${ic("info", 15)}</span>` : ""}</div></div><span class="pr-val">${val}</span>${chev}</button>`;
+  const seg = (attr, val, items) => `<div class="pr-seg">${items.map(([k, n]) => `<button ${attr}="${k}" class="${val === k ? "on" : ""}">${n}</button>`).join("")}</div>`;
 
   const nameOf = {oneway:"One-way Mode", hedge:"Hedge Mode", USDT:"USDT (Order Size)", COIN:"Coin", last:"Last Price", mark:"Mark Price", single:"Single-Asset Mode", multi:"Multi-Assets Mode"};
   const levVal = () => F().levSet ? `${st().lev}x ${st().marginMode === "isolated" ? "Isolated" : "Cross"}` : "Disabled";
@@ -740,18 +740,18 @@ Pages.preferences = Pages.prefs = () => {
     if (k === "top") body = chartBlk(6, 6, W - 12, 24) + bookBlk(6, 34, 36, 30) + formBlk(46, 34, 32, 30);
     else if (k === "bottom") body = bookBlk(6, 6, 36, 30) + formBlk(46, 6, 32, 30) + chartBlk(6, 40, W - 12, 24);
     else body = bookBlk(6, 6, 36, 58) + formBlk(46, 6, 32, 58);
-    return `<svg viewBox="0 0 ${W} ${H}" class="pf-ill" aria-hidden="true"><rect x=".5" y=".5" width="${W - 1}" height="${H - 1}" rx="7" fill="var(--card)" stroke="var(--line)"/>${body}</svg>`;
+    return `<svg viewBox="0 0 ${W} ${H}" class="pr-ill" aria-hidden="true"><rect x=".5" y=".5" width="${W - 1}" height="${H - 1}" rx="7" fill="var(--card)" stroke="var(--line)"/>${body}</svg>`;
   };
   const ordSvg = k => {
     const a = k === "left" ? [6, 42] : [46, 6];
-    return `<svg viewBox="0 0 84 70" class="pf-ill" aria-hidden="true"><rect x=".5" y=".5" width="83" height="69" rx="7" fill="var(--card)" stroke="var(--line)"/>${chartBlk(6, 6, 72, 18)}${formBlk(a[0] === 6 ? 6 : 46, 28, 32, 36)}${bookBlk(a[0] === 6 ? 44 : 6, 28, 34, 36)}</svg>`;
+    return `<svg viewBox="0 0 84 70" class="pr-ill" aria-hidden="true"><rect x=".5" y=".5" width="83" height="69" rx="7" fill="var(--card)" stroke="var(--line)"/>${chartBlk(6, 6, 72, 18)}${formBlk(a[0] === 6 ? 6 : 46, 28, 32, 36)}${bookBlk(a[0] === 6 ? 44 : 6, 28, 34, 36)}</svg>`;
   };
-  const card = (attr, val, cur, label, ill) => `<button class="pf-card ${cur === val ? "on" : ""}" ${attr}="${val}" aria-pressed="${cur === val}">${ill}<span>${label}</span></button>`;
+  const card = (attr, val, cur, label, ill) => `<button class="pr-card ${cur === val ? "on" : ""}" ${attr}="${val}" aria-pressed="${cur === val}">${ill}<span>${label}</span></button>`;
 
   /* ---- tab bodies ---- */
   const bodyMode = () => `
-    <div class="pf-sec">
-      <div class="pf-row"><div class="pf-main"><div class="pf-t">Futures Mode</div></div>${seg("data-fm", F().mode, [["classic", "Classic"], ["easy", "Easy"]])}</div>
+    <div class="pr-sec">
+      <div class="pr-row"><div class="pr-main"><div class="pr-t">Futures Mode</div></div>${seg("data-fm", F().mode, [["classic", "Classic"], ["easy", "Easy"]])}</div>
       ${vrow("acct", "Account Mode", "Classic Trading")}
       ${vrow("pos", "Position Mode", nameOf[F().posMode])}
       ${vrow("asset", "Asset Mode", nameOf[F().asset || "single"])}
@@ -759,95 +759,95 @@ Pages.preferences = Pages.prefs = () => {
       ${vrow("lev", "Default Leverage & Margin Mode", levVal())}
       ${vrow("trig", "Default Trigger Type", nameOf[F().trig], "trig")}
     </div>
-    <div class="pf-sec">
+    <div class="pr-sec">
       ${trow("Price Protection", "Rejects orders that would fill too far from the mark price.", "futp.protect", F().protect !== false, "protect")}
       ${trow("Tap to fill in Price", "Tap an order book price to fill it into your order.", "futp.tapFill", !!F().tapFill, "tapFill")}
     </div>`;
 
   const preview = () => {
     const on = L().bstab !== false;
-    const bk = (c, w) => `<div class="pf-bk"><i style="background:var(${c});width:${w}%"></i><b>***</b></div>`;
-    return `<div class="pf-prev"><div class="pf-prev-h">Preview</div><div class="pf-prev-b">
-      <div class="pf-pf">
-        ${on ? `<div class="pf-bs"><span class="b">Buy</span><span>Sell</span></div>` : ""}
-        <div class="pf-fl"><span>Cross 20x S</span></div>
-        <div class="pf-fi">Limit <em>${ic("chevd", 10)}</em></div>
-        <div class="pf-fi"><span>Price</span><b>***</b><u>BBO</u></div>
-        <div class="pf-fi"><span>Amount</span><b>***</b><u>USDT</u></div>
-        <div class="pf-sl"><i></i><i></i><i></i><i></i><i></i></div>
-        <div class="pf-av">Avbl <b>***</b></div>
-        <div class="pf-btn">${on ? "Buy / Long" : "Buy | Sell"}</div>
+    const bk = (c, w) => `<div class="pr-bk"><i style="background:var(${c});width:${w}%"></i><b>***</b></div>`;
+    return `<div class="pr-prev"><div class="pr-prev-h">Preview</div><div class="pr-prev-b">
+      <div class="pr-pf">
+        ${on ? `<div class="pr-bs"><span class="b">Buy</span><span>Sell</span></div>` : ""}
+        <div class="pr-fl"><span>Cross 20x S</span></div>
+        <div class="pr-fi">Limit <em>${ic("chevd", 10)}</em></div>
+        <div class="pr-fi"><span>Price</span><b>***</b><u>BBO</u></div>
+        <div class="pr-fi"><span>Amount</span><b>***</b><u>USDT</u></div>
+        <div class="pr-sl"><i></i><i></i><i></i><i></i><i></i></div>
+        <div class="pr-av">Avbl <b>***</b></div>
+        <div class="pr-btn">${on ? "Buy / Long" : "Buy | Sell"}</div>
       </div>
-      <div class="pf-ob">${[1, 2, 3, 4].map(i => bk("--down", 40 + i * 12)).join("")}<div class="pf-mid">***</div>${[1, 2, 3, 4].map(i => bk("--up", 90 - i * 12)).join("")}</div>
+      <div class="pr-ob">${[1, 2, 3, 4].map(i => bk("--down", 40 + i * 12)).join("")}<div class="pr-mid">***</div>${[1, 2, 3, 4].map(i => bk("--up", 90 - i * 12)).join("")}</div>
     </div></div></div>`;
   };
 
   const bodyLayout = () => {
-    const pills = `<div class="pf-pills">${[["general", "General"], ["trade", "Trade Panel"], ["pos", "Positions"]].map(([k, n]) => `<button data-sub="${k}" class="${sub === k ? "on" : ""}">${n}</button>`).join("")}</div>`;
+    const pills = `<div class="pr-pills">${[["general", "General"], ["trade", "Trade Panel"], ["pos", "Positions"]].map(([k, n]) => `<button data-sub="${k}" class="${sub === k ? "on" : ""}">${n}</button>`).join("")}</div>`;
     if (sub === "general") return pills + `
-      <p class="pf-note">* General settings apply to Spot, Futures and Options</p>
-      <div class="pf-h">K-Line in Trading Page</div>
-      <div class="pf-cards">${[["top", "Top"], ["bottom", "Bottom"], ["none", "None"]].map(([k, n]) => card("data-kl", k, L().kline, n, klSvg(k))).join("")}</div>
-      <div class="pf-h">Place Order Layout</div>
-      <div class="pf-cards two">${[["left", "Left"], ["right", "Right"]].map(([k, n]) => card("data-ol", k, L().order, n, ordSvg(k))).join("")}</div>`;
+      <p class="pr-note">* General settings apply to Spot, Futures and Options</p>
+      <div class="pr-h">K-Line in Trading Page</div>
+      <div class="pr-cards">${[["top", "Top"], ["bottom", "Bottom"], ["none", "None"]].map(([k, n]) => card("data-kl", k, L().kline, n, klSvg(k))).join("")}</div>
+      <div class="pr-h">Place Order Layout</div>
+      <div class="pr-cards two">${[["left", "Left"], ["right", "Right"]].map(([k, n]) => card("data-ol", k, L().order, n, ordSvg(k))).join("")}</div>`;
     if (sub === "trade") return pills + `${preview()}
-      <div class="pf-h">Buy/Sell Tab Setting</div>
-      <div class="pf-cards two">${card("data-bs", "1", L().bstab !== false ? "1" : "0", "Display Buy/Sell tab", `<svg viewBox="0 0 84 40" class="pf-ill"><rect x=".5" y=".5" width="83" height="39" rx="7" fill="var(--card)" stroke="var(--line)"/><rect x="8" y="8" width="30" height="9" rx="4.5" fill="var(--up)" opacity=".85"/><rect x="42" y="8" width="30" height="9" rx="4.5" fill="var(--input)"/>${lineSvg(8, 24, 64)}${lineSvg(8, 30, 40)}</svg>`)}${card("data-bs", "0", L().bstab !== false ? "1" : "0", "Hide Buy/Sell tab", `<svg viewBox="0 0 84 40" class="pf-ill"><rect x=".5" y=".5" width="83" height="39" rx="7" fill="var(--card)" stroke="var(--line)"/>${lineSvg(8, 10, 64)}${lineSvg(8, 17, 40)}<rect x="8" y="25" width="30" height="8" rx="4" fill="var(--up)" opacity=".85"/><rect x="42" y="25" width="30" height="8" rx="4" fill="var(--down)" opacity=".85"/></svg>`)}</div>
-      <div class="pf-sec">
+      <div class="pr-h">Buy/Sell Tab Setting</div>
+      <div class="pr-cards two">${card("data-bs", "1", L().bstab !== false ? "1" : "0", "Display Buy/Sell tab", `<svg viewBox="0 0 84 40" class="pr-ill"><rect x=".5" y=".5" width="83" height="39" rx="7" fill="var(--card)" stroke="var(--line)"/><rect x="8" y="8" width="30" height="9" rx="4.5" fill="var(--up)" opacity=".85"/><rect x="42" y="8" width="30" height="9" rx="4.5" fill="var(--input)"/>${lineSvg(8, 24, 64)}${lineSvg(8, 30, 40)}</svg>`)}${card("data-bs", "0", L().bstab !== false ? "1" : "0", "Hide Buy/Sell tab", `<svg viewBox="0 0 84 40" class="pr-ill"><rect x=".5" y=".5" width="83" height="39" rx="7" fill="var(--card)" stroke="var(--line)"/>${lineSvg(8, 10, 64)}${lineSvg(8, 17, 40)}<rect x="8" y="25" width="30" height="8" rx="4" fill="var(--up)" opacity=".85"/><rect x="42" y="25" width="30" height="8" rx="4" fill="var(--down)" opacity=".85"/></svg>`)}</div>
+      <div class="pr-sec">
         ${trow("Input Step Increment", "Show +/- steppers on the price and amount fields.", "layout.step", !!L().step)}
         ${trow("Slider Vibration", "Vibrate lightly as the order slider passes each mark (Android only).", "layout.slideVib", L().slideVib !== false)}
       </div>`;
     const CH = [["bs", "Buy / Sell markers", "Show your fills on the chart"], ["pos", "Position lines", "Entry price and liquidation lines"], ["ord", "Order lines", "Open limit orders on the chart"], ["hilo", "High / Low labels", "Highest and lowest visible price"], ["cd", "Candle countdown", "Time left on the current candle"]];
-    return pills + `<div class="pf-sec">${trow("Display realized PNL in positions", "Show realized PNL on each position card.", "futp.showRz", F().showRz !== false)}</div>
-      <div class="pf-h">Chart</div><div class="pf-sec">${CH.map(([k, n, s]) => trow(n, s, "chart." + k, st().chart[k] !== false)).join("")}</div>`;
+    return pills + `<div class="pr-sec">${trow("Display realized PNL in positions", "Show realized PNL on each position card.", "futp.showRz", F().showRz !== false)}</div>
+      <div class="pr-h">Chart</div><div class="pr-sec">${CH.map(([k, n, s]) => trow(n, s, "chart." + k, st().chart[k] !== false)).join("")}</div>`;
   };
 
   const bodyNotif = () => {
     const N = [["fill", "Order filled", "When a limit or conditional order is filled"], ["tpsl", "TP/SL triggered", "When take profit or stop loss closes a position"], ["liq", "Liquidation warning", "When a position gets close to liquidation"], ["funding", "Funding fee", "When a funding fee is charged or received"], ["binary", "Binary result", "When a binary trade settles"], ["news", "Announcements", "Product news and platform updates"]];
     const SND = [["open", "Order opened"], ["close", "Position closed"], ["win", "Trade won"], ["loss", "Trade lost"], ["alert", "Price alert"], ["notify", "Notification"], ["err", "Error"]];
-    return `<div class="pf-sec">${N.map(([k, n, s]) => trow(n, s, "notif." + k, st().notif[k] !== false)).join("")}</div>
-      <div class="pf-h">Sounds</div><div class="pf-sec">${trow("Sounds", "Master switch for all event sounds", "sound", st().sound !== false)}
+    return `<div class="pr-sec">${N.map(([k, n, s]) => trow(n, s, "notif." + k, st().notif[k] !== false)).join("")}</div>
+      <div class="pr-h">Sounds</div><div class="pr-sec">${trow("Sounds", "Master switch for all event sounds", "sound", st().sound !== false)}
       ${SND.map(([k, n]) => trow(n, "", "snd." + k, st().snd[k] !== false)).join("")}</div>`;
   };
 
   const tabs = [["mode", "Trading Mode"], ["layout", "Layout"], ["notif", "Notifications"]];
   const html = UI.pageHead("Preferences", {right: `<span class="icon-btn" aria-hidden="true"></span>`}) +
-    `<div class="pf-page"><div class="pf-tabs" id="pfTabs">${tabs.map(([k, n]) => `<button data-tab="${k}" class="${tab === k ? "on" : ""}"><span>${n}</span></button>`).join("")}</div><div id="pfBody"></div></div>`;
+    `<div class="pr-page"><div class="pr-tabs" id="prTabs">${tabs.map(([k, n]) => `<button data-tab="${k}" class="${tab === k ? "on" : ""}"><span>${n}</span></button>`).join("")}</div><div id="prBody"></div></div>`;
 
   return {html, title: "Preferences", mount(r){
-    const body = r.querySelector("#pfBody");
+    const body = r.querySelector("#prBody");
     const render = () => {
       body.innerHTML = tab === "mode" ? bodyMode() : tab === "layout" ? bodyLayout() : bodyNotif();
-      r.querySelectorAll("#pfTabs button").forEach(b => b.classList.toggle("on", b.dataset.tab === tab));
+      r.querySelectorAll("#prTabs button").forEach(b => b.classList.toggle("on", b.dataset.tab === tab));
     };
-    const opt = (attr, val, cur, title, subt, ico) => `<button class="pf-opt ${val === cur ? "on" : ""}" ${attr}="${val}"><div class="pf-opt-h">${ico || ""}<b>${title}</b><span class="pf-rad"></span></div>${subt || ""}</button>`;
-    const bullets = a => `<ul class="pf-ul">${a.map(x => `<li>${x}</li>`).join("")}</ul>`;
-    const pick = (title, rows, onPick) => U.sheet(title, `<div class="pf-opts">${rows}</div>`, el => {
-      el.querySelectorAll(".pf-opt").forEach(b => b.onclick = () => { const a = [...b.attributes].find(x => x.name.startsWith("data-")); onPick(a.value); save(); U.closeLayer(); render(); });
+    const opt = (attr, val, cur, title, subt, ico) => `<button class="pr-opt ${val === cur ? "on" : ""}" ${attr}="${val}"><div class="pr-opt-h">${ico || ""}<b>${title}</b><span class="pr-rad"></span></div>${subt || ""}</button>`;
+    const bullets = a => `<ul class="pr-ul">${a.map(x => `<li>${x}</li>`).join("")}</ul>`;
+    const pick = (title, rows, onPick) => U.sheet(title, `<div class="pr-opts">${rows}</div>`, el => {
+      el.querySelectorAll(".pr-opt").forEach(b => b.onclick = () => { const a = [...b.attributes].find(x => x.name.startsWith("data-")); onPick(a.value); save(); U.closeLayer(); render(); });
     });
     const sheets = {
-      acct: () => U.sheet("Account Mode", `<div class="pf-opts">${opt("data-x", "c", "c", "Classic Trading", `<p class="pf-p">Trade Spot, Futures and Options with separate balances and the full set of order types.</p>`)}</div>`),
-      pos: () => pick("Position Mode", opt("data-v", "oneway", F().posMode, "One-way Mode", `<p class="pf-p">Hold a single position per contract, in one direction only.</p>`) + opt("data-v", "hedge", F().posMode, "Hedge Mode", `<p class="pf-p">Hold long and short positions on the same contract at the same time.</p>`), v => F().posMode = v),
+      acct: () => U.sheet("Account Mode", `<div class="pr-opts">${opt("data-x", "c", "c", "Classic Trading", `<p class="pr-p">Trade Spot, Futures and Options with separate balances and the full set of order types.</p>`)}</div>`),
+      pos: () => pick("Position Mode", opt("data-v", "oneway", F().posMode, "One-way Mode", `<p class="pr-p">Hold a single position per contract, in one direction only.</p>`) + opt("data-v", "hedge", F().posMode, "Hedge Mode", `<p class="pr-p">Hold long and short positions on the same contract at the same time.</p>`), v => F().posMode = v),
       asset: () => { const a = F().asset || "single"; pick("Asset Mode",
-        opt("data-v", "single", a, "Single-Asset Mode", bullets(["Margin is the contract's own settlement asset", "Profit and loss from one contract does not offset another", "Simple and predictable risk per position"]), `<span class="pf-oi">${ic("wallet", 20)}</span>`) +
-        opt("data-v", "multi", a, "Multi-Assets Mode", bullets(["Use several assets as shared margin", "Unrealized profits from one position can support others", "Cross-margin only, higher liquidation interdependence"]), `<span class="pf-oi">${ic("layers", 20)}</span>`), v => F().asset = v); },
-      unit: () => pick("Unit Preference", opt("data-v", "USDT", F().unit, "USDT (Order Size)", `<p class="pf-p">Enter order size in USDT value.</p>`) + opt("data-v", "COIN", F().unit, "Coin", `<p class="pf-p">Enter order size in the base coin, e.g. BTC.</p>`), v => F().unit = v),
-      trig: () => pick("Default Trigger Type", opt("data-v", "last", F().trig, "Last Price", `<p class="pf-p">Triggers on the latest traded price.</p>`) + opt("data-v", "mark", F().trig, "Mark Price", `<p class="pf-p">Triggers on the fair mark price, less prone to wicks.</p>`), v => F().trig = v),
+        opt("data-v", "single", a, "Single-Asset Mode", bullets(["Margin is the contract's own settlement asset", "Profit and loss from one contract does not offset another", "Simple and predictable risk per position"]), `<span class="pr-oi">${ic("wallet", 20)}</span>`) +
+        opt("data-v", "multi", a, "Multi-Assets Mode", bullets(["Use several assets as shared margin", "Unrealized profits from one position can support others", "Cross-margin only, higher liquidation interdependence"]), `<span class="pr-oi">${ic("layers", 20)}</span>`), v => F().asset = v); },
+      unit: () => pick("Unit Preference", opt("data-v", "USDT", F().unit, "USDT (Order Size)", `<p class="pr-p">Enter order size in USDT value.</p>`) + opt("data-v", "COIN", F().unit, "Coin", `<p class="pr-p">Enter order size in the base coin, e.g. BTC.</p>`), v => F().unit = v),
+      trig: () => pick("Default Trigger Type", opt("data-v", "last", F().trig, "Last Price", `<p class="pr-p">Triggers on the latest traded price.</p>`) + opt("data-v", "mark", F().trig, "Mark Price", `<p class="pr-p">Triggers on the fair mark price, less prone to wicks.</p>`), v => F().trig = v),
       lev: () => {
         let lv = Math.max(1, Math.min(125, st().lev || 20)), mm = st().marginMode || "cross";
-        U.sheet("Default Leverage & Margin Mode", `<div class="pf-lv"><div class="pf-lv-v"><b id="pfLv">${lv}x</b></div><input type="range" id="pfLvR" min="1" max="125" value="${lv}" aria-label="Leverage"><div class="pf-lv-m"><span>1x</span><span>25x</span><span>50x</span><span>75x</span><span>100x</span><span>125x</span></div>
-          ${seg("data-mm", mm, [["cross", "Cross"], ["isolated", "Isolated"]])}<p class="pf-p">Applied to new futures orders. Higher leverage increases liquidation risk.</p><button class="btn btn-primary btn-block" id="pfLvOk" style="margin-top:14px">Confirm</button></div>`, el => {
-          const rg = el.querySelector("#pfLvR"), paint = () => { rg.style.setProperty("--p", (rg.value - 1) / 124 * 100 + "%"); el.querySelector("#pfLv").textContent = rg.value + "x"; };
+        U.sheet("Default Leverage & Margin Mode", `<div class="pr-lv"><div class="pr-lv-v"><b id="prLv">${lv}x</b></div><input type="range" id="prLvR" min="1" max="125" value="${lv}" aria-label="Leverage"><div class="pr-lv-m"><span>1x</span><span>25x</span><span>50x</span><span>75x</span><span>100x</span><span>125x</span></div>
+          ${seg("data-mm", mm, [["cross", "Cross"], ["isolated", "Isolated"]])}<p class="pr-p">Applied to new futures orders. Higher leverage increases liquidation risk.</p><button class="btn btn-primary btn-block" id="prLvOk" style="margin-top:14px">Confirm</button></div>`, el => {
+          const rg = el.querySelector("#prLvR"), paint = () => { rg.style.setProperty("--p", (rg.value - 1) / 124 * 100 + "%"); el.querySelector("#prLv").textContent = rg.value + "x"; };
           paint(); rg.oninput = () => { lv = +rg.value; paint(); };
           el.querySelectorAll("[data-mm]").forEach(b => b.onclick = () => { mm = b.dataset.mm; el.querySelectorAll("[data-mm]").forEach(x => x.classList.toggle("on", x === b)); });
-          el.querySelector("#pfLvOk").onclick = () => { st().lev = lv; st().marginMode = mm; F().levSet = true; save(); U.closeLayer(); render(); };
+          el.querySelector("#prLvOk").onclick = () => { st().lev = lv; st().marginMode = mm; F().levSet = true; save(); U.closeLayer(); render(); };
         });
       }
     };
     r.addEventListener("click", e => {
       const t = e.target;
       const inf = t.closest("[data-info]");
-      if (inf){ e.stopPropagation(); const [h, p] = INFO[inf.dataset.info]; return U.sheet(h, `<p class="pf-p" style="margin:0 0 12px">${esc(p)}</p><button class="btn btn-primary btn-block" data-close2>Got it</button>`, el => el.querySelector("[data-close2]").onclick = U.closeLayer); }
+      if (inf){ e.stopPropagation(); const [h, p] = INFO[inf.dataset.info]; return U.sheet(h, `<p class="pr-p" style="margin:0 0 12px">${esc(p)}</p><button class="btn btn-primary btn-block" data-close2>Got it</button>`, el => el.querySelector("[data-close2]").onclick = U.closeLayer); }
       let b;
       if ((b = t.closest("[data-tab]"))){ tab = b.dataset.tab; return render(); }
       if ((b = t.closest("[data-sub]"))){ sub = b.dataset.sub; return render(); }
