@@ -8,8 +8,7 @@ function payoutOf(sym, expiry=30){
   const p = M.get(sym); if (!p) return C.PAYOUT;
   let h = 0; for (const c of sym) h = (h * 31 + c.charCodeAt(0)) >>> 0;
   const base = ["BTCUSDT","ETHUSDT","XAUUSD","EURUSD"].includes(sym) ? 0.92 : p.type === "crypto" && (p.rank || 99) <= 10 ? 0.90 : p.type === "forex" || p.type === "metal" ? 0.88 : 0.82 + (h % 7) / 100;
-  const bonus = expiry >= 300 ? 0.03 : expiry >= 60 ? 0.015 : 0;
-  return Math.min(0.95, Math.max(0.80, Math.round((base + bonus) * 100) / 100));
+  return Math.min(0.95, Math.max(0.80, Math.round(base * 100) / 100));   // same payout for every period
 }
 
 function validate(sym, amount){
@@ -20,18 +19,20 @@ function validate(sym, amount){
   if (M.isStale(p)) return "Market data offline. Reconnecting… please try again in a moment.";
   if (!(amount > 0) || isNaN(amount)) return "Enter a valid amount.";
   if (amount < 0.1) return "Minimum trade amount is 0.1 USDT.";
-  if (amount > 50000) return "Maximum trade amount is 50,000 USDT.";
+  if (amount > 10000) return "Maximum trade amount is 10,000 USDT.";
   if (amount > S().balance) return "Insufficient balance. Add funds from Deposit.";
   if (S().positions.length >= C.MAX_OPEN) return `Maximum ${C.MAX_OPEN} open positions reached.`;
   return null;
 }
 
+/* Expiry lands exactly on the close of the selected period's candle (like real binary platforms) */
+function alignedExpiry(expiry, now=Date.now()){ const per = expiry * 1000; let t = Math.ceil(now / per) * per; if (t - now < Math.min(per * 0.3, 20000)) t += per; return t; }
 function place(sym, dir, amount, expiry, source="manual"){
   amount = Math.round(amount * 100) / 100;
   const err = validate(sym, amount);
   if (err) return {err};
   const p = M.get(sym), now = Date.now();
-  const pos = {id:uid(), sym, dir, amount, entry:p.price, open:now, exp:now + expiry*1000, expiry, payout:payoutOf(sym, expiry), source};
+  const pos = {id:uid(), sym, dir, amount, entry:p.price, open:now, exp:alignedExpiry(expiry, now), expiry, payout:payoutOf(sym, expiry), source};
   S().positions.push(pos);
   store.setBalance(S().balance - amount, "trade");
   bus.emit("positions"); bus.emit("placed", pos);
@@ -404,5 +405,5 @@ function vaultMove(amount, dir){
   store.save(); bus.emit("vault"); return null;
 }
 
-window.E = {payoutOf, earnValue, setPosLev, refreshLiq, liqPrice, maxLev, futValidate, openFut, futPnl, closeFut, cancelOrder, setTpSl, TASKS, BADGES, award, taskDone, claim, streak, checkIn, CHECKIN, level, dayKey, vaultValue, vaultMove, APR, validate, place, livePnl, stats, todaySeries, BOTS, botPnl, startBot, stopBot, startAuto, stopAuto, runAuto, RATIO};
+window.E = {alignedExpiry, payoutOf, earnValue, setPosLev, refreshLiq, liqPrice, maxLev, futValidate, openFut, futPnl, closeFut, cancelOrder, setTpSl, TASKS, BADGES, award, taskDone, claim, streak, checkIn, CHECKIN, level, dayKey, vaultValue, vaultMove, APR, validate, place, livePnl, stats, todaySeries, BOTS, botPnl, startBot, stopBot, startAuto, stopAuto, runAuto, RATIO};
 })();

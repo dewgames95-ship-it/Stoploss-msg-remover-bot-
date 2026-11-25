@@ -7,7 +7,7 @@ const TZ = -new Date().getTimezoneOffset() * 60;
 let UP = "#12B886", DN = "#F0435A";
 const COL = {m7:"#F59E0B", m25:"#0EA5E9", m99:"#64748B", boll:"#0EA5E9", bollMid:"#F59E0B", rsi:"#2E6BFF", macd:"#2E6BFF", sig:"#F59E0B", sar:"#E6A23C", vwap:"#4FC3F7"};
 let chart, el, sym, tf = "15m", sec = 900, bars = [], S = {}, inds = [], type = "candle", loadSeq = 0, offs = [], ro, ui = {}, dirty = false, raf, lastRender = 0, onDetail = null, hover = null, hoverPt = null, lines = new Map(), cache = {}, pctMode = false;
-let draw = {tool:null, temp:null}, drawEl = null;
+let draw = {tool:null, temp:null}, drawEl = null, binExpFn = null;
 
 const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 const dark = () => document.documentElement.dataset.theme !== "light";
@@ -265,8 +265,6 @@ function overlay(){
     const left = sec >= 60 && cp.cd !== false ? Math.max(0, last.time + sec - now/1000) : null;
     const cd = left == null ? "" : left >= 3600 ? `${Math.floor(left/3600)}:${String(Math.floor(left%3600/60)).padStart(2,"0")}:${String(Math.floor(left%60)).padStart(2,"0")}` : mmss(left);
     h += `<div class="pbox ${last.close >= last.open ? "pu" : "pd"}" style="top:${y}px">${M.fmtPx(p, last.close)}${cd ? `<br>${cd}` : ""}</div>`;
-    const bk = M.book, ask = bk && bk.sym === sym && bk.asks?.[0] ? +bk.asks[0][0] : null, bid = bk && bk.sym === sym && bk.bids?.[0] ? +bk.bids[0][0] : null;
-    if (ask && bid && sec >= 60) h += `<div class="abtag" style="top:${y}px"><span class="a">Ask ${M.fmtPx(p, ask)}</span><span class="b">Bid ${M.fmtPx(p, bid)}</span></div>`;
     // "+" next to the live price: drag it up/down to create TP (profit side) or SL (loss side) for the latest position
     const myPos = ui.mode !== "bin" ? s.fut.positions.filter(x => x.sym === sym).slice(-1)[0] : null;
     if (myPos && !(dragS && dragS.kind === "new")) h += `<div class="pplus drag" data-drag="new:${myPos.id}" style="top:${y}px" title="Drag to set TP / SL">+</div>`;
@@ -317,6 +315,8 @@ function overlay(){
     const n = stack[key] = (stack[key] || 0) + 1; if (n > 3) return;
     const off = (n - 1) * 16;
     h += `<div class="bs ${m.s === "B" ? "b" : "s"}" data-mk="${marks.indexOf(m)}" style="left:${x}px;top:${m.s === "B" ? yy + off : yy - off}px">${m.s}</div>`; });
+  // binary: upcoming expiry (aligned to the candle close) for the period the user selected
+  if (ui.mode === "bin" && binExpFn){ const te = binExpFn(); if (te){ const xe = timeToX(te / 1000); if (xe != null && xe > 0 && xe < axisX){ h += `<div class="exp-line next" style="left:${xe}px"><span>${mmss((te - now) / 1000)}</span></div>`; } } }
   // binary: tag + start/expiry lines
   const used = [];
   if (bin) s.positions.filter(x => x.sym === sym).forEach(pos => {
@@ -456,5 +456,5 @@ async function perfStats(s){
   } catch {} return out;
 }
 
-window.CH = {mount, load, zoom, reset, destroy, setInds, setType, resize, syncLines, setTool, undoDraw, clearDraw, performance: perfStats, get tool(){ return draw.tool; }, get inds(){ return inds; }, get type(){ return type; }, fmtVol};
+window.CH = {setBinExp: f => { binExpFn = f; }, mount, load, zoom, reset, destroy, setInds, setType, resize, syncLines, setTool, undoDraw, clearDraw, performance: perfStats, get tool(){ return draw.tool; }, get inds(){ return inds; }, get type(){ return type; }, fmtVol};
 })();

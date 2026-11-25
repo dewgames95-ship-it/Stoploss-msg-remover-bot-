@@ -121,6 +121,12 @@ function bindChart(root, sym, tfKey, defTf, detailCb, opt={}){
   document.addEventListener("fullscreenchange", fsx); offs.push(() => document.removeEventListener("fullscreenchange", fsx));
   return () => { offs.forEach(f => f()); CH.destroy(); document.body.classList.remove("fs-on"); if (document.fullscreenElement) try { document.exitFullscreen(); } catch {} };
 }
+/* Futures docked chart: intervals, chart, indicators and Today/7D/30D/90D/180D/1Y performance on one screen */
+function dockChartBlock(sym){
+  return miniChartBlock(sym) + `<div class="indbar"><div class="il" id="inds">${INDS_MAIN.map(k => `<button data-ind="${k}">${k}</button>`).join("")}<span style="color:var(--line)">|</span>${INDS_SUB.map(k => `<button data-ind="${k}">${k}</button>`).join("")}</div><button class="ti" data-indinfo aria-label="Indicator guide">${ic("ind",18)}</button></div><div class="perf dock-perf" id="perf"></div>`;
+}
+async function dockPerf(root, sym){ const r = await CH.performance(sym); const el = root.querySelector("#perf"); if (!el) return;
+  el.innerHTML = ["Today","7 Days","30 Days","90 Days","180 Days","1 Year"].map(k => `<div>${k}<b class="num ${r[k] == null ? "" : r[k] >= 0 ? "up" : "down"}">${r[k] == null ? "--" : (r[k] >= 0 ? "+" : "") + r[k].toFixed(2) + "%"}</b></div>`).join(""); }
 /* Compact chart used inside Futures (like the exchange's in-position chart): no indicator bar */
 const MINI_TFS = ["1s","5s","30s","1m","5m","15m","1h","4h","1d","3d","1w","1M"];
 function miniChartBlock(sym){
@@ -148,7 +154,7 @@ function pickSheet(cur, onPick, binaryOnly){
     if (k === "chg") list.sort((a,b) => f * ((a.chg||0) - (b.chg||0)));
     list = list.slice(0, 200);
     const vol = p => p.qv ? CH.fmtVol(p.qv) : "";
-    return list.map(p => `<button class="pk-row" data-s="${p.sym}">${UI.pairIcon(p,30)}<div class="pk-n"><b>${esc(fsym(p))}</b><small>${esc(UI.fullName(p))} ${vol(p) ? `<span class="num">${vol(p)}</span>` : ""} <span class="perp">${p.type === "crypto" ? "Perp" : "24/5"}</span></small></div>
+    return list.map(p => `<button class="pk-row" data-s="${p.sym}">${UI.pairIcon(p,30)}<div class="pk-n"><b>${esc(fsym(p))}</b><small><span class="pk-fn">${esc(UI.fullName(p))}</span> ${vol(p) ? `<span class="num">${vol(p)}</span>` : ""} ${m === "binary" ? `<span class="pk-pp">${Math.round(E.payoutOf(p.sym) * 100)}%</span>` : `<span class="perp">${p.type === "crypto" ? "Perp" : "24/5"}</span>`}</small></div>
       <div class="pk-p"><b class="num">${M.fmtPx(p)}</b><small class="num">$${M.fmtPx(p)}</small></div><span class="pk-c ${p.closed ? "cl" : (p.chg||0) < 0 ? "dn" : ""}">${p.closed ? "Closed" : p.chg == null ? "--" : pct(p.chg)}</span></button>`).join("") || UI.emptyState(m === "fav" ? "star" : "search", m === "fav" ? "No favorites yet" : "No results");
   };
   U.sheet("", `<label class="search" style="margin-bottom:6px">${ic("search",16)}<input id="ps" placeholder="Search" autocomplete="off"></label>
@@ -280,11 +286,10 @@ Pages.futures = (params) => {
   const s = S(), P = () => M.get(sym);
   let tsMode = "price", root, offs = [], timers = [], oc = "open", otype = "market", lev = Math.min(s.settings.lev || 20, E.maxLev(P())), mode = s.settings.marginMode || "cross", tpsl = false, ptab = sessionStorage.getItem("fx_ptab") || "pos", hideOther = false, chartOpen = false, unChart = null, sliderPct = 0;
   const $ = q => root.querySelector(q);
-  const html = `<div class="fx-page">
+  const html = `
   <div class="tabs" style="gap:20px;margin:0 -16px;padding:4px 16px 0;border:0"><button class="tab on" style="font-size:17px">USDⓈ-M</button><a class="tab" href="#/spot/${sym}" style="font-size:17px">Spot</a><a class="tab" href="#/trade/${sym}" style="font-size:17px">Binary</a><a class="tab" href="#/options" style="font-size:17px">Options</a><a class="tab" href="#/copy" style="font-size:17px">Copy</a><a class="tab" href="#/bots" style="font-size:17px">Bots</a></div>
   <header class="fx-head"><div class="grow"><button class="nm" data-pick>${esc(fsym(P()))} <span class="perp">Perp</span>${ic("chevd",16)}</button><div class="num" id="fchg" style="font-size:13px"></div></div>
     <a class="icon-btn" href="#/chart/${sym}" aria-label="Chart">${ic("candle",22,1.6)}</a><button class="icon-btn" data-menu aria-label="More">${ic("dots",22)}</button></header>
-  <section class="fx-chartbox">${miniChartBlock(sym)}</section>
   <div class="fx-grid">
     <div>
       <div class="oc"><button class="on" data-oc="open">Open</button><button data-oc="close">Close</button></div>
@@ -315,7 +320,7 @@ Pages.futures = (params) => {
   <div class="ptools" id="ptools"><label class="fchk" style="margin:0"><input type="checkbox" id="hide"> Hide Other Symbols</label><button class="btn btn-ghost btn-sm" data-closeall>Close All (<span id="cac">0</span>)</button></div>
   <div id="plist"></div>
 
-  </div>`;
+  <div style="height:64px"></div><section class="fxc ${sessionStorage.getItem("fx_chart") === "1" ? "open" : ""}" id="cch"><button class="fxc-bar" data-cch><span>${esc(fsym(P()))} Perp Chart</span><span class="fxc-i">${ic("chevd",16)}</span></button><div class="fxc-body">${dockChartBlock(sym)}</div></section>`;
 
   /* --- order form --- */
   const inputs = () => { const p = P(), amt = parseFloat($("#amt").value) || 0, px = otype === "limit" ? (parseFloat($("#lp").value) || p.price) : p.price; return {p, amt, px}; };
@@ -509,7 +514,7 @@ Pages.futures = (params) => {
   }
   function toggleChart(){
     chartOpen = !chartOpen; $("#cch").classList.toggle("open", chartOpen); sessionStorage.setItem("fx_chart", chartOpen ? "1" : "0");
-    if (chartOpen && !unChart) unChart = bindChart(root, sym, "tf_fut", "15m", candleDetail(sym), {mini:true, tfs:MINI_TFS});
+    if (chartOpen && !unChart){ unChart = bindChart(root, sym, "tf_fut", "15m", candleDetail(sym), {tfs:MINI_TFS}); dockPerf(root, sym); }
     else setTimeout(CH.resize, 60);
   }
   /* Realized PnL breakdown: where the money went and how much % of margin */
@@ -525,7 +530,8 @@ Pages.futures = (params) => {
   return {html, title: fsym(P()) + " Futures", mount(r){
     root = r; M.watchTrades(sym);
     renderForm(); renderBook(); setPtab(ptab);
-    unChart = bindChart(root, sym, "tf_fut", "15m", candleDetail(sym), {mini:true, tfs:MINI_TFS});
+    if ($("#cch").classList.contains("open")){ chartOpen = false; toggleChart(); }
+    $("[data-cch]").onclick = toggleChart;
     $("[data-pick]").onclick = () => pickSheet(sym, x => location.hash = "#/futures/" + x);
     $("[data-menu]").onclick = () => U.sheet("", [["ring","Price alert", () => alertSheet(sym)],["candle","Chart", () => location.hash = "#/chart/" + sym],["history","Position history", () => location.hash = "#/history"],["percent","Futures calculator", calcSheet]].map(([i,n],k) => `<button class="list-item" style="width:100%" data-k="${k}"><span class="ic">${ic(i,18)}</span><span class="grow">${n}</span>${ic("chev",16)}</button>`).join(""), el => {
       const acts = [() => alertSheet(sym), () => location.hash = "#/chart/" + sym, () => location.hash = "#/history", calcSheet];
@@ -612,13 +618,14 @@ Pages.trade = (params) => {
         <div class="bb-top"><button class="bx-step" data-minus aria-label="Decrease amount">${ic("minus",15,2.4)}</button>
           <label class="bb-in"><small>Bet amount</small><span class="bb-v"><input id="amt" type="number" inputmode="decimal" min="0.1" step="0.1" aria-label="Amount in USDT"><em>USDT</em></span></label>
           <button class="bx-step" data-plus aria-label="Increase amount">${ic("plus",15,2.4)}</button><button class="bb-max" data-v="max">MAX</button></div>
-        <div class="bb-chips" id="qa">${[0.1,0.5,1,2,5,10,50,100].map(v => `<button data-v="${v}">${v}</button>`).join("")}</div>
+        <div class="bb-chips" id="qa">${[0.1,0.5,1,2,5,10].map(v => `<button data-v="${v}">${v}</button>`).join("")}</div>
       </div>
       <div class="bx-pay"><small>Payout (win)</small><b class="num" id="po"></b><span class="pp" id="ppct"></span></div>
     </div>
-    <div class="bx-time" id="exps">${C.EXPIRIES.map(x => `<button class="exp-chip" data-e="${x}"><b>${x<60?x+"s":x/60+"m"}</b><small data-ep="${x}"></small></button>`).join("")}</div>
+    <div class="bx-tl">Select your time period</div>
+    <div class="bx-time" id="exps">${C.EXPIRIES.map(x => `<button class="exp-chip" data-e="${x}"><b>${x<60?x+"s":x/60+"m"}</b></button>`).join("")}</div>
     <div class="ud"><button class="btn btn-up" data-dir="up"><span class="row" style="gap:4px">${ic("up",18,3)} ${esc(t("Up"))}</span><small id="upP"></small></button><button class="btn btn-down" data-dir="down"><span class="row" style="gap:4px">${ic("down",18,3)} ${esc(t("Down"))}</span><small id="dnP"></small></button></div>
-    <div class="bx-meta"><span>Avbl <b class="num" id="ob"></b> USDT <a href="#/deposit" class="brand-c" aria-label="Deposit">${ic("plus",12,3)}</a></span><span class="label">Min 0.1 · Max 50,000 USDT</span></div>
+    <div class="bx-meta"><span>Avbl <b class="num" id="ob"></b> USDT <a href="#/deposit" class="brand-c" aria-label="Deposit">${ic("plus",12,3)}</a></span><span class="label">Min 0.1 · Max 10,000 USDT</span></div>
     <div id="note" style="margin-top:8px"></div><div class="err-msg" id="err" role="alert"></div>
   </section>
   <div class="ptabs" style="margin-top:0"><button class="on" data-pt="pos">Positions (<span id="pc">0</span>)</button><button data-pt="hist">History</button></div>
@@ -637,7 +644,6 @@ Pages.trade = (params) => {
     const pp = E.payoutOf(sym, exp), pct = Math.round(pp * 100) + "%";
     $("#ob").textContent = money(s.balance); $("#po").textContent = money(a * (1 + pp)) + " USDT"; $("#ppct").textContent = "+" + pct + " profit";
     root.querySelectorAll("[data-e]").forEach(b => b.classList.toggle("on", +b.dataset.e === exp));
-    root.querySelectorAll("[data-ep]").forEach(e => e.textContent = Math.round(E.payoutOf(sym, +e.dataset.ep) * 100) + "%");
     const hp = $("#hpp"); if (hp) hp.textContent = pct;
     root.querySelectorAll("#qa [data-v]").forEach(b => b.classList.toggle("on", +b.dataset.v === a));
     $("#upP").textContent = $("#dnP").textContent = pct + " · " + (exp < 60 ? exp + "s" : exp/60 + "m");
@@ -692,6 +698,7 @@ Pages.trade = (params) => {
     root = r; M.watchTrades(sym);
     $("#amt").value = s.settings.defAmt || 10;
     renderPx(); renderOrder(); setPtab("pos");
+    CH.setBinExp(() => E.alignedExpiry(exp)); timers.push(() => CH.setBinExp(null));
     unChart = bindChart(root, sym, "tf_binary", "tick", candleDetail(sym, {html:`<button class="btn btn-up" data-q="up">Up</button><button class="btn btn-down" data-q="down">Down</button>`, bind: el => el.querySelectorAll("[data-q]").forEach(x => x.onclick = () => { U.closeLayer(); trade(x.dataset.q); })}));
     const amt = $("#amt");
     amt.addEventListener("input", () => { $("#err").textContent = ""; $("#af").classList.remove("err"); renderOrder(); });
@@ -700,7 +707,7 @@ Pages.trade = (params) => {
     $("[data-plus]").onclick = () => { const v = parseFloat(amt.value) || 0; amt.value = +Math.min(Math.floor(s.balance), v + stepOf(v)).toFixed(2) || 1; renderOrder(); };
     if ($("[data-half]")) $("[data-half]").onclick = () => { amt.value = Math.max(1, Math.floor((parseFloat(amt.value)||0) / 2 * 100) / 100); renderOrder(); };
     if ($("[data-dbl]")) $("[data-dbl]").onclick = () => { amt.value = Math.min(Math.floor(s.balance*100)/100, Math.round((parseFloat(amt.value)||0) * 2 * 100) / 100) || 1; renderOrder(); };
-    root.querySelectorAll("[data-v]").forEach(b => b.onclick = () => { amt.value = b.dataset.v === "max" ? Math.floor(Math.min(s.balance, 50000)*100)/100 : b.dataset.v; renderOrder(); });
+    root.querySelectorAll("[data-v]").forEach(b => b.onclick = () => { amt.value = b.dataset.v === "max" ? Math.floor(Math.min(s.balance, 10000)*100)/100 : b.dataset.v; renderOrder(); });
     root.querySelectorAll("[data-e]").forEach(b => b.onclick = () => { exp = +b.dataset.e; renderOrder(); });
     root.querySelectorAll("[data-dir]").forEach(b => b.onclick = () => trade(b.dataset.dir));
     root.querySelectorAll("[data-pt]").forEach(b => b.onclick = () => setPtab(b.dataset.pt));

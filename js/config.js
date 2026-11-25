@@ -5,7 +5,7 @@ window.CONFIG = {
   SUPPORT_EMAIL: "support@novatrade.app",
   START_BALANCE: 10000,
   PAYOUT: 0.92,                      // +92% on win → ratio 1.92X
-  EXPIRIES: [30, 60, 300],           // seconds
+  EXPIRIES: [30, 60, 300, 900],           // seconds
   MAX_OPEN: 10,
   TRADABLE_CRYPTO: ["BTC","ETH","BNB","SOL","XRP","DOGE","ADA","TRX","AVAX","LINK","TON","DOT","SHIB","LTC","BCH","NEAR","UNI","APT","SUI","ARB","OP","PEPE","WIF","INJ","FET","RENDER","ATOM","FIL","ICP","ETC","XLM","HBAR","SEI","TIA","AAVE","POL","TAO","WLD","ENA","ONDO","JUP","BONK","FLOKI","TRUMP"],
   FOREX: [
