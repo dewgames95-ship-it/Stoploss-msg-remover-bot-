@@ -20,11 +20,11 @@ function applyFill(o, px, fromLimit){
   const sp = spot(), coin = keyOf(o.sym), h = sp.hold[coin] ||= {qty:0, cost:0}, fee = o.qty * px * FEE;
   if (o.side === "buy"){
     h.sym = o.sym; h.qty += o.qty * (1 - FEE); h.cost += o.qty * px;
-    if (!fromLimit) store.setBalance(S().balance - o.qty * px, "spot");
+    if (!fromLimit) store.addWallet("spot", -o.qty * px, "spot");
   } else {
     const ac = h.qty > 0 ? h.cost / h.qty : 0;
     h.cost = Math.max(0, h.cost - ac * o.qty); h.qty = Math.max(0, h.qty - o.qty);
-    store.setBalance(S().balance + o.qty * px * (1 - FEE), "spot");
+    store.addWallet("spot", o.qty * px * (1 - FEE), "spot");
   }
   if (h.qty < 1e-9){ delete sp.hold[coin]; }
   sp.history.unshift({id:U.uid(), sym:o.sym, side:o.side, price:px, qty:o.qty, fee, ts:Date.now(), type: fromLimit ? "limit" : "market"});
@@ -50,11 +50,11 @@ function place({sym, side, type, price, qty}){
   if (!(px > 0)) return {err:"Please enter the price"};
   if (qty * px < 1) return {err:"Minimum order value is 1 USDT"};
   if (side === "buy"){
-    if (qty * px > S().balance + 1e-9) return {err:"Insufficient USDT balance"};
+    if (qty * px > store.wb("spot") + 1e-9) return {err:"Insufficient Spot balance"};
   } else if (qty > avail(coin) + 1e-9) return {err:`Insufficient ${unitOf(p, sym)} balance`};
   if (type === "market"){ applyFill({sym, side, qty}, px, false); return {ok:true, filled:true}; }
   const o = {id:U.uid(), sym, side, price:px, qty, ts:Date.now()};
-  if (side === "buy") store.setBalance(S().balance - qty * px, "spot");
+  if (side === "buy") store.addWallet("spot", -qty * px, "spot");
   sp.orders.push(o); store.save(); bus.emit("spot");
   checkOrders(sym, p.price);
   return {ok:true, order:o, filled: !sp.orders.includes(o)};
@@ -62,7 +62,7 @@ function place({sym, side, type, price, qty}){
 function cancel(id){
   const sp = spot(), o = sp.orders.find(x => x.id === id); if (!o) return;
   sp.orders = sp.orders.filter(x => x.id !== id);
-  if (o.side === "buy") store.setBalance(S().balance + o.qty * o.price, "spot");
+  if (o.side === "buy") store.addWallet("spot", o.qty * o.price, "spot");
   store.save(); bus.emit("spot");
 }
 if (!window.__spotTick){ window.__spotTick = true; bus.on("tick", (sym, price) => { try{ if (S().spot?.orders?.length) checkOrders(sym, price); }catch(e){ console.error(e); } }); }
@@ -105,7 +105,7 @@ Pages.spot = (params) => {
       <div class="sp-in" id="spa"><input id="spq" type="number" inputmode="decimal" placeholder="Amount"><span>${esc(unit)}</span></div>
       <div class="sp-sl"><div class="tr"></div><div class="fl" id="spfl"></div>${[0,25,50,75,100].map(v => `<i class="nd" style="left:${v}%" data-nd="${v}"></i>`).join("")}<div class="th" id="spth"></div><div class="bub" id="spbub"></div><input type="range" min="0" max="100" step="1" value="0" id="spsl" aria-label="Amount percent"></div>
       <div class="sp-kv"><span>Total</span><b id="sptot">-- USDT</b></div>
-      <div class="sp-kv"><span>Avbl</span><b><span id="spav"></span> <a href="#/deposit" aria-label="Deposit">${ic("plus",13,3)}</a></b></div>
+      <div class="sp-kv"><span>Avbl</span><b><span id="spav"></span> <button class="wl-plus" data-wlto="spot" aria-label="Transfer in">${ic("plus",13,3)}</button></b></div>
       <button class="sp-go b" id="spgo"></button>
       <div class="sp-fee">Fee 0.02% (taker)</div>
       <div class="sp-closed hide" id="spclosed">Market closed — reopens with the next session</div>
@@ -122,13 +122,13 @@ Pages.spot = (params) => {
 
   const stepOf = () => Math.pow(10, -(P().dp ?? 2));
   const curPx = () => otype === "limit" ? (parseFloat($("#spp").value) || 0) : P().price;
-  function maxQty(){ const px = curPx() || P().price; return side === "buy" ? s.balance / px : avail(coin); }
+  function maxQty(){ const px = curPx() || P().price; return side === "buy" ? store.wb("spot") / px : avail(coin); }
   function renderForm(){
     const p = P(), q = parseFloat($("#spq").value) || 0, px = curPx();
     $("#sotl").textContent = otype === "limit" ? "Limit" : "Market";
     $("#spf").classList.toggle("hide", otype !== "limit"); $("#spm").classList.toggle("hide", otype === "limit");
     $("#sptot").textContent = q && px ? money(q * px) + " USDT" : "-- USDT";
-    $("#spav").textContent = side === "buy" ? money(s.balance) + " USDT" : fmt(avail(coin), qd(p.price, p)) + " " + unit;
+    $("#spav").textContent = side === "buy" ? money(store.wb("spot")) + " USDT" : fmt(avail(coin), qd(p.price, p)) + " " + unit;
     const go = $("#spgo"); go.className = "sp-go " + (side === "buy" ? "b" : "s"); go.textContent = (side === "buy" ? "Buy " : "Sell ") + unit; go.disabled = !!p.closed; $("#spclosed").classList.toggle("hide", !p.closed);
     root.querySelectorAll("[data-side]").forEach(b => b.classList.toggle("on", b.dataset.side === side));
     root.querySelector(".sp-seg").dataset.side = side;
@@ -146,14 +146,14 @@ Pages.spot = (params) => {
     if (otype === "limit" && !(lp > 0)) return chk("Please enter the price");
     if (!(q > 0)) return chk("Please enter the amount");
     if (q * px < 1) return chk("Minimum order value is 1 USDT");
-    if (side === "buy" ? q * px > s.balance + 1e-9 : q > avail(coin) + 1e-9) return chk(side === "buy" ? "Insufficient USDT balance" : `Insufficient ${unit} balance`);
+    if (side === "buy" ? q * px > store.wb("spot") + 1e-9 : q > avail(coin) + 1e-9) return chk(side === "buy" ? "Insufficient Spot balance" : `Insufficient ${unit} balance`);
     err.textContent = "";
     const ok = await U.confirmTrade({kind: otype === "market" ? "market" : "limit", title: `${side === "buy" ? "Buy" : "Sell"} ${unit}`, tone: side === "buy" ? "up" : "down", okText: side === "buy" ? "Confirm Buy" : "Confirm Sell",
       sub: `<span class="perp">Spot</span> <span class="perp">${otype === "market" ? "Market" : "Limit"}</span>`,
       rows: [["Pair", esc(label0)], ["Price", otype === "market" ? "Market" : M.fmtPx(p, lp)], ["Amount", fmt(q, qd(px, p)) + " " + esc(unit)], ["Total", money(q * px) + " USDT"], ["Fee (0.1%)", money(q * px * FEE) + " USDT"]]});
     if (!ok) return;
     const r = place({sym, side, type: otype, price: lp, qty: q});
-    if (r.err) return chk(r.err);
+    if (r.err){ chk(r.err); UI.walletErr(r.err); return; }
     if (!r.filled && r.order) toast("Order placed", "ok");
     $("#spq").value = ""; sliderPct = 0; $("#spsl").value = 0; renderForm();
     if (!r.filled) setPtab("open");

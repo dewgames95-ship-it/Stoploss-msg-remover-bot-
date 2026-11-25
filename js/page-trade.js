@@ -56,7 +56,7 @@ function quickTrade(sym, side){
       <div class="fx-row" style="grid-template-columns:1fr 1fr;margin:8px 0"><button data-qm>${mode === "cross" ? "Cross" : "Isolated"}</button><button data-ql>${lev}x</button></div></div>
     <div class="famt"><input id="qa" type="number" inputmode="decimal" placeholder="Cost"><span>USDT</span></div>
     <div class="chips" style="margin:6px 0 8px">${[10,25,50,75,100].map(v => `<button data-qp="${v}">${v}%</button>`).join("")}</div>
-    <div class="fkv"><span>Avbl</span><b class="num">${money(s.balance)} USDT</b></div><div class="fkv"><span>Position size</span><b class="num" id="qsz">--</b></div><div class="fkv"><span>Est. Liq. Price</span><b class="num" id="qlq">--</b></div>
+    <div class="fkv"><span>Avbl</span><b class="num">${money(store.wb("futures"))} USDT <button class="wl-plus" data-wlto="futures" aria-label="Transfer in">${ic("plus",13,3)}</button></b></div><div class="fkv"><span>Position size</span><b class="num" id="qsz">--</b></div><div class="fkv"><span>Est. Liq. Price</span><b class="num" id="qlq">--</b></div>
     <button class="fbtn2 ${side === "long" ? "l" : "s"}" id="qgo" style="margin-top:10px"><span>${side === "long" ? "Open Long" : "Open Short"}</span></button>`.replace(/@\{/g, "${"), el => {
     const upd = () => { const c = parseFloat(el.querySelector("#qa").value) || 0, sz = c * lev, q = sz / (p.price || 1), lq = c ? E.liqPrice(side, p.price, lev, mode, q, c) : 0;
       el.querySelector("#qsz").textContent = c ? money(sz) + " USDT" : "--"; el.querySelector("#qlq").textContent = lq > 0 ? M.fmtPx(p, lq) : "--";
@@ -65,11 +65,11 @@ function quickTrade(sym, side){
     el.querySelector("[data-qm]").onclick = () => { mode = mode === "cross" ? "isolated" : "cross"; el.querySelector("[data-qm]").textContent = mode === "cross" ? "Cross" : "Isolated"; upd(); };
     el.querySelector("[data-ql]").onclick = () => { const opts = [5, 10, 20, 50, 75, 100, 125].filter(x => x <= E.maxLev(p)); lev = opts[(opts.indexOf(lev) + 1) % opts.length] || opts[0]; el.querySelector("[data-ql]").textContent = lev + "x"; upd(); };
     el.querySelector("#qa").oninput = upd;
-    el.querySelectorAll("[data-qp]").forEach(b => b.onclick = () => { el.querySelector("#qa").value = Math.floor(s.balance / (1 + lev * C.FEE) * +b.dataset.qp) / 100; upd(); });
+    el.querySelectorAll("[data-qp]").forEach(b => b.onclick = () => { el.querySelector("#qa").value = Math.floor(store.wb("futures") / (1 + lev * C.FEE) * +b.dataset.qp) / 100; upd(); });
     el.querySelector("#qgo").onclick = async () => {
       const c = parseFloat(el.querySelector("#qa").value) || 0; if (!(c > 0)) return toast("Please enter the cost", "bad");
       const r = E.openFut({sym, side, margin: c, lev, type:"market", price:null, tp:null, sl:null, mode});
-      if (r.err) return toast(r.err, "bad");
+      if (r.err){ toast(r.err, "bad"); UI.walletErr(r.err); return; }
       U.closeLayer(); U.fx("open"); toast(`Order filled: ${side === "long" ? "Long" : "Short"} ${M.label(p)} ${lev}x`, "ok");
     };
   });
@@ -302,7 +302,7 @@ Pages.futures = (params) => {
       <div class="famt hide" id="lpf"><input id="lp" type="number" inputmode="decimal" placeholder="Price"><button class="bbo" data-bbo type="button">BBO</button></div>
       <div class="famt" id="af"><input id="amt" type="number" inputmode="decimal" placeholder="Amount"><span id="unl">USDT</span></div>
       <div class="dslider"><div class="tr"></div><div class="fl" id="sfl"></div>${[0,25,50,75,100].map(v => `<i class="nd" style="left:${v}%" data-nd="${v}"></i>`).join("")}<div class="th" id="sth"></div><input type="range" min="0" max="100" step="1" value="0" id="sl" aria-label="Amount percent"></div>
-      <div class="fkv"><span>Avbl</span><b><span id="avb"></span> USDT <a href="#/deposit" style="color:var(--brand-2)">${ic("plus",13,3)}</a></b></div>
+      <div class="fkv"><span>Avbl</span><b><span id="avb"></span> USDT <button class="wl-plus" data-wlto="futures" aria-label="Transfer in">${ic("plus",13,3)}</button></b></div>
       <div id="openBox">
         <div class="row between"><label class="fchk"><input type="checkbox" id="tpc"> <u data-info="tpsl">TP/SL</u></label><button class="tsm hide" id="tsm" type="button">⇄ <span>ROI %</span></button></div>
         <button class="tifb hide" id="tifb" data-tif type="button"><span id="tifl">GTC</span>${ic("chevd",12)}</button>
@@ -331,7 +331,7 @@ Pages.futures = (params) => {
   const inputs = () => { const p = P(), px = otype === "limit" ? (parseFloat($("#lp").value) || p.price) : p.price, raw = parseFloat($("#amt").value) || 0, amt = coinU && oc === "open" ? raw * px : raw; return {p, amt, px}; };
   const fromU = v => coinU && oc === "open" ? +(v / (otype === "limit" ? (parseFloat($("#lp").value) || P().price) : P().price)).toFixed(5) : v;
   function renderForm(){
-    const {p, amt, px} = inputs(), avail = s.balance;
+    const {p, amt, px} = inputs(), avail = store.wb("futures");
     $("[data-mode]").textContent = mode === "cross" ? "Cross" : "Isolated"; $("[data-lev]").textContent = lev + "x";
     $("#avb").textContent = money(avail); $("#otl").textContent = otype === "market" ? "Market" : "Limit";
     $("#lpf").classList.toggle("hide", otype !== "limit");
@@ -363,7 +363,7 @@ Pages.futures = (params) => {
       rows: [["Price", otype === "market" ? "Market" : M.fmtPx(p, lp)], ["Amount", money(amt) + " USDT"], ["Quantity", fmt(q, q < 1 ? 5 : 3) + " " + esc(p.base || "")], ["Margin", money(amt / lev) + " USDT"], ["Fee (est.)", money(amt * C.FEE) + " USDT"], ["Est. liq. price", liq > 0 ? M.fmtPx(p, liq) : "--"], ...(tp || sl ? [["TP / SL", `${tp ? M.fmtPx(p, tp) : "--"} / ${sl ? M.fmtPx(p, sl) : "--"}`]] : [])]});
     if (!ok) return;
     const r = E.openFut({sym, side, margin: amt / lev, lev, type:otype, price:lp, tp, sl, mode, tif: otype === "limit" ? tif : undefined});
-    if (r.err){ err.textContent = r.err; $("#af").classList.toggle("err", /amount|balance|value/i.test(r.err)); return toast(r.err, "bad"); }
+    if (r.err){ err.textContent = r.err; $("#af").classList.toggle("err", /amount|balance|value/i.test(r.err)); toast(r.err, "bad"); UI.walletErr(r.err); return; }
     err.textContent = ""; $("#af").classList.remove("err"); if (tp || sl) E.award("tpsl");
     s.settings.lev = lev; store.save(); U.fx("open");
     toast(r.order ? "Order placed" : "Order filled", "ok");
@@ -386,7 +386,7 @@ Pages.futures = (params) => {
       <input type="range" class="slider" id="lr" min="1" max="${mx}" value="${v}"><div class="ticks">${marks.map(m => `<span>${m}x</span>`).join("")}</div>
       <ul class="label" style="margin:14px 0 14px 16px;line-height:1.7"><li>Maximum position at current leverage: <b class="num" id="lmx" style="color:var(--text)"></b></li><li>Selecting higher leverage such as [10x] increases your liquidation risk. Always manage your risk levels.</li></ul>
       <div class="err-msg" id="le"></div><button class="btn btn-primary btn-block btn-lg" data-ok>Confirm</button>`, el => {
-      const upd = () => { el.querySelector("#lv").textContent = v + "x"; el.querySelector("#lr").value = v; el.querySelector("#lmx").textContent = money(Math.min(5e6, s.balance * v)) + " USDT"; };
+      const upd = () => { el.querySelector("#lv").textContent = v + "x"; el.querySelector("#lr").value = v; el.querySelector("#lmx").textContent = money(Math.min(5e6, store.wb("futures") * v)) + " USDT"; };
       upd();
       el.querySelector("#lr").oninput = e => { v = +e.target.value; upd();  };
       el.querySelector("[data-m]").onclick = () => { v = Math.max(1, v-1); upd(); }; el.querySelector("[data-p]").onclick = () => { v = Math.min(mx, v+1); upd(); };
@@ -574,10 +574,10 @@ Pages.futures = (params) => {
     const sl = $("#sl"); let lastSnap = 0;
     sl.oninput = () => { const v = +sl.value, snap = [0,25,50,75,100].find(x => Math.abs(x - v) <= 2); sliderPct = snap ?? v; if (snap != null && snap !== v) sl.value = snap;
       if (snap != null && snap !== lastSnap && LY.slideVib !== false) navigator.vibrate?.(8); lastSnap = snap;
-      $("#amt").value = sliderPct ? fromU(oc === "open" ? Math.floor(s.balance / (1/lev + C.FEE) * sliderPct) / 100 : sliderPct) : ""; renderForm(); };
+      $("#amt").value = sliderPct ? fromU(oc === "open" ? Math.floor(store.wb("futures") / (1/lev + C.FEE) * sliderPct) / 100 : sliderPct) : ""; renderForm(); };
     $("[data-bbo]").onclick = () => { const p = P(), b = bboSide === "bid" ? M.book.bids?.[0] : M.book.asks?.[0], v = b ? +b[0] : p.price; $("#lp").value = +(+v).toFixed(p.dp ?? 2); toast(`BBO · best ${bboSide} ${M.fmtPx(p, v)}`, "info", 1200); bboSide = bboSide === "bid" ? "ask" : "bid"; renderForm(); };
     $("[data-tif]").onclick = tifSheet; $("[data-sort]").onclick = sortSheet;
-    $("#amt").addEventListener("input", () => { $("#ferr").textContent = ""; $("#af").classList.remove("err"); const v = inputs().amt; sliderPct = oc === "open" ? U.clamp(v / (s.balance / (1/lev + C.FEE)) * 100, 0, 100) : U.clamp(v, 0, 100); renderForm(); });
+    $("#amt").addEventListener("input", () => { $("#ferr").textContent = ""; $("#af").classList.remove("err"); const v = inputs().amt; sliderPct = oc === "open" ? U.clamp(v / (store.wb("futures") / (1/lev + C.FEE)) * 100, 0, 100) : U.clamp(v, 0, 100); renderForm(); });
     $("#lp").addEventListener("input", renderForm);
     $("#tpc").onchange = e => { tpsl = e.target.checked; $("#tpsl").classList.toggle("hide", !tpsl); $("#tsm").classList.toggle("hide", !tpsl); };
     const tsHint = () => { if (tsMode !== "roi"){ $("#tsh").innerHTML = ""; return; } const p = P(), ep = parseFloat($("#lp").value) || p.price, t = parseFloat($("#tp").value), sv = Math.abs(parseFloat($("#sl2").value)), f = (r, up) => r > 0 ? M.fmtPx(p, ep * (1 + (up ? 1 : -1) * r / 100 / lev)) : "--";
@@ -659,7 +659,7 @@ Pages.trade = (params) => {
     <div class="bx-trow"><div class="bx-tl">Time period</div>
     <div class="bx-time" id="exps">${C.EXPIRIES.map(x => `<button class="exp-chip" data-e="${x}"><b>${x<60?x+"s":x/60+"m"}</b></button>`).join("")}</div></div>
     <div class="ud"><button class="btn btn-up" data-dir="up"><span class="row" style="gap:4px">${ic("up",18,3)} ${esc(t("Up"))}</span><small id="upP"></small></button><button class="btn btn-down" data-dir="down"><span class="row" style="gap:4px">${ic("down",18,3)} ${esc(t("Down"))}</span><small id="dnP"></small></button></div>
-    <div class="bx-meta"><span>Avbl <b class="num" id="ob"></b> USDT <a href="#/deposit" class="brand-c" aria-label="Deposit">${ic("plus",12,3)}</a></span><span class="label">Min 0.1 · Max 5,000 USDT</span></div>
+    <div class="bx-meta"><span>Avbl <b class="num" id="ob"></b> USDT <button class="wl-plus" data-wlto="binary" aria-label="Transfer in">${ic("plus",12,3)}</button></span><span class="label">Min 0.1 · Max 5,000 USDT</span></div>
     <div id="note" style="margin-top:8px"></div><div class="err-msg" id="err" role="alert"></div>
   </section>
   <div class="ptabs" style="margin-top:0"><button class="on" data-pt="pos">Positions (<span id="pc">0</span>)</button><button data-pt="hist">History</button></div>
@@ -676,7 +676,7 @@ Pages.trade = (params) => {
   function renderOrder(){
     const p = P(), a = parseFloat($("#amt").value) || 0;
     const pp = E.payoutOf(sym, exp), pct = Math.round(pp * 100) + "%";
-    $("#ob").textContent = money(s.balance); $("#po").textContent = money(a * (1 + pp)) + " USDT"; $("#ppct").textContent = "+" + pct + " profit";
+    $("#ob").textContent = money(store.wb("binary")); $("#po").textContent = money(a * (1 + pp)) + " USDT"; $("#ppct").textContent = "+" + pct + " profit";
     root.querySelectorAll("[data-e]").forEach(b => b.classList.toggle("on", +b.dataset.e === exp));
     const hp = $("#hpp"); if (hp) hp.textContent = pct;
     root.querySelectorAll("#qa [data-v]").forEach(b => b.classList.toggle("on", +b.dataset.v === a));
@@ -692,7 +692,7 @@ Pages.trade = (params) => {
     if (msg){ err.textContent = msg; $("#af").classList.add("err"); toast(msg, "bad"); return; }
     if (!skipConfirm && !await U.confirmTrade({kind:"binary", title:`${M.label(P())} · ${dir === "up" ? "Up" : "Down"}`, tone: dir === "up" ? "up" : "down", okText: dir === "up" ? "Confirm Up" : "Confirm Down",
       rows:[["Amount", money(a) + " USDT"], ["Expiry", exp < 60 ? exp + "s" : exp/60 + " min"], ["Entry price", "Market (" + M.fmtPx(P()) + ")"], ["Payout if win", `<span class="up">${money(a * (1 + E.payoutOf(sym, exp)))} USDT (${Math.round(E.payoutOf(sym, exp) * 100)}%)</span>`], ["If lose", `<span class="down">-${money(a)} USDT</span>`]]})) return;
-    const r = E.place(sym, dir, a, exp); if (r.err){ err.textContent = r.err; return toast(r.err, "bad"); }
+    const r = E.place(sym, dir, a, exp); if (r.err){ err.textContent = r.err; toast(r.err, "bad"); UI.walletErr(r.err); return; }
     err.textContent = ""; $("#af").classList.remove("err"); s.settings.defAmt = a; s.settings.defExp = exp; store.save();
     toast("Order placed successfully!", "ok"); U.fx("open"); setPtab("pos");
   }
@@ -738,10 +738,10 @@ Pages.trade = (params) => {
     amt.addEventListener("input", () => { $("#err").textContent = ""; $("#af").classList.remove("err"); renderOrder(); });
     const stepOf = v => v < 1 ? 0.1 : v < 20 ? 1 : v < 100 ? 5 : v < 1000 ? 10 : 100;
     $("[data-minus]").onclick = () => { const v = parseFloat(amt.value) || 0; amt.value = Math.max(0.1, +(v - stepOf(v - 0.01)).toFixed(2)); renderOrder(); };
-    $("[data-plus]").onclick = () => { const v = parseFloat(amt.value) || 0; amt.value = +Math.min(Math.floor(s.balance), v + stepOf(v)).toFixed(2) || 1; renderOrder(); };
+    $("[data-plus]").onclick = () => { const v = parseFloat(amt.value) || 0; amt.value = +Math.min(Math.floor(store.wb("binary")), v + stepOf(v)).toFixed(2) || 1; renderOrder(); };
     if ($("[data-half]")) $("[data-half]").onclick = () => { amt.value = Math.max(1, Math.floor((parseFloat(amt.value)||0) / 2 * 100) / 100); renderOrder(); };
-    if ($("[data-dbl]")) $("[data-dbl]").onclick = () => { amt.value = Math.min(Math.floor(s.balance*100)/100, Math.round((parseFloat(amt.value)||0) * 2 * 100) / 100) || 1; renderOrder(); };
-    root.querySelectorAll("[data-v]").forEach(b => b.onclick = () => { amt.value = b.dataset.v === "max" ? Math.floor(Math.min(s.balance, 5000)*100)/100 : b.dataset.v; renderOrder(); });
+    if ($("[data-dbl]")) $("[data-dbl]").onclick = () => { amt.value = Math.min(Math.floor(store.wb("binary")*100)/100, Math.round((parseFloat(amt.value)||0) * 2 * 100) / 100) || 1; renderOrder(); };
+    root.querySelectorAll("[data-v]").forEach(b => b.onclick = () => { amt.value = b.dataset.v === "max" ? Math.floor(Math.min(store.wb("binary"), 5000)*100)/100 : b.dataset.v; renderOrder(); });
     root.querySelectorAll("[data-e]").forEach(b => b.onclick = () => { exp = +b.dataset.e; renderOrder(); });
     root.querySelectorAll("[data-dir]").forEach(b => b.onclick = () => trade(b.dataset.dir));
     root.querySelectorAll("[data-pt]").forEach(b => b.onclick = () => setPtab(b.dataset.pt));

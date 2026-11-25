@@ -131,7 +131,7 @@ function skip(name, why) { results.push({ name, ok: true, skipped: true, detail:
     if (names.has('spot')) {
       try {
         await go('#/spot/BTCUSDT');
-        const snap = () => page.evaluate(() => JSON.stringify(U.store.s.spot || {}).length + ':' + (U.store.s.balance));
+        const snap = () => page.evaluate(() => JSON.stringify(U.store.s.spot || {}).length + ':' + (U.store.s.wallets.spot));
         const before = await snap();
         await page.click('[data-otype]'); await page.click('[data-ot="market"]'); await settle(page, 300);
         await page.fill('#spq', '0.001');

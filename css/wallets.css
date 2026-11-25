@@ -1,0 +1,28 @@
+/* v6.3 wallets: transfer sheet + "+" next to Avbl */
+.wl-plus{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;margin-left:4px;padding:0;border:0;border-radius:50%;background:var(--grad-brand,var(--brand));color:#fff;vertical-align:middle;cursor:pointer}
+.wl-plus svg{width:11px;height:11px}
+.wl-x{display:flex;flex-direction:column;gap:14px;padding-bottom:6px}
+.wl-pair{position:relative;display:flex;align-items:center;gap:10px;background:var(--card-2,var(--input));border-radius:var(--r-card,14px);padding:4px 12px 4px 14px}
+.wl-rows{flex:1;min-width:0}
+.wl-row{display:flex;align-items:center;gap:12px;min-height:54px}
+.wl-lb{width:40px;color:var(--muted);font-size:13px}
+.wl-sel{position:relative;flex:1;min-width:0;display:flex;align-items:center;gap:8px;padding:6px 0}
+.wl-sel b{font-size:16px;font-weight:700;color:var(--text)}
+.wl-sel small{margin-left:auto;color:var(--muted);font-size:12px;white-space:nowrap}
+.wl-sel svg{color:var(--muted);flex-shrink:0}
+.wl-sel select{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:16px}
+.wl-sep{height:1px;background:var(--line)}
+.wl-swap{flex-shrink:0;width:36px;height:36px;border-radius:50%;border:1px solid var(--line);background:var(--bg);color:var(--text);display:flex;align-items:center;justify-content:center;cursor:pointer;transform:rotate(90deg)}
+.wl-swap:active{background:var(--hover)}
+.wl-coin{display:flex;align-items:center;gap:8px;font-size:14px}
+.wl-coin b{font-weight:700}.wl-coin span{color:var(--muted)}
+.wl-fld label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
+.wl-inp{display:flex;align-items:center;gap:10px;background:var(--card-2,var(--input));border-radius:var(--r-ctl,10px);padding:0 14px;height:48px;border:1px solid transparent}
+.wl-inp:focus-within{border-color:var(--brand)}
+.wl-inp input{flex:1;min-width:0;background:transparent;border:0;outline:0;color:var(--text);font-size:17px;font-weight:600}
+.wl-inp span{color:var(--muted);font-size:14px}
+.wl-max{background:none;border:0;color:var(--brand-2,var(--brand));font-weight:700;font-size:14px;cursor:pointer;padding:4px}
+.wl-av{font-size:13px;color:var(--muted);margin-top:-6px}.wl-av b{color:var(--text)}
+.wl-err{min-height:0;font-size:12.5px;color:var(--down);margin-top:-8px}
+.wl-ok{height:48px;border:0;border-radius:var(--r-ctl,10px);background:var(--grad-brand,var(--brand));color:#fff;font-size:16px;font-weight:700;cursor:pointer}
+.wl-ok:active{opacity:.9}

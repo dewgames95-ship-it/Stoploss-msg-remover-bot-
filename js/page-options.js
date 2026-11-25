@@ -64,7 +64,7 @@ function settleDue(){
     o.positions = o.positions.filter(x => x.id !== pos.id);
     o.history.unshift({...pos, result: itm ? "Exercised" : "Expired worthless", payout, pnl, settle: S, closed: now});
     o.history = o.history.slice(0, 100);
-    if (payout > 0) store.setBalance(store.s.balance + payout, "option"); else store.save();
+    if (payout > 0) store.addWallet("options", payout, "option"); else store.save();
     store.notify("Option settled", `${symName(pos)} ${itm ? "exercised" : "expired worthless"}. Payout ${money(payout)} USDT (${signed(pnl)}).`, itm && pnl > 0 ? "ok" : "info");
     U.fx(payout > pos.cost ? "win" : "loss");
     toast(`${symName(pos)} ${itm ? "exercised" : "expired worthless"}: ${signed(pnl)} USDT`, pnl > 0 ? "ok" : "info", 3400);
@@ -190,8 +190,8 @@ Pages.options = (params) => {
   function renderAll(){ renderHead(); renderChain(); renderList(); }
 
   function commit(K, exp, qty, c){
-    const cost = Math.round(c.cost*100)/100; if (cost > s().balance) return false;
-    store.setBalance(s().balance - cost, "option");
+    const cost = Math.round(c.cost*100)/100; if (cost > store.wb("options") + 1e-9) return false;
+    store.addWallet("options", -cost, "option");
     st().positions.push({id: U.uid(), base, type: side, strike: K, exp, qty, cost, entryMark: c.g.price, iv: c.g.iv, open: Date.now()});
     store.save(); U.fx("open"); toast("Option bought", "ok");
     store.notify("Option bought", `${qty} ${base} ${side} ${px(base, K)} for ${money(cost)} USDT`, "ok");
@@ -207,7 +207,7 @@ Pages.options = (params) => {
   function simpleCalc(){
     const S = spotOf(base); if (S == null) return null;
     const exp = expOf(expKey), min = MINQ[base], t = tgtStrikes(S)[tgt], K = t.K;
-    const unit = quote(side, K, exp, 1).cost, bal = s().balance;
+    const unit = quote(side, K, exp, 1).cost, bal = store.wb("options");
     const spend = amtMax ? bal : amt;
     let qty = Math.floor(spend/unit/min + 1e-9)*min; qty = +qty.toPrecision(8);
     const c = qty > 0 ? quote(side, K, exp, qty) : null;
@@ -228,7 +228,7 @@ Pages.options = (params) => {
       <div class="op-exps op-sexps" id="sExps"></div>
       <div class="op-sec">Target price (strike)</div>
       <div class="op-tgts" id="sTgts"></div>
-      <div class="op-sec">Amount <span class="op-avbl">Avbl <b class="num" id="sBal">${money(s().balance)}</b> USDT</span></div>
+      <div class="op-sec">Amount <span class="op-avbl">Avbl <b class="num" id="sBal">${money(store.wb("options"))}</b> USDT <button class="wl-plus" data-wlto="options" aria-label="Transfer in">${ic("plus",13,3)}</button></span></div>
       <div class="famt op-amt" id="sF"><input id="sAmt" type="number" inputmode="decimal" min="0" aria-label="Amount in USDT" placeholder="0.00"><span>USDT</span></div>
       <div class="op-amts" id="sAmts">${AMTS.map(a => `<button data-a="${a}">${a}</button>`).join("")}<button data-a="max">Max</button></div>
       <div class="op-qty" id="sQty"></div>
@@ -277,16 +277,16 @@ Pages.options = (params) => {
   }
   async function simpleBuy(){
     const d = simpleCalc(); if (!d) return toast("Waiting for live price", "bad");
-    const bad = m => { $("#sF").classList.add("err"); toast(m, "bad"); };
+    const bad = m => { $("#sF").classList.add("err"); toast(m, "bad"); UI.walletErr(m); };
     if (!d.c) return bad(`Minimum is about ${money(d.unit*d.min)} USDT`);
     if (d.exp - Date.now() < 30000) return toast("This expiry is about to close. Pick another.", "bad");
-    if (Math.round(d.c.cost*100)/100 > s().balance) return bad("Insufficient balance");
+    if (Math.round(d.c.cost*100)/100 > store.wb("options") + 1e-9) return bad("Insufficient Options balance");
     const isC = side === "call", k = d.c;
     const ok = U.confirmTrade ? await U.confirmTrade({kind: "option", title: isC ? "Confirm Buy Call" : "Confirm Buy Put", sub: `${base}-${isC ? "C" : "P"} ${px(base, d.K)}`,
       rows: [["Expires", expLabel(d.exp)], ["Strike", px(base, d.K)], ["Quantity", `${fq(d.qty, base)} ${base}`], ["Total cost", `${money(k.cost)} USDT`], ["Breakeven", px(base, k.be)]], okText: isC ? "Buy Call" : "Buy Put", tone: isC ? "up" : "down"}) : true;
     if (!ok) return;
     const c = quote(side, d.K, d.exp, d.qty); if (!c) return;
-    if (!commit(d.K, d.exp, d.qty, c)) bad("Insufficient balance");
+    if (!commit(d.K, d.exp, d.qty, c)) bad("Insufficient Options balance");
   }
   function setMode(m){
     mode = m; try { localStorage.setItem("opMode", m); } catch {}
@@ -319,17 +319,17 @@ Pages.options = (params) => {
         el.querySelector("#osPay").innerHTML = ok ? payoffSvg(side, K, c.S, c.cost, qty) : "";
         el.querySelector("#osG").innerHTML = [["IV", (c.g.iv*100).toFixed(1) + "%"], ["Delta", fnum(c.g.delta)], ["Gamma", c.g.gamma.toExponential(2)], ["Theta/d", fnum(c.g.theta, 2)], ["Vega", fnum(c.g.vega, 2)]].map(([k, v]) => `<div><span>${k}</span><b class="num">${v}</b></div>`).join("");
         el.querySelector("#osK").innerHTML = `<div class="fkv"><span>Mark price</span><b class="num">${fp(c.g.price)} USDT</b></div><div class="fkv"><span>Premium (incl. spread)</span><b class="num">${money(c.prem)}</b></div><div class="fkv"><span>Fee</span><b class="num">${money(c.fee)}</b></div>
-          <div class="fkv op-tot"><span>Total cost</span><b class="num">${money(c.cost)} USDT</b></div><div class="fkv"><span>Max loss</span><b class="num down">${money(c.cost)} USDT</b></div><div class="fkv"><span>Breakeven</span><b class="num">${px(base, c.be)}</b></div><div class="fkv"><span>Avbl balance</span><b class="num">${money(s().balance)} USDT</b></div>`; };
+          <div class="fkv op-tot"><span>Total cost</span><b class="num">${money(c.cost)} USDT</b></div><div class="fkv"><span>Max loss</span><b class="num down">${money(c.cost)} USDT</b></div><div class="fkv"><span>Breakeven</span><b class="num">${px(base, c.be)}</b></div><div class="fkv"><span>Avbl balance</span><b class="num">${money(store.wb("options"))} USDT</b></div>`; };
       upd();
       q.addEventListener("input", () => { qty = parseFloat(q.value) || 0; el.querySelector("#osF").classList.remove("err"); upd(); });
       el.querySelectorAll("[data-m]").forEach(b => b.onclick = () => { qty = +(min*b.dataset.m).toPrecision(8); q.value = qty; upd(); });
       el.querySelector("#osGo").onclick = () => {
-        const c = calc(), bad = m => { el.querySelector("#osF").classList.add("err"); toast(m, "bad"); };
+        const c = calc(), bad = m => { el.querySelector("#osF").classList.add("err"); toast(m, "bad"); UI.walletErr(m); };
         if (!c) return toast("Waiting for live price", "bad");
         if (!(qty > 0)) return bad("Enter a quantity");
         if (qty < min - 1e-12) return bad(`Minimum quantity is ${fq(min, base)} ${base}`);
         if (exp - Date.now() < 30000) return bad("This expiry is about to close. Pick another.");
-        if (!commit(K, exp, qty, c)) return bad("Insufficient balance");
+        if (!commit(K, exp, qty, c)) return bad("Insufficient Options balance");
         U.closeLayer();
       };
       const t = bus.on("tick", x => { if (x === base && performance.now() - tT > 250){ tT = performance.now(); upd(); } }), sc = bus.on("balance", upd);
@@ -341,7 +341,7 @@ Pages.options = (params) => {
     const mark = markNow(pos, S), payout = mark*pos.qty*CLOSE_HAIRCUT, pnl = payout - pos.cost;
     o.positions = o.positions.filter(x => x.id !== id);
     o.history.unshift({...pos, result: "Closed", payout, pnl, settle: S, closed: Date.now()}); o.history = o.history.slice(0, 100);
-    store.setBalance(s().balance + payout, "option"); U.fx("close");
+    store.addWallet("options", payout, "option"); U.fx("close");
     toast(`Closed ${symName(pos)}: ${signed(pnl)} USDT`, pnl >= 0 ? "ok" : "info");
     store.notify("Option closed", `${symName(pos)} sold for ${money(payout)} USDT (${signed(pnl)})`, "info");
     renderList();
