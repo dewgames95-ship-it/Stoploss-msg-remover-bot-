@@ -292,6 +292,7 @@ Pages.options = (params) => {
     mode = m; try { localStorage.setItem("opMode", m); } catch {}
     root.querySelectorAll("#opMode [data-mode]").forEach(b => b.classList.toggle("on", b.dataset.mode === m));
     $("#opSimple").hidden = m !== "simple"; $("#opPro").hidden = m !== "pro"; $("#opHead").hidden = m !== "pro";
+    root.querySelectorAll("#opSide button").forEach(x => x.classList.toggle("on", x.dataset.side === side));
     if (m === "simple") renderSimple(); else renderAll();
   }
   function infoSheet(){ U.sheet("How options work", `<ol class="op-how">${INFO.map((t, i) => `<li><i>${i + 1}</i><span>${t}</span></li>`).join("")}</ol><button class="btn btn-primary btn-block" data-ok style="margin-top:12px;height:46px">Got it</button>`, el => el.querySelector("[data-ok]").onclick = () => U.closeLayer()); }
