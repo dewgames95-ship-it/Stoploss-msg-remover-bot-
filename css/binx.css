@@ -72,3 +72,7 @@ body .fxc .tfbar .tfs button{font-size:12px;padding:0 7px;height:24px}
 body .fxc .cp-chart .chart-wrap{height:260px;min-height:0;max-height:none;background:var(--bg)}
 body .fxc .indbar{border:0}
 body .fxc .indbar .il{padding:5px 0}
+
+/* volume pane legend (own pane under the candles) */
+.vol-lg{position:absolute;left:8px;z-index:3;font-size:10.5px;color:var(--muted);pointer-events:none;white-space:nowrap}
+.vol-lg b{color:var(--text-2);font-weight:600}

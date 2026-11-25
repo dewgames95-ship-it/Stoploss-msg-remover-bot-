@@ -61,10 +61,6 @@ function build(){
   }
   chart.priceScale("right").applyOptions({mode: pctMode ? 2 : 0});
   try { LW.createTextWatermark(chart.panes()[0], {horzAlign:"center", vertAlign:"center", lines:[{text:"NovaTrade", color: dark() ? "rgba(148,163,184,.07)" : "rgba(100,116,139,.07)", fontSize:28, fontStyle:"700"}]}); } catch {}
-  if (inds.includes("VOL")){
-    S.vol = chart.addSeries(LW.HistogramSeries, {priceFormat:{type:"volume"}, priceScaleId:"vol", lastValueVisible:false, priceLineVisible:false});
-    chart.priceScale("vol").applyOptions({scaleMargins:{top:0.88, bottom:0}});
-  }
   const ln = (color, w=1, pane=0, extra={}) => chart.addSeries(LW.LineSeries, Object.assign({color, lineWidth:w, priceLineVisible:false, lastValueVisible:false, crosshairMarkerVisible:false, priceFormat:pf}, extra), pane);
   if (!lineMode && inds.includes("MA")){ S.m7 = ln(COL.m7); S.m25 = ln(COL.m25); S.m99 = ln(COL.m99); }
   if (!lineMode && inds.includes("EMA")){ S.e7 = ln(COL.m7); S.e25 = ln(COL.m25); S.e99 = ln(COL.m99); }
@@ -73,6 +69,12 @@ function build(){
   if (!lineMode && inds.includes("VWAP")) S.vw = ln(COL.vwap, 1.3);
   if (!lineMode && inds.includes("SUPER")) S.st = ln(UP, 1.5);
   let pane = 1;
+  // Volume in its own pane under the candles (Binance style): bars never overlap price, no averages on it
+  if (inds.includes("VOL")){
+    S.vol = chart.addSeries(LW.HistogramSeries, {priceFormat:{type:"volume"}, lastValueVisible:false, priceLineVisible:false}, pane);
+    S.vol.priceScale().applyOptions({scaleMargins:{top:0.22, bottom:0}});
+    pane++;
+  }
   if (inds.includes("RSI")){
     S.rsi = chart.addSeries(LW.LineSeries, {color:COL.rsi, lineWidth:1.2, priceLineVisible:false, lastValueVisible:true, priceFormat:{type:"price", precision:2, minMove:0.01}}, pane);
     S.rsi.createPriceLine({price:70, color:"rgba(240,67,90,.6)", lineStyle:2, lineWidth:1, axisLabelVisible:false});
@@ -87,6 +89,8 @@ function build(){
     pane++;
   }
   const sub = Math.max(64, Math.round(el.clientHeight * 0.18));
+  if (!ui.vlg){ ui.vlg = document.createElement("div"); ui.vlg.className = "vol-lg"; }
+  el.parentElement.appendChild(ui.vlg); ui.vlg.style.display = S.vol ? "" : "none";
   chart.panes().forEach((pn, i) => { if (i > 0) pn.setHeight(sub); });
   chart.subscribeCrosshairMove(prm => {
     if (!prm || !prm.point){ hover = null; hoverPt = null; legend(); crossBox(); return; }
@@ -118,7 +122,7 @@ function calc(){
 function point(i, r){
   const b = bars[i], t = T(b.time), o = {};
   o.main = (tf === "tick" || type === "line") ? {time:t, value:b.close} : {time:t, open:b.open, high:b.high, low:b.low, close:b.close};
-  if (S.vol) o.vol = {time:t, value:b.volume || 0, color: b.close >= b.open ? "rgba(18,184,134,.45)" : "rgba(240,67,90,.45)"};
+  if (S.vol) o.vol = {time:t, value:b.volume || 0, color: b.close >= b.open ? "rgba(18,184,134,.7)" : "rgba(240,67,90,.7)"};
   const lp = arr => arr[i] == null ? {time:t} : {time:t, value:arr[i]};
   if (S.m7){ o.m7 = lp(r.m7); o.m25 = lp(r.m25); o.m99 = lp(r.m99); }
   if (S.e7){ o.e7 = lp(r.e7); o.e25 = lp(r.e25); o.e99 = lp(r.e99); }
@@ -194,6 +198,9 @@ function legend(){
   if (r.vw) h += `<div><span>VWAP <b style="color:${COL.vwap}">${f(r.vw[i])}</b></span></div>`;
   if (r.st) h += `<div><span>SUPERTREND(10,3) <b style="color:${r.st.dir[i] === 1 ? UP : DN}">${f(r.st.val[i])}</b></span></div>`;
   ui.legend.innerHTML = h;
+  if (S.vol && ui.vlg && chart){ const b = bars[i] || {}, v = b.volume || 0, q = v * (b.close || 0), k = n => n >= 1e9 ? (n/1e9).toFixed(2) + "B" : n >= 1e6 ? (n/1e6).toFixed(2) + "M" : n >= 1e3 ? (n/1e3).toFixed(2) + "K" : n.toFixed(2);
+    try { ui.vlg.style.top = (chart.panes()[0].getHeight() + 3) + "px"; } catch {}
+    ui.vlg.innerHTML = `Vol(${U.esc(p.base || "")}): <b>${k(v)}</b>&nbsp;&nbsp;Vol(${U.esc(p.quote || "USDT")}): <b>${k(q)}</b>`; }
 }
 /* ---- Crosshair window (Time/Open/High/Low/Close/Chg/%Chg/Range/Vol) + price/% label ---- */
 function crossBox(){
