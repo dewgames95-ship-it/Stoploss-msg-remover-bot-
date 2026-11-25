@@ -54,7 +54,7 @@ ART.avatar = avatar;
 window.TRADER_AVATAR = avatar;
 
 /* ============================ SIMULATION ============================ */
-const KEY = "nt_sim_v2";
+const KEY = "nt_sim_v2", FEE = .0001;
 const PFB = {BTC:67000, ETH:3300, SOL:160, BNB:600, XRP:.55, DOGE:.15, AVAX:35, LINK:15, XAU:2350, EUR:1.08};
 const VOLH = {BTC:.0045, ETH:.006, SOL:.009, BNB:.005, XRP:.008, DOGE:.011, AVAX:.009, LINK:.009, XAU:.0018, EUR:.0006};
 const baseOf = sym => sym.replace(/USDT$/, "").replace(/USD$/, "");
@@ -156,7 +156,7 @@ function genRange(l, tr, from, to, k){
       const p1 = pxAt(sym, ct), r = p1 / p0 - 1, win = rng() < wr, long = r === 0 ? rng() > .5 : (r > 0) === win, lev = bin ? 1 : pr.levs[Math.floor(rng() * pr.levs.length)];
       let margin, pnl;
       if (bin){ const st = [10, 20, 25, 50, 100, 150, 200], tgt = tr.e0 * .001 * (.5 + rng()); let stake = st[0]; st.forEach(s => { if (Math.abs(s - tgt) < Math.abs(stake - tgt)) stake = s; }); margin = stake * k; pnl = win ? margin * l.pay / 100 : -margin; }
-      else { margin = tr.e0 * pr.alloc * k * (.6 + .8 * rng()); pnl = margin * lev * (Math.abs(r) * (win ? rr : -1)) - margin * lev * .0004; }
+      else { margin = tr.e0 * pr.alloc * k * (.6 + .8 * rng()); pnl = margin * lev * (Math.abs(r) * (win ? rr : -1)) - margin * lev * FEE; }
       ev.push({id:"h" + ev.length + t, sym, long, lev, entry:p0, exit:p1, margin, t, ct, pnl, bin:bin ? 1 : 0, pay:l.pay});
     }
     t += Math.max(2 * MIN, -Math.log(1 - rng()) * gm);
@@ -198,7 +198,7 @@ async function boot(){
   } catch (e) { console.warn("sim backfill", l.id, e); } });
   catchup.forEach(l => { try {
     const tr = ST.T[l.id]; l.bin; const stale = tr.open.filter(p => p.maxT <= t1); tr.open = tr.open.filter(p => p.maxT > t1);
-    const evs = stale.map(p => { const ex = pxAt(p.sym, p.maxT), s = p.long ? 1 : -1, ret = p.bin ? 0 : (ex / p.entry - 1) * s, win = p.bin ? (ex - p.entry) * s > 0 : ret > 0; return {id:p.id, sym:p.sym, long:p.long, lev:p.lev, entry:p.entry, exit:ex, margin:p.margin, t:p.t, ct:p.maxT, bin:p.bin, pay:p.pay, pnl: p.bin ? (win ? p.margin * p.pay / 100 : -p.margin) : p.margin * p.lev * ret - p.margin * p.lev * .0004}; });
+    const evs = stale.map(p => { const ex = pxAt(p.sym, p.maxT), s = p.long ? 1 : -1, ret = p.bin ? 0 : (ex / p.entry - 1) * s, win = p.bin ? (ex - p.entry) * s > 0 : ret > 0; return {id:p.id, sym:p.sym, long:p.long, lev:p.lev, entry:p.entry, exit:ex, margin:p.margin, t:p.t, ct:p.maxT, bin:p.bin, pay:p.pay, pnl: p.bin ? (win ? p.margin * p.pay / 100 : -p.margin) : p.margin * p.lev * ret - p.margin * p.lev * FEE}; });
     const g = genRange(l, tr, tr.lastT, t1, tr.k); applyEvs(tr, evs.concat(g.ev), t1); g.tail.forEach(x => { if (tr.open.length < 3) tr.open.push(mkOpen(l, tr, x.t, x.hold, x.sym, x.p0, x.rn)); }); tr.lastT = t1; tr.nextAt = t1 + 15e3 + Math.random() * 90e3; trim(tr);
   } catch (e) { console.warn("sim catchup", l.id, e); } });
   dirty = true; save(true); SER = {};
@@ -211,7 +211,7 @@ const markOf = p => price(p.sym);
 function pnlOf(p, mark){
   mark = mark || markOf(p); const s = p.long ? 1 : -1, d = (mark / p.entry - 1) * s;
   if (p.bin) return {pnl: 0, roi: 0};
-  return {pnl: p.margin * p.lev * d - p.margin * p.lev * .0004, roi: p.lev * d * 100};
+  return {pnl: p.margin * p.lev * d - p.margin * p.lev * FEE, roi: p.lev * d * 100};
 }
 const unreal = tr => tr.open.reduce((a, p) => a + pnlOf(p).pnl, 0);
 function stats(id, per){

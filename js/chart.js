@@ -202,16 +202,21 @@ function calcLiq(){
   const bins = Array.from({length:nb}, () => ({w:0, usd:0, sw:0, su:0, i0:L}));   // w/usd = still-open levels, sw/su = swept (already traded through)
   const add = (price, w, usd, i0, swept) => { if (price < rLo || price >= rHi) return; const b = bins[Math.floor((price - rLo) / bw)]; if (swept){ b.sw += w; b.su += usd; } else { b.w += w; b.usd += usd; } b.i0 = Math.min(b.i0, i0); };
   const piv = (i, kk) => { let h = true, l = true; for (let j = 1; j <= kk; j++){ if (bars[i-j].high >= bars[i].high || bars[i+j].high > bars[i].high) h = false; if (bars[i-j].low <= bars[i].low || bars[i+j].low < bars[i].low) l = false; } return [h, l]; };
-  for (let i = from + 2; i <= L - 2; i++){
-    let [h, l] = i >= from + k && i <= L - k ? piv(i, k) : [false, false], sw = 1;   // strong pivots (3 bars each side) + weaker ones (2 bars, 60% weight)
-    if (!h && !l){ [h, l] = piv(i, 2); sw = 0.6; }
-    if (!h && !l) continue;
+  const use = (i, h, l, sw) => {
     const vol = (bars[i].volume || 0) || vfb * 0.2, usd0 = vol * bars[i].close, rec = 0.55 + 0.45 * (i - from) / (L - from);
     levs.forEach(lv => { const wt = (lw[lv] ?? 0.5) * rec * sw, f = 0.92 / lv;
       if (l){ const p = bars[i].low * (1 - f); add(p, vol * wt, usd0 * wt * 0.9, i, !(minAfter[i+1] > p)); }
       if (h){ const p = bars[i].high * (1 + f); add(p, vol * wt, usd0 * wt * 0.9, i, !(maxAfter[i+1] < p)); }
     });
+  };
+  for (let i = from + 2; i <= L - 2; i++){
+    let [h, l] = i >= from + k && i <= L - k ? piv(i, k) : [false, false], sw = 1;   // strong pivots (3 bars each side) + weaker ones (2 bars, 60% weight)
+    if (!h && !l){ [h, l] = piv(i, 2); sw = 0.6; }
+    if (h || l) use(i, h, l, sw);
   }
+  // window extremes (flat / thin data on 1s…30s has few strict pivots): the high and low of every window count as weaker levels, so every timeframe gets a map
+  const win = Math.max(6, Math.round((L - from) / 24));
+  for (let w0 = from; w0 <= L - 1; w0 += win){ let hi2 = w0, lo2 = w0; for (let i = w0; i < Math.min(L, w0 + win); i++){ if (bars[i].high > bars[hi2].high) hi2 = i; if (bars[i].low < bars[lo2].low) lo2 = i; } use(hi2, true, false, 0.5); use(lo2, false, true, 0.5); }
   let mx = 0; bins.forEach(b => mx = Math.max(mx, b.w, b.sw));
   return mx > 0 ? {bins, rLo, bw, mx} : null;
 }
@@ -226,7 +231,7 @@ function drawLiq(){
   const dpr = Math.min(2, window.devicePixelRatio || 1), W = el.clientWidth, H = chart.panes()[0].getHeight(), pw = chart.timeScale().width();
   if (cv._w !== W || cv._h !== H || cv._d !== dpr){ cv._w = W; cv._h = H; cv._d = dpr; cv.width = W * dpr; cv.height = H * dpr; cv.style.width = W + "px"; cv.style.height = H + "px"; }
   const c = cv.getContext("2d"); c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, W, H); cv._on = true;
-  if (liqData.none) return;
+  window.__liq = liqData; if (liqData.none) return;
   const d = liqData, px = bars[bars.length - 1].close, ts = chart.timeScale();
   const vis = []; let vmx = 0, smx = 0;
   d.bins.forEach((b, n) => { const y1 = S.main.priceToCoordinate(d.rLo + (n + 1) * d.bw), y0 = S.main.priceToCoordinate(d.rLo + n * d.bw); if (y1 == null || y0 == null || y0 < 0 || y1 > H) return;
