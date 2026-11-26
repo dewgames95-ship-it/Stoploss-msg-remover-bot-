@@ -308,7 +308,7 @@ function calcLiq(bs, q){
     gs.sort((a, b) => b.usd - a.usd).slice(0, 4).forEach(g => groups.push(g));
   });
   const past = [...sweeps.values()].map(o => ({j:o.j, side:o.side, usd:o.usd, p:o.pw / o.usd})), smx = past.reduce((a, v) => Math.max(a, v.usd), 0);
-  return {groups, gmx: groups.reduce((a, g) => Math.max(a, g.usd), 0), past: past.filter(o => o.usd >= smx * 0.18), totL, totS, last, bias: liqBias(totL, totS), n: bs.length,
+  return {groups, gmx: groups.reduce((a, g) => Math.max(a, g.usd), 0), past, pmx: smx, totL, totS, last, bias: liqBias(totL, totS), n: bs.length,
     chg: (last - bs[Math.max(0, L - 50)].close) / bs[Math.max(0, L - 50)].close * 100};
 }
 const fmtUsd = v => "$" + (v >= 1e9 ? (v / 1e9).toFixed(2) + "B" : v >= 1e6 ? (v / 1e6).toFixed(1) + "M" : v >= 1e3 ? (v / 1e3).toFixed(1) + "K" : v.toFixed(0));
@@ -350,7 +350,8 @@ function drawLiq(occ){
   if (vr && d.past.length){
     const v0 = Math.max(0, Math.floor(vr.from)), v1 = Math.min(bars.length - 1, Math.ceil(vr.to)), used = [];
     c.font = "700 9px Manrope, system-ui, sans-serif"; c.textAlign = "center";
-    d.past.filter(o => o.j >= v0 && o.j <= v1).sort((a, b) => b.usd - a.usd).forEach(o => {
+    const pv = d.past.filter(o => o.j >= v0 && o.j <= v1), vmx = pv.reduce((a, o) => Math.max(a, o.usd), 0);
+    pv.filter(o => o.usd >= Math.max(vmx * 0.3, d.pmx * 0.05)).sort((a, b) => b.usd - a.usd).forEach(o => {
       if (used.length >= 6) return; const x = ts.logicalToCoordinate(o.j), b = bars[o.j]; if (x == null || x < 14 || x > pw - 14) return;
       const yl = S.main.priceToCoordinate(b.low); if (yl == null) return;
       const top = yl + ((occ && occ[o.j]) || 3), tx = fmtUsd(o.usd), tw = c.measureText(tx).width + 10;

@@ -1,7 +1,7 @@
 /* v6.9 Live withdrawals card on Home. Deterministic from wall-clock time only, so every device shows the same feed. */
 (function(){
 const SLOT = 45000, LATEST = 5, MIN_AGE = 10000;
-const COINS = [["USDT","TRC20",30],["USDT","BEP20",18],["BTC","Bitcoin",14],["ETH","ERC20",12],["USDC","Polygon",10],["SOL","Solana",8],["USDT","ERC20",8]];
+const COINS = [["USDT","TRC20",30],["USDT","BEP20",18],["BTC","",14],["ETH","ERC20",12],["USDC","Polygon",10],["SOL","",8],["USDT","ERC20",8]];
 const WSUM = COINS.reduce((a, c) => a + c[2], 0);
 function hash(n, salt){
   let h = (n * 374761393 + salt * 668265263) | 0;
@@ -31,7 +31,7 @@ function latest(now){
 const fmt = n => "$" + n.toLocaleString("en-US", {minimumFractionDigits: 2, maximumFractionDigits: 2});
 const ago = ms => { const sec = Math.max(10, Math.floor(ms / 1000)); return sec < 60 ? sec + " sec ago" : Math.floor(sec / 60) + " min ago"; };
 const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
-const row = (e, now, fresh) => `<div class="wf-row${fresh ? " wf-in" : ""}" data-s="${e.s}"><span class="wf-ic">${window.UI && UI.coinImg ? UI.coinImg(e.coin, 34) : esc(e.coin)}</span><div class="wf-tx"><b class="num">${fmt(e.amt)} <span>withdrawn</span></b><small>by *****${e.uid} · ${esc(e.coin)} ${esc(e.net)}</small></div><time class="wf-t" data-t="${e.t}">${ago(now - e.t)}</time></div>`;
+const row = (e, now, fresh) => `<div class="wf-row${fresh ? " wf-in" : ""}" data-s="${e.s}"><span class="wf-ic">${window.UI && UI.coinImg ? UI.coinImg(e.coin, 34) : esc(e.coin)}</span><div class="wf-tx"><b class="num">${fmt(e.amt)} <span>withdrawn</span></b><small>by *****${e.uid} · ${esc((e.coin + " " + e.net).trim())}</small></div><time class="wf-t" data-t="${e.t}">${ago(now - e.t)}</time></div>`;
 
 let timer = 0;
 function stop(){ if (timer){ clearInterval(timer); timer = 0; } }

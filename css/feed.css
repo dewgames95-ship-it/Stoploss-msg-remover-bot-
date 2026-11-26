@@ -1,5 +1,5 @@
 /* v6.9 Live withdrawals card */
-.wf-card{margin:16px 16px 4px;padding:14px 14px 4px;border:1px solid var(--line);border-radius:var(--r-card,12px);background:linear-gradient(180deg,var(--card-g1,var(--card)),var(--card-g2,var(--card)));min-width:0}
+.wf-card{margin:16px 0 4px;padding:14px 14px 4px;border:1px solid var(--line);border-radius:var(--r-card,12px);background:linear-gradient(180deg,var(--card-g1,var(--card)),var(--card-g2,var(--card)));min-width:0}
 .wf-h{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px}
 .wf-h h2{margin:0;font-size:16px;font-weight:700;color:var(--text)}
 .wf-live{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;color:var(--up);background:var(--up-bg);padding:3px 9px 3px 8px;border-radius:999px}

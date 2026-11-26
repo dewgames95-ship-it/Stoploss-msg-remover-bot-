@@ -172,3 +172,6 @@
 .fxr .pc-g b.pc-mg{display:inline-flex;align-items:center;gap:8px}
 #sheet .mg-in+.kv{margin-top:6px}
 #sheet [data-ok].btn-lg{margin-top:12px}
+.fxr .fee-l{flex-wrap:nowrap;white-space:nowrap;gap:2px 4px;font-size:11px}
+.fxr .fee-l .fee-b{padding:0 5px;font-size:10px}
+@media(max-width:380px){.fxr .fee-l{font-size:10px;gap:2px 3px}.fxr .fee-l .fee-b{padding:0 4px;font-size:9.5px}.fxr .fee-l .fee-q{width:14px;height:14px;font-size:9px}}
