@@ -260,11 +260,12 @@ async function loadTradfi(){
   clearTimeout(tfTimer);
   try {
     if (!tfLoaded){
-      let info; const key = "bnf_tf_v1";
+      let info; const key = "bnf_tf_v2";
       try { const c = JSON.parse(localStorage.getItem(key) || "null"); if (c && Date.now() - c.t < 12 * 3600e3) info = c.d; } catch {}
       if (!info){
         const ei = await fapi("/fapi/v1/exchangeInfo");
-        info = ei.symbols.filter(x => x.contractType === "TRADIFI_PERPETUAL" && x.status === "TRADING" && x.quoteAsset === "USDT" && /^[A-Z0-9]+USDT$/.test(x.symbol)).map(x => [x.symbol, x.baseAsset, x.underlyingType, x.pricePrecision]);
+        info = ei.symbols.filter(x => x.contractType === "TRADIFI_PERPETUAL" && x.status === "TRADING" && x.quoteAsset === "USDT" && /^[A-Z0-9]+USDT$/.test(x.symbol)).map(x => { const f = (x.filters || []).find(y => y.filterType === "PRICE_FILTER"), tk = f ? String(+f.tickSize) : "", dp = tk.includes("e-") ? +tk.split("e-")[1] : (tk.split(".")[1] || "").length;
+          return [x.symbol, x.baseAsset, x.underlyingType, dp > 0 || tk ? Math.min(x.pricePrecision, dp) : x.pricePrecision]; });
         try { localStorage.setItem(key, JSON.stringify({t:Date.now(), d:info})); } catch {}
       }
       info.forEach(([sym, base, ut, pp]) => {

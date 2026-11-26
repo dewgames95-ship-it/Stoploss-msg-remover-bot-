@@ -526,7 +526,7 @@ function tutPop(i){
 }
 function tutHtml(){
   if (tutOff()) return "";
-  return `<div class="pd-tut" id="pdTut"><span class="pd-tut-l">${ic("zap", 14, 2.2)}Quick guide</span><div class="pd-tut-s">${TUT.map((x, i) => `<button type="button" data-tut="${i}"><b>${i + 1}</b>${esc(x.k)}</button>`).join('<i aria-hidden="true">›</i>')}</div><button type="button" class="pd-tut-x" data-tutx aria-label="Dismiss quick guide">${ic("close", 14)}</button></div>`;
+  return `<div class="pd-tut" id="pdTut"><span class="pd-tut-l" role="img" aria-label="Quick guide">${ic("zap", 15, 2.2)}</span><div class="pd-tut-s">${TUT.map((x, i) => `<button type="button" data-tut="${i}"><b>${i + 1}</b>${esc(x.k)}</button>`).join("")}</div><button type="button" class="pd-tut-x" data-tutx aria-label="Dismiss quick guide">${ic("close", 14)}</button></div>`;
 }
 function infoPop(){
   pdPop("Where the data comes from", `<div class="pd-flow" aria-hidden="true"><span><b>Polymarket</b><small>markets &amp; order books</small></span><i>&rarr;</i><span class="on"><b>NovaTrade</b><small>live feed</small></span><i>&rarr;</i><span><b>You</b><small>${WSN > 0 ? "live now" : "connecting"}</small></span></div>
@@ -903,7 +903,7 @@ function listScreen(){
     const b = $("#pdRounds"); if (!b) return;
     if (!showRounds()){ b.innerHTML = ""; b.className = ""; return; }
     b.className = "pd-rounds " + (cat === "live" ? "grid" : "strip");
-    const head = cat === "live" ? "" : `<div class="pd-rh"><b>${ic("zap", 14, 2.2)}Live crypto rounds</b><a href="#/predict" data-rall>BTC &amp; ETH · 5m / 15m</a></div>`;
+    const head = cat === "live" ? "" : `<div class="pd-rhd"><b>${ic("zap", 14, 2.2)}Live crypto rounds</b><a href="#/predict" data-rall>BTC &amp; ETH · 5m / 15m</a></div>`;
     b.innerHTML = head + `<div class="pd-rcs">${rounds.length ? rounds.map(rcard).join("") : rLoaded ? `<div class="pd-err" style="grid-column:1/-1"><b>Live rounds unavailable</b><span>Couldn't reach Polymarket. Try again shortly.</span><button type="button" class="btn btn-primary" data-rretry>Retry</button></div>` : rskel()}</div>`;
     const ra = b.querySelector("[data-rall]"); if (ra) ra.onclick = e => { e.preventDefault(); switchCat("live"); };
   }

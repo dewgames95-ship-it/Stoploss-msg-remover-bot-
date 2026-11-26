@@ -884,5 +884,5 @@ async function perfStats(s){
   } catch {} return out;
 }
 
-window.CH = {geo: () => chart && S.main && bars.length ? {sym, el, tf, sec, pw: chart.timeScale().width(), h: chart.panes()[0].getHeight(), t2x: timeToX, x2t: xToTime, p2y: p => S.main.priceToCoordinate(p), y2p: y => S.main.coordinateToPrice(y)} : null, IDEF, IS, refresh, MAXI, setBinExp: f => { binExpFn = f; }, mount, load, zoom, reset, destroy, setInds, setType, resize, syncLines, setTool, undoDraw, clearDraw, performance: perfStats, get tool(){ return draw.tool; }, get inds(){ return inds; }, get type(){ return type; }, fmtVol};
+window.CH = {liqState: () => liqData, geo: () => chart && S.main && bars.length ? {sym, el, tf, sec, pw: chart.timeScale().width(), h: chart.panes()[0].getHeight(), t2x: timeToX, x2t: xToTime, p2y: p => S.main.priceToCoordinate(p), y2p: y => S.main.coordinateToPrice(y)} : null, IDEF, IS, refresh, MAXI, setBinExp: f => { binExpFn = f; }, mount, load, zoom, reset, destroy, setInds, setType, resize, syncLines, setTool, undoDraw, clearDraw, performance: perfStats, get tool(){ return draw.tool; }, get inds(){ return inds; }, get type(){ return type; }, fmtVol};
 })();
