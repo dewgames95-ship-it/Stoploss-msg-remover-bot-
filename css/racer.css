@@ -12,3 +12,6 @@ html.rc-lock, html.rc-lock body{overflow:hidden !important; overscroll-behavior:
 .rc-bar i{display:block;height:100%;width:0;border-radius:inherit;background:linear-gradient(90deg,var(--brand,#2E6BFF),var(--brand-2,#5AA9FF));transition:width .15s linear}
 .rc-load small{font-size:12px;color:#9fb0c8}
 @media (min-width:900px){ .rc-stage{margin:4px 0 0;border-radius:var(--r-card,12px)} }
+/* v6.9: while a race runs the top tab strip and the bottom nav disappear and the game fills the whole screen; they return when it ends */
+html.rc-lock #bnav, html.rc-lock .rc-tabs { display: none !important; }
+html.rc-lock .rc-stage { position: fixed; inset: 0; margin: 0; height: 100dvh !important; z-index: 45; border-radius: 0; }

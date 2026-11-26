@@ -307,7 +307,7 @@ function depositPage(coin, net){
       <div class="px-kv"><span>Minimum deposit</span><b class="num">${nd[3]} ${esc(coin)}</b></div>
       <div class="px-kv"><span>Credited after</span><b>1 confirmation</b></div>
       <div class="px-kv"><span>Estimated arrival</span><b>~${nd[4]} min</b></div></div>
-    <div class="px-notice" style="margin-top:14px">${ic("info",14)}<span>This is a paper-trading address. Use the Deposit button below to add demo funds instantly. Do not send real crypto to it.</span></div>
+    <div class="px-notice" style="margin-top:14px">${ic("info",14)}<span>This address cannot receive real crypto. Use the Deposit button below to add funds instantly. Do not send crypto to it.</span></div>
     <div id="pend"></div>
     <button class="px-btn pri blk lg" data-dep style="margin-top:16px">Deposit</button></div>`;
   return {html, title:"Deposit " + coin, mount(r){
@@ -651,7 +651,7 @@ Pages.copy = (params) => {
       if (f){ e.stopPropagation(); const id = f.dataset.fav, a = favs(), i = a.indexOf(id); i < 0 ? a.push(id) : a.splice(i, 1); store.save(); if (ltab === "follow") renderList(); else { f.classList.toggle("on", i < 0); } toast(i < 0 ? "Added to Following" : "Removed from Following", "info", 1500); return; }
       if (sv){ view = sv.dataset.sv; show(); window.scrollTo(0, 0); return; }
       if (e.target.closest("[data-sq]")){ view = "plaza"; showQ = !showQ; if (!showQ) q = ""; show(); if (showQ) $("#tq")?.focus(); return; }
-      if (e.target.closest("[data-menu]")){ U.sheet("Copy Trading", `<button class="px-opt" data-m="my">My data${ic("chev",16)}</button><button class="px-opt" data-m="say">Traders say${ic("chev",16)}</button><button class="px-opt" data-m="follow">Following${ic("chev",16)}</button><div class="px-notice" style="margin-top:12px">${ic("info",14)}<span>Past performance does not guarantee future results. Copy trading is simulated with paper funds.</span></div>`, el => el.querySelectorAll("[data-m]").forEach(b => b.onclick = () => { U.closeLayer(); if (b.dataset.m === "follow"){ view = "plaza"; ltab = "follow"; } else view = b.dataset.m; show(); })); return; }
+      if (e.target.closest("[data-menu]")){ U.sheet("Copy Trading", `<button class="px-opt" data-m="my">My data${ic("chev",16)}</button><button class="px-opt" data-m="say">Traders say${ic("chev",16)}</button><button class="px-opt" data-m="follow">Following${ic("chev",16)}</button><div class="px-notice" style="margin-top:12px">${ic("info",14)}<span>Past performance does not guarantee future results. Trader stats are illustrative.</span></div>`, el => el.querySelectorAll("[data-m]").forEach(b => b.onclick = () => { U.closeLayer(); if (b.dataset.m === "follow"){ view = "plaza"; ltab = "follow"; } else view = b.dataset.m; show(); })); return; }
       if (c || d){ const l = LEADS.find(x => x.id === (c || d).dataset[c ? "cp" : "ld"]); if (l) detail(l, mkOf(), !!c); }
     });
     show();

@@ -157,7 +157,7 @@ function openLang(){
   });
 }
 function openMenu(){
-  const links = [["home","Home","#/home"],["chart","Markets","#/markets"],["candle","Binary Options","#/trade"],["layers","Futures","#/futures"],["swap","Spot","#/spot"],["target","Options","#/options"],["users","Copy Trading","#/copy"],["wallet","Assets","#/assets"],["gift","Rewards Hub","#/rewards"],["book","Academy","#/academy"],["ring","Price Alerts","#/alerts"],["bot","Trading Bots","#/bots"],["auto","Auto Trading","#/auto"],["crown","VIP Signals","#/vip"],["users","Referral","#/referral"],["chat","Community","#/community"],["user","Profile","#/profile"],["gear","Settings","#/settings"],["info","About Us","#/about"],["headset","Contact Support","#/support"]];
+  const links = [["home","Home","#/home"],["chart","Markets","#/markets"],["candle","Binary Options","#/trade"],["layers","Futures","#/futures"],["swap","Spot","#/spot"],["target","Options","#/options"],["users","Copy Trading","#/copy"],["wallet","Assets","#/assets"],["gift","Rewards Hub","#/rewards"],["book","Academy","#/academy"],["ring","Price Alerts","#/alerts"],["bot","Trading Bots","#/bots"],["users","Referral","#/referral"],["chat","Community","#/community"],["user","Profile","#/profile"],["gear","Settings","#/settings"],["info","About Us","#/about"],["headset","Contact Support","#/support"]];
   const cur = location.hash.split("?")[0], p = store.s.profile, lv = E.level();
   U.drawer(`<div style="padding:20px">
       <a href="#/home" class="logo" style="margin-bottom:16px">${logo(26)}${esc(C.APP_NAME)}</a>

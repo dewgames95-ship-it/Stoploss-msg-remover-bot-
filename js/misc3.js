@@ -306,7 +306,7 @@ function statusSheet(k){
   } else {
     U.sheet("Verification", `<div class="kyc-ok"><span>${ic("check", 28, 2.4)}</span><h3>Identity verified</h3></div>
       <div class="pm-kv"><span>Identity (KYC)</span><b class="up">Verified</b></div><div class="pm-kv"><span>Name</span><b>${esc(k.name || "")}</b></div><div class="pm-kv"><span>Country</span><b>${esc(k.country || "")}</b></div><div class="pm-kv"><span>Document</span><b>${esc(k.doc || "")}</b></div><div class="pm-kv"><span>Withdrawal limit</span><b>Unlimited (demo)</b></div>
-      <p class="pm-s" style="margin-top:12px">Demo only. No documents are uploaded or stored.</p>`);
+      <p class="pm-s" style="margin-top:12px">No documents are uploaded or stored.</p>`);
   }
 }
 

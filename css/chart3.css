@@ -282,3 +282,4 @@ html:root[data-theme] body .indbar .il button,html:root[data-theme] body .indbar
 .lqbox.sm{width:auto;min-width:0;padding:3px 6px 4px}
 .lqbox.sm .lqb-r b{margin-right:2px}
 .lqbox.sm .lqb-s{margin-top:1px;padding-top:2px;gap:6px}
+.lqp-kv+p{margin-top:8px}

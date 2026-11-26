@@ -55,7 +55,7 @@ function transferSheet(o = {}){
       $("#wfb").onclick = () => walletPicker("Transfer from", st.from, st.to, k => { st.from = k; if (st.to === k) st.to = ORDER.find(x => x !== k && x === o.to) || ORDER.find(x => x !== k); open(); }, null);
       $("#wtb").onclick = () => walletPicker("Transfer to", st.to, st.from, k => { st.to = k; if (st.from === k) st.from = pickFrom(k); open(); }, null);
       $("#ws").onclick = () => { [st.from, st.to] = [st.to, st.from]; upd(); };
-      $("#wc").onclick = () => toast("Only USDT can be transferred in this demo", "info");
+      $("#wc").onclick = () => toast("Only USDT can be transferred between wallets", "info");
       $("#wm").onclick = () => { A.value = st.amount = av() || ""; };
       $("#wok").onclick = () => {
         const v = Math.round((+A.value) * 100) / 100;

@@ -63,7 +63,7 @@ function lwcStep(hi, lo, H, fs, minMove){
 }
 function drawGrid(){
   const cv = ui.grid; if (!cv || !chart || !S.main) return;
-  let H, W, ps; try { H = chart.panes()[0].getHeight(); W = el.clientWidth; ps = chart.priceScale("right").width(); } catch { return; }
+  let H, W; try { H = chart.panes()[0].getHeight(); W = el.clientWidth; } catch { return; }
   const top = S.main.coordinateToPrice(0), bot = S.main.coordinateToPrice(H - 1), dpr = Math.min(2, window.devicePixelRatio || 1);
   const key = [W, el.clientHeight, H, top, bot, dark(), dpr, pctMode].join("|"); if (cv._k === key) return; cv._k = key;
   const Hc = el.clientHeight;
@@ -351,10 +351,11 @@ function drawLiq(occ){
     const v0 = Math.max(0, Math.floor(vr.from)), v1 = Math.min(bars.length - 1, Math.ceil(vr.to)), used = [];
     c.font = "700 9px Manrope, system-ui, sans-serif"; c.textAlign = "center";
     const pv = d.past.filter(o => o.j >= v0 && o.j <= v1), vmx = pv.reduce((a, o) => Math.max(a, o.usd), 0);
+    let loJ = -1; for (let i = Math.max(0, Math.ceil(vr.from)); i <= Math.min(bars.length - 1, Math.floor(vr.to)); i++) if (loJ < 0 || bars[i].low < bars[loJ].low) loJ = i;   // the visible-low label sits there
     pv.filter(o => o.usd >= Math.max(vmx * 0.3, d.pmx * 0.05)).sort((a, b) => b.usd - a.usd).forEach(o => {
       if (used.length >= 6) return; const x = ts.logicalToCoordinate(o.j), b = bars[o.j]; if (x == null || x < 14 || x > pw - 14) return;
       const yl = S.main.priceToCoordinate(b.low); if (yl == null) return;
-      const top = yl + ((occ && occ[o.j]) || 3), tx = fmtUsd(o.usd), tw = c.measureText(tx).width + 10;
+      const top = yl + Math.max((occ && occ[o.j]) || 3, o.j === loJ ? 8 : 0), tx = fmtUsd(o.usd), tw = c.measureText(tx).width + 10;
       if (top + 20 > H) return; if (used.some(u => Math.abs(u.x - x) < (u.w + tw) / 2 + 3 && Math.abs(u.y - top) < 20)) return;
       used.push({x, y:top, w:tw});
       const col = o.side === "l" ? LQ_DN : LQ_UP;

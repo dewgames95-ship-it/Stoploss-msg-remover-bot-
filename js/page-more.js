@@ -18,7 +18,7 @@ function txList(kind){
 /* ---------- Deposit (instant top-up of virtual USDT) ---------- */
 Pages.deposit = () => {
   const html = wrap("Deposit", `<div class="two-col"><div class="stack">
-    <div class="hero">${UI.usdt(36)}<div class="label" style="margin-top:10px">Spot wallet balance</div><div class="bal num" id="db"></div><div class="sub" style="font-size:12px">Virtual USDT is credited instantly — no payment, card or wallet needed.</div></div>
+    <div class="hero">${UI.usdt(36)}<div class="label" style="margin-top:10px">Spot wallet balance</div><div class="bal num" id="db"></div><div class="sub" style="font-size:12px">USDT is credited to your Spot wallet instantly — no payment, card or wallet needed.</div></div>
     <section class="card">
       <form id="df" novalidate>
         <div class="form-row"><label>Coin</label><div class="field" style="justify-content:space-between">${UI.usdt(22)}<b class="grow">USDT</b><span class="label">Tether USD</span></div></div>
@@ -351,7 +351,7 @@ Pages.bots = (params) => {
     };
     const draw = () => { r.querySelectorAll("[data-v]").forEach(b => b.classList.toggle("on", b.dataset.v === view)); view === "bots" ? drawBots() : drawInv(); sum(); };
     draw();
-    $("[data-dots]").onclick = () => U.sheet("About Bots", `<p class="pm-s" style="font-size:13px;line-height:1.6;margin:0 0 12px">Trading bots follow a fixed strategy on live prices. Funds are returned to your Trading account with PnL when you stop a bot. All results here are simulated.</p><a class="btn btn-primary pm-cta" href="#/academy" data-x>Learn more</a>`, el => el.querySelector("[data-x]").addEventListener("click", () => U.closeLayer()));
+    $("[data-dots]").onclick = () => U.sheet("About Bots", `<p class="pm-s" style="font-size:13px;line-height:1.6;margin:0 0 12px">Trading bots follow a fixed strategy on live prices. Funds are returned to your Trading account with PnL when you stop a bot. Results depend on market conditions.</p><a class="btn btn-primary pm-cta" href="#/academy" data-x>Learn more</a>`, el => el.querySelector("[data-x]").addEventListener("click", () => U.closeLayer()));
     $("[data-eye]").onclick = () => { S().settings.hideBal = !S().settings.hideBal; store.save(); $("[data-ey]").innerHTML = ic(S().settings.hideBal ? "eyeoff" : "eye", 15); sum(); };
     r.addEventListener("click", async e => {
       const vb = e.target.closest("[data-v]"); if (vb){ view = vb.dataset.v; return draw(); }
@@ -443,7 +443,7 @@ Pages.profileedit = () => {
   const html = pwrap("Personal Information", `<input type="file" accept="image/*" id="peFile" hidden>
     <section class="pm-sec pe-sec">${row("Avatar", "avatar", v0.avatar)}${row("Nickname", "name", v0.name)}${row("Gender", "gender", v0.gender)}${row("Bio / Homepage", "bio", v0.bio)}${row("Location", "country", v0.country)}</section>
     <section class="pm-sec pe-sec">${row("Link Email", "email", v0.email)}${row("My Referrer", "ref", v0.ref)}</section>
-    <p class="pm-note">Your profile is stored on this device only. Demo account.</p>`, {right:`<span class="icon-btn" aria-hidden="true"></span>`});
+    <p class="pm-note">Your profile is stored on this device only.</p>`, {right:`<span class="icon-btn" aria-hidden="true"></span>`});
   return {html, title:"Personal Information", mount(r){
     const $ = q => r.querySelector(q), P = () => S().profile;
     const refresh = () => { const v = vals(); Object.keys(v).forEach(k => { const el = $(`[data-v="${k}"]`); if (el) el.innerHTML = v[k]; }); };
@@ -484,7 +484,7 @@ Pages.security = () => {
     ${psec("Security", ITEMS.map(i => trow(i[1], i[0], st(s[i[0]], i[0] === "password" ? "Set" : "Enabled")) ).join(""))}
     ${psec("Advanced", trow("Trusted Device", "trusted", st(s.trusted, "1 device"), "Devices that skip extra verification") + trow("Anti-Phishing Code", "phish", st(!!s.phish, "Set"), "Shown in every email from us") + srow("Facial recognition", "face", s.face, "Unlock sensitive actions with Face ID") + srow("App Lock", "applock", s.applock, "Require unlock when opening the app"))}
     ${psec("Account Management", trow("Account activities", "acts", "", "Last login " + U.dateStr(Date.now())) + trow("Lock account", "lock", "") + trow('<span class="pm-danger">Delete account</span>', "del", ""))}`; };
-  return {html: pwrap("Security Center", `<div id="scBody">${draw()}</div><p class="pm-note">Demo only. No real credentials are stored in NovaTrade.</p>`, {right:`<span class="icon-btn" aria-hidden="true"></span>`}), title:"Security Center", mount(r){
+  return {html: pwrap("Security Center", `<div id="scBody">${draw()}</div><p class="pm-note">No credentials leave this device.</p>`, {right:`<span class="icon-btn" aria-hidden="true"></span>`}), title:"Security Center", mount(r){
     const body = r.querySelector("#scBody"), redraw = () => { body.innerHTML = draw(); };
     const setupSheet = k => { const it = ITEMS.find(i => i[0] === k), s = sec(), on = s[k], pw = k === "fund" || k === "password";
       U.sheet(it[1], `<p class="pm-s" style="font-size:13px;line-height:1.6;margin:0 0 12px">${it[3]}</p>${pw ? `<input class="pm-in" id="scP" type="password" placeholder="${on ? "New " : ""}${k === "fund" ? "fund password" : "password"} (min 6 characters)" autocomplete="off" aria-label="${it[1]}"><div class="pm-err" id="scE"></div>` : ""}
@@ -514,7 +514,7 @@ Pages.referral = () => {
   const sv = d => `<svg width="40" height="40" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
   const steps = [
     [sv('<circle cx="12" cy="20" r="4"/><circle cx="29" cy="11" r="4"/><circle cx="29" cy="29" r="4"/><path d="M15.5 18l10-5M15.5 22l10 5"/>'), "Share your link", "Send your invite link or code to friends."],
-    [sv('<circle cx="20" cy="14" r="6"/><path d="M8 33c1-7 6-10 12-10s11 3 12 10"/><path d="M30 6v6M27 9h6"/>'), "Friend signs up", "They join NovaTrade with your invite code and get a 100 USDT demo bonus."],
+    [sv('<circle cx="20" cy="14" r="6"/><path d="M8 33c1-7 6-10 12-10s11 3 12 10"/><path d="M30 6v6M27 9h6"/>'), "Friend signs up", "They join NovaTrade with your invite code and get a 100 USDT welcome bonus."],
     [sv('<circle cx="20" cy="20" r="13"/><path d="M20 12v16M24 15.5c-1-1.2-2.600-1.700-4-1.700-2.500 0-4 1.200-4 2.900 0 4.200 8.200 2 8.200 6.400 0 1.700-1.700 3-4.200 3-1.700 0-3.400-.6-4.400-1.800"/>'), "Earn commission", "Receive a share of their trading fees, credited instantly."]];
   const art = `<svg class="rf-art" viewBox="0 0 150 150" aria-hidden="true"><defs>
     <radialGradient id="rs1" cx=".32" cy=".28" r=".8"><stop offset="0" stop-color="#f4f7fb"/><stop offset=".5" stop-color="#a9b7cc"/><stop offset="1" stop-color="#4b5a73"/></radialGradient>
@@ -578,7 +578,7 @@ Pages.profile = () => {
       <div class="row pf-r2" style="gap:8px;margin-top:6px;flex-wrap:nowrap"><button class="pf-uid" data-uid>UID:<span id="pu"></span> ${ic("copy",13)}</button><span class="pf-main">Main Account</span></div></div><a class="pf-go" href="#/profileedit" aria-label="Open profile">${ic("chev",22,2)}</a></section>
     <div class="pf-tiles">${tile("share","Refer",'href="#/referral"')}${tile("gift","Vouchers",'data-vou')}${tile("cal","Events",'href="#/rewards"')}</div>
     <h3 class="pf-h">Trade</h3>
-    ${G([["chart","Markets","#/markets"],["swap","Spot","#/spot"],["candle","Futures","#/futures"],["clock","Binary","#/trade"],["layers","Options","#/options"],["users","Copy Trading","#/copy"],["bot","Trading Bots","#/bots"],["auto","Auto Trading","#/auto"]])}
+    ${G([["chart","Markets","#/markets"],["swap","Spot","#/spot"],["candle","Futures","#/futures"],["clock","Binary","#/trade"],["layers","Options","#/options"],["users","Copy Trading","#/copy"],["bot","Trading Bots","#/bots"]])}
     <h3 class="pf-h">Earn &amp; Rewards</h3>
     ${G([["earn","Earn","#/earn"],["wallet","Assets","#/assets"],["pie","PnL Analysis","#/pnl"],["trophy","Rewards Hub","#/rewards"],["share","Referral","#/referral"],["ring","Price Alerts","#/alerts"],["book","Academy","#/academy"]])}
     <h3 class="pf-h">Account</h3>
@@ -731,7 +731,7 @@ Pages.community = () => {
     announce:[["NovaTrade Team", "New: 4h candles for gold & silver are live."], ["NovaTrade Team", "Tip: use the Tick chart for 30s trades and 1m candles for 5m trades."]],
     crypto:[["Arjun", "BTC holding the range. Waiting for a breakout before going Up."], ["Mia", "SOL momentum looks strong on 15s candles."], ["Leo", "Don't over-trade. 2% of balance per trade max."]],
     forex:[["Sara", "EUR/USD quiet in the Asian session, better moves at London open."], ["Kenji", "USD/JPY respecting the high of the day."]],
-    strategy:[["Priya", "Trend follow on 1m + 5m expiry has been my best combo so far."], ["Omar", "Testing reversal strategy in Auto Trading with 5 USDT size."]]
+    strategy:[["Priya", "Trend follow on 1m + 5m expiry has been my best combo so far."], ["Omar", "Testing reversal strategy with a binary bot with 5 USDT size."]]
   };
   const LEAD = [["CryptoQueen", 18420], ["PipHunter", 12960], ["Satoshi_Jr", 9875], ["GoldBug", 7340], ["TrendRider", 6210]];
   const html = pwrap("Community", `

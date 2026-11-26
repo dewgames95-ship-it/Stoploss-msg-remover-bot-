@@ -8,7 +8,7 @@
 const {store, bus} = U;
 const KEY = () => (window.ACCT ? ACCT.key("nt_racer") : "nt_racer");
 const load = () => { try { return JSON.parse(localStorage.getItem(KEY()) || "{}") || {}; } catch { return {}; } };
-const norm = o => ({bets: o.bets || [], races: o.races || [], tx: o.tx || [], seq: o.seq || 0, pending: o.pending || null, seeded: !!o.seeded});
+const norm = o => ({bets: o.bets || [], races: o.races || [], tx: o.tx || [], seq: o.seq || 0, raceSeq: o.raceSeq || 0, pending: o.pending || null, seeded: !!o.seeded});
 
 window.RACER = {
   data: () => norm(load()),
@@ -23,6 +23,19 @@ function fallbackStats(d){
   o.winRate = o.bets ? Math.round(o.wins / o.bets * 1000) / 10 : 0;
   return o;
 }
+
+/* ONE app-wide 10-digit user id (profile page, in-game labels ******1234, game settings). An older 8-digit uid is extended
+   deterministically ("10" + old uid), so it never changes again; a missing one is created once. */
+function ensureUid(){
+  const p = store.s.profile; if (!p) return "";
+  let u = String(p.uid || "").replace(/\D/g, "");
+  if (u.length !== 10){
+    u = u.length >= 10 ? u.slice(0, 10) : u.length ? ("10" + u).padEnd(10, "7").slice(0, 10) : String(1000000000 + Math.floor(Math.random() * 8999999999));
+    p.uid = u; store.save();
+  }
+  return u;
+}
+try { ensureUid(); } catch {}
 
 /* Every transfer into / out of the Money Game wallet (Transfer sheet, Assets page, first-open seed) goes to nt_racer.tx */
 bus.on("balance", (bal, reason) => {
@@ -39,6 +52,7 @@ bus.on("balance", (bal, reason) => {
 /* ---- host bridge used by the game page (racer/index.html reads window.parent.MoneyRacerHost) ---- */
 let subs = [], lockOn = false;
 const HOST = {
+  _relayout: null,
   name: "NovaTrade",
   mode: () => (window.ACCT ? ACCT.mode() : "demo"),
   key: KEY,
@@ -49,6 +63,9 @@ const HOST = {
     const amt = Math.min(1000, Math.floor(store.wb("spot") * 100) / 100);
     if (amt > 0) store.transfer("spot", "games", amt);
   },
+  uid: () => ensureUid(),
+  avatar: size => { try { return window.UserAvatar ? window.UserAvatar(size || 30) : ""; } catch { return ""; } },
+  notify(title, body, tone){ try { if (U.pushNotif) U.pushNotif("game", title, body, tone || "info"); } catch {} },
   buzz(p){ try { U.buzz(p); } catch {} },
   fx(k){ try { U.fx(k); } catch {} },
   sound: () => store.s.settings.sound !== false,
@@ -60,6 +77,7 @@ const HOST = {
     lockOn = !!on;
     document.documentElement.classList.toggle("rc-lock", lockOn);
     if (lockOn) window.scrollTo(0, 0);
+    if (HOST._relayout) HOST._relayout();   // header + bottom nav hide while a race runs and the game fills the screen; back to normal after
   }
 };
 window.MoneyRacerHost = HOST;
@@ -71,7 +89,7 @@ function ensureServer(){
     const done = () => { try { MoneyRacerServer.create(HOST).install(API); res(); } catch (e) { rej(e); } };
     if (window.MoneyRacerServer) return done();
     const s = document.createElement("script");
-    s.src = "racer/local-server.js?v=6.8"; s.async = true;
+    s.src = "racer/local-server.js?v=6.9"; s.async = true;
     s.onload = done; s.onerror = () => { srvP = null; rej(new Error("Money Game failed to load")); };
     document.head.appendChild(s);
   });
@@ -79,11 +97,13 @@ function ensureServer(){
 
 /* ---------- page ---------- */
 Pages.racer = () => {
-  let root, frame = null, onRz = null, raf = 0;
+  let root, frame = null, onRz = null, raf = 0, offGuard = null, offBg = [];
+  // v6.9: the splash is shown on the very first load only; the game stores nt_racer_ready once its assets are cached
+  let ready = false; try { ready = !!localStorage.getItem("nt_racer_ready"); } catch {}
   const html = `
-  <div class="tabs" style="gap:20px;margin:0 -16px;padding:4px 16px 0;border:0"><a class="tab" href="#/futures/BTCUSDT" style="font-size:17px">USDⓈ-M</a><a class="tab" href="#/spot/BTCUSDT" style="font-size:17px">Spot</a><a class="tab" href="#/trade/BTCUSDT" style="font-size:17px">Binary</a><a class="tab tab-hot" href="#/predict" style="font-size:17px">Prediction</a><button class="tab tab-hot on" style="font-size:17px">Money Game</button><a class="tab" href="#/options" style="font-size:17px">Options</a><a class="tab" href="#/copy" style="font-size:17px">Copy</a><a class="tab" href="#/bots" style="font-size:17px">Bots</a></div>
+  <div class="tabs rc-tabs" style="gap:20px;margin:0 -16px;padding:4px 16px 0;border:0"><a class="tab" href="#/futures/BTCUSDT" style="font-size:17px">USDⓈ-M</a><a class="tab" href="#/spot/BTCUSDT" style="font-size:17px">Spot</a><a class="tab" href="#/trade/BTCUSDT" style="font-size:17px">Binary</a><a class="tab tab-hot" href="#/predict" style="font-size:17px">Prediction</a><button class="tab tab-hot on" style="font-size:17px">Money Game</button><a class="tab" href="#/options" style="font-size:17px">Options</a><a class="tab" href="#/copy" style="font-size:17px">Copy</a><a class="tab" href="#/bots" style="font-size:17px">Bots</a></div>
   <div class="rc-stage" id="rcStage">
-    <div class="rc-load" id="rcLoad" role="status" aria-live="polite">
+    <div class="rc-load${ready ? " hide" : ""}" id="rcLoad" role="status" aria-live="polite">
       <div class="rc-logo"><span class="rc-flag"></span>Money Game</div>
       <div class="rc-bar"><i id="rcBar"></i></div>
       <small id="rcLoadTx">Loading game…</small>
@@ -91,6 +111,7 @@ Pages.racer = () => {
   </div>`;
   function size(){
     const st = root && root.querySelector("#rcStage"); if (!st) return;
+    if (lockOn) { st.style.height = ""; return; }   // running race: CSS makes the stage fill the screen
     const nav = document.getElementById("bnav");
     const top = st.getBoundingClientRect().top + window.scrollY;
     const bottom = nav && getComputedStyle(nav).display !== "none" ? nav.getBoundingClientRect().top : window.innerHeight;
@@ -109,6 +130,14 @@ Pages.racer = () => {
       const tabs = r.querySelector(".tabs"), on = tabs && tabs.querySelector(".tab.on");
       if (tabs && on && tabs.scrollWidth > tabs.clientWidth) tabs.scrollLeft = Math.max(0, on.offsetLeft - (tabs.clientWidth - on.offsetWidth) / 2);
       size(); requestAnimationFrame(size);
+      HOST._relayout = () => { size(); requestAnimationFrame(size); };
+      offGuard = window.App && App.guardNav ? App.guardNav("Money Game") : null;   // top tabs / bottom nav / back: "Do you want to close this?"
+      // app in the background (visibility or the APK's native-pause / native-resume): the game keeps running, its audio + haptics stop
+      const pushBg = v => { try { const w = frame && frame.contentWindow; if (w && w.MR_BG) w.MR_BG(typeof v === "boolean" ? v : !!(document.hidden || window.__appBg)); } catch {} };
+      const onVis = () => pushBg(), onP = () => pushBg(true), onR = () => pushBg(false);
+      document.addEventListener("visibilitychange", onVis); addEventListener("native-pause", onP); addEventListener("native-resume", onR);
+      offBg = [() => document.removeEventListener("visibilitychange", onVis), () => removeEventListener("native-pause", onP), () => removeEventListener("native-resume", onR)];
+      root._pushBg = pushBg;
       onRz = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(size); };
       addEventListener("resize", onRz);
       // light progress while the game page itself loads (the game shows its own asset progress after that)
@@ -120,9 +149,9 @@ Pages.racer = () => {
         frame.className = "rc-frame";
         frame.title = "Money Game";
         frame.setAttribute("allow", "autoplay; fullscreen");
-        frame.src = "racer/index.html?v=6.8";
+        frame.src = "racer/index.html?v=6.9";
         frame.addEventListener("load", () => {
-          clearInterval(tick); setProg(100);
+          clearInterval(tick); setProg(100); try { root._pushBg && root._pushBg(); } catch {}
           setTimeout(() => { const l = root && root.querySelector("#rcLoad"); if (l) l.classList.add("hide"); }, 180);
         }, {once: true});
         root.querySelector("#rcStage").appendChild(frame);
@@ -134,6 +163,8 @@ Pages.racer = () => {
       removeEventListener("resize", onRz); cancelAnimationFrame(raf);
       subs.forEach(off => { try { off(); } catch {} }); subs = [];
       if (frame){ try { frame.contentWindow && frame.contentWindow.MR_STOP && frame.contentWindow.MR_STOP(); } catch {} try { frame.src = "about:blank"; } catch {} frame.remove(); frame = null; }
+      HOST._relayout = null; if (offGuard) { offGuard(); offGuard = null; }
+      offBg.forEach(f => { try { f(); } catch {} }); offBg = [];
       HOST.lock(false);
       document.body.classList.remove("rc-on");
       root = null;

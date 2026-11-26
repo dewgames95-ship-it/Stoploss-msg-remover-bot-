@@ -2,7 +2,7 @@
 (function(){
 const C = window.CONFIG, {$, ic, t, store, bus, toast, signed} = U;
 const S = store.s;
-let current = null, curName = "";
+let current = null, curName = "", lastHash = location.hash, guardBusy = false;
 const DESC = {home:"Live crypto, forex and gold prices, binary options and futures.", markets:"Live prices for 100+ crypto pairs, forex and metals.", trade:"Trade Up or Down on live charts with 30s–5m expiries.", futures:"USDT-margined futures up to 125x with TP/SL.", assets:"Your balances, PnL and transactions.", bots:"Automated trading bots on live prices.", referral:"Invite friends and earn commission.", profile:"Your trading stats and account.", deposit:"Add USDT to your trading account instantly.", withdraw:"Move funds to your Vault and earn interest.", auto:"Activate automatic trading.", vip:"Momentum signals for every tradable pair.", community:"Chat with other traders.", about:"About NovaTrade.", support:"Contact NovaTrade support by phone, email or ticket.", settings:"Theme, language, sounds and defaults.", rewards:"Daily check-in, tasks and badges.", academy:"Learn trading, indicators and risk management.", alerts:"Price alerts for any market.", options:"Buy BTC, ETH and altcoin call & put options, cash-settled in USDT."};
 const NAV = [["home","Home","nhome"],["markets","Markets","nmkt"],["trade","Trade","ntrade"],["futures","Futures","nfut"],["assets","Assets","nasset"]];
 
@@ -37,6 +37,7 @@ function route(){
   view.querySelectorAll("[data-back]").forEach(b => b.onclick = () => history.length > 1 ? history.back() : (location.hash = "#/home"));
   try { page.mount?.call(page, view); } catch(e){ console.error(e); toast("Something went wrong loading this page", "bad"); }
   window.scrollTo(0, 0);
+  lastHash = location.hash;
 }
 bus.on("settled", rec => {
   if (curName === "trade") return;
@@ -48,11 +49,36 @@ bus.on("futClosed", ({pos, profit, reason}) => { if (curName === "futures") retu
 bus.on("lang", () => route());
 function offline(){ $("#offline").classList.toggle("hide", navigator.onLine); }
 addEventListener("online", offline); addEventListener("offline", offline);
-addEventListener("hashchange", route);
+/* v6.9 navigation guard: a page (Money Game, Prediction) may set window.NAV_GUARD = (toHash, fromHash) => bool | Promise<bool>.
+   A hash change (top tab strip, bottom nav, back button) is then held: the address goes back to the current page at once,
+   the guard asks ("Do you want to close this?"), and only a true answer completes the navigation. */
+addEventListener("hashchange", () => {
+  const g = window.NAV_GUARD, to = location.hash, from = lastHash;
+  if (typeof g !== "function" || guardBusy || to === from) return route();
+  guardBusy = true;
+  try { history.replaceState(history.state, "", from || (location.pathname + location.search)); } catch {}
+  Promise.resolve().then(() => g(to, from)).catch(() => false).then(ok => {
+    guardBusy = false;
+    if (ok) { window.NAV_GUARD = null; try { history.replaceState(history.state, "", to); } catch {} route(); }
+  });
+});
+/* App.guardNav("Money Game") → installs the standard Yes / No popup as the guard; returns off() (call it in unmount). */
+function guardNav(label){
+  const fn = () => new Promise(res => {
+    U.modal(`<div class="title" style="margin-bottom:8px">Close ${U.esc(label || "this page")}?</div><p class="sub" style="margin-bottom:20px">Do you want to close this?</p>
+      <div class="row"><button class="btn btn-ghost grow" data-no>No</button><button class="btn btn-primary grow" data-yes>Yes</button></div>`, el => {
+      let done = false; const fin = v => { if (done) return; done = true; clearInterval(iv); U.closeLayer(); res(v); };
+      el.querySelector("[data-no]").onclick = () => fin(false); el.querySelector("[data-yes]").onclick = () => fin(true);
+      const iv = setInterval(() => { if (!el.querySelector("[data-yes]")) { done = true; clearInterval(iv); res(false); } }, 250);   // dismissed by the scrim / Escape
+    });
+  });
+  window.NAV_GUARD = fn;
+  return () => { if (window.NAV_GUARD === fn) window.NAV_GUARD = null; };
+}
 setTheme(S.settings.theme);
 offline();
 M.start();
 if (S.auto.on) E.runAuto();
 route();
-window.App = {route, setTheme};
+window.App = {route, setTheme, guardNav};
 })();

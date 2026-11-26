@@ -451,7 +451,7 @@ Pages.options = (params) => {
         <li><span>2</span><div>You pay a premium of <b class="num">${nf(d.prem, 2)} USDT</b> for ${+d.qty.toPrecision(3)} ${d.b}. This is your maximum loss.</div></li>
         <li><span>3</span><div><b class="hw-up">Price ends at ${nf(d.up, d.up < 10 ? 4 : 0)} (+1.5%):</b> you receive <b class="num">${nf(d.pay, 2)} USDT</b>, a profit of <b class="num hw-up">+${nf(d.win, 2)} USDT</b>.</div></li>
         <li><span>4</span><div><b class="hw-dn">Price ends below ${nf(d.K, d.K < 10 ? 4 : 0)}:</b> the option expires worthless and you lose <b class="num hw-dn">-${nf(d.prem, 2)} USDT</b>, never more.</div></li></ul></div>
-      <p class="hw-fine">Demo trading with paper funds. You can also sell an option early at its current value, before expiry.</p>
+      <p class="hw-fine">You can also sell an option early at its current value, before expiry.</p>
       <button class="btn btn-primary btn-block" data-ok style="margin-top:12px;height:46px">Got it</button></div>`;
   }
 

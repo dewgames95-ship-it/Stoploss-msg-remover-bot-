@@ -312,7 +312,7 @@ Pages.spot = (params) => {
         <div class="bt-roi"><div><span>Backtest · last 30 days · $1,000</span><b class="num up">${signed(bt.profit)} USDT</b></div><div style="text-align:right"><span>Monthly ROI</span><b class="num up">${signed(bt.roi)}%</b></div></div>
         ${lineSvg(bt.curve)}<div class="bt-ax"><span>30d ago · $1,000</span><span>${bt.trades} grid trades</span><span>Now · $${money(1000 + bt.profit)}</span></div>
         <button class="btn btn-primary btn-block btn-lg" data-botnew>Create Auto Trade Bot</button>
-        <p class="bt-n">Simulated on the last 720 real hourly Binance candles with ${Q === "USDC" ? "USDT" : "USDT"} virtual capital and the 0.02% fee per side. Shows realised grid profit only (price change of held coins is excluded). Past performance does not guarantee future results.</p>`;
+        <p class="bt-n">Backtested on the last 720 hourly Binance candles with ${Q === "USDC" ? "USDT" : "USDT"} capital and the 0.02% fee per side. Shows realised grid profit only (price change of held coins is excluded). Past performance does not guarantee future results.</p>`;
       box.querySelector("[data-botnew]").onclick = () => botSheet(plan, bt);
     }).catch(() => { if (botBusy === token && list.querySelector(".bt-wrap")) list.querySelector(".bt-wrap").innerHTML = UI.emptyState("info", "Backtest data is unavailable right now. Check your connection and try again."); });
   }

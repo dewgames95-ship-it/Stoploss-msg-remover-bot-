@@ -51,7 +51,7 @@ function openVip(){
     <div class="vp-g"><div><span>Spot</span><b class="num">${feeP(BASE.spot, t.off)}</b></div><div><span>Futures M/T</span><b class="num">${feeP(BASE.fm, t.off)}/${feeP(BASE.ft, t.off)}</b></div><div><span>Options</span><b class="num">${feeP(BASE.opt, t.off)}</b></div><div><span>Binary</span><b class="up">No fee</b></div></div></div>`).join("");
   U.sheet("Account level", hero + now + `<h4 class="vp-h">All levels</h4><div class="vp-list">${list}</div>` +
     (lv ? `<div class="pm-kv" style="margin-top:6px"><span>Activity level</span><b>Lv.${lv.lvl} · ${Math.max(0, lv.need - lv.cur)} XP to next</b></div>` : "") +
-    `<p class="pm-s" style="margin:10px 0 0">Demo account. Volume counts closed binary, futures and spot trades of the last 30 days. Fee rates shown per level; binary trades never carry a fee.</p>`);
+    `<p class="pm-s" style="margin:10px 0 0">Volume counts closed binary, futures and spot trades of the last 30 days. Fee rates shown per level; binary trades never carry a fee.</p>`);
 }
 window.VIPX = {open: openVip, tier, stats, TIERS};
 

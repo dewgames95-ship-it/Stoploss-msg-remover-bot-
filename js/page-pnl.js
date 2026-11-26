@@ -111,7 +111,7 @@ Pages.pnl = (params) => {
       <section class="pn-sec"><h3>By product ${prod ? `<button class="pn-clr" data-clr>Show all</button>` : ""}</h3>${rows}</section>
       <section class="pn-sec"><h3>Calendar</h3>${cal}</section>
       <section class="pn-sec"><h3>Recent closed trades${prod ? " · " + PN[prod] : ""}</h3>${d.cur.length ? d.cur.slice(0, 30).map(x => trow(x)).join("") : `<div class="pn-empty"><b>No trades yet</b>Closed positions will appear here.</div>`}</section>
-      <p class="pn-mut" style="padding:0 0 18px;font-size:11.5px">Realized PnL only, net of fees where recorded. Spot PnL uses average cost. Demo data.</p>`;
+      <p class="pn-mut" style="padding:0 0 18px;font-size:11.5px">Realized PnL only, net of fees where recorded. Spot PnL uses average cost.</p>`;
       el.querySelectorAll("[data-per]").forEach(b => b.onclick = () => { per = b.dataset.per; history.replaceState(null, "", "#/pnl/" + per); render(); });
       el.querySelectorAll("[data-pr]").forEach(b => b.onclick = () => { prod = prod === b.dataset.pr ? "" : b.dataset.pr; render(); });
       const clr = el.querySelector("[data-clr]"); if (clr) clr.onclick = () => { prod = ""; render(); };
