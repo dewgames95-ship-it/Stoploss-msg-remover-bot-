@@ -7031,7 +7031,7 @@ body.mr-maint #centerStartCircle { filter: grayscale(1); opacity: .5; pointer-ev
   function getMultiplier() { return raceOdds(); }
 
   function updateUIValues() {
-    balanceText.textContent = balanceUsdt.toFixed(2);
+    balanceText.textContent = (+balanceUsdt || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const fmtBet = Number.isInteger(currentBet) ? currentBet.toString() : (+currentBet.toFixed(2)).toString();
     betAmountText.textContent = `${fmtBet} USDT`;
     poolText.textContent = `${+(currentBet * raceModeCars).toFixed(2)} USDT`;
@@ -7528,7 +7528,7 @@ body.mr-maint #centerStartCircle { filter: grayscale(1); opacity: .5; pointer-ev
   }
 
   function syncSharedWalletUI() {
-    balanceText.textContent = balanceUsdt.toFixed(2);
+    balanceText.textContent = (+balanceUsdt || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const profMain = document.getElementById('profileMainBalance');
     if (profMain) profMain.innerHTML = `${balanceUsdt.toFixed(2)} <small>USDT</small>`;
     const profProfit = document.getElementById('profileProfitBalance');

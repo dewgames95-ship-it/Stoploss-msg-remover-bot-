@@ -106,6 +106,8 @@ Pages.racer = () => {
     mount(r){
       root = r;
       document.body.classList.add("rc-on");
+      const tabs = r.querySelector(".tabs"), on = tabs && tabs.querySelector(".tab.on");
+      if (tabs && on && tabs.scrollWidth > tabs.clientWidth) tabs.scrollLeft = Math.max(0, on.offsetLeft - (tabs.clientWidth - on.offsetWidth) / 2);
       size(); requestAnimationFrame(size);
       onRz = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(size); };
       addEventListener("resize", onRz);

@@ -79,13 +79,11 @@
       'racer.state': async (q) => {
         q = q || {};
         const d = load(), c = config();
-        let changed = false;
-        if (d.pending && (q.boot || now() - d.pending.t > ((d.pending.len || 60) + 180) * 1000)) { await settleOrphan(d); changed = true; }
+        if (d.pending && (q.boot || now() - d.pending.t > ((d.pending.len || 60) + 180) * 1000)) { await settleOrphan(d); save(d); }
         if (!d.seeded && host.mode() === 'demo' && host.seed) {
-          d.seeded = true; changed = true;
+          d.seeded = true; save(d);            // saved first: the seed transfer is logged into nt_racer.tx by the app
           try { await host.seed(); } catch (e) {}
         }
-        if (changed) save(d);
         return { balance: await balance(), mode: host.mode(), config: c, seeded: d.seeded, pending: d.pending, seq: d.seq };
       },
       'racer.bet': async (q) => {
