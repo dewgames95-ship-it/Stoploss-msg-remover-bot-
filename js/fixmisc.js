@@ -76,56 +76,80 @@ async function bars(sym){
 /* path of a bar: o -> (l|h) -> (h|l) -> c */
 const path = b => b.close >= b.open ? [b.open, b.low, b.high, b.close] : [b.open, b.high, b.low, b.close];
 const FEE = .0002;
-function simGrid(B, inv, lev, lo, hi, N){
-  const L = []; for (let i = 0; i <= N; i++) L.push(lo + (hi - lo) * i / N);
+function simGrid(B, inv, lev, lo, hi, N, d){
+  d = d || 1; const L = []; for (let i = 0; i <= N; i++) L.push(lo + (hi - lo) * i / N);
   const q = inv * lev / N / ((lo + hi) / 2), p0 = B[0].open, held = [], ent = []; let real = 0, fills = 0, wins = 0;
-  for (let i = 0; i < N; i++){ held[i] = L[i] >= p0; ent[i] = p0; }
+  for (let i = 0; i < N; i++){ held[i] = d > 0 ? L[i] >= p0 : L[i + 1] <= p0; ent[i] = p0; }
   const eq = []; let dead = false;
   const seg = (a, b) => {
-    if (b < a){ for (let i = 0; i < N; i++) if (L[i] < a && L[i] >= b && !held[i]){ held[i] = true; ent[i] = L[i]; fills++; real -= q * L[i] * FEE; } }
-    else { for (let i = 0; i < N; i++) if (L[i + 1] > a && L[i + 1] <= b && held[i]){ held[i] = false; real += q * (L[i + 1] - ent[i]) - q * L[i + 1] * FEE; fills++; if (L[i + 1] > ent[i]) wins++; } }
+    if (d > 0){
+      if (b < a){ for (let i = 0; i < N; i++) if (L[i] < a && L[i] >= b && !held[i]){ held[i] = true; ent[i] = L[i]; fills++; real -= q * L[i] * FEE; } }
+      else { for (let i = 0; i < N; i++) if (L[i + 1] > a && L[i + 1] <= b && held[i]){ held[i] = false; real += q * (L[i + 1] - ent[i]) - q * L[i + 1] * FEE; fills++; if (L[i + 1] > ent[i]) wins++; } }
+    } else {
+      if (b > a){ for (let i = 0; i < N; i++) if (L[i + 1] > a && L[i + 1] <= b && !held[i]){ held[i] = true; ent[i] = L[i + 1]; fills++; real -= q * L[i + 1] * FEE; } }
+      else { for (let i = 0; i < N; i++) if (L[i] < a && L[i] >= b && held[i]){ held[i] = false; real += q * (ent[i] - L[i]) - q * L[i] * FEE; fills++; if (L[i] < ent[i]) wins++; } }
+    }
   };
   B.forEach(bar => { const P = path(bar); for (let k = 0; k < 3; k++) seg(P[k], P[k + 1]);
-    const px = bar.close; let un = 0; for (let i = 0; i < N; i++) if (held[i]) un += q * (px - ent[i]);
+    const px = bar.close; let un = 0; for (let i = 0; i < N; i++) if (held[i]) un += d * q * (px - ent[i]);
     let e = inv + real + un; if (e <= 0 || dead){ e = 0; dead = true; } eq.push(e); });
   return {eq, trades: fills, wins, cycles: Math.max(1, fills / 2 | 0)};
 }
-function simMart(B, inv, lev, step, safety, tp){
-  const tot = inv * lev, units = 1 + (Math.pow(2, safety + 1) - 2) + 0; /* base + doubling safeties: 1,1,2,4... */
+function simMart(B, inv, lev, step, safety, tp, d){
+  d = d || 1; const tot = inv * lev;
   let w = 1; const ws = [1]; for (let i = 0; i < safety; i++){ ws.push(w); w *= 2; }
-  const sum = ws.reduce((x, y) => x + y, 0), unit = tot / sum;
-  let qty = 0, cost = 0, nxt = 0, real = 0, fills = 0, wins = 0, cyc = 0, dead = false, lastEntry = B[0].open, avg = 0;
+  const unit = tot / ws.reduce((x, y) => x + y, 0);
+  let qty = 0, cost = 0, nxt = 0, real = 0, fills = 0, wins = 0, cyc = 0, dead = false, avg = 0, base = B[0].open;
   const buy = (px, k) => { const q = unit * ws[k] / px; qty += q; cost += q * px; real -= q * px * FEE; fills++; nxt = k + 1; avg = cost / qty; };
-  buy(lastEntry, 0);
+  buy(base, 0);
   const eq = [];
   const seg = (a, b) => {
-    if (b < a){ while (nxt <= safety && nxt > 0){ const trig = lastEntryBase * (1 - step / 100 * nxt); if (trig <= a && trig >= b) buy(trig, nxt); else break; } }
-    else { const tpx = avg * (1 + tp / 100); if (qty > 0 && tpx > a && tpx <= b){ const pnl = qty * (tpx - avg) - qty * tpx * FEE; real += pnl; fills++; cyc++; if (pnl > 0) wins++; qty = 0; cost = 0; lastEntryBase = tpx; buy(tpx, 0); } }
+    if (d * (b - a) < 0){ while (nxt <= safety){ const trig = base * (1 - d * step / 100 * nxt); if (d > 0 ? (trig <= a && trig >= b) : (trig >= a && trig <= b)) buy(trig, nxt); else break; } }
+    else { const tpx = avg * (1 + d * tp / 100); if (qty > 0 && (d > 0 ? (tpx > a && tpx <= b) : (tpx < a && tpx >= b))){ const pnl = d * qty * (tpx - avg) - qty * tpx * FEE; real += pnl; fills++; cyc++; if (pnl > 0) wins++; qty = 0; cost = 0; base = tpx; buy(tpx, 0); } }
   };
-  let lastEntryBase = lastEntry;
   B.forEach(bar => { const P = path(bar); for (let k = 0; k < 3; k++) seg(P[k], P[k + 1]);
-    const un = qty * bar.close - cost; let e = inv + real + un; if (e <= 0 || dead){ e = 0; dead = true; } eq.push(e); });
+    let e = inv + real + d * (qty * bar.close - cost); if (e <= 0 || dead){ e = 0; dead = true; } eq.push(e); });
   return {eq, trades: fills, wins, cycles: cyc};
 }
-function simDca(B, inv, lev, days, tp){
-  const tot = inv * lev, n = 30, per = tot / n, every = Math.max(1, Math.round(days * 6));
+function simDca(B, inv, lev, days, tp, d){
+  d = d || 1; const tot = inv * lev, n = 30, per = tot / n, every = Math.max(1, Math.round(days * 6));
   let qty = 0, cost = 0, real = 0, fills = 0, wins = 0, cyc = 0, dead = false; const eq = [];
   B.forEach((bar, i) => {
     if (i % every === 0 && cost + per <= tot){ qty += per / bar.open; cost += per; real -= per * FEE; fills++; }
-    const hiPnl = qty * bar.high - cost;
-    if (qty > 0 && hiPnl / cost >= tp / 100){ const px = (cost * (1 + tp / 100)) / qty, pnl = qty * px - cost - qty * px * FEE; real += pnl; fills++; cyc++; if (pnl > 0) wins++; qty = 0; cost = 0; }
-    let e = inv + real + (qty * bar.close - cost); if (e <= 0 || dead){ e = 0; dead = true; } eq.push(e);
+    if (qty > 0 && d * ((d > 0 ? bar.high : bar.low) * qty - cost) / cost >= tp / 100){ const px = cost * (1 + d * tp / 100) / qty, pnl = d * (qty * px - cost) - qty * px * FEE; real += pnl; fills++; cyc++; if (pnl > 0) wins++; qty = 0; cost = 0; }
+    let e = inv + real + d * (qty * bar.close - cost); if (e <= 0 || dead){ e = 0; dead = true; } eq.push(e);
   });
   return {eq, trades: fills, wins, cycles: cyc};
 }
 function runSim(kind, B, P, inv){
-  const r = kind === "fgrid" ? simGrid(B, inv, P.lev, P.lo, P.hi, P.grids) : kind === "fmart" ? simMart(B, inv, P.lev, P.step, P.safety, P.tp) : simDca(B, inv, P.lev, P.days, P.tp);
+  const r = kind === "fgrid" ? simGrid(B, inv, P.lev, P.lo, P.hi, P.grids, P.dir) : kind === "fmart" ? simMart(B, inv, P.lev, P.step, P.safety, P.tp, P.dir) : simDca(B, inv, P.lev, P.days, P.tp, P.dir);
   const first = B[0].open, hodl = B.map(b => inv * (1 + (b.close / first - 1)));
   let peak = inv, dd = 0; r.eq.forEach(v => { peak = Math.max(peak, v); dd = Math.max(dd, (peak - v) / peak); });
   const end = r.eq[r.eq.length - 1], roi = (end / inv - 1) * 100, days = B.length / 6;
   return {eq: r.eq, hodl, end, roi, dd: dd * 100, trades: r.trades, wins: r.wins, cycles: r.cycles, daily: roi / days, monthly: roi / days * 30, apy: roi / days * 365, days};
 }
 const AI = {Low: {w: .12, grids: 30, lev: 2, step: 3, safety: 4, tp: 1.2, days: 2}, Medium: {w: .08, grids: 40, lev: 3, step: 2, safety: 5, tp: 1.5, days: 1}, High: {w: .05, grids: 60, lev: 5, step: 1.5, safety: 6, tp: 2, days: 1}};
+const LEVS = {Low: [1, 2], Medium: [2, 3, 4], High: [3, 5, 8]}, DDCAP = {Low: 15, Medium: 25, High: 40};
+/* small parameter search on the same klines; returns the best positive config (or the least bad one) */
+function aiSearch(kind, B, risk, pnow){
+  const p0 = B[0].open, cand = [], L = LEVS[risk], dirs = [1, -1];
+  if (kind === "fgrid") [3, 5, 8, 12].forEach(w => [20, 40, 60].forEach(g => L.forEach(lev => dirs.forEach(dir => cand.push({w, grids: g, lev, dir, lo: p0 * (1 - w / 100), hi: p0 * (1 + w / 100)})))));
+  else if (kind === "fmart") [1, 1.5, 2, 3, 4].forEach(step => [3, 4, 5, 6].forEach(safety => [.8, 1.2, 1.8, 2.5].forEach(tp => L.forEach(lev => dirs.forEach(dir => cand.push({step, safety, tp, lev, dir}))))));
+  else [1, 2, 3].forEach(days => [1, 1.5, 2.5, 4].forEach(tp => L.forEach(lev => dirs.forEach(dir => cand.push({days, tp, lev, dir})))));
+  let best = null, bestPos = null;
+  cand.forEach(P => { const r = runSim(kind, B, P, 1000), sc = r.roi - .25 * r.dd, ok = r.roi > 0 && r.dd <= DDCAP[risk];
+    if (ok && (!bestPos || sc > bestPos.sc)) bestPos = {P, r, sc}; if (!best || r.roi > best.r.roi) best = {P, r, sc}; });
+  const pick = bestPos || best, P = Object.assign({}, pick.P);
+  if (kind === "fgrid"){ P.btLo = P.lo; P.btHi = P.hi; P.lo = pnow * (1 - P.w / 100); P.hi = pnow * (1 + P.w / 100); }
+  return {P, r: pick.r, bad: !bestPos};
+}
+const aiCache = new Map();
+async function aiFor(kind, sym, risk){
+  const k = kind + sym + risk; if (aiCache.has(k)) return aiCache.get(k);
+  const d = await bars(sym), p = M.get(sym), t0 = performance.now();
+  const o = Object.assign({live: d.live, ms: performance.now() - t0}, aiSearch(kind, d.bars, risk, (p && p.price) || d.bars[d.bars.length - 1].close));
+  aiCache.set(k, o); return o;
+}
 const STRAT_INFO = {fgrid: {w: "futures"}, fmart: {w: "futures"}, dcap: {w: "futures"}};
 function chartSvg(res){
   const W = 340, H = 176, L = 6, R = 6, T = 14, Bt = 22, cw = W - L - R, ch = H - T - Bt, n = res.eq.length;

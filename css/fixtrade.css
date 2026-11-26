@@ -35,10 +35,11 @@
 #sptpsl.hide{display:none}
 
 /* E6/E7: fee note */
-.fee-n{margin-top:8px;text-align:center;font-size:11.5px;line-height:1.5;color:var(--muted)}
-.fee-n b{color:var(--text);font-weight:600}
-.fee-bn{margin-left:8px;text-decoration:line-through;text-decoration-thickness:1px;opacity:.85}
-.fee-5x{margin-top:2px;font-weight:700;color:var(--brand)}
+.fee-n{margin-top:8px;font-size:11.5px;line-height:1.5;color:var(--muted)}
+.fee-r{display:flex;justify-content:space-between;gap:6px;margin:2px 0}
+.fee-r b{color:var(--text);font-weight:600}
+.fee-r s{text-decoration-thickness:1px;opacity:.8}
+.fee-5x{margin-top:4px;text-align:center;font-weight:700;color:var(--brand);line-height:1.35}
 .sp-fee{display:none}
 .bx-nofee{text-align:center;font-size:12px;font-weight:600;color:var(--brand);margin-top:6px}
 
