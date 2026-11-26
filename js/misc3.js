@@ -82,6 +82,13 @@ function pdf(rows, title){
   return new Blob([u], {type:"application/pdf"});
 }
 function save(blob, name){
+  const nat = window.NativeApp;
+  if (nat && typeof nat.saveFile === "function"){
+    const rd = new FileReader();
+    rd.onload = () => { try { const r = nat.saveFile(String(rd.result).split(",")[1] || "", name, blob.type || "application/octet-stream"); if (r === false) throw 0; U.toast("Saved to Downloads", "ok"); } catch(e){ U.toast("Could not save the file", "bad"); } };
+    rd.onerror = () => U.toast("Could not save the file", "bad");
+    rd.readAsDataURL(blob); return "native";
+  }
   const a = document.createElement("a"), url = URL.createObjectURL(blob);
   a.href = url; a.download = name; a.rel = "noopener"; document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 4000);
@@ -103,7 +110,8 @@ function open(){
       try {
         if (st.fmt === "csv") save(new Blob([csv(rows)], {type:"text/csv;charset=utf-8"}), nm + ".csv");
         else save(pdf(rows, `NovaTrade trade history  (${rl}, ${tl})`), nm + ".pdf");
-        U.toast((st.fmt === "csv" ? "CSV" : "PDF") + " exported", "ok"); U.closeLayer();
+        if (!(window.NativeApp && typeof window.NativeApp.saveFile === "function")) U.toast((st.fmt === "csv" ? "CSV" : "PDF") + " exported", "ok");
+        U.closeLayer();
       } catch(e){ U.toast("Export failed", "bad"); }
     };
     upd();

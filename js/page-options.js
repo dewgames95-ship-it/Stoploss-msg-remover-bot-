@@ -101,6 +101,42 @@ const TGTS = [["Near", "ATM", 0], ["Moderate", "+1 step", 1], ["Aggressive", "+3
 const AMTS = [10, 50, 100, 500];
 const INFO = ["<b>Pick a direction.</b> Call = you expect the price to go up. Put = you expect it to go down.", "<b>Pay a small premium.</b> That premium is the most you can lose. There are no liquidations and no margin calls.", "<b>Settled at expiry.</b> If the price ends beyond your target (strike), you receive the difference in USDT. Otherwise the option expires worthless.", "<b>Sell early anytime.</b> You can close before expiry at the current mark value, so you do not have to wait."];
 
+
+/* ---------- beginner help popups (UI.help is shared: other pages may reuse it) ---------- */
+UI.help ||= function(title, html){
+  U.sheet(title, `<div class="hp">${html}</div><button class="btn btn-primary btn-block hp-ok" data-ok>Got it</button>`, el => { const b = el.querySelector("[data-ok]"); if (b) b.onclick = () => U.closeLayer(); });
+};
+const hq = k => `<i class="hq" role="button" tabindex="0" data-help="${k}" aria-label="Help">?</i>`;
+const hsv = (vb, inner, label) => `<svg class="hp-svg" viewBox="${vb}" role="img" aria-label="${label}">${inner}</svg>`;
+const HELP = {
+  strike: ["Strike (target price)", () => `<p>The <b>strike</b> is the price you are betting on. It is the line the market price must cross by the expiry time.</p>
+    ${hsv("0 0 320 120", `<rect class="hp-win" x="8" y="12" width="304" height="44" rx="6"/><line class="hp-ln" x1="8" y1="56" x2="312" y2="56"/><text class="hp-t hp-b" x="14" y="72">Strike</text><text class="hp-t hp-up" x="16" y="30">Call (UP) wins above this line</text><rect class="hp-lose" x="8" y="57" width="304" height="44" rx="6"/><text class="hp-t hp-dn" x="16" y="94">Put (DOWN) wins below it</text>`, "Strike line with win zones")}
+    <p>Call (UP) pays out if the price ends <b>above</b> the strike. Put (DOWN) pays out if it ends <b>below</b>. A strike closer to the current price is more likely to win but costs more.</p>`],
+  premium: ["Premium / coin", () => `<p>The <b>premium</b> is the price of the option. It is shown per 1 coin, for example per 1 ETH. You pay it up front.</p>
+    ${hsv("0 0 320 100", `<rect class="hp-box" x="12" y="22" width="92" height="52" rx="10"/><text class="hp-t hp-b" x="58" y="44" text-anchor="middle">You pay</text><text class="hp-t" x="58" y="62" text-anchor="middle">premium</text><path class="hp-ar" d="M110 48h44"/><path class="hp-ah" d="M154 48l-7-5v10z"/><rect class="hp-box" x="162" y="22" width="146" height="52" rx="10"/><text class="hp-t hp-b" x="235" y="44" text-anchor="middle">Max loss = premium</text><text class="hp-t" x="235" y="62" text-anchor="middle">No margin calls</text>`, "Premium equals maximum loss")}
+    <p><b>Your total cost</b> = premium per coin x quantity. That total is the most you can ever lose. A longer expiry or a closer strike makes the premium higher.</p>`],
+  prob: ["Probability (about)", () => `<p><b>Probability</b> is a rough estimate of how likely the option is to finish in profit at expiry, based on the current price, time left and volatility.</p>
+    ${hsv("0 0 320 110", `<path class="hp-fill" d="M196 94 C206 92 216 84 226 70 C236 56 248 94 262 94Z" /><path class="hp-curve" d="M10 94 C60 94 90 92 112 78 C134 60 146 18 160 18 C174 18 186 60 208 78 C230 92 260 94 310 94"/><line class="hp-ln" x1="8" y1="94" x2="312" y2="94"/><line class="hp-dash" x1="196" y1="10" x2="196" y2="94"/><text class="hp-t hp-b" x="196" y="106" text-anchor="middle">Strike</text><text class="hp-t" x="160" y="106" text-anchor="middle">Now</text><text class="hp-t hp-up" x="252" y="60" text-anchor="middle">Win area</text>`, "Probability distribution with the win area beyond the strike")}
+    <p>Example: <b>40%</b> means about 4 out of 10 similar options would win. Higher probability costs more. Lower probability costs less but pays more when it works. It is an estimate, not a guarantee.</p>`],
+  atm: ["ATM (at the money)", () => `<p><b>ATM</b> means the strike is the closest round price to the current market price. It is the middle point.</p>
+    ${hsv("0 0 320 110", `<line class="hp-ln" x1="20" y1="60" x2="300" y2="60"/>${[60,110,160,210,260].map((x, i) => `<line class="hp-tk" x1="${x}" y1="52" x2="${x}" y2="68"/><text class="hp-t" x="${x}" y="84" text-anchor="middle">${["-2","-1","ATM","+1","+2"][i]}</text>`).join("")}<circle class="hp-dot" cx="160" cy="60" r="6"/><text class="hp-t hp-b" x="160" y="40" text-anchor="middle">Price is here</text>`, "Strikes around the price, ATM in the middle")}
+    <p>ATM options have roughly a 50% chance of finishing in profit. Strikes further from the price are cheaper but less likely to win.</p>`],
+  steps: ["Strike steps", () => `<p>Strikes are spaced at fixed gaps called <b>steps</b>. <b>+1 step</b> means one gap further from the current price, <b>+3 steps</b> means three gaps.</p>
+    ${hsv("0 0 320 100", `<line class="hp-ln" x1="14" y1="58" x2="306" y2="58"/>${[40,110,180,250].map((x, i) => `<circle class="${i === 0 ? "hp-dot" : "hp-dot2"}" cx="${x}" cy="58" r="${i ? 5 : 6}"/><text class="hp-t ${i ? "" : "hp-b"}" x="${x}" y="82" text-anchor="middle">${["ATM","+1","+2","+3"][i]}</text>`).join("")}<path class="hp-ar" d="M40 38h70M110 38h70M180 38h70"/><text class="hp-t" x="75" y="30" text-anchor="middle">1 step</text>`, "Strike steps from ATM")}
+    <p>For Call (UP) steps go above the price. For Put (DOWN) they go below. More steps means a cheaper option with a lower chance, but a bigger potential reward.</p>`],
+  expiry: ["Expiry", () => `<p><b>Expiry</b> is the moment your option ends and is settled. Pick from 15 minutes up to a week. The timer under each button shows the time left.</p>
+    ${hsv("0 0 320 90", `<line class="hp-ln" x1="20" y1="46" x2="300" y2="46"/><circle class="hp-dot" cx="30" cy="46" r="6"/><text class="hp-t hp-b" x="30" y="72" text-anchor="middle">Buy now</text><circle class="hp-dot3" cx="290" cy="46" r="6"/><text class="hp-t hp-b" x="290" y="72" text-anchor="middle">Expiry</text><text class="hp-t" x="160" y="34" text-anchor="middle">price moves in between</text>`, "Timeline from buy to expiry")}
+    <p>At expiry the price is compared with your strike and you are paid automatically in USDT. You can also sell earlier at the current value.</p>`],
+  callput: ["Call and Put", () => `<p>Choose what you expect the price to do.</p>
+    ${hsv("0 0 320 96", `<rect class="hp-up-b" x="10" y="10" width="146" height="76" rx="12"/><path class="hp-arup" d="M83 66V32M70 44l13-13 13 13"/><text class="hp-t hp-b hp-up" x="83" y="80" text-anchor="middle">Call = UP</text><rect class="hp-dn-b" x="164" y="10" width="146" height="76" rx="12"/><path class="hp-ardn" d="M237 28v34M224 50l13 13 13-13"/><text class="hp-t hp-b hp-dn" x="237" y="80" text-anchor="middle">Put = DOWN</text>`, "Call means up, put means down")}
+    <p><b>Call</b>: you profit if the price ends above the strike. <b>Put</b>: you profit if the price ends below it. Either way, you cannot lose more than the premium.</p>`],
+  chips: ["Distance from the price", () => `<p>These chips pick a strike by <b>percentage distance</b> from the current price instead of by step.</p>
+    ${hsv("0 0 320 100", `<line class="hp-ln" x1="14" y1="60" x2="306" y2="60"/><circle class="hp-dot" cx="60" cy="60" r="6"/><text class="hp-t hp-b" x="60" y="82" text-anchor="middle">Price</text><path class="hp-ar" d="M66 40h160"/><path class="hp-ah" d="M232 40l-7-5v10z"/><line class="hp-dash" x1="232" y1="30" x2="232" y2="66"/><text class="hp-t hp-b" x="232" y="82" text-anchor="middle">Strike +2%</text><text class="hp-t" x="150" y="32" text-anchor="middle">2% away</text>`, "Strike two percent away from the price")}
+    <p>The small <b>≈ %</b> under each chip is the estimated probability of finishing in profit. A bigger distance costs less but is less likely to win.</p>`],
+  amount: ["Amount and quick trade", () => `<p>Type the amount in USDT, or drag the slider from 0% to 100% of your Options wallet. Then tap <b>Up</b> or <b>Down</b> to buy with the expiry and strike currently selected.</p><p>The amount you enter is your <b>maximum loss</b>. The quantity of coins bought is worked out from it automatically.</p>`]
+};
+const helpOpen = k => { const h = HELP[k]; if (h) UI.help(h[0], h[1]()); };
+
 /* ---------- page ---------- */
 Pages.options = (params) => {
   let base = String(params[0] || sessionStorage.getItem("lastSym_options") || "BTC").toUpperCase().replace(/USDT$/, "");
@@ -112,7 +148,7 @@ Pages.options = (params) => {
   const $ = q => root.querySelector(q), s = () => store.s;
 
   const html = `
-  <div class="tabs" style="gap:20px;margin:0 -16px;padding:4px 16px 0;border:0"><a class="tab" href="#/futures/BTCUSDT" style="font-size:17px">USDⓈ-M</a><a class="tab" href="#/spot/BTCUSDT" style="font-size:17px">Spot</a><a class="tab" href="#/trade/BTCUSDT" style="font-size:17px">Binary</a><a class="tab tab-hot" href="#/predict" style="font-size:17px">Prediction</a><a class="tab tab-hot" href="#/racer" style="font-size:17px">Money Racer</a><button class="tab on" style="font-size:17px">Options</button><a class="tab" href="#/copy" style="font-size:17px">Copy</a><a class="tab" href="#/bots" style="font-size:17px">Bots</a></div>
+  <div class="tabs" style="gap:20px;margin:0 -16px;padding:4px 16px 0;border:0"><a class="tab" href="#/futures/BTCUSDT" style="font-size:17px">USDⓈ-M</a><a class="tab" href="#/spot/BTCUSDT" style="font-size:17px">Spot</a><a class="tab" href="#/trade/BTCUSDT" style="font-size:17px">Binary</a><a class="tab tab-hot" href="#/predict" style="font-size:17px">Prediction</a><a class="tab tab-hot" href="#/racer" style="font-size:17px">Money Game</a><button class="tab on" style="font-size:17px">Options</button><a class="tab" href="#/copy" style="font-size:17px">Copy</a><a class="tab" href="#/bots" style="font-size:17px">Bots</a></div>
   <div class="op-top"><div class="seg op-mode" id="opMode"><button data-mode="simple">Simple</button><button data-mode="pro">Pro</button></div><button class="op-help" id="opHelp" aria-label="How options work">${ic("info",16)}<span>How it works</span></button></div>
   <header class="fx-head" id="opHead"><div class="grow"><button class="nm" data-pick aria-label="Choose underlying">${P(base) ? UI.pairIcon(P(base), 24) : ""}<span>${base}</span><span class="perp">Options</span>${ic("chevd",16)}</button></div>
     <div class="op-hpx"><b class="num" id="opLp">--</b><span class="num" id="opChg"></span></div></header>
@@ -228,16 +264,23 @@ Pages.options = (params) => {
         <span class="op-und-spark" id="sSpark"></span>
         <span class="op-und-r"><b class="num" id="sPx">--</b><span class="num" id="sChg"></span></span></button>
       <div id="opChSlot"></div>
+      <div class="op-q" id="opQ">
+        <div class="op-q-t"><b>Quick trade</b>${hq("amount")}<span class="op-q-i">Expiry <b id="qE"></b> · Avbl <b class="num" id="qBal"></b></span></div>
+        <div class="op-q-r"><div class="famt op-qf" id="qF"><input id="qAmt" type="text" inputmode="decimal" autocomplete="off" aria-label="Amount in USDT" placeholder="Amount"><span>USDT</span></div></div>
+        <div class="op-q-s"><input type="range" id="qRng" min="0" max="100" step="1" value="0" aria-label="Share of Options wallet"><b class="num" id="qPct">0%</b></div>
+        <div class="op-q-b"><button class="btn btn-up" data-qside="call" type="button"><span>Up</span><small class="num" id="qKc"></small></button><button class="btn btn-down" data-qside="put" type="button"><span>Down</span><small class="num" id="qKp"></small></button></div>
+      </div>
+      <div class="op-sec" style="margin:14px 0 0">Your prediction ${hq("callput")}</div>
       <div class="op-dir" id="sDir">
         <button class="op-up ${side === "call" ? "on" : ""}" data-side="call"><span class="op-dir-i">${ic("up",18,2)}</span><b>Price will go UP</b><small>Buy Call</small></button>
         <button class="op-dn ${side === "put" ? "on" : ""}" data-side="put"><span class="op-dir-i">${ic("down",18,2)}</span><b>Price will go DOWN</b><small>Buy Put</small></button></div>
-      <div class="op-sec">Expiry</div>
+      <div class="op-sec"><span>Expiry ${hq("expiry")}</span></div>
       <div class="op-exps op-sexps" id="sExps"></div>
-      <div class="op-sec">Target price (strike)</div>
+      <div class="op-sec"><span>Target price (strike) ${hq("strike")}</span></div>
       <div class="op-tgts" id="sTgts"></div>
-      <div class="op-sec op-sec2">Or pick a distance from the price <small id="sPdir"></small></div>
+      <div class="op-sec op-sec2"><span>Or pick a distance from the price ${hq("chips")} <small id="sPdir"></small></span></div>
       <div class="op-pcts" id="sPcts"></div><div class="op-tgts" id="sPres"></div>
-      <div class="op-sec">Amount <span class="op-avbl">Avbl <b class="num" id="sBal">${money(store.wb("options"))}</b> USDT <button class="wl-plus" data-wlto="options" aria-label="Transfer in">${ic("plus",13,3)}</button></span></div>
+      <div class="op-sec"><span>Amount ${hq("amount")}</span> <span class="op-avbl">Avbl <b class="num" id="sBal">${money(store.wb("options"))}</b> USDT <button class="wl-plus" data-wlto="options" aria-label="Transfer in">${ic("plus",13,3)}</button></span></div>
       <div class="famt op-amt" id="sF"><input id="sAmt" type="number" inputmode="decimal" min="0" aria-label="Amount in USDT" placeholder="0.00"><span>USDT</span></div>
       <div class="op-amts" id="sAmts">${AMTS.map(a => `<button data-a="${a}">${a}</button>`).join("")}<button data-a="max">Max</button></div>
       <div class="op-qty" id="sQty"></div>
@@ -258,9 +301,22 @@ Pages.options = (params) => {
     const h = HIST[base] || [], sp = $("#sSpark");
     if (sp) sp.innerHTML = h.length >= 2 ? U.spark(h, 90, 34) : `<i class="op-flat"></i>`;
   }
+  const fmtIn = v => v > 0 ? v.toLocaleString("en-US", {maximumFractionDigits: 2}) : "";
+  function qSync(){
+    const q = $("#qAmt"); if (!q) return; const bal = store.wb("options"), cur = amtMax ? bal : amt, S = spotOf(base);
+    if (document.activeElement !== q) q.value = fmtIn(cur);
+    const p = bal > 0 ? Math.max(0, Math.min(100, cur/bal*100)) : 0, r = $("#qRng"); r.value = p; r.style.setProperty("--p", p + "%");
+    $("#qPct").textContent = Math.round(p) + "%"; $("#qBal").textContent = money(bal);
+    $("#qE").textContent = (EXPS.find(x => x[0] === expKey) || [0, expKey])[1];
+    if (S != null){ const sd = side; side = "call"; const kc = selK(S); side = "put"; const kp = selK(S); side = sd; $("#qKc").textContent = "@ " + px(base, kc); $("#qKp").textContent = "@ " + px(base, kp); }
+  }
+  function setAmt(v, max){
+    amtMax = !!max; amt = v; const a = $("#sAmt"); if (a) a.value = max ? "" : (v || ""); const f = $("#qF"); if (f) f.classList.remove("err"); renderSDyn();
+  }
   function renderSDyn(){
     if (mode !== "simple" || !$("#sTgts")) return;
     const S = spotOf(base), isC = side === "call";
+    qSync();
     const go = $("#sGo"); go.className = "btn op-go " + (isC ? "btn-up" : "btn-down"); go.textContent = isC ? "Buy Call" : "Buy Put";
     root.querySelectorAll("#sAmts [data-a]").forEach(b => b.classList.toggle("on", amtMax ? b.dataset.a === "max" : +b.dataset.a === amt));
     if (S == null){ $("#sTgts").innerHTML = UI.emptyState("clock", "Connecting to live prices…"); $("#sSum").innerHTML = ""; $("#sQty").innerHTML = ""; return; }
@@ -275,10 +331,11 @@ Pages.options = (params) => {
       return `<button class="op-pch ${pctSel === p ? "on" : ""}" data-pct="${p}"><b>${isC ? "+" : "-"}${pctLbl(p)}</b><small>≈ ${pr}%</small></button>`; }).join("");
     $("#sPres").innerHTML = pctSel != null ? tgCard(`${pctLbl(pctSel)} ${isC ? "above" : "below"}`, "Your pick", pctK(S, pctSel), true, 'data-pct-card="1"') : "";
     $("#sTgts").innerHTML = ts.map((t, i) => { const g = quote(side, t.K, exp, 1).g;
-      return `<button class="op-tg ${pctSel == null && i === tgt ? "on" : ""}" data-t="${i}"><span class="op-tg-n"><b>${t.nm}</b><small>${t.sub === "ATM" ? "ATM" : t.sub}</small></span>
-        <span class="op-tg-k"><b class="num">${px(base, t.K)}</b><small>Strike</small></span>
-        <span class="op-tg-k"><b class="num">${fp(g.price*SPREAD)}</b><small>Premium / ${base}</small></span>
-        <span class="op-tg-k op-tg-p"><b class="num">${Math.round(Math.abs(g.delta)*100)}%</b><small>Probability ≈</small></span></button>`; }).join("");
+      const h = i === 0;
+      return `<button class="op-tg ${pctSel == null && i === tgt ? "on" : ""}" data-t="${i}"><span class="op-tg-n"><b>${t.nm}</b><small>${t.sub === "ATM" ? "ATM" + (h ? hq("atm") : "") : t.sub + (h && i === 1 ? hq("steps") : "")}</small></span>
+        <span class="op-tg-k"><b class="num">${px(base, t.K)}</b><small>Strike${h ? hq("strike") : ""}</small></span>
+        <span class="op-tg-k"><b class="num">${fp(g.price*SPREAD)}</b><small>Premium / ${base}${h ? hq("premium") : ""}</small></span>
+        <span class="op-tg-k op-tg-p"><b class="num">${Math.round(Math.abs(g.delta)*100)}%</b><small>Probability ≈${h ? hq("prob") : ""}</small></span></button>`; }).join("");
     const d = simpleCalc(); if (!d) return;
     const aEl = $("#sAmt"); if (amtMax && document.activeElement !== aEl) aEl.value = "";
     $("#sBal").textContent = money(d.bal);
@@ -473,13 +530,23 @@ Pages.options = (params) => {
     sm.onclick = e => { const x = e.target;
       if (x.closest("[data-pick2]")) return pickSheet();
       let b;
+      if ((b = x.closest("[data-help]"))){ e.stopPropagation(); return helpOpen(b.dataset.help); }
+      if ((b = x.closest("[data-qside]"))){ side = b.dataset.qside; root.querySelectorAll("#sDir button").forEach(y => y.classList.toggle("on", y.dataset.side === side)); renderSDyn(); return simpleBuy(); }
       if ((b = x.closest("#sDir [data-side]"))){ side = b.dataset.side; root.querySelectorAll("#sDir button").forEach(y => y.classList.toggle("on", y === b)); return renderSDyn(); }
       if ((b = x.closest("[data-exp]"))){ expKey = b.dataset.exp; renderSExps(); return renderSDyn(); }
       if ((b = x.closest("[data-t]"))){ tgt = +b.dataset.t; pctSel = null; return renderSDyn(); }
       if ((b = x.closest("[data-pct]"))){ const v = +b.dataset.pct; pctSel = pctSel === v ? null : v; return renderSDyn(); }
       if ((b = x.closest("#sAmts [data-a]"))){ if (b.dataset.a === "max"){ amtMax = true; } else { amtMax = false; amt = +b.dataset.a; $("#sAmt").value = amt; } $("#sF").classList.remove("err"); return renderSDyn(); }
       if (x.closest("#sGo")) simpleBuy(); };
-    sm.addEventListener("input", e => { if (e.target.id !== "sAmt") return; amtMax = false; amt = parseFloat(e.target.value) || 0; $("#sF").classList.remove("err"); renderSDyn(); });
+    sm.addEventListener("keydown", e => { const h = e.target.closest && e.target.closest("[data-help]"); if (h && (e.key === "Enter" || e.key === " ")){ e.preventDefault(); helpOpen(h.dataset.help); } });
+    sm.addEventListener("input", e => {
+      if (e.target.id === "qAmt"){ const q = e.target, pos = q.selectionStart, digs = q.value.slice(0, pos).replace(/[^\d.]/g, "").length;
+        let raw = q.value.replace(/[^\d.]/g, ""); const dot = raw.indexOf("."); if (dot >= 0) raw = raw.slice(0, dot + 1) + raw.slice(dot + 1).replace(/\./g, "").slice(0, 2);
+        const [ip, dp] = raw.split("."), f = (ip ? (+ip).toLocaleString("en-US") : (dp != null ? "0" : "")) + (dp != null ? "." + dp : "");
+        q.value = f; let n = 0, i = 0; for (; i < f.length && n < digs; i++) if (/[\d.]/.test(f[i])) n++; try { q.setSelectionRange(i, i); } catch {}
+        return setAmt(parseFloat(raw) || 0, false); }
+      if (e.target.id === "qRng"){ const p = +e.target.value, bal = store.wb("options"); if (p >= 100) return setAmt(bal, true); return setAmt(Math.floor(bal*p) / 100, false); }
+      if (e.target.id !== "sAmt") return; amtMax = false; amt = parseFloat(e.target.value) || 0; $("#sF").classList.remove("err"); renderSDyn(); });
     setMode(mode);
     $("#opExps").onclick = e => { const b = e.target.closest("[data-exp]"); if (!b) return; expKey = b.dataset.exp; renderExps(); renderChain(); };
     $("#opSide").onclick = e => { const b = e.target.closest("[data-side]"); if (!b) return; side = b.dataset.side; root.querySelectorAll("#opSide button").forEach(x => x.classList.toggle("on", x === b)); renderChain(); };

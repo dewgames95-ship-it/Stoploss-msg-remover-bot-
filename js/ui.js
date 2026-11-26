@@ -73,15 +73,17 @@ function emptyState(icon, text){ return `<div class="empty">${ic(icon,32,1.5)}<p
 
 /* ---- Global sheets ---- */
 function notifCat(n){
+  if (n.kind === "game" || n.cat === "game") return "game";
+  if (n.kind === "predict" || n.cat === "predict") return "predict";
   const x = (n.title + " " + (n.body || "")).toLowerCase();
   if (/order|trade|position|liquidat|option|spot|copy trading|bot|settled|limit|tp\/sl|funding/.test(x)) return "trade";
   return "system";
 }
 function openNotifs(){
   const s = store.s; s.unread = 0; store.save(); U.bus.emit("notifs");
-  const icn = n => n.kind === "ok" ? "check" : n.kind === "bad" ? "x" : /alert/i.test(n.title) ? "bell" : "info";
+  const icn = n => n.cat === "game" ? "car" : n.cat === "predict" ? "predict" : n.kind === "ok" ? "check" : n.kind === "bad" ? "x" : /alert/i.test(n.title) ? "bell" : "info";
   const rel = ts => { const d = Date.now() - ts; if (d < 60e3) return "Just now"; if (d < 3600e3) return Math.floor(d / 60e3) + "m ago"; if (d < 86400e3) return Math.floor(d / 3600e3) + "h ago"; return U.dateStr(ts); };
-  const TABS = [["all", "All"], ["trade", "Trades"], ["system", "System"]];
+  const TABS = [["all", "All"], ["trade", "Trades"], ["game", "Money Game"], ["predict", "Prediction"], ["system", "System"]];
   let tab = "all";
   const row = n => `<div class="nt-row ${n.read ? "" : "unread"}"><span class="nt-ic ${n.kind || "info"}">${ic(icn(n), 15, 2.2)}</span>
     <div class="nt-bd"><div class="nt-t">${esc(n.title)}</div><div class="nt-s">${esc(n.body || "")}</div></div><div class="nt-tm">${rel(n.t)}${n.read ? "" : `<i class="nt-dot"></i>`}</div></div>`;

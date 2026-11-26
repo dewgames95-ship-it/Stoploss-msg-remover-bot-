@@ -48,6 +48,8 @@ public class MainActivity extends Activity {
 
     WebView web;
     ValueCallback<Uri[]> fileCb;
+    android.webkit.PermissionRequest camReq;   // web page asked for the camera (QR scanner), waiting for the runtime permission
+    int notifId = 100;
     long downloadId = -1;
     boolean errorShown = false;
     long lastCheck = 0;
@@ -93,6 +95,18 @@ public class MainActivity extends Activity {
                 fileCb = cb;
                 try { startActivityForResult(p.createIntent(), 7); } catch (Exception e) { fileCb = null; return false; }
                 return true;
+            }
+            /* camera for the withdraw QR scanner (getUserMedia) */
+            @Override
+            public void onPermissionRequest(final android.webkit.PermissionRequest r) {
+                runOnUiThread(() -> {
+                    boolean cam = false;
+                    for (String x : r.getResources()) if (android.webkit.PermissionRequest.RESOURCE_VIDEO_CAPTURE.equals(x)) cam = true;
+                    if (!cam) { r.deny(); return; }
+                    if (Build.VERSION.SDK_INT < 23 || checkSelfPermission(android.Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                        r.grant(new String[]{android.webkit.PermissionRequest.RESOURCE_VIDEO_CAPTURE});
+                    } else { camReq = r; requestPermissions(new String[]{android.Manifest.permission.CAMERA}, 21); }
+                });
             }
         });
 
@@ -182,6 +196,49 @@ public class MainActivity extends Activity {
                 runOnUiThread(() -> Toast.makeText(MainActivity.this, "Saved to Pictures/NovaTrade", Toast.LENGTH_SHORT).show());
                 return true;
             } catch (Exception e) { return false; }
+        }
+        /** Save any file (CSV/PDF export) to Downloads/NovaTrade: NativeApp.saveFile(b64, "trades.csv", "text/csv") -> true if saved */
+        @JavascriptInterface public boolean saveFile(String b64, String name, String mime) {
+            try {
+                byte[] data = android.util.Base64.decode(b64, android.util.Base64.DEFAULT);
+                String safe = (name == null ? "novatrade.dat" : name).replaceAll("[^A-Za-z0-9._-]", "_");
+                String mt = (mime == null || mime.isEmpty()) ? "application/octet-stream" : mime;
+                if (Build.VERSION.SDK_INT >= 29) {
+                    android.content.ContentValues v = new android.content.ContentValues();
+                    v.put(android.provider.MediaStore.Downloads.DISPLAY_NAME, safe);
+                    v.put(android.provider.MediaStore.Downloads.MIME_TYPE, mt);
+                    v.put(android.provider.MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/NovaTrade");
+                    Uri u = getContentResolver().insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, v);
+                    if (u == null) return false;
+                    try (java.io.OutputStream o = getContentResolver().openOutputStream(u)) { o.write(data); }
+                } else {
+                    java.io.File d = new java.io.File(getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), "NovaTrade"); d.mkdirs();
+                    try (java.io.FileOutputStream o = new java.io.FileOutputStream(new java.io.File(d, safe))) { o.write(data); }
+                }
+                runOnUiThread(() -> Toast.makeText(MainActivity.this, "Saved to Downloads/NovaTrade", Toast.LENGTH_SHORT).show());
+                return true;
+            } catch (Exception e) { return false; }
+        }
+        /** System notification (Money Game / Prediction results): NativeApp.showNotification(title, body, "game"|"predict") */
+        @JavascriptInterface public void showNotification(String title, String body, String cat) {
+            try {
+                android.app.NotificationManager nm = (android.app.NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+                if (nm == null) return;
+                if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                    runOnUiThread(() -> requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, 22));
+                    return;
+                }
+                String ch = "predict".equals(cat) ? "predict" : "game".equals(cat) ? "game" : "general";
+                if (Build.VERSION.SDK_INT >= 26) {
+                    String label = "predict".equals(ch) ? "Prediction" : "game".equals(ch) ? "Money Game" : "General";
+                    nm.createNotificationChannel(new android.app.NotificationChannel(ch, label, android.app.NotificationManager.IMPORTANCE_DEFAULT));
+                }
+                Intent open = new Intent(MainActivity.this, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                android.app.PendingIntent pi = android.app.PendingIntent.getActivity(MainActivity.this, 0, open, android.app.PendingIntent.FLAG_IMMUTABLE | android.app.PendingIntent.FLAG_UPDATE_CURRENT);
+                android.app.Notification.Builder b = Build.VERSION.SDK_INT >= 26 ? new android.app.Notification.Builder(MainActivity.this, ch) : new android.app.Notification.Builder(MainActivity.this);
+                b.setSmallIcon(R.drawable.ic_stat).setContentTitle(title).setContentText(body).setAutoCancel(true).setContentIntent(pi);
+                nm.notify(notifId++, b.build());
+            } catch (Exception ignored) {}
         }
     }
 
@@ -297,8 +354,26 @@ public class MainActivity extends Activity {
     }
 
     @Override
+    public void onRequestPermissionsResult(int req, String[] perms, int[] res) {
+        super.onRequestPermissionsResult(req, perms, res);
+        if (req == 21 && camReq != null) {
+            if (res.length > 0 && res[0] == android.content.pm.PackageManager.PERMISSION_GRANTED) camReq.grant(new String[]{android.webkit.PermissionRequest.RESOURCE_VIDEO_CAPTURE});
+            else camReq.deny();
+            camReq = null;
+        }
+    }
+
+    /* app goes to background: JS keeps running (no web.onPause), but sounds/haptics are muted via this event */
+    @Override
+    protected void onPause() {
+        super.onPause();
+        if (web != null) web.evaluateJavascript("window.__appBg=true;window.dispatchEvent(new Event('native-pause'))", null);
+    }
+
+    @Override
     protected void onResume() {
         super.onResume();
+        if (web != null) web.evaluateJavascript("window.__appBg=false;window.dispatchEvent(new Event('native-resume'))", null);
         if (errorShown && online()) { errorShown = false; web.loadUrl(SITE); }
         // re-check for a new APK when the app comes back from background (at most every 30 min)
         if (lastCheck > 0 && System.currentTimeMillis() - lastCheck > 10 * 60 * 1000L) checkForUpdate(false);

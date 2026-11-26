@@ -1,8 +1,8 @@
 /* ===== Wallets: Binance-style Transfer sheet + insufficient-balance helper (v6.3) ===== */
 (function(){
 const {esc, ic, store, money, toast} = U;
-const NAMES = {spot:"Spot", funding:"Funding", futures:"Futures", binary:"Binary", options:"Options", earn:"Earn", games:"Money Racer", predict:"Prediction"};
-const LONG = {spot:"Spot Wallet", funding:"Funding Wallet", futures:"Futures", binary:"Binary", options:"Options", earn:"Earn", games:"Money Racer", predict:"Prediction"};
+const NAMES = {spot:"Spot", funding:"Funding", futures:"Futures", binary:"Binary", options:"Options", earn:"Earn", games:"Money Game", predict:"Prediction"};
+const LONG = {spot:"Spot Wallet", funding:"Funding Wallet", futures:"Futures", binary:"Binary", options:"Options", earn:"Earn", games:"Money Game", predict:"Prediction"};
 const ORDER = ["spot","funding","futures","binary","options","earn","games","predict"];
 const nm = k => NAMES[k] || k;
 const floor2 = v => Math.floor((v + 1e-9) * 100) / 100;
