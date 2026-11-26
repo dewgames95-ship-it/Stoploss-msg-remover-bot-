@@ -2,7 +2,20 @@
 (function(){
 if (!window.U || !window.Pages || !window.Auth) return;
 const {esc, store, toast} = U;
-const A = window.Auth, S = () => store.s;
+const A = window.Auth;
+/* Demo / Real data views: the live store is the current account mode; the other mode is read from its localStorage store (read-only) */
+const curMode = () => (window.ACCT ? ACCT.mode() : "demo");
+let VIEW = (() => { try { return sessionStorage.getItem("nt_admview") || curMode(); } catch { return curMode(); } })();
+const setView = v => { VIEW = v; try { sessionStorage.setItem("nt_admview", v); } catch {} };
+const live = () => VIEW === curMode();
+const dkey = n => n + (VIEW === "real" ? "_real" : "");
+let _oc = null;
+const S = () => {
+  if (live()) return store.s;
+  const k = VIEW === "real" ? "novatrade_real_v1" : "novatrade_v1";
+  if (!_oc || _oc.k !== k || Date.now() - _oc.t > 1500){ let o = {}; try { o = JSON.parse(localStorage.getItem(k) || "{}") || {}; } catch {} _oc = {k, t:Date.now(), o:Object.assign({wallets:{}, tx:[], history:[], positions:[], fut:{positions:[], history:[]}}, o)}; }
+  return _oc.o;
+};
 const KMODE = "nt_adminmode";
 const rd = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k)); return v == null ? d : v; } catch { return d; } };
 const getMode = () => { try { return localStorage.getItem(KMODE) || "admin"; } catch { return "admin"; } };
@@ -38,8 +51,8 @@ const P = {
 const I = (n, s = 20) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[n] || ""}</svg>`;
 
 /* ---------- data helpers ---------- */
-const racerD = () => { const d = rd("nt_racer", null) || {}; return {bets:Array.isArray(d.bets) ? d.bets : [], races:Array.isArray(d.races) ? d.races : [], tx:Array.isArray(d.tx) ? d.tx : []}; };
-const predD = () => { const d = rd("nt_predict", null) || {}; const a = k => Array.isArray(d[k]) ? d[k] : []; return {orders:a("orders"), positions:a("positions"), history:a("history"), perps:a("perps")}; };
+const racerD = () => { const d = rd(dkey("nt_racer"), null) || {}; return {bets:Array.isArray(d.bets) ? d.bets : [], races:Array.isArray(d.races) ? d.races : [], tx:Array.isArray(d.tx) ? d.tx : []}; };
+const predD = () => { const d = rd(dkey("nt_predict"), null) || {}; const a = k => Array.isArray(d[k]) ? d[k] : []; return {orders:a("orders"), positions:a("positions"), history:a("history"), perps:a("perps")}; };
 const amt = o => +(o && (o.amount ?? o.size ?? o.cost ?? o.margin ?? o.stake)) || 0;
 function racerStats(){
   const d = racerD(), real = d.bets.filter(b => b.mode === "real"), all = d.bets;
@@ -82,6 +95,7 @@ function drawNav(sec){
 }
 function toApp(){ setMode("app"); location.hash = "#/home"; }
 function toAdmin(){ setMode("admin"); location.hash = "#/admin"; }
+const modeBar = () => `<div class="a2-mode"><span>You are in the <b>${curMode() === "real" ? "Real" : "Demo"}</b> account. Viewing data:</span><div class="a2-mseg"><button data-view="demo" class="${VIEW === "demo" ? "on" : ""}">Demo</button><button data-view="real" class="${VIEW === "real" ? "on" : ""}">Real</button></div></div>`;
 const head = (title, back) => `<header class="a2-top">${back ? `<a class="a2-bk" href="${back}" aria-label="Back">${I("back", 20)}</a>` : `<span class="a2-logo">${I("shield", 20)}</span>`}<div class="a2-ttl"><b>${esc(title)}</b><small>NovaTrade Admin</small></div><span class="a2-badge">ADMIN</span><button class="a2-sw" data-toapp aria-label="Switch to app">${I("swap", 16)}<span>App</span></button></header>`;
 const kpi = (l, v, ic, tone, href) => `<${href ? "a href=\"" + href + "\"" : "div"} class="a2-k ${tone || ""}"><span class="a2-ki">${I(ic, 18)}</span><b class="num">${v}</b><small>${l}</small></${href ? "a" : "div"}>`;
 const card = (h, body, extra) => `<section class="a2-card"><h2>${h}${extra ? `<span class="a2-x">${extra}</span>` : ""}</h2>${body}</section>`;
@@ -144,7 +158,7 @@ V.user = id => {
   const html = `<div class="a2-card a2-ud"><span class="a2-av big">${esc((u.name || "?")[0].toUpperCase())}</span><div><b>${esc(u.name)}</b><small>${esc(u.email)}</small></div><span class="a2-role ${esc(u.role)}">${esc(u.role)}</span></div>
     ${card("Account", kv("Joined", dstr(u.createdAt)) + kv("Referral used", esc(u.ref || "None")) + kv("Status", `<span class="${u.blocked ? "down" : "up"}">${u.blocked ? "Blocked" : "Active"}</span>`) +
       `<label class="a2-f" style="margin-top:8px"><span>KYC status</span><select id="a2kyc"><option value="verified">Verified</option><option value="pending">Pending</option><option value="rejected">Rejected</option></select></label>`)}
-    ${card("Wallets (this device)", Object.keys(w).map(k2 => kv(`<span style="text-transform:capitalize">${esc(k2)}</span>`, `<span class="num">${n2(w[k2])} USDT</span>`)).join("") +
+    ${card("Wallets (${VIEW} account, this device)", Object.keys(w).map(k2 => kv(`<span style="text-transform:capitalize">${esc(k2)}</span>`, `<span class="num">${n2(w[k2])} USDT</span>`)).join("") +
       `<div class="a2-adj"><select id="a2w" aria-label="Wallet">${Object.keys(w).map(k2 => `<option value="${k2}">${k2}</option>`).join("")}</select><input id="a2am" type="number" min="0" step="any" inputmode="decimal" placeholder="Amount" aria-label="Amount"></div><div class="a2-btns"><button class="a2-b pri" data-cr>Credit</button><button class="a2-b" data-db>Debit</button></div>
        <p class="a2-hint">Balances are stored per device in this demo; adjustments apply to this device.</p>`)}
     ${card("Login history", lg.length ? lg.map(l => `<div class="a2-ac"><span class="a2-ai">${I("users", 16)}</span><div><b>${esc(l.dev || "Browser")}</b><small>${esc(l.how || "Password")}</small></div><em>${tstr(l.t)}</em></div>`).join("") : empty("No logins recorded."))}
@@ -152,11 +166,11 @@ V.user = id => {
   return {title:"User", back:"#/admin/users", html, mount(r){
     const q = x => r.querySelector(x), sv = fn => { const l = A.accounts(), x = l.find(z => z.id === id); fn(x); A.saveAccounts(l); };
     q("#a2kyc").value = kyc; q("#a2kyc").onchange = e => { sv(x => x.kyc = e.target.value); toast("KYC updated", "ok"); };
-    const adj = sign => { const v = parseFloat(q("#a2am").value); if (!(v > 0)) return toast("Enter an amount", "bad"); const k2 = q("#a2w").value; if (sign < 0 && v > store.wb(k2)) return toast("Amount exceeds wallet balance", "bad"); store.addWallet(k2, sign * v, "admin"); store.save(); toast(`${sign > 0 ? "Credited" : "Debited"} ${n2(v)} USDT`, "ok"); App.route(); };
+    const adj = sign => { if (!live()) return toast("Switch to the " + VIEW + " account to change its balances", "bad"); const v = parseFloat(q("#a2am").value); if (!(v > 0)) return toast("Enter an amount", "bad"); const k2 = q("#a2w").value; if (sign < 0 && v > store.wb(k2)) return toast("Amount exceeds wallet balance", "bad"); store.addWallet(k2, sign * v, "admin"); store.save(); toast(`${sign > 0 ? "Credited" : "Debited"} ${n2(v)} USDT`, "ok"); App.route(); };
     q("[data-cr]").onclick = () => adj(1); q("[data-db]").onclick = () => adj(-1);
     const b = q("[data-blk]"); if (b) b.onclick = () => { sv(x => x.blocked = !x.blocked); toast("Status updated", "ok"); App.route(); };
     q("[data-pw]").onclick = async () => { if (!await U.confirmBox("Reset password?", "The password becomes Temp1234 for this user.", "Reset", true)) return; const h = await A.hash(u.email, "Temp1234"); sv(x => x.passHash = h); toast("Password reset to Temp1234", "ok"); };
-    q("[data-rst]").onclick = async () => { if (await U.confirmBox("Reset demo balance?", "Wallets, positions and history on this device are reset.", "Reset", true)){ store.reset(); toast("Demo balance reset", "ok"); App.route(); } };
+    q("[data-rst]").onclick = async () => { if (!live()) return toast("Switch to the " + VIEW + " account first", "bad"); if (await U.confirmBox("Reset demo balance?", "Wallets, positions and history on this device are reset.", "Reset", true)){ store.reset(); toast("Demo balance reset", "ok"); App.route(); } };
   }};
 };
 
@@ -225,16 +239,18 @@ V.finance = () => {
     ${card("Pending withdrawals", pend.length ? pend.map(x => `<div class="a2-pw"><div class="a2-ac"><span class="a2-ai dn">${I("out", 16)}</span><div><b>${n2(x.amount)} ${esc(x.coin || "USDT")}</b><small>${esc(x.method || "")} · ${tstr(x.t)}</small></div></div><div class="a2-btns"><button class="a2-b pri" data-ap="${esc(x.id)}">Approve</button><button class="a2-b dng" data-rj="${esc(x.id)}">Reject</button></div></div>`).join("") : empty("No pending withdrawals."))}
     ${card("Deposits and withdrawals", tx.length ? tx.slice(0, 30).map(item).join("") : empty("No deposits or withdrawals yet."))}`;
   return {title:"Finance", html, mount(r){
-    const set = (id, st) => { const x = (S().tx || []).find(z => z.id === id); if (!x) return; x.status = st; if (st === "Rejected") store.addWallet("funding", +x.amount || 0, "refund"); store.save(); toast(`Withdrawal ${st.toLowerCase()}`, "ok"); App.route(); };
+    const set = (id, st) => { if (!live()) return toast("Switch to the " + VIEW + " account to change it", "bad"); const x = (S().tx || []).find(z => z.id === id); if (!x) return; x.status = st; if (st === "Rejected") store.addWallet("funding", +x.amount || 0, "refund"); store.save(); toast(`Withdrawal ${st.toLowerCase()}`, "ok"); App.route(); };
     r.querySelectorAll("[data-ap]").forEach(b => b.onclick = () => set(b.dataset.ap, "Completed"));
     r.querySelectorAll("[data-rj]").forEach(b => b.onclick = () => set(b.dataset.rj, "Rejected"));
   }};
 };
 
+const API_ST = () => { const u = window.CONFIG && CONFIG.API_URL; return u ? esc(u) : "Local (device only)"; };
 V.settings = () => {
   const a = A.adminSettings(), maint = !!(a.banner || "").trim();
   const html = `${card("Content", field("Banner text", "a2ban", a.banner, {type:"text", max:140, ph:"Shown at the top of the app"}) + tog("a2mt", maint, "Maintenance mode", "Shows a maintenance banner to all users") + `<button class="a2-b pri" id="a2sv">Save content</button>`)}
     ${card("Announcement", field("Message", "a2an", "", {type:"text", max:200, ph:"Sent to every user's notifications"}) + `<button class="a2-b" id="a2sd">Send announcement</button>${a.announce ? `<p class="a2-hint">Last: ${esc(a.announce)}</p>` : ""}`)}
+    ${card("Backend", kv("API", API_ST()) + kv("Account mode", curMode() === "real" ? "Real" : "Demo") + kv("Mode of stored data", "Demo and Real stores both on this device") + `<p class="a2-hint">Set CONFIG.API_URL to route Real account actions to the server.</p>`)}
     ${card("App", kv("Version", esc((window.CONFIG && CONFIG.APP_VERSION) || "6.8")) + kv("Signed in as", esc(A.me()?.email || "admin")) + kv("Settings updated", a.updated ? tstr(a.updated) : "Never") + `<div class="a2-btns col"><button class="a2-b pri" data-toapp>${I("swap", 16)} Switch to app</button><button class="a2-b dng" data-nt-logout>${I("out", 16)} Log out</button></div>`)}`;
   return {title:"Settings", html, mount(r){
     const q = x => r.querySelector(x);
@@ -250,10 +266,11 @@ Pages.admin = (p = []) => {
   if (!ok()){ setTimeout(() => { location.hash = "#/home"; }, 0); return {html:"", title:"Admin"}; }
   const [a, b] = p;
   const sc = a === "users" ? V.users() : a === "user" ? V.user(b) : a === "trading" ? V.trading() : a === "games" ? V.games() : a === "predict" ? V.predict() : a === "finance" ? V.finance() : a === "settings" ? V.settings() : V.dash();
-  const html = `<div class="a2">${head(sc.title, sc.back)}<div class="a2-body">${sc.html}</div></div>`;
+  const html = `<div class="a2">${head(sc.title, sc.back)}${modeBar()}<div class="a2-body">${sc.html}</div></div>`;
   return {html, title:"Admin · " + sc.title, mount(r){
     setAdminBody(true); setMode("admin"); drawNav(secOf(p));
     document.getElementById("ntBanner")?.remove();
+    r.querySelectorAll("[data-view]").forEach(x => x.onclick = () => { setView(x.dataset.view); _oc = null; App.route(); });
     r.querySelectorAll("[data-toapp]").forEach(x => x.onclick = toApp);
     sc.mount && sc.mount(r);
   }, unmount(){ setAdminBody(false); }};

@@ -515,13 +515,17 @@ function overlay(){
   const used = [];
   if (bin) s.positions.filter(x => x.sym === sym).forEach(pos => {
     let yy = S.main.priceToCoordinate(pos.entry); if (yy == null) return;
-    while (used.some(u => Math.abs(u - yy) < 20)) yy += 20; used.push(yy);
-    const {win, pnl} = E.livePnl(pos), lft = (pos.exp - now) / 1000;
-    const xs = timeToX(pos.open/1000), xe = timeToX(pos.exp/1000);
-    if (xs != null && xs > 0 && xs < axisX) h += `<div class="start-line" style="left:${xs}px"></div>`;
+    while (used.some(u => Math.abs(u - yy) < 56)) yy += 56; used.push(yy);
+    const {win, pnl} = E.livePnl(pos), lft = (pos.exp - now) / 1000, lineM = tf === "tick" || type === "line";
+    // exact candle where the trade was placed: x = centre of that candle, y = the entry price
+    const bi = lineM ? -1 : barAt(Math.floor(pos.open / 1000)), xs = bi >= 0 ? chart.timeScale().logicalToCoordinate(bi) : timeToX(pos.open / 1000), xe = timeToX(pos.exp / 1000);
+    const cls = win == null ? "n" : win ? "g" : "r", ye0 = S.main.priceToCoordinate(pos.entry);
+    if (xs != null && xs > 0 && xs < axisX){ h += `<div class="start-line" style="left:${xs}px"></div>`; if (ye0 != null) h += `<div class="bin-dot ${cls}" style="left:${xs}px;top:${ye0}px"></div>`; }
     if (xe != null){ const x = Math.min(Math.max(xe, 30), axisX - 4); h += `<div class="exp-line" style="left:${x}px"><span style="top:${4 + (used.length-1)*18}px">⏱ ${mmss(lft)}</span></div>`; }
-    // left-aligned tag so it never collides with the live price box on the right axis; the timer lives on the expiry line
-    h += `<div class="plab bin-pl ${win == null ? "n" : win ? "g" : "r"}" style="top:${yy}px;left:6px"><span>${pos.dir === "up" ? "▲ Up" : "▼ Down"} ${money(pos.amount)}</span><span>${signed(win == null ? 0 : pnl)}</span></div>`;
+    // trade window next to that candle (never over the live price box): row 1 direction + stake + entry, row 2 Win/Loss + amount, row 3 timer
+    const onL = xs != null && xs > axisX * 0.55, ax = xs != null && xs > 0 && xs < axisX ? (onL ? xs - 10 : xs + 10) : 6;
+    const tleft = lft < 60 ? Math.max(0, Math.ceil(lft)) + "s" : mmss(lft);
+    h += `<div class="plab bin-pl ${cls}" style="top:${yy}px;left:${ax}px${onL ? ";transform:translate(-100%,-50%)" : ""}"><span>${pos.dir === "up" ? "▲ Up" : "▼ Down"} ${money(pos.amount)}</span><span>${M.fmtPx(p, pos.entry)}</span><b class="bp-l bp-w">${win == null ? "Even" : win ? "Win" : "Loss"} ${signed(win == null ? 0 : pnl)} USDT</b><b class="bp-l bp-t">⏱ ${tleft}</b></div>`;
   });
   // SuperTrend BUY / SELL signals (closed candles only): rounded label + pointer exactly at the candle
   if (S.st && stSigs.length && !(tf === "tick" || type === "line")){

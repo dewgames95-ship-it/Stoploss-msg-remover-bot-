@@ -83,3 +83,8 @@ body.adm-mode .au-banner{display:none}
 .a2-swrow{color:var(--a2)}
 .pf-row.a2-swrow .pf-n{color:var(--a2);font-weight:600}
 @media (min-width:600px){.a2-kpis{grid-template-columns:repeat(4,minmax(0,1fr))}.a2-k.wide{grid-column:span 2}}
+.a2-mode{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 16px;background:var(--a2-soft);font-size:12px;color:var(--text-2)}
+.a2-mode b{color:var(--a2)}
+.a2-mseg{display:flex;gap:2px;padding:2px;background:var(--card);border-radius:7px;flex:none}
+.a2-mseg button{padding:5px 12px;border-radius:5px;font-size:12px;font-weight:600;color:var(--text-2)}
+.a2-mseg button.on{background:var(--a2);color:#fff}
