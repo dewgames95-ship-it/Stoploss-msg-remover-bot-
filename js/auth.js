@@ -34,8 +34,10 @@ const isAdmin = () => me()?.role === "admin";
 const bypass = () => navigator.webdriver && !localStorage.getItem("nt_authtest");
 
 /* ---------- admin settings (canonical in localStorage, mirrored to U.store.s.admin) ---------- */
-const defAdmin = () => ({maxBet:5000, payout:{crypto:null, forex:null, stocks:null}, banner:"", announce:"", updated:0});
-function adm(){ return Object.assign(defAdmin(), rd(KM, {}), {}); }
+const defRacer = () => ({enabled:true, minBet:1, maxBet:1000, odds2:1.9, odds3:2.5, playerWinPct:null});
+const defPredict = () => ({enabled:true, maxBet:5000, feePct:0, perpMaxLev:10});
+const defAdmin = () => ({maxBet:5000, payout:{crypto:null, forex:null, stocks:null}, banner:"", announce:"", updated:0, racer:defRacer(), predict:defPredict()});
+function adm(){ const st = rd(KM, {}), a = Object.assign(defAdmin(), st); a.racer = Object.assign(defRacer(), st.racer || {}); a.predict = Object.assign(defPredict(), st.predict || {}); a.payout = Object.assign({crypto:null, forex:null, stocks:null}, st.payout || {}); return a; }
 function saveAdm(a){ a.updated = Date.now(); wr(KM, a); S().admin = a; store.save(); bus.emit("admin"); banner(); }
 function mirror(){ S().admin = adm(); }
 
@@ -257,5 +259,5 @@ function userSheet(id){
     const b = el.querySelector("[data-blk]"); if (b) b.onclick = () => { const l = accounts(), x = l.find(z => z.id === id); x.blocked = !x.blocked; saveAcc(l); toast(x.blocked ? "User blocked" : "User unblocked", "ok"); U.closeLayer(); setTimeout(() => App.route(), 320); };
   });
 }
-window.Auth = {logins, devName, me, isAdmin, logout, accounts, adminSettings: adm};
+window.Auth = {logins, devName, me, isAdmin, logout, accounts, adminSettings: adm, saveAdmin: saveAdm, saveAccounts: saveAcc, hash, bypass, banner};
 })();

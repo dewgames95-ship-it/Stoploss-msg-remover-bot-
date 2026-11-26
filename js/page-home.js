@@ -134,11 +134,11 @@ function bindChips(root, ml){
 /* ---------- Home ---------- */
 const SHORT = [
   ["Copy Trading","users","#/copy"],["Rewards Hub","gift","#/rewards"],["Futures","layers","#/futures"],["Spot","chart","#/spot"],["Options","target","#/options"],
-  ["Trading Bots","bot","#/bots"],["Earn","earn","#/earn"],["Referral","share","#/referral"],["Academy","book","#/academy"]
+  ["Trading Bots","bot","#/bots"],["Earn","earn","#/earn"],["Money Racer","car","#/racer"],["Prediction","predict","#/predict"]
 ];
 /* "More" sheet: every shortcut, grouped (Binance style) */
 const ALLSC = [
-  ["Trade", [["Markets","chart","#/markets"],["Futures","layers","#/futures"],["Spot","swap","#/spot"],["Binary","clock","#/trade"],["Options","target","#/options"],["Copy Trading","users","#/copy"],["Trading Bots","bot","#/bots"],["Auto Trading","auto","#/auto"]]],
+  ["Trade", [["Markets","chart","#/markets"],["Futures","layers","#/futures"],["Spot","swap","#/spot"],["Binary","clock","#/trade"],["Prediction","predict","#/predict"],["Money Racer","car","#/racer"],["Options","target","#/options"],["Copy Trading","users","#/copy"],["Trading Bots","bot","#/bots"],["Auto Trading","auto","#/auto"]]],
   ["Funds", [["Assets","wallet","#/assets"],["Deposit","down","#/deposit"],["Withdraw","up","#/withdraw"],["Earn","earn","#/earn"],["PnL Analysis","pie","#/pnl"],["Trade History","history","#/history"]]],
   ["Rewards & Tools", [["Rewards Hub","trophy","#/rewards"],["Referral","share","#/referral"],["VIP Signals","crown","#/vip"],["Price Alerts","ring","#/alerts"],["Academy","book","#/academy"],["Vouchers","gift","#/rewards"]]],
   ["Account", [["Profile","users","#/profile"],["Security","shield","#/security"],["Settings","gear","#/settings"],["Support","headset","#/support"],["Community","chat","#/community"],["About","info","#/about"]]]
@@ -222,7 +222,7 @@ Pages.home = () => {
     </div>
     <a class="hm-dep" href="#/deposit">Deposit</a>
   </section>
-  <nav class="hm-sc" aria-label="Shortcuts">${SHORT.map(([n,i,h]) => `<a href="${h}">${ic(i,22,1.7)}<span>${esc(n)}</span></a>`).join("")}<button type="button" class="hm-scm" data-scmore aria-label="More shortcuts">${ic("grid",22,1.7)}<span>More</span></button></nav>
+  <nav class="hm-sc" aria-label="Shortcuts">${SHORT.map(([n,i,h]) => `<a href="${h}"${/racer|predict/.test(h) ? ' class="hm-hot"' : ""}>${ic(i,22,1.7)}<span>${esc(n)}</span></a>`).join("")}<button type="button" class="hm-scm" data-scmore aria-label="More shortcuts">${ic("grid",22,1.7)}<span>More</span></button></nav>
   <section class="hm-ban" aria-label="Featured"><div class="hm-bs" id="bs">${SLIDES.map(([h,p,l,a]) => `<a class="hm-sl" href="${l}"><div class="g"><h3>${esc(h)}</h3><p>${esc(p)}</p></div>${art(a)}</a>`).join("")}</div><span class="hm-cnt" id="cnt">1/${SLIDES.length}</span></section>
   <section aria-label="Markets">${chipsHtml()}<div id="mlist"></div></section>
   <section class="hm-sec" id="cpsec" aria-label="Copy Trading"></section>
@@ -231,7 +231,7 @@ Pages.home = () => {
 
   function renderBal(){
     const b = document.getElementById("bal"); if (!b) return;
-    const hide = s.settings.hideBal, total = s.balance + E.earnValue() + s.fut.positions.reduce((a,p) => a + p.margin + E.futPnl(p).pnl, 0) + s.positions.reduce((a,p) => a + p.amount, 0);
+    const hide = s.settings.hideBal, total = s.balance + E.earnValue() + s.fut.positions.reduce((a,p) => a + p.margin + E.futPnl(p).pnl, 0) + s.positions.reduce((a,p) => a + p.amount, 0) + (s.spot?.bots || []).filter(b => b.running).reduce((a, b) => a + b.invest + b.invest * b.roiM / 100 * ((Date.now() - b.since) / (30 * 864e5)), 0);   // v6.8: running spot bots
     b.textContent = hide ? "******" : money(total);
     const st = E.stats(), fToday = s.fut.history.filter(x => x.closed >= new Date().setHours(0,0,0,0)).reduce((a,x) => a + x.profit, 0), tp = st.todayPnl + fToday;
     const el = document.getElementById("tp"); el.textContent = hide ? "****" : `${signed(tp)} USDT (${signed(tp / (s.balance || 1) * 100 || 0)}%)`; el.className = "num " + (tp > 0 ? "up" : tp < 0 ? "down" : "");
