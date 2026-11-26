@@ -102,7 +102,7 @@ function toggleInd(k){ const l = CH.inds.includes(k) ? CH.inds.filter(x => x !==
 
 const mount0 = CH.mount, setInds0 = CH.setInds, destroy0 = CH.destroy;
 CH.setInds = function(){ const r = setInds0.apply(this, arguments); try { syncRow(); } catch {} return r; };
-CH.destroy = function(){ try { closeFS(true); } catch {} cur = null; return destroy0.apply(this, arguments); };
+CH.destroy = function(){ try { closeFS(true); } catch {} try { tfPopClose(); } catch {} cur = null; return destroy0.apply(this, arguments); };
 CH.mount = function(container, parts, cb){
   parts = Object.assign({}, parts || {});
   let box = null, injected = null;
@@ -116,6 +116,7 @@ CH.mount = function(container, parts, cb){
     }
     const tb = par && par.querySelector(":scope > .tfbar");
     if (tb && !tb.querySelector("[data-drawt]")){ const ct = tb.querySelector("[data-ctype]"); ct ? ct.insertAdjacentHTML("beforebegin", penBtn()) : tb.insertAdjacentHTML("beforeend", penBtn()); }
+    if (tb && !tb.querySelector("[data-fs],a.ti[href^='#/chart']")) tb.insertAdjacentHTML("beforeend", fsBtn());   // every chart can go full screen (options too)
   } catch (e) { console.warn(e); }
   const r = mount0.call(this, container, parts, cb);
   try {
@@ -132,11 +133,11 @@ CH.mount = function(container, parts, cb){
     }
     syncRow();
     initDraw(container);
-    if (box && parts.sym){ const tfsEl = box.querySelectorAll("[data-x3tf]"); let tf = parts.tf || sessionStorage.getItem("tf_ch3") || "15m";
+    if (box && parts.sym){ const tfsEl = box.querySelectorAll("[data-x3tf]"); let tf = parts.tf || sessionStorage.getItem("tf_ch3") || "1m";
       if (tfsEl.length && ![...tfsEl].some(b => b.dataset.x3tf === tf)) tf = tfsEl[Math.min(2, tfsEl.length - 1)].dataset.x3tf;
       const go = x => { tf = x; try { sessionStorage.setItem("tf_ch3", x); } catch {} tfsEl.forEach(b => b.classList.toggle("on", b.dataset.x3tf === x)); CH.load(parts.sym, x); };
       tfsEl.forEach(b => b.onclick = () => go(b.dataset.x3tf)); go(tf); }
-    else if (parts.sym && !box) CH.load(parts.sym, parts.tf || "15m");
+    else if (parts.sym && !box) CH.load(parts.sym, parts.tf || "1m");
   } catch (e) { console.warn(e); }
   return r;
 };
@@ -315,6 +316,28 @@ function closeFS(quiet){
   setTimeout(() => { try { CH.resize(); } catch {} }, 60); setTimeout(() => { try { CH.resize(); } catch {} }, 350);
 }
 CH.openFS = openFS; CH.closeFS = closeFS;
+
+/* ================= interval picker: compact popover card under the interval row (replaces the bottom sheet) =================
+   CH.tfPop(anchorBtn, [[key,label],...], currentKey, onPick) — tap outside / Esc / scroll closes it; tapping the anchor again toggles it */
+let TFP = null;
+function tfPopClose(){ if (!TFP) return; const t = TFP; TFP = null; t.el.remove(); t.anchor.classList.remove("open"); t.anchor.setAttribute("aria-expanded", "false");
+  document.removeEventListener("pointerdown", t.out, true); window.removeEventListener("resize", t.cl); window.removeEventListener("hashchange", t.cl); document.removeEventListener("scroll", t.sc, true); document.removeEventListener("keydown", t.key); }
+function tfPop(anchor, items, cur, pick){
+  if (TFP && TFP.anchor === anchor){ tfPopClose(); return; } tfPopClose(); if (!anchor) return;
+  const el = document.createElement("div"); el.className = "tfpop"; el.setAttribute("role", "listbox"); el.setAttribute("aria-label", "Interval");
+  el.innerHTML = items.map(([k, l]) => `<button type="button" data-tfp="${esc(k)}" role="option" aria-selected="${k === cur}" class="${k === cur ? "on" : ""}">${esc(l)}</button>`).join("");
+  const fs = anchor.closest(".fs3"), row = anchor.closest(".tfbar") || anchor;
+  if (fs){ fs.appendChild(el); el.style.position = "absolute"; el.style.right = "8px"; el.style.top = (row.offsetTop + row.offsetHeight + 4) + "px"; }
+  else { document.body.appendChild(el); const r = row.getBoundingClientRect(), a = anchor.getBoundingClientRect(), w = el.offsetWidth;
+    el.style.top = Math.round(r.bottom + 4) + "px"; el.style.left = Math.round(Math.max(12, Math.min(a.right - w, innerWidth - w - 12))) + "px"; }
+  anchor.classList.add("open"); anchor.setAttribute("aria-expanded", "true");
+  const t = TFP = {el, anchor, cl: () => tfPopClose(), key: e => { if (e.key === "Escape") tfPopClose(); },
+    sc: e => { if (!el.contains(e.target)) tfPopClose(); },
+    out: e => { if (!el.contains(e.target) && !anchor.contains(e.target)) tfPopClose(); }};
+  el.addEventListener("click", e => { const b = e.target.closest("[data-tfp]"); if (!b) return; U.buzz(8); tfPopClose(); pick(b.dataset.tfp); });
+  setTimeout(() => { if (TFP !== t) return; document.addEventListener("pointerdown", t.out, true); window.addEventListener("resize", t.cl); window.addEventListener("hashchange", t.cl); document.addEventListener("scroll", t.sc, true); document.addEventListener("keydown", t.key); }, 0);
+}
+CH.tfPop = tfPop; CH.tfPopClose = tfPopClose;
 document.addEventListener("fullscreenchange", () => { if (FS && FS.entered && !document.fullscreenElement) closeFS(); });
 
 /* header buttons (pencil / expand / the mini chart's expand link) — captured before the page's own handlers */

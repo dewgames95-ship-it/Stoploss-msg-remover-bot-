@@ -76,6 +76,13 @@ API.register("wallet.credit", ({wallet, amount, reason}) => {
 });
 API.register("wallet.transfer", ({from, to, amount}) => { const e = store.transfer(from, to, amount); if (e) throw new Error(e); return {ok: true}; });
 
+/* Feature notifications (Money Game / Prediction): in-app list (own tab) + Android system notification when the app is in background.
+   U.pushNotif("game"|"predict", title, body, tone)  tone: "ok" (win) | "bad" (loss) | "info" */
+U.pushNotif = (cat, title, body, tone = "info") => {
+  const S = store.s; S.notifs.unshift({id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), t: Date.now(), title, body, kind: tone, cat});
+  S.notifs = S.notifs.slice(0, 80); S.unread = (S.unread || 0) + 1; store.save(); U.bus.emit("notifs");
+  try { if (window.NativeApp && NativeApp.showNotification) NativeApp.showNotification(String(title), String(body || ""), cat); } catch {}
+};
 window.ACCT = ACCT; window.API = API;
 
 /* ---- UI: mode pill on Home + Assets, body class, real-mode cleanup ---- */

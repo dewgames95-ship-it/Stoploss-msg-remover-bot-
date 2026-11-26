@@ -102,7 +102,7 @@ const defaults = () => ({
   settings: {theme: "light", lang:"en", sound:true, haptic:true, hideBal:false, defAmt:10, defExp:30, lev:20, inds:["EMA","VOL"], chartType:"candle"},
   fut: {positions:[], orders:[], history:[]}, alerts: [], favs: ["BTCUSDT","ETHUSDT","XAUUSD"], rewards: {checkins:[], claimed:{}, xp:0, used:{}}, vault: {bal:0, since:Date.now()},
   balHist: [], bots: {}, auto: {on:false, pair:"BTCUSDT", amount:10, expiry:30, strategy:"trend", interval:20, max:20, count:0, log:[]},
-  profile: {name:"Trader" + Math.floor(1000 + Math.random()*9000), uid: String(Math.floor(10000000 + Math.random()*89999999)), ref: Math.random().toString(36).slice(2,8).toUpperCase(), joined: Date.now()},
+  profile: {name:"Trader" + Math.floor(1000 + Math.random()*9000), uid: String(Math.floor(1000000000 + Math.random()*8999999999)), ref: Math.random().toString(36).slice(2,8).toUpperCase(), joined: Date.now()},
   tickets: [], posts: [], likes: {}, created: Date.now()
 });
 let S;
@@ -274,6 +274,7 @@ const SND = {
   tick:   [[1500,0,.035,.045,"sine"]]                                                              // countdown tick (last 5s)
 };
 function beep(kind="notify"){
+  if (document.hidden || window.__appBg) return;   // app in background: no sounds
   if (!S.settings.sound || !SND[kind] || (S.settings.snd && S.settings.snd[kind] === false)) return;
   try {
     const A = ac();
@@ -288,7 +289,7 @@ function beep(kind="notify"){
   } catch {}
 }
 const HAP = {open:[14], close:[10,40,10], win:[18,70,18,70,40], loss:[70], err:[22,45,22], alert:[30,90,30,90,30], notify:[16,60,16], claim:[12,50,24], tick:[6]};
-const buzz = p => { if (!S.settings.haptic || !navigator.vibrate) return; try { navigator.vibrate(typeof p === "string" ? (HAP[p] || 0) : p); } catch {} };
+const buzz = p => { if (document.hidden || window.__appBg || !S.settings.haptic || !navigator.vibrate) return; try { navigator.vibrate(typeof p === "string" ? (HAP[p] || 0) : p); } catch {} };
 /* one call per event: matching sound + haptic */
 const fx = kind => { beep(kind); buzz(kind); };
 function confetti(){

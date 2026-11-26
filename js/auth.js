@@ -75,6 +75,9 @@ const SV = {
   eyeoff: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17.9 17.9A10.9 10.9 0 0 1 12 19C5.6 19 2 12 2 12a18 18 0 0 1 5.1-5.9M9.9 5.2A9.7 9.7 0 0 1 12 5c6.4 0 10 7 10 7a18 18 0 0 1-2.2 3.2M1 1l22 22M14.1 14.1a3 3 0 1 1-4.2-4.2"/></svg>',
   google: '<svg width="20" height="20" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.6 12.2c0-.8-.1-1.5-.2-2.2H12v4.2h5.9a5 5 0 0 1-2.2 3.3v2.7h3.5c2.1-1.9 3.4-4.7 3.4-8z"/><path fill="#34A853" d="M12 23c3 0 5.5-1 7.3-2.7l-3.5-2.7c-1 .7-2.2 1.1-3.8 1.1-2.9 0-5.4-2-6.3-4.6H2v2.8A11 11 0 0 0 12 23z"/><path fill="#FBBC05" d="M5.7 14.1a6.6 6.6 0 0 1 0-4.2V7.1H2a11 11 0 0 0 0 9.8z"/><path fill="#EA4335" d="M12 5.4c1.6 0 3.1.6 4.3 1.7l3.1-3.1A11 11 0 0 0 2 7.1l3.7 2.8C6.6 7.400 9.100 5.400 12 5.400z"/></svg>',
   wallet: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7H5a2 2 0 0 1 0-4h13v4z"/><path d="M3 5v14a2 2 0 0 0 2 2h15V7"/><circle cx="16.500" cy="14" r="1.200" fill="currentColor"/></svg>',
+  mail: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m3.5 7 8.5 6 8.5-6"/></svg>',
+  lock: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4.5" y="10.5" width="15" height="10" rx="2.5"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/></svg>',
+  user: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.8"/><path d="M4.5 20c.9-3.6 3.9-5.5 7.5-5.5s6.6 1.9 7.5 5.5"/></svg>',
   chev: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>',
   out: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>'
 };
@@ -98,13 +101,12 @@ function demoSheet(what){
 /* ---------- login / register page ---------- */
 function authPage(mode){
   const reg = mode === "register";
-  const pw = (id, ph, ac) => `<div class="au-input"><input id="${id}" type="password" placeholder="${ph}" autocomplete="${ac}" aria-label="${ph}"><button type="button" class="au-eye" data-eye aria-label="Show password">${SV.eye}</button></div>`;
-  const html = `<div class="au-wrap"><div class="au-card">
-    <div class="au-brand">${logo()}<div><h1>Welcome to NovaTrade</h1><p>${reg ? "Create your account to start trading" : "Log in to continue trading"}</p></div></div>
+  const pw = (id, ph, ac) => `<div class="au-input"><span class="au-ic">${SV.lock}</span><input id="${id}" type="password" placeholder="${ph}" autocomplete="${ac}" aria-label="${ph}"><button type="button" class="au-eye" data-eye aria-label="Show password">${SV.eye}</button></div>`;
+  const html = `<div class="au-wrap"><div class="au-brand">${logo(60)}<h1>Welcome to NovaTrade</h1><p>${reg ? "Create your account to start trading" : "Log in to continue trading"}</p></div><div class="au-card">
     <div class="au-tabs" role="tablist"><a href="#/login" class="${reg ? "" : "on"}" role="tab">Log In</a><a href="#/register" class="${reg ? "on" : ""}" role="tab">Sign Up</a></div>
     <form id="auF" novalidate autocomplete="on">
-      ${reg ? `<div class="au-field"><label for="auN">Nickname</label><div class="au-input"><input id="auN" maxlength="20" placeholder="Your name" autocomplete="nickname"></div><div class="au-err"></div></div>` : ""}
-      <div class="au-field"><label for="auE">Email</label><div class="au-input"><input id="auE" type="email" inputmode="email" placeholder="you@example.com" autocomplete="email" autocapitalize="off"></div><div class="au-err"></div></div>
+      ${reg ? `<div class="au-field"><label for="auN">Nickname</label><div class="au-input"><span class="au-ic">${SV.user}</span><input id="auN" maxlength="20" placeholder="Your name" autocomplete="nickname"></div><div class="au-err"></div></div>` : ""}
+      <div class="au-field"><label for="auE">Email</label><div class="au-input"><span class="au-ic">${SV.mail}</span><input id="auE" type="email" inputmode="email" placeholder="you@example.com" autocomplete="email" autocapitalize="off"></div><div class="au-err"></div></div>
       <div class="au-field"><label for="auP">Password</label>${pw("auP", reg ? "At least 8 characters" : "Password", reg ? "new-password" : "current-password")}${reg ? `<div class="au-str" id="auS"><i></i><i></i><i></i><i></i><span></span></div>` : ""}<div class="au-err"></div></div>
       ${reg ? `<div class="au-field"><label for="auC">Confirm password</label>${pw("auC", "Re-enter password", "new-password")}<div class="au-err"></div></div>
       <div class="au-ref" id="auRef"><button type="button" class="au-reft" data-ref>Referral ID (Optional) <span>${SV.chev}</span></button><div class="au-refb"><div class="au-input"><input id="auR" maxlength="16" placeholder="Enter referral code" autocapitalize="characters"></div></div></div>
@@ -116,7 +118,7 @@ function authPage(mode){
     <button class="au-alt" data-g>${SV.google}<span>Continue with Google</span></button>
     <button class="au-alt" data-w>${SV.wallet}<span>Connect Wallet</span></button>
     <p class="au-sw">${reg ? 'Already have an account? <a href="#/login">Log In</a>' : 'New to NovaTrade? <a href="#/register">Create an account</a>'}</p>
-  </div><p class="au-foot">Demo account stored on this device only. Trading involves risk.</p></div>`;
+  </div><p class="au-foot">Account data is stored on this device. Trading involves risk.</p></div>`;
   return {html, title: reg ? "Sign Up" : "Log In", mount(r){
     setBody(true);
     const f = r.querySelector("#auF"), q = s => r.querySelector(s);
