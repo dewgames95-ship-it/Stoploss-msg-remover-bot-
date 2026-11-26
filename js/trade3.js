@@ -64,9 +64,8 @@ function unitSheet(coin, cur, onPick){
   U.sheet("Unit Preference", o("coin", esc(coin), "Based on asset (BTC, ETH, BNB etc.) quantity, the order will execute as per quantity selected multiplied by the best available price for the current pair.") + o("usdt", "USDT", "The order will execute based on the total amount you want to spend, regardless of asset (BTC, ETH, BNB etc.) quantity."),
     el => el.querySelectorAll("[data-un]").forEach(b => b.onclick = () => { U.closeLayer(); onPick(b.dataset.un); }));
 }
-function feeNote(rows, theirs){
-  const n = esc((window.CONFIG && CONFIG.APP_NAME) || "NovaTrade");
-  return `<div class="fee-n">${rows.map(([l, v]) => `<div class="fee-r"><span>${l}</span><b class="num">${v}</b></div>`).join("")}<div class="fee-r"><span>Binance</span><s class="num">${theirs}</s></div><div class="fee-5x">${n} charges 5x less than others</div></div>`;
+function feeNote(ours, theirs){
+  return `<button class="fee-l" type="button" data-info="fee" aria-label="Fee details">Fee <b class="num">${ours}</b> <s class="num">${theirs}</s> <i class="fee-b">5x less</i></button>`;
 }
 window.TX = {flyMoney, clearFx, sweep, tapPrice, tpCalc, unitSheet, feeNote, buzz, sgn};
 })();

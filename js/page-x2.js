@@ -77,8 +77,9 @@ Pages.assets = (params) => {
     const up = s.fut.positions.reduce((a,p) => a + E.futPnl(p).pnl, 0), vault = E.earnValue(), hold = spotHoldings(), hv = hold.reduce((a,x) => a + x.val, 0), hp = hold.reduce((a,x) => a + x.pnl, 0);
     const act = cstate().active, cv = act.reduce((a,c) => a + c.amt * (1 + copyPct(c) / 100), 0), cinv = act.reduce((a,c) => a + c.amt, 0);
     const d0 = new Date().setHours(0,0,0,0), usdtPnl = E.stats().todayPnl + s.fut.history.filter(x => x.closed >= d0).reduce((a,x) => a + x.profit, 0) + up;
-    const fut = fm + up, total = s.balance + bin + fut + vault + hv + cv;
-    return {fund:s.balance, bin, fm, up, fut, vault, hold, hv, hp, cv, cinv, cpn: cv - cinv, usdtPnl, tp: usdtPnl + hp, total, spot: bin + hv};
+    const bv = (s.spot?.bots || []).filter(b => b.running).reduce((a, b) => a + b.invest + b.invest * b.roiM / 100 * ((Date.now() - b.since) / (30 * 864e5)), 0);
+    const fut = fm + up, total = s.balance + bin + fut + vault + hv + cv + bv;
+    return {fund:s.balance, bin, fm, up, fut, vault, hold, hv, hp, cv, cinv, cpn: cv - cinv, usdtPnl, tp: usdtPnl + hp, total, spot: bin + hv + bv};
   }
   function calendar(){
     const now = new Date(), y = now.getFullYear(), m = now.getMonth(), first = new Date(y, m, 1), days = new Date(y, m+1, 0).getDate(), off = (first.getDay() + 6) % 7;

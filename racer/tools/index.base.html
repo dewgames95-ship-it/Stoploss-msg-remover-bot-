@@ -7576,6 +7576,7 @@ body.mr-maint #centerStartCircle { filter: grayscale(1); opacity: .5; pointer-ev
   };
 
   function switchAppTab(tabName) {
+    if (tabName !== 'bet' && tabName !== 'race') return; // Money Racer: one bet / play screen only
     initAudio();
     triggerHaptic(20);
     currentTab = tabName;
@@ -7646,7 +7647,7 @@ body.mr-maint #centerStartCircle { filter: grayscale(1); opacity: .5; pointer-ev
   document.getElementById('navProfileBtn').addEventListener('click', () => switchAppTab('profile'));
 
   const topProfileBox = document.querySelector('.profile-box');
-  if (topProfileBox) {
+  if (false && topProfileBox) { // Money Racer: no profile screen
     topProfileBox.style.cursor = 'pointer';
     topProfileBox.addEventListener('click', () => switchAppTab('profile'));
   }

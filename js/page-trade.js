@@ -46,7 +46,8 @@ const INFO = {
   size: () => ["Size", `<p class="info-p">Position notional value in USDT = quantity × mark price. Size = Margin × Leverage at entry.</p>`],
   margin: () => ["Margin", `<p class="info-p">Collateral locked for this position. Isolated: only this margin can be lost. Cross: your available balance is shared across positions.</p>`],
   tpsl: () => ["TP / SL", `<p class="info-p">Take Profit and Stop Loss are trigger orders. When the Mark Price reaches your trigger, a market order closes the position. Use ROI % mode to set them by return instead of price.</p>`],
-  fee: () => ["Trading Fees", `<div class="cf-rows"><div><span>Futures taker (market)</span><b class="num">${(C.FEE*100).toFixed(2)}%</b></div><div><span>Futures maker (limit)</span><b class="num">${(C.FEE*40).toFixed(3)}%</b></div><div><span>Spot</span><b class="num">0.02%</b></div><div><span>Binary</span><b>No fee</b></div></div><p class="info-p">Binance charges 0.05% taker / 0.02% maker on futures and 0.10% on spot. ${esc(C.APP_NAME || "NovaTrade")} charges 5x less than others.</p>`]
+  fee: () => ["Trading Fees", `<p class="info-p"><b>${esc(C.APP_NAME || "NovaTrade")} charges 5x less than others.</b></p><div class="rz-cmp" style="margin-top:8px"><div class="rz-ch"><span>Product</span><span>${esc(C.APP_NAME || "NovaTrade")}</span><span>Binance</span></div>
+    <div class="rz-cr me"><span>Futures taker</span><span class="num">${(C.FEE*100).toFixed(2)}%</span><b class="num">0.05%</b></div><div class="rz-cr me"><span>Futures maker</span><span class="num">${(C.FEE*40).toFixed(3)}%</span><b class="num">0.02%</b></div><div class="rz-cr me"><span>Spot</span><span class="num">0.02%</span><b class="num">0.10%</b></div><div class="rz-cr me"><span>Binary</span><span>No fee</span><b>--</b></div></div>`]
 };
 function showInfo(k){ const f = INFO[k]; if (!f) return; const [t, h] = f(); U.sheet(t, h + `<button class="btn btn-primary btn-block" style="margin-top:14px" data-x>OK</button>`, el => el.querySelector("[data-x]").onclick = U.closeLayer); }
 document.addEventListener("click", e => { const t = e.target.closest("[data-info]"); if (t){ e.preventDefault(); showInfo(t.dataset.info); } });
@@ -317,7 +318,7 @@ Pages.futures = (params) => {
         <button class="fbtn2 l" data-go="long"><span>Open Long</span><small id="cl"></small></button>
         <button class="fbtn2 s" data-go="short" style="margin-top:8px"><span>Open Short</span><small id="cs"></small></button>
         <div class="fkv" style="margin-top:6px"><span>Max</span><b id="mxl" class="num"></b></div><span id="mxs" hidden></span>
-        ${TX.feeNote([["Fee (taker)", "0.01%"], ["Fee (maker)", "0.004%"]], "0.05% / 0.02%")}
+        ${TX.feeNote("0.01% / 0.004%", "0.05%")}
         <div class="fkv hide"><span>Liq. Price (Long / Short)</span><b id="lqp"></b></div>
       </div>
       <div id="closeBox" class="hide">
