@@ -75,3 +75,7 @@
 .sp-cbody .chart-wrap,.sp-cbody #chart{height:100%}
 .sp-closed{margin-top:8px;padding:8px 10px;border-radius:10px;background:rgba(247,147,26,.12);color:#F7931A;font-size:12px;font-weight:600}.sp-closed.hide{display:none}
 .sp-closed{margin-top:8px;padding:8px 10px;border-radius:10px;background:rgba(247,147,26,.12);color:#F7931A;font-size:12px;font-weight:600}.sp-closed.hide{display:none}
+/* v6.9 */
+.sp-kv .hq{width:14px;height:14px;font-size:9px;margin-left:4px;position:relative}
+.sp-kv .hq::after{content:"";position:absolute;inset:-9px}
+.sp-kv>span{display:inline-flex;align-items:center;gap:0}

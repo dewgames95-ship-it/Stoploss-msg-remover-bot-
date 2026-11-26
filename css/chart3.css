@@ -133,8 +133,8 @@ html body .fs3 .cp-chart .chart-wrap{flex:1!important;height:auto!important;max-
 .fs3 .dw3-hint{display:block}
 
 /* ===== v6.8 (agent D): Binance-matched chart look, glass "A" button, binary trade window, S/R zones, hot indicator chips, quick order ===== */
-html body .chart-wrap{--up:#2EBD85;--down:#F6465D;--cbg:#181A20;--ctx:#EAECEF;--cmut:#848E9C;background:var(--cbg)}
-html[data-theme="light"] body .chart-wrap{--cbg:#FFFFFF;--ctx:#1E2329;--cmut:#707A8A}
+html body .chart-wrap{--up:#2EBD85;--down:#F6465D;--cbg:var(--chart-bg,#1F2630);--ctx:#EAECEF;--cmut:#848E9C;background:var(--cbg)}
+html[data-theme="light"] body .chart-wrap{--cbg:var(--chart-bg,#FFFFFF);--ctx:#1E2329;--cmut:#707A8A}
 /* live price tag: Binance outlined box (chart colour fill, thin neutral border, price over countdown) */
 html body .chart-wrap .ovl2 .pbox,html body .chart-wrap .ovl2 .pbox.pu,html body .chart-wrap .ovl2 .pbox.pd{background:var(--cbg)!important;color:var(--ctx)!important;border:1px solid var(--cmut)!important;border-radius:4px!important;font-size:10.5px!important;font-weight:600!important;line-height:1.3!important;padding:1px 5px!important;min-width:58px;text-align:center}
 html body .chart-wrap .ovl2 .hl{color:var(--cmut)}
@@ -175,13 +175,10 @@ html body .auto-btn:active{background:rgba(132,142,156,.3)}
 
 /* indicator chips: full names + "hot" (fire) SuperTrend / Liquidation */
 .indbar .il button{display:inline-flex;align-items:center;gap:4px}
-.indbar .il button.hot{padding:3px 8px 3px 6px;margin:-3px 0;border-radius:999px;color:#E9722A;background:linear-gradient(180deg,rgba(255,138,0,.10),rgba(255,59,29,.08));box-shadow:0 0 9px rgba(255,106,0,.34),inset 0 0 0 1px rgba(255,120,30,.22)}
-.indbar .il button.hot .flame{filter:drop-shadow(0 0 3px rgba(255,100,0,.9));animation:flameFlick 1.6s ease-in-out infinite;transform-origin:50% 90%}
-.indbar .il button.hot.on{color:#FF7A1A;font-weight:700;background:linear-gradient(180deg,rgba(255,138,0,.20),rgba(255,59,29,.14));box-shadow:0 0 13px rgba(255,90,0,.55),inset 0 0 0 1px rgba(255,120,30,.45)}
-html:not([data-theme="light"]) .indbar .il button.hot{color:#FF9A4D}
-html:not([data-theme="light"]) .indbar .il button.hot.on{color:#FFB070}
-@keyframes flameFlick{0%,100%{transform:scale(1) rotate(-2deg)}35%{transform:scale(1.1,1.16) rotate(2deg)}70%{transform:scale(.96,1.05) rotate(-1deg)}}
-@media (prefers-reduced-motion:reduce){.indbar .il button.hot .flame{animation:none}}
+/* v6.9: "hot" chips look exactly like the other chips (muted text, active = text colour + bold); only a small static flame icon in front */
+.indbar .il button.hot{padding:0;margin:0;border:0;border-radius:0;background:none;box-shadow:none;color:var(--muted)}
+.indbar .il button.hot.on{color:var(--text);font-weight:700;background:none;box-shadow:none}
+.indbar .il button .flame{width:11px;height:11px;flex:none;filter:none;animation:none}
 
 /* full screen: the close button always stays pinned in the top corner */
 .fs3{--fsx:34px}
@@ -212,7 +209,71 @@ html body .qo-seg button.on[data-sd="short"],html body .qo-seg button.on[data-sd
 .ovl2 .exp-line span{max-width:70px}
 .indbar .il{gap:11px!important}
 .indbar .il button{font-size:12px!important}
-.indbar .il button.hot{padding:3px 7px 3px 5px}
 .indbar{position:relative}
 .indbar .ind-set,.indbar [data-indinfo]{position:relative;background:var(--bg);box-shadow:-10px 0 9px -2px var(--bg)}
-.indbar .il{-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 26px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 26px),transparent)}
+.indbar .il{-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 18px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 18px),transparent)}
+/* v6.9: end padding = the last chip (MACD) scrolls fully clear of the fade */
+.indbar .il::after{content:"";flex:0 0 22px}
+.indbar .il button:focus,.indbar .il button:focus-visible,.tfbar .tfs button:focus-visible{outline:none!important;box-shadow:none}
+
+/* ===== v6.9 (agent C): Binance chart background + wide grid, liquidation map rework, interval popover, full screen X on the right ===== */
+.grid-cv{position:absolute;left:0;top:0;z-index:0;pointer-events:none}
+/* liquidation: fixed data window (top-left), level tip, small popups with X */
+.lqbox{position:absolute;left:6px;z-index:6;width:132px;padding:5px 7px 6px;border-radius:6px;background:rgba(31,38,48,.82);border:1px solid rgba(132,142,156,.22);color:#EAECEF;font-size:10px;line-height:1.35;pointer-events:auto;-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+html[data-theme="light"] .lqbox{background:rgba(255,255,255,.88);border-color:rgba(0,0,0,.09);color:#1E2329}
+.lqbox.hide,.lqpop.hide{display:none}
+.lqb-h{display:flex;align-items:center;justify-content:space-between;gap:4px;margin-bottom:2px}
+.lqb-h b{font-size:10px;font-weight:700;letter-spacing:.1px}
+.lqb-r,.lqb-s{display:flex;align-items:center;gap:5px;min-height:15px}
+.lqb-r i{width:6px;height:6px;border-radius:50%;flex:none}
+.lqb-r span,.lqb-s span{color:#848E9C;flex:1}
+.lqb-r b{font-weight:600;font-variant-numeric:tabular-nums}
+.lqb-s{margin-top:2px;padding-top:3px;border-top:1px solid rgba(132,142,156,.22)}
+.lqb-s b{font-weight:800}.lqb-s b.up,.lqp-b .up{color:var(--up,#2EBD85)}.lqb-s b.down,.lqp-b .down{color:var(--down,#F6465D)}
+.lqb-i,.lqb-q{width:16px;height:16px;display:grid;place-items:center;border-radius:50%;color:#848E9C;flex:none;padding:0;margin:-2px -2px -2px 0;position:relative}
+.lqb-i::after,.lqb-q::after{content:"";position:absolute;inset:-6px}
+.lqb-q{border:1px solid rgba(132,142,156,.55);font-size:9px;font-weight:800;line-height:1;width:14px;height:14px}
+.lqpop{position:absolute;z-index:9;left:50%;top:8px;transform:translateX(-50%);width:min(300px,calc(100% - 78px));max-height:calc(100% - 16px);display:flex;flex-direction:column;border-radius:var(--r-card,12px);background:var(--card-2,#29303A);border:1px solid var(--line-2,#3A424E);color:var(--text);font-size:11.5px;line-height:1.45;pointer-events:auto;overflow:hidden}
+html[data-theme="light"] .lqpop{background:#fff;border-color:#E6E8EA}
+.lqp-h{display:flex;align-items:center;gap:6px;padding:8px 6px 6px 12px;border-bottom:1px solid var(--line);flex:none}
+.lqp-h b{flex:1;font-size:13px;font-weight:700}
+.lqp-x{width:28px;height:28px;display:grid;place-items:center;border-radius:var(--r-ctl,8px);color:var(--text-2)}
+.lqp-b{padding:8px 12px 10px;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.lqp-b p{margin:0 0 7px;color:var(--text-2)}
+.lqp-ul{margin:0 0 8px;padding-left:16px;color:var(--text-2)}.lqp-ul li{margin:1px 0}
+.lqp-kv{display:flex;justify-content:space-between;gap:10px;padding:3px 0;border-bottom:1px dashed var(--line)}
+.lqp-kv span{color:var(--muted);flex:none}.lqp-kv b{font-weight:600;text-align:right}
+.lqp-sec{font-size:11px;font-weight:700;color:var(--text);margin:9px 0 4px}
+.lqp-t{width:100%;border-collapse:collapse;font-size:10.5px;font-variant-numeric:tabular-nums}
+.lqp-t th{color:var(--muted);font-weight:500;text-align:right;padding:2px 3px}.lqp-t th:first-child,.lqp-t td:first-child{text-align:left}
+.lqp-t td{text-align:right;padding:3px;border-top:1px solid var(--line)}
+.lqp-t tr.cur td{background:color-mix(in srgb,var(--brand,#2E6BFF) 9%,transparent)}
+.lqp-sum{margin:7px 0;font-weight:600}
+.lqp-mut{color:var(--muted)!important;font-size:10.5px}
+.liq-tip{width:auto;min-width:150px;max-width:210px;padding:7px 9px;gap:2px;border-radius:8px;background:rgba(31,38,48,.95);border:1px solid rgba(132,142,156,.25);box-shadow:none}
+html[data-theme="light"] .liq-tip{background:rgba(255,255,255,.97);color:#1E2329;border-color:rgba(0,0,0,.1)}
+.lqt-h{display:flex;align-items:center;gap:6px;margin-bottom:2px}.lqt-h i{width:7px;height:7px;border-radius:50%}.lqt-h b{font-size:11.5px}
+.lqt-kv,.lqt-imp{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:10.5px}
+.liq-tip .lqt-kv span,.liq-tip .lqt-imp span{color:#848E9C;font-size:10.5px}
+.liq-tip .lqt-kv b{font-size:11px;font-weight:600}.liq-tip small{color:#848E9C;font-size:9.5px;font-weight:500}
+.lqt-imp{flex-wrap:wrap;margin-top:2px;padding-top:3px;border-top:1px solid rgba(132,142,156,.25)}
+.liq-tip .lqt-imp b{font-size:13px;color:#FCD535;margin-left:auto}
+html[data-theme="light"] .liq-tip .lqt-imp b{color:#9A6B00}
+.lqt-imp small{width:100%;text-align:right}
+.lqt-m{margin-top:3px;padding-top:3px;border-top:1px solid rgba(132,142,156,.25);display:flex;flex-direction:column;gap:1px}
+.lqt-m div{display:grid;grid-template-columns:1fr auto auto;gap:8px;font-size:10.5px}
+.lqt-m b{font-size:10.5px;font-weight:600}.liq-tip .lqt-m em{color:#848E9C;font-style:normal;min-width:36px;text-align:right}
+
+/* full screen: the X sits in the RIGHT corner (all charts: futures, spot, binary, options) */
+html body .fs3 .fs3-x{left:auto;right:6px}
+html body .fs3 .fs3-h{padding-left:12px;padding-right:48px}
+
+/* interval picker: compact popover card under the interval row (not a bottom sheet) */
+.tfpop{position:fixed;z-index:950;width:min(272px,calc(100vw - 24px));padding:8px;border-radius:var(--r-card,12px);background:var(--card-2,#29303A);border:1px solid var(--line-2,#3A424E);display:grid;grid-template-columns:repeat(5,1fr);gap:6px;transform-origin:top right;animation:tfpIn .14s ease-out}
+html[data-theme="light"] .tfpop{background:#fff;border-color:#E6E8EA}
+@keyframes tfpIn{from{opacity:0;transform:translateY(-4px) scale(.97)}to{opacity:1;transform:none}}
+.tfpop button{height:30px;border-radius:var(--r-ctl,8px);border:1px solid var(--line,#2B323C);background:linear-gradient(180deg,color-mix(in srgb,var(--input,#29303A) 100%,#fff 3%),var(--input,#29303A));color:var(--text-2);font-size:12px;font-weight:600;font-variant-numeric:tabular-nums;padding:0}
+html[data-theme="light"] .tfpop button{background:linear-gradient(180deg,#FAFAFA,#F3F4F6);border-color:#E6E8EA;color:#474D57}
+.tfpop button.on{color:var(--text);border-color:color-mix(in srgb,var(--brand-2,#2E6BFF) 55%,var(--line-2,#3A424E));box-shadow:0 0 0 2px color-mix(in srgb,var(--brand-2,#2E6BFF) 12%,transparent);font-weight:800}
+.tfpop button:focus-visible{outline:none}
+.tf-more svg{transition:transform .15s}.tf-more.open svg{transform:rotate(180deg)}

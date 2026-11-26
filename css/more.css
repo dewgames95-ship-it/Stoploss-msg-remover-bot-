@@ -288,3 +288,22 @@ a.pf-av{color:inherit}
 
 /* Guide & tips rows */
 [data-guide] .chev,[data-tipsreset] .chev{color:var(--muted)}
+
+/* v6.9 profile: "Main Account" on one line */
+.pf-id .pf-r2{min-width:0}.pf-id .pf-main{white-space:nowrap;flex:none;font-size:10.5px;line-height:18px;padding:0 7px}
+.pf-id .pf-uid{white-space:nowrap;min-width:0;font-size:12px}
+
+/* v6.9 earn */
+.ea-terms{display:flex;gap:8px;margin:2px 0 10px;overflow-x:auto;scrollbar-width:none}.ea-terms[hidden]{display:none}
+.ea-terms button{flex:none;height:30px;padding:0 14px;border-radius:999px;border:1px solid var(--line);color:var(--text-2);font-size:13px;font-weight:500;background:transparent}
+.ea-terms button.on{border-color:var(--brand);color:var(--brand);background:var(--brand-soft)}
+.ea-sl{display:flex;align-items:center;gap:12px;margin-top:2px}.ea-sl b{min-width:38px;text-align:right;font-size:13px}
+.ea-sl input[type=range]{flex:1;min-width:0;-webkit-appearance:none;appearance:none;height:4px;border-radius:2px;background:linear-gradient(90deg,var(--brand) var(--p,0%),var(--line) var(--p,0%));outline:none;margin:12px 0}
+.ea-sl input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;background:var(--brand);border:3px solid var(--bg,#fff)}
+.ea-sl input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:var(--brand);border:3px solid var(--bg,#fff)}
+.pm-st .hq,.pm-kv .hq{display:inline-grid;place-items:center;width:15px;height:15px;margin-left:5px;border-radius:50%;border:1px solid var(--muted);color:var(--muted);font:600 10px/1 inherit;vertical-align:middle;background:none;padding:0}
+.ey-svg{display:block;width:100%;height:auto;margin:8px 0;padding:8px;border-radius:var(--r-card,12px);background:var(--input)}
+.ey-b{fill:var(--card);stroke:var(--line);stroke-width:1.5}.ey-me{stroke:var(--brand)}.ey-pool{stroke:var(--brand);fill:var(--brand-soft)}
+.ey-t{font-size:10.5px;fill:var(--text-2);font-family:inherit}.ey-h{font-weight:700;fill:var(--text)}.ey-s{font-size:10px}.ey-g{fill:var(--up)}
+.ey-a{stroke:var(--brand);stroke-width:1.8;fill:none}.ey-ah{fill:var(--brand)}.ey-i{stroke:var(--up);fill:var(--up)}.ey-a.ey-i{fill:none}
+.ey-l{margin:8px 0;padding-left:18px}.ey-l li{margin:6px 0}

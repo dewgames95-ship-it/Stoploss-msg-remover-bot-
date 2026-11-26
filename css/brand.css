@@ -45,3 +45,104 @@ html[data-cm="ru"]{--grad-up:linear-gradient(180deg,#FF5A61 0%,#E23B42 100%);--g
 .ac-tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}.ac-tx b{font-size:15px}.ac-tx small{font-size:12px;color:var(--text-2,var(--muted));line-height:1.35}
 .ac-rd{width:18px;height:18px;border-radius:50%;border:2px solid var(--line);flex:0 0 18px}
 .ac-opt.on .ac-rd{border:5px solid var(--brand,#2E6BFF)}
+
+/* =====================================================================
+   v6.9 (agent A): subtle same-hue gradients (page, cards, controls, icons), soft focus, flat empty states.
+   No shadows. Tokens first, rules use html:root[...] to beat the flat/theme layers.
+   ===================================================================== */
+:root{
+  --bg-top:#EEF3FA; --bg-bot:#FFFFFF;
+  --card-g1:#FFFFFF; --card-g2:#F8FAFD;
+  --surf-g1:#F8F9FB; --surf-g2:#F0F2F6;
+  --ctl-g1:#F8F9FB; --ctl-g2:#EDEFF3;
+  --tile-g1:#F6F8FC; --tile-g2:#ECF0F7;
+  --ig-1:#45A6FF; --ig-2:#2F5FE8;
+  --sel-bg:linear-gradient(180deg,#FFFFFF,#EFF2F7);
+  --focus-bd:#BFC7D4; --focus-glow:rgba(15,23,42,.07);
+}
+html[data-theme="dark"]{
+  --bg-top:#28313E; --bg-bot:#1A2028;
+  --card-g1:#29323F; --card-g2:#222A35;
+  --surf-g1:#2B3441; --surf-g2:#252D39;
+  --ctl-g1:#323B49; --ctl-g2:#28303C;
+  --tile-g1:#2D3643; --tile-g2:#232B36;
+  --ig-1:#8FDCFF; --ig-2:#4F8DFF;
+  --sel-bg:linear-gradient(180deg,#3B4553,#313A47);
+  --focus-bd:#4C5666; --focus-glow:rgba(255,255,255,.07);
+}
+html:root[data-theme]{--glow:0 0 0 3px var(--focus-glow)}
+#ntIgDefs .ig-a{stop-color:var(--ig-1)}#ntIgDefs .ig-b{stop-color:var(--ig-2)}
+
+/* page background: vertical same-hue gradient, fixed to the viewport so sticky bars can match its top */
+html:root[data-theme] body{background:var(--bg-bot) linear-gradient(180deg,var(--bg-top) 0%,var(--bg-bot) 100%) fixed no-repeat}
+html:root[data-theme] .topbar,html:root[data-theme] .page-head{background:var(--bg-top)}
+html:root[data-theme] .bnav{background:var(--bg-bot)}
+
+/* cards / surfaces: barely visible top-to-bottom gradient + plain hairline border (chart areas untouched) */
+html:root[data-theme] .hm-assets,html:root[data-theme] .au-card,html:root[data-theme] .ad-card,html:root[data-theme] .ad-k,
+html:root[data-theme] .px-ah{
+  background:linear-gradient(180deg,var(--card-g1),var(--card-g2));border:1px solid var(--line);box-shadow:none}
+html:root[data-theme] .pm-strip,html:root[data-theme] .pm-stats,html:root[data-theme] .px-notice,html:root[data-theme] .pf-vou,
+html:root[data-theme] .hm-ev,html:root[data-theme] .hm-ban,html:root[data-theme] .px-promo,html:root[data-theme] .px-hero,
+html:root[data-theme] .hm-cp,html:root[data-theme] .hm-bot,html:root[data-theme] .hm-bots .hm-bot,html:root[data-theme] .px-nt,
+html:root[data-theme] .pnl-mini,html:root[data-theme] .pf-tiles>.pf-tile,html:root[data-theme] .pr-card,html:root[data-theme] .wl-pair,html:root[data-theme] .sc-hero{
+  background:linear-gradient(180deg,var(--surf-g1),var(--surf-g2));box-shadow:none}
+
+/* secondary controls / chips: subtle same-hue gradient (primary CTAs keep their blue gradient) */
+html:root[data-theme] .btn-ghost,html:root[data-theme] .px-btn:not(.pri),html:root[data-theme] .pm-btn,
+html:root[data-theme] .hm-chips button:not(.on),html:root[data-theme] .chips button:not(.on),html:root[data-theme] .hm-sc2 button:not(.on),
+html:root[data-theme] .icon-btn.boxed,html:root[data-theme] .tsm,html:root[data-theme] .ad-btn:not(.ghost){
+  background:linear-gradient(180deg,var(--ctl-g1),var(--ctl-g2))}
+
+/* icons: shared gradient stroke (see #ntIgDefs injected by page-home.js), readable on both themes */
+html:root[data-theme] .hm-sc a svg,html:root[data-theme] .hm-sc .hm-scm svg,html:root[data-theme] .hm-mi span svg,
+html:root[data-theme] .topbar .icon-btn svg,html:root[data-theme] .hm-ib svg,html:root[data-theme] .pf-tile svg,html:root[data-theme] .pf-gi svg,html:root[data-theme] .pf-row>svg:first-child,html:root[data-theme] .hm-top .icon-btn svg,html:root[data-theme] .pf-top .icon-btn svg,
+html:root[data-theme] .bnav a.on svg,html:root[data-theme] .px-acts a:not(.pri) span svg,html:root[data-theme] .as-acts a:not(.pri)>span svg,
+html:root[data-theme] .px-acts button span svg,html:root[data-theme] .as-acts span svg,html:root[data-theme] .tile .ic svg,html:root[data-theme] .px-ico svg{
+  stroke:url(#ntIg);color:var(--ig-2)}
+html:root[data-theme] .px-acts a:not(.pri) span,html:root[data-theme] .px-acts button span,html:root[data-theme] .as-acts a:not(.pri)>span,
+html:root[data-theme] .as-acts button>span,html:root[data-theme] .tile .ic,html:root[data-theme] .px-ico{
+  background-image:linear-gradient(160deg,var(--tile-g1),var(--tile-g2));border:1px solid var(--line);box-shadow:none}
+
+/* soft focus / selected: the card's own border colour, a touch brighter, with a faint glow (no blue ring) */
+html:root[data-theme] button:focus-visible,html:root[data-theme] a:focus-visible,html:root[data-theme] [tabindex]:focus-visible,
+html:root[data-theme] .icon-btn:focus-visible,html:root[data-theme] summary:focus-visible{
+  outline:none!important;box-shadow:0 0 0 1px var(--focus-bd),0 0 0 4px var(--focus-glow)!important}
+html:root[data-theme] .field:focus-within,html:root[data-theme] .famt:focus-within,html:root[data-theme] .search:focus-within,
+html:root[data-theme] .bx-amt:focus-within,html:root[data-theme] .pm-fld:focus-within,html:root[data-theme] .sp-in:focus-within,
+html:root[data-theme] .wl-inp:focus-within,html:root[data-theme] .px-inp:focus-within,html:root[data-theme] .au-input:focus-within,
+html:root[data-theme] .sc-in:focus-within,html:root[data-theme] .in:focus-within,html:root[data-theme] .wd-f:focus-within,
+html:root[data-theme] .fm-in:focus-within,html:root[data-theme] .hm-search:focus-within,html:root[data-theme] .mk-search:focus-within,
+html:root[data-theme] .pd-amt:focus-within,html:root[data-theme] .pm-ta:focus,html:root[data-theme] .pm-sel:focus,html:root[data-theme] .pm-in:focus,
+html:root[data-theme] .px-sel:focus{border-color:var(--focus-bd)!important;box-shadow:var(--glow)!important}
+html:root[data-theme] input:not([type=checkbox]):not([type=radio]):not([type=range]):focus,html:root[data-theme] textarea:focus,html:root[data-theme] select:focus{border-color:var(--focus-bd);box-shadow:var(--glow);outline:none}
+/* selected chips / segmented items: border = brighter line, not brand blue */
+html:root[data-theme] .exp-chip.on,html:root[data-theme] .chips button.on,html:root[data-theme] .chip-s.on,html:root[data-theme] .ind-row button.on,
+html:root[data-theme] .indbar .il button.on,html:root[data-theme] .bin-page .bx-time .exp-chip.on,html:root[data-theme] .dep-card.on,
+html:root[data-theme] .wd-net.on,html:root[data-theme] .as-o.on,html:root[data-theme] .hx-seg button.on,html:root[data-theme] .kyc-doc.on,
+html:root[data-theme] .ac-opt.on,html:root[data-theme] .vp-t.on{border-color:var(--focus-bd);box-shadow:var(--glow)}
+/* ROI % / Price toggle chip: real padding so text never touches the border */
+html:root[data-theme] .tsm,html:root[data-theme] .row .tsm,html:root[data-theme] .sp-tprow .tsm{
+  display:inline-flex;align-items:center;gap:4px;padding:5px 10px;border-radius:var(--r-ctl);border:1px solid var(--line);line-height:1.2;white-space:nowrap;color:var(--text)}
+
+/* empty states: flat on the page background (no card) until there is data; icon + text centred */
+html:root[data-theme] .empty,html:root[data-theme] .px-empty,html:root[data-theme] .pm-empty,html:root[data-theme] .pn-empty,
+html:root[data-theme] .nt-empty,html:root[data-theme] .pd-err{background:none;background-image:none;border:0;box-shadow:none;border-radius:0}
+.empty{min-height:150px;justify-content:center;padding:32px 16px}
+.empty svg{color:var(--muted);opacity:.85}
+.empty p{margin:0;font-size:14px;color:var(--muted)}
+
+/* Home: "All shortcuts" sheet, each shortcut is its own gradient card tile */
+.hm-mg{gap:8px}
+.hm-mi{position:relative;justify-content:flex-start;min-height:92px;padding:12px 4px 8px;gap:8px;border-radius:var(--r-card);border:1px solid var(--line);background:linear-gradient(180deg,var(--card-g1),var(--card-g2));font-size:11.5px;line-height:1.2;overflow:visible}
+.hm-mi:active{background:var(--hover)}
+.hm-mi span{width:40px;height:40px;border-radius:12px;background:linear-gradient(160deg,var(--tile-g1),var(--tile-g2));border:1px solid var(--line)}
+.hm-mi b{display:block;padding:0 2px;word-break:break-word;color:var(--text)}
+.hm-mi.hm-hot::after{content:"";position:absolute;top:6px;right:6px;width:15px;height:15px;background:linear-gradient(180deg,#FFD54A 0%,#FF8A00 45%,#FF3D2E 100%);
+  -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 23c4.4 0 7.6-3 7.6-7.4 0-3.5-2.2-6.1-4-7.9-.3 2-1.3 3.3-2.6 3.9.4-3.6-1.1-7.2-4.4-9.3.2 3.3-1.5 5.4-3.2 7.5C3.9 11.6 4.4 13.2 4.4 15.6 4.4 20 7.6 23 12 23z'/%3E%3C/svg%3E") center/contain no-repeat;
+          mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 23c4.4 0 7.6-3 7.6-7.4 0-3.5-2.2-6.1-4-7.9-.3 2-1.3 3.3-2.6 3.9.4-3.6-1.1-7.2-4.4-9.3.2 3.3-1.5 5.4-3.2 7.5C3.9 11.6 4.4 13.2 4.4 15.6 4.4 20 7.6 23 12 23z'/%3E%3C/svg%3E") center/contain no-repeat}
+
+/* ring-style selected chips (flat.css used an inset brand ring): neutral brighter border + glow */
+html:root[data-theme] .bin-page .bx-time .exp-chip.on,html:root[data-theme] .bb-chips button.on,html:root[data-theme] .op-amts button.on,
+html:root[data-theme] .op-exp.on,html:root[data-theme] .op-tg.on,html:root[data-theme] .op-und.on,html:root[data-theme] .px-strip>div.now{
+  background:var(--sel-bg);box-shadow:inset 0 0 0 1px var(--focus-bd),var(--glow);color:var(--text)}

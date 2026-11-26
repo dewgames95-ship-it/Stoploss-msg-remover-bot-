@@ -111,3 +111,64 @@
 .fee-l b{color:var(--text);font-weight:600}
 .fee-l s{text-decoration-thickness:1px;opacity:.8}
 .fee-b{font-style:normal;font-size:10.5px;font-weight:700;line-height:15px;padding:0 6px;border-radius:999px;background:var(--brand-soft,rgba(37,99,235,.15));color:var(--brand)}
+
+/* ===== v6.9 (agent B): compact fixed-height order buttons, TP/SL hint, fee ?, close slider, position-card borders, isolated margin sheet, field tooltips ===== */
+/* B1: Long/Short + Buy/Sell buttons: one fixed height, never changes when the "≈ cost" line or a label appears */
+.fbtn2,.sp-go{height:36px;min-height:36px;max-height:36px;padding:0 10px;box-sizing:border-box;border-radius:var(--r-ctl);overflow:hidden}
+.fbtn2{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;font-size:14px;font-weight:700;line-height:1.1}
+.fbtn2 span{display:block;font-size:14px;line-height:16px;font-weight:700}
+.fbtn2 small{position:static;display:block;font-size:10.5px;line-height:12px;font-weight:600;opacity:.92;white-space:nowrap}
+.fbtn2 small:empty{display:none}
+#openBox>.fbtn2,#closeBox>.fbtn2{margin-top:8px!important}
+#openBox>.fbtn2+.fbtn2{margin-top:6px!important}
+.sp-go{font-size:14px;line-height:1;margin-top:8px}
+.fx-meta{margin-top:8px!important}
+/* B3: TP/SL hint on one line, smaller */
+.tsh .tsl{font-size:10.5px;line-height:16px;white-space:nowrap;overflow:hidden;color:var(--text-2);letter-spacing:-.1px}
+.tsh .tsl b{font-weight:600}
+/* B4: fee line with a ? icon */
+.fee-l{cursor:default;align-items:center}
+.fee-l .fee-q{margin:0 0 0 2px;width:16px;height:16px;font-size:10px;flex:none;position:relative}
+.fee-l .fee-q::after{content:"";position:absolute;inset:-8px}
+.hq{background:transparent}
+.fkv .hq{width:14px;height:14px;font-size:9px;margin-left:4px;position:relative}
+.fkv .hq::after{content:"";position:absolute;inset:-9px}
+/* B5: market-close slider */
+.cs-box{margin:10px 0 12px;padding:12px 12px 8px;border:1px solid var(--line-2,var(--line));border-radius:var(--r-card)}
+.cs-top{display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--muted);margin-bottom:26px;gap:8px}
+.cs-top b{color:var(--text);font-weight:600;font-size:14px}
+.cs-sl{margin:2px 8px 6px}
+.cs-sl .th.bub::after{bottom:24px}
+.cs-ticks{display:flex;justify-content:space-between;margin:2px -4px 0}
+.cs-ticks button{min-width:44px;height:32px;border-radius:var(--r-ctl);font-size:12.5px;font-weight:600;color:var(--muted);background:transparent}
+.cs-ticks button.on{color:var(--text);background:var(--input)}
+/* B6: position-card buttons get a visible border (dark + light) */
+.fxr .pc-btns button,.bin-page .pc-btns button,.pc .pc-btns button{background:transparent;border:1px solid color-mix(in srgb,var(--text) 26%,transparent);color:var(--text)}
+.fxr .pc-btns button:active,.pc .pc-btns button:active{background:var(--hover)}
+.fxr .oc-cancel,.fxr .ptools .ptc,.sp-card .btn-ghost{border:1px solid color-mix(in srgb,var(--text) 26%,transparent)}
+.fxr .rpnl{border-color:color-mix(in srgb,var(--text) 18%,transparent)}
+/* B7: (+) next to isolated Margin, Add/Remove margin sheet */
+.pc-mg{display:inline-flex;align-items:center;gap:6px}
+.pc-addm{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;border:1.5px solid var(--text);color:var(--text);background:transparent;padding:0;position:relative;flex:none}
+.pc-addm::after{content:"";position:absolute;inset:-10px}
+.pc-addm:active{background:var(--hover)}
+.mg-tabs{display:flex;gap:22px;border-bottom:1px solid var(--line);margin:0 0 14px}
+.mg-tabs button{position:relative;padding:8px 0 10px;font-size:15px;font-weight:600;color:var(--muted)}
+.mg-tabs button.on{color:var(--text)}
+.mg-tabs button.on::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--brand)}
+.mg-l{font-size:13px;color:var(--muted);margin-bottom:6px}
+.mg-in{height:44px;margin-bottom:14px}
+.mg-in input{font-size:16px}
+.mg-in .mg-max{margin-left:10px;font-size:13px;font-weight:700;color:var(--brand);padding:6px 2px}
+#sheet .kv{font-size:13px;margin:10px 0}
+/* B8: field tooltips - bigger tap area, dotted label */
+.fxr .pc-g span[data-info],.fxr .pc-big span{cursor:pointer}
+.fxr .pc-g span[data-info]{display:inline-block;padding:5px 8px 5px 0;margin:-5px 0 -3px;text-decoration:none}
+.fxr .pc-g>div:nth-child(3n) span[data-info]{padding-right:0;padding-left:8px}
+.fxr .pc-g span[data-info] u,.fxr .pc-big u{text-decoration:underline dotted;text-underline-offset:3px}
+.fxr .pc-big u{display:inline-block;padding:4px 0;margin:-4px 0}
+.fxr .pc-tp>span{padding:6px 0}
+.fx-meta{white-space:nowrap}.fx-meta span{display:inline-flex;align-items:center}
+.fxr .pc-g b.pc-mg{display:inline-flex;align-items:center;gap:8px}
+#sheet .mg-in+.kv{margin-top:6px}
+#sheet [data-ok].btn-lg{margin-top:12px}

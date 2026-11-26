@@ -226,6 +226,7 @@ function crossAvail(){ return store.wb("futures"); }
 // Liquidation: margin balance (margin [+ free balance for cross]) + uPnL = maintenance margin
 function liqPrice(side, entry, lev, mode="cross", qty=null, margin=null){
   const mmr = C.MMR;
+  if (mode !== "cross" && qty != null && margin > 0 && entry > 0) lev = qty * entry / margin;   // isolated: effective leverage follows the margin actually assigned (add / remove margin)
   if (mode !== "cross" || qty == null) return side === "long" ? entry * (1 - 1/lev + mmr) : entry * (1 + 1/lev - mmr);
   const eq = margin + crossAvail();
   const lp = side === "long" ? (entry * qty - eq) / (qty * (1 - mmr)) : (entry * qty + eq) / (qty * (1 + mmr));
@@ -345,6 +346,27 @@ function setPosLev(id, lev){
   store.addWallet("futures", -diff, "futures"); pos.margin = need; pos.lev = lev;
   pos.liq = liqPrice(pos.side, pos.entry, lev, pos.mode, pos.qty, pos.margin); refreshLiq(); store.save(); bus.emit("positions"); return null;
 }
+/* Isolated margin: info for the Add / Remove Margin sheet and the adjustment itself */
+const fl2 = v => Math.floor(Math.max(0, v) * 100 + 1e-9) / 100;
+function marginInfo(pos){
+  const px = M.get(pos.sym)?.price ?? pos.entry, L = pos.side === "long", pnl = (px - pos.entry) * pos.qty * (L ? 1 : -1), init = pos.qty * pos.entry / pos.lev;
+  const safe = x => { const l = liqPrice(pos.side, pos.entry, pos.lev, "isolated", pos.qty, pos.margin - x); return L ? l < px * 0.999 : l > px * 1.001; };
+  let rem = Math.max(0, pos.margin - init + Math.min(0, pnl));
+  if (!safe(rem)){ let lo = 0, hi = rem; for (let i = 0; i < 30; i++){ const mid = (lo + hi) / 2; if (safe(mid)) lo = mid; else hi = mid; } rem = lo; }
+  const liqAt = delta => { const l = liqPrice(pos.side, pos.entry, pos.lev, "isolated", pos.qty, pos.margin + delta); return l > 0 ? l : 0; };
+  return {margin: pos.margin, maxAdd: fl2(store.wb("futures")), maxRem: fl2(rem), liqAt, pnl, px};
+}
+function adjustMargin(id, delta){
+  const pos = F().positions.find(x => x.id === id); if (!pos) return "Position not found.";
+  if (pos.mode !== "isolated") return "Margin can only be adjusted on isolated positions.";
+  delta = r2(delta); if (!(Math.abs(delta) > 0)) return "Please enter the amount.";
+  const mi = marginInfo(pos);
+  if (delta > 0){ if (delta > mi.maxAdd + 1e-9) return "Insufficient Futures balance"; }
+  else if (-delta > mi.maxRem + 1e-9) return "Amount exceeds the maximum removable margin.";
+  store.addWallet("futures", -delta, "margin"); pos.margin = r2(pos.margin + delta);
+  pos.liq = liqPrice(pos.side, pos.entry, pos.lev, "isolated", pos.qty, pos.margin);
+  store.save(); bus.emit("positions"); return null;
+}
 bus.on("tick", (sym, px) => {
   F().orders.filter(o => o.sym === sym).forEach(o => {
     if (o.side === "long" ? px <= o.price : px >= o.price){
@@ -439,7 +461,7 @@ function vaultMove(amount, dir){
   store.save(); bus.emit("vault"); return null;
 }
 
-window.E = {alignedExpiry, payoutOf, earnValue, setPosLev, refreshLiq, liqPrice, maxLev, futValidate, openFut, futPnl, closeFut, cancelOrder, setTpSl, TASKS, BADGES, award, taskDone, claim, streak, checkIn, CHECKIN, level, dayKey, vaultValue, vaultMove, APR, validate, place, livePnl, stats, todaySeries, BOTS, botPnl, startBot, stopBot, startAuto, stopAuto, runAuto, RATIO};
+window.E = {alignedExpiry, payoutOf, earnValue, marginInfo, adjustMargin, setPosLev, refreshLiq, liqPrice, maxLev, futValidate, openFut, futPnl, closeFut, cancelOrder, setTpSl, TASKS, BADGES, award, taskDone, claim, streak, checkIn, CHECKIN, level, dayKey, vaultValue, vaultMove, APR, validate, place, livePnl, stats, todaySeries, BOTS, botPnl, startBot, stopBot, startAuto, stopAuto, runAuto, RATIO};
 /* ---- Binary early close (like Quotex / Olymp): allowed during the first half of the period, priced like an option. No slippage: uses the live mark price. ---- */
 function earlyValue(pos, now=Date.now()){
   const total = pos.exp - pos.open, left = pos.exp - now, f = total > 0 ? Math.max(0, Math.min(1, left / total)) : 0;

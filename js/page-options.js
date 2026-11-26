@@ -142,7 +142,7 @@ Pages.options = (params) => {
   let base = String(params[0] || sessionStorage.getItem("lastSym_options") || "BTC").toUpperCase().replace(/USDT$/, "");
   if (!UNDERS.includes(base)) base = "BTC";
   try { sessionStorage.setItem("lastSym_options", base); } catch {}
-  let root, offs = [], side = "call", expKey = "1h", ptab = "pos", tT = 0, tTimer = 0, closeSheetOff = null, tgt = 0, amt = 50, amtMax = false, pctSel = null, chartEl = null, chartLive = false, chTf = "15m";
+  let root, offs = [], side = "call", expKey = "1h", ptab = "pos", tT = 0, tTimer = 0, closeSheetOff = null, tgt = 0, amt = 50, amtMax = false, pctSel = null, chartEl = null, chartLive = false, chTf = "1m";
   let chartOpen = true; try { chartOpen = localStorage.getItem("opChart") !== "0"; } catch {}
   let mode = "simple"; try { mode = localStorage.getItem("opMode") === "pro" ? "pro" : "simple"; } catch {}
   const $ = q => root.querySelector(q), s = () => store.s;
@@ -365,7 +365,7 @@ Pages.options = (params) => {
   }
 
   /* ---- live candle chart (CH singleton, mounted lazily, moved between simple / pro slots) ---- */
-  const CH_TFS = [["1m","1m"],["5m","5m"],["15m","15m"],["1h","1H"],["4h","4H"],["1d","1D"]], CH_IND = ["MA","EMA","BOLL","|","VOL","RSI","MACD"];
+  const CH_TFS = [["1s","1s"],["5s","5s"],["30s","30s"],["1m","1m"],["5m","5m"],["15m","15m"],["1h","1h"],["4h","4h"],["1d","1D"]], CH_IND = ["MA","EMA","BOLL","|","VOL","RSI","MACD"];
   function buildChart(){
     const el = document.createElement("section"); el.className = "op-chart"; el.id = "opChart";
     el.innerHTML = `<button class="op-ch-h" data-chtog aria-expanded="${chartOpen}" aria-label="Show or hide chart"><span class="op-ch-t">${ic("candle",16)}<b>Chart</b><small>${base}/USDT <i id="opChTf"></i></small></span><span class="op-ch-c">${ic("chevd",16)}</span></button>

@@ -68,3 +68,17 @@
   html[data-rt]:not([data-rt=futures]):not([data-rt=spot]):not([data-rt=trade]):not([data-rt=chart]):not([data-rt=options]) .app{max-width:560px}
   html[data-rt]:not([data-rt=futures]):not([data-rt=spot]):not([data-rt=trade]):not([data-rt=chart]):not([data-rt=options]) .wd-bar{left:50%;right:auto;width:560px;transform:translateX(-50%)}
 }
+
+/* v6.9 QR scanner */
+.sc-v{position:relative;aspect-ratio:1/1;max-height:46vh;width:100%;margin:0 auto;border-radius:var(--r-card,12px);overflow:hidden;background:#000}
+.sc-v video{width:100%;height:100%;object-fit:cover;display:block}
+.sc-ph{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:#9aa4b2;font-size:13px;background:linear-gradient(180deg,#0f1623,#0a0f18)}
+.sc-ph[hidden]{display:none}
+.sc-fr i{position:absolute;width:34px;height:34px;border:3px solid var(--brand);border-radius:6px}
+.sc-fr i:nth-child(1){left:16%;top:16%;border-right:0;border-bottom:0}.sc-fr i:nth-child(2){right:16%;top:16%;border-left:0;border-bottom:0}
+.sc-fr i:nth-child(3){left:16%;bottom:16%;border-right:0;border-top:0}.sc-fr i:nth-child(4){right:16%;bottom:16%;border-left:0;border-top:0}
+.sc-m{margin:12px 0 0;font-size:13px;color:var(--text-2);text-align:center;min-height:20px}.sc-m.bad{color:var(--down)}
+.sc-a{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}.sc-a .btn{height:44px}.sc-a .btn[hidden]{display:none}
+.sc-n{margin:12px 0 0;font-size:11.5px;color:var(--muted);text-align:center}
+.sc-help{font-size:14px;line-height:1.55;color:var(--text-2)}.sc-help ul{margin:8px 0;padding-left:18px}.sc-help li{margin:5px 0}.sc-help b{color:var(--text)}
+.sc-help code{font-size:12.5px;background:var(--input);padding:1px 5px;border-radius:4px}.sc-ok{width:100%;height:46px;margin-top:10px}

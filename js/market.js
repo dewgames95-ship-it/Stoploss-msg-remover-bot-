@@ -5,7 +5,7 @@ const pairs = new Map();          // sym -> pair
 const hist = new Map();           // sym -> [{t,p}] recent ticks (for signals, short-tf candles)
 let cryptoOrder = [];             // top 100 by quote volume
 let restHost = 0, wsHost = 0;
-const status = {crypto:"loading", fx:"loading"};
+const status = {crypto:"loading", fx:"loading", tradfi:"loading"};
 
 function decimalsFor(p){ if (p >= 1000) return 2; if (p >= 10) return 3; if (p >= 1) return 4; if (p >= 0.01) return 5; if (p >= 0.0001) return 6; return 8; }
 
@@ -16,6 +16,8 @@ function addPair(o){
 }
 C.FOREX.forEach(f => addPair({fixed:true, sym:f.s, type:"forex", base:f.s.slice(0,3), quote:f.s.slice(3), name:f.n, flags:f.f, tradable:true, dp:f.s.includes("JPY")?3:5}));
 C.METALS.forEach(m => addPair({fixed:true, sym:m.s, type:"metal", base:m.s.slice(0,3), quote:"USD", name:m.n, metal:m.m, tradable:true, dp:m.s==="XAUUSD"?2:3}));
+
+(C.INDICES || []).forEach(x => addPair({fixed:true, sym:x.s, type:"index", base:x.s, quote:"", name:x.n, flag:x.f, tradable:true, dp:2}));
 
 function pushHist(sym, price, t=Date.now()){
   let h = hist.get(sym); if (!h) hist.set(sym, h = []);
@@ -115,10 +117,11 @@ let tradeLast = 0;
 let tws, chartSym = null, twsRetry = 0, twsTimer;
 const book = {bids:[], asks:[], sym:null}, trades = [];
 function watchTrades(sym){
-  chartSym = sym; clearTimeout(twsTimer);
+  chartSym = sym; clearTimeout(twsTimer); unwatchTradfi();
   try { tws && (tws.onclose = null, tws.close()); } catch {}
   tws = null; trades.length = 0; book.bids = []; book.asks = []; book.sym = sym;
-  const p = pairs.get(sym); if (!p || p.type !== "crypto") { chartSym = null; return; }
+  const p = pairs.get(sym); if (p && p.src === "bnf"){ chartSym = null; return watchTradfi(sym); }
+  if (!p || p.type !== "crypto") { chartSym = null; return; }
   binance(`/api/v3/depth?symbol=${sym}&limit=20`).then(d => { if (book.sym === sym && !book.bids.length){ book.bids = d.bids; book.asks = d.asks; bus.emit("depth", sym); } }).catch(() => {});
   const s = sym.toLowerCase();
   const url = C.BINANCE_WS[wsHost % C.BINANCE_WS.length] + `/stream?streams=${s}@aggTrade/${s}@depth20@100ms`;
@@ -145,24 +148,25 @@ function watchTrades(sym){
   sock.onclose = () => { clearInterval(flush); if (tws !== sock) return; twsTimer = setTimeout(() => watchTrades(sym), Math.min(20000, 1000 * 2**(twsRetry++))); };
   sock.onerror = () => { try { sock.close(); } catch {} };
 }
-function unwatchTrades(){ chartSym = null; book.sym = null; clearTimeout(twsTimer); if (tws){ tws.onclose = null; try{ tws.close(); }catch{} tws = null; } }
+function unwatchTrades(){ unwatchTradfi(); chartSym = null; book.sym = null; clearTimeout(twsTimer); if (tws){ tws.onclose = null; try{ tws.close(); }catch{} tws = null; } }
 
 /* ---- biquote.io: stocks, indices, forex, metals, commodities (auto catalogue) ---- */
 let FX_SYMS = [...C.FOREX.map(f => f.s), ...C.METALS.map(m => m.s)];
 const CCY = {USD:"us",EUR:"eu",GBP:"gb",JPY:"jp",CHF:"ch",AUD:"au",NZD:"nz",CAD:"ca",SGD:"sg",HKD:"hk",NOK:"no",SEK:"se",DKK:"dk",MXN:"mx",ZAR:"za",TRY:"tr",PLN:"pl",CNH:"cn",HUF:"hu",CZK:"cz",INR:"in"};
 const IDX_FLAG = {US30:"us",USTEC:"us",US500:"us",SPX500:"us",NAS100:"us",US2000:"us",DXY:"us",VIX:"us",UK100:"gb",DE30:"de",GER40:"de",FR40:"fr",FRA40:"fr",JP225:"jp",JPN225:"jp",AUS200:"au",HK50:"hk",STOXX50:"eu",ESTX50:"eu",CHINA50:"cn"};
+const IDX_NAME = {US500:"S&P 500 (SPX)", USTEC:"Nasdaq 100 (NAS100)", US30:"Dow Jones 30", DE30:"DAX 40 (GER40)", UK100:"FTSE 100", JP225:"Nikkei 225", HK50:"Hang Seng 50", AUS200:"ASX 200", FR40:"CAC 40", STOXX50:"Euro Stoxx 50", DXY:"US Dollar Index (DXY)"};
 const METAL = {XAUUSD:"gold",XAGUSD:"silver",XPTUSD:"platinum",XPDUSD:"palladium"};
 const COMMOD = {USOIL:"WTI Crude Oil",UKOIL:"Brent Crude Oil",XNGUSD:"Natural Gas",NATGASUSDT:"Natural Gas",COPPERUSDT:"Copper",XALUSD:"Aluminium",XPBUSD:"Lead"};
 const POP_STOCKS = new Set("AAPL MSFT NVDA AMZN GOOGL META TSLA AVGO AMD NFLX ORCL CRM ADBE INTC QCOM TXN MU ARM TSM ASML PLTR COIN MSTR HOOD UBER SHOP PYPL BABA JPM GS V MA BAC WMT COST KO PEP MCD DIS NKE LLY UNH XOM CVX BA IBM SPY QQQ IWM DIA".split(" "));
 const POP_FX = new Set("EURUSD GBPUSD USDJPY AUDUSD USDCAD USDCHF NZDUSD EURJPY GBPJPY EURGBP EURCHF AUDJPY EURAUD GBPCHF CADJPY CHFJPY AUDCAD AUDNZD EURCAD GBPAUD USDSGD USDHKD USDMXN USDZAR USDTRY USDCNH".split(" "));
-const POP_COMMOD = new Set(["USOIL","UKOIL","XNGUSD","COPPERUSDT"]);
+const POP_COMMOD = new Set(["USOIL","UKOIL","XNGUSD","COPPERUSDT","XALUSD","XPBUSD"]);
 function classify(x){
   const n = x.name; if (!x.isActive || !x.hasData || n.includes("_")) return null;
   if (x.type === "Stock" && n.endsWith("USDT") && !POP_STOCKS.has(n.slice(0,-4))) return null;
   if (x.type === "Forex" && !POP_FX.has(n)) return null;
   if (COMMOD[n] && !POP_COMMOD.has(n)) return null;
   if (x.type === "Stock" && n.endsWith("USDT") && n.length > 4) return {sym:n, type:"stock", base:n.slice(0,-4), quote:"USDT", name:x.description || n.slice(0,-4)};
-  if (x.type === "Index" && IDX_FLAG[n]) return {sym:n, type:"index", base:n, quote:"", name:x.description || n, flag:IDX_FLAG[n]};
+  if (x.type === "Index" && IDX_FLAG[n]) return {sym:n, type:"index", base:n, quote:"", name:IDX_NAME[n] || x.description || n, flag:IDX_FLAG[n]};
   if (METAL[n]) return {sym:n, type:"metal", base:n.slice(0,3), quote:"USD", name:x.description || n, metal:METAL[n]};
   if (COMMOD[n]) return {sym:n, type:"commodity", base:n, quote:"", name:COMMOD[n]};
   if (x.type === "Forex" && /^[A-Z]{6}$/.test(n) && CCY[n.slice(0,3)] && CCY[n.slice(3)]) return {sym:n, type:"forex", base:n.slice(0,3), quote:n.slice(3), name:x.description || n, flags:[CCY[n.slice(0,3)], CCY[n.slice(3)]]};
@@ -170,13 +174,13 @@ function classify(x){
 }
 async function loadCatalog(){
   try {
-    let list; const key = "bq_cat_v2";
+    let list; const key = "bq_cat_v3";
     try { const c = JSON.parse(localStorage.getItem(key) || "null"); if (c && Date.now() - c.t < 6 * 3600e3) list = c.d; } catch {}
     if (!list){ const r = await fetch(C.BIQUOTE + "/api/symbols"); if (!r.ok) throw 0; list = (await r.json()).map(classify).filter(Boolean); try { localStorage.setItem(key, JSON.stringify({t:Date.now(), d:list})); } catch {} }
     const live = new Set(list.map(x => x.sym));
     [...pairs.values()].filter(p => ["stock","index","commodity","forex","metal"].includes(p.type) && !p.fixed && !live.has(p.sym) && !inUse(p.sym)).forEach(p => pairs.delete(p.sym));
     list.forEach(x => { if (!pairs.has(x.sym)) addPair(Object.assign({tradable:true, dp:5, listed:Date.now()}, x)); });
-    FX_SYMS = [...pairs.values()].filter(p => p.type !== "crypto").map(p => p.sym);
+    FX_SYMS = [...pairs.values()].filter(p => p.type !== "crypto" && p.src !== "bnf").map(p => p.sym);
     bus.emit("list"); pollFx();
     if (hub && hubLive) try { await hub.invoke("Subscribe", FX_SYMS); } catch {}
   } catch {}
@@ -184,7 +188,7 @@ async function loadCatalog(){
 }
 function applyQuote(q){
   if (!q || !q.symbol) return;
-  const p = pairs.get(q.symbol); if (!p) return;
+  const p = pairs.get(q.symbol); if (!p || p.src === "bnf") return;   // Binance 24/7 feed owns these symbols
   if (!p.dpSet && q.mid){ const t = String(q.bid ?? q.mid).split(".")[1]; if (t){ p.dp = Math.min(6, Math.max(2, t.replace(/0+$/, "").length || 2)); p.dpSet = true; } }
   const closed = String(q.marketState || "").toLowerCase() === "closed";
   const mid = +q.mid || ((+q.bid + +q.ask) / 2);
@@ -222,6 +226,98 @@ async function startHub(){
   } catch { hubLive = false; setTimeout(startHub, Math.min(60000, 3000 * 2**(hubRetry++))); }
 }
 
+/* ---- v6.9: Binance USD-M TradFi perpetuals (stocks, ETFs, gold/silver/oil/gas/copper, FX) - trade 24/7 ----
+   REST: fapi.binance.com -> www.binance.com/fapi (CORS ok)  |  WS: fstream.binance.com (aggTrade) with REST price polling fallback */
+let fHost = 0, tfTimer, tfLoaded = false, tfNames = {}, tfMeta = new Map();
+async function fapi(path){
+  const H = C.BINANCE_FAPI;
+  for (let k = 0; k < H.length; k++){
+    const i = (fHost + k) % H.length;
+    try { const r = await fetch(H[i] + path, {cache:"no-store"}); if (!r.ok) throw new Error(r.status); const j = await r.json(); fHost = i; return j; } catch(e){ /* next host */ }
+  }
+  throw new Error("fapi unreachable");
+}
+const TF_TWIN = {XAUUSDT:"XAUUSD", XAGUSDT:"XAGUSD", XPTUSDT:"XPTUSD", XPDUSDT:"XPDUSD", CLUSDT:"USOIL", BZUSDT:"UKOIL", NATGASUSDT:"XNGUSD"};
+const TF_REGION = {KR_EQUITY:"KR", HK_EQUITY:"HK", CN_EQUITY:"CN"};
+function tfClassify(sym, base, ut, pp){
+  const N = window.TF_NAMES || {}, K = window.TF_COMMOD || {};
+  const o = {src:"bnf", h247:true, closed:false, tradable:true, dp:pp, quote:"USDT", tfType:ut};
+  if (ut === "COMMODITY"){
+    const k = K[base] || [base];
+    return k[1] ? Object.assign(o, {type:"metal", base, name:k[0], metal:k[1]}) : Object.assign(o, {type:"commodity", base:sym, quote:"", name:k[0]});
+  }
+  if (ut === "FX"){ const a = base.slice(0,3), b = base.slice(3); return Object.assign(o, {type:"forex", base:a, quote:b, name:a + " / " + b, flags:[CCY[a] || "us", b === "BRL" ? "br" : CCY[b] || "us"]}); }
+  const pre = ut === "PREMARKET";
+  return Object.assign(o, {type:"stock", base, name:N[base] || base, pre, region:TF_REGION[ut] || ""});
+}
+function tfApply(t){
+  const p = pairs.get(t.symbol); if (!p || p.src !== "bnf") return;
+  const price = +t.lastPrice, extra = {chg:+t.priceChangePercent, high:+t.highPrice, low:+t.lowPrice, qv:+t.quoteVolume, open:+t.openPrice};
+  if (price > 0 && price !== p.price) setPrice(t.symbol, price, extra);
+  else { Object.assign(p, extra); if (price > 0){ p.updated = Date.now(); if (p.price == null) p.price = price; } }
+}
+async function loadTradfi(){
+  clearTimeout(tfTimer);
+  try {
+    if (!tfLoaded){
+      let info; const key = "bnf_tf_v1";
+      try { const c = JSON.parse(localStorage.getItem(key) || "null"); if (c && Date.now() - c.t < 12 * 3600e3) info = c.d; } catch {}
+      if (!info){
+        const ei = await fapi("/fapi/v1/exchangeInfo");
+        info = ei.symbols.filter(x => x.contractType === "TRADIFI_PERPETUAL" && x.status === "TRADING" && x.quoteAsset === "USDT" && /^[A-Z0-9]+USDT$/.test(x.symbol)).map(x => [x.symbol, x.baseAsset, x.underlyingType, x.pricePrecision]);
+        try { localStorage.setItem(key, JSON.stringify({t:Date.now(), d:info})); } catch {}
+      }
+      info.forEach(([sym, base, ut, pp]) => {
+        const o = tfClassify(sym, base, ut, pp), ex = pairs.get(sym);
+        if (ex){ Object.assign(ex, o, {synthetic:false}); }
+        else addPair(Object.assign({sym}, o));
+        const twin = TF_TWIN[sym] && pairs.get(TF_TWIN[sym]);
+        if (twin){ twin.fdup = true; pairs.get(sym).perpOnly = true; pairs.get(sym).twin = twin.sym; }
+      });
+      tfLoaded = true;
+      FX_SYMS = [...pairs.values()].filter(p => p.type !== "crypto" && p.src !== "bnf").map(p => p.sym);
+      bus.emit("list");
+    }
+    (await fapi("/fapi/v1/ticker/24hr")).forEach(tfApply);
+    status.tradfi = "live"; bus.emit("status");
+  } catch(e){ status.tradfi = "retry"; }
+  tfTimer = setTimeout(loadTradfi, document.hidden ? 60e3 : tfLoaded ? 30e3 : 8e3);
+}
+/* per-chart live stream for a TradFi pair: aggTrade over fstream, REST price poll as fallback */
+let ftws, ftTimer, ftPoll, ftSym = null, ftRetry = 0;
+function watchTradfi(sym){
+  unwatchTradfi(); ftSym = sym; book.sym = sym;
+  const s = sym.toLowerCase();
+  let gotWs = false;
+  let nPoll = 0;
+  const pollOnce = async () => {
+    if (ftSym !== sym) return;
+    try {
+      const j = await fapi(`/fapi/v1/ticker/price?symbol=${sym}`); if (ftSym !== sym) return;
+      if (+j.price > 0) setPrice(sym, +j.price);
+      if (!gotWs && nPoll++ % 2 === 0){ const d = await fapi(`/fapi/v1/depth?symbol=${sym}&limit=20`); if (ftSym === sym && !gotWs){ book.bids = d.bids; book.asks = d.asks; bus.emit("depth", sym); } }
+    } catch {}
+  };
+  pollOnce(); ftPoll = setInterval(() => { if (!gotWs && !document.hidden) pollOnce(); }, 1500);
+  const open = () => {
+    if (ftSym !== sym) return;
+    let sock; try { sock = ftws = new WebSocket(C.BINANCE_FWS[0] + `/stream?streams=${s}@aggTrade/${s}@depth20@500ms`); } catch { return; }
+    let lastEmit = 0, lastDepth = 0;
+    sock.onmessage = ev => {
+      let m; try { m = JSON.parse(ev.data); } catch { return; } const d = m.data; if (!d) return;
+      gotWs = true; ftRetry = 0;
+      if (String(m.stream).endsWith("@aggTrade")){
+        const tr = {p:+d.p, q:+d.q, buy:!d.m, t:d.T}; trades.unshift(tr); if (trades.length > 40) trades.length = 40; bus.emit("trade", sym, tr);
+        const now = Date.now(); if (now - lastEmit > 200){ lastEmit = now; setPrice(sym, tr.p); }
+      } else { const now = Date.now(); if (now - lastDepth < 300) return; lastDepth = now; book.bids = d.b || d.bids || []; book.asks = d.a || d.asks || []; bus.emit("depth", sym); }
+    };
+    sock.onclose = () => { gotWs = false; if (ftws !== sock || ftSym !== sym) return; ftTimer = setTimeout(open, Math.min(20000, 2000 * 2 ** (ftRetry++))); };
+    sock.onerror = () => { try { sock.close(); } catch {} };
+  };
+  open();
+}
+function unwatchTradfi(){ ftSym = null; clearTimeout(ftTimer); clearInterval(ftPoll); if (ftws){ ftws.onclose = null; try { ftws.close(); } catch {} ftws = null; } }
+
 /* ---- Candles (OHLCV) ---- */
 const TF_SEC = {tick:1, "1s":1, "5s":5, "15s":15, "30s":30, "1m":60, "5m":300, "15m":900, "1h":3600, "4h":14400, "1d":86400, "3d":259200, "1w":604800, "1M":2592000};
 function aggregate(bars, sec){
@@ -248,6 +344,16 @@ async function candles(sym, tf){
     }
     const rows = await binance(`/api/v3/klines?symbol=${sym}&interval=${tf}&limit=500`);
     return rows.map(k);
+  }
+  if (p.src === "bnf"){
+    const iv = sec < 60 ? "1m" : tf, k = r => ({time: Math.floor(r[0]/1000), open:+r[1], high:+r[2], low:+r[3], close:+r[4], volume:+r[5]});
+    let bars = (await fapi(`/fapi/v1/klines?symbol=${sym}&interval=${iv}&limit=500`)).map(k).filter(b => b.open > 0);
+    if (sec < 60){
+      const ticks = (hist.get(sym) || []).map(x => ({time:Math.floor(x.t/1000), open:x.p, high:x.p, low:x.p, close:x.p, volume:1}));
+      const cut = ticks.length ? ticks[0].time : Infinity;
+      bars = bars.filter(b => b.time + 60 <= cut).concat(aggregate(ticks, sec));
+    }
+    return bars;
   }
   const iv = sec < 60 ? "1m" : sec > 86400 ? "1d" : tf;
   const d = await getJSON(`${C.BIQUOTE}/api/${sym}/ohlc?interval=${iv}&limit=300`, 3);
@@ -301,6 +407,7 @@ function addSynthetic(){
     setInterval(() => {
       try {
         list.forEach(p => {
+          if (p.src === "bnf") return;   // real Binance TradFi feed took over
           const prev = p.price, vol = p.pre ? 0.0007 : 0.0004, np = Math.max(1, prev * (1 + gauss() * vol + (p.open - prev) / p.open * 0.0008));
           p.price = np; p.updated = Date.now(); p.dir = np >= prev ? 1 : -1; p.high = Math.max(p.high, np); p.low = Math.min(p.low, np); p.chg = (np - p.open) / p.open * 100;
           pushHist(p.sym, np); bus.emit("tick", p.sym, np, prev);
@@ -310,8 +417,8 @@ function addSynthetic(){
     }, 1500);
   } catch {}
 }
-function start(){ loadCrypto(); pollFx(); startHub(); loadCatalog(); setTimeout(addSynthetic, 7000); }
+function start(){ loadCrypto(); pollFx(); startHub(); loadCatalog(); setTimeout(loadTradfi, 1200); setTimeout(addSynthetic, 9000); }
 window.addEventListener("online", () => { loadCrypto(); pollFx(); });
 
-window.M = {usdtUsd, addSynthetic, pairs, hist, status, book, trades, get cryptoOrder(){ return cryptoOrder; }, start, candles, watchTrades, unwatchTrades, momentum, isStale, label, fmtPx, TF_SEC, get: s => pairs.get(s)};
+window.M = {loadTradfi, usdtUsd, addSynthetic, pairs, hist, status, book, trades, get cryptoOrder(){ return cryptoOrder; }, start, candles, watchTrades, unwatchTrades, momentum, isStale, label, fmtPx, TF_SEC, get: s => pairs.get(s)};
 })();

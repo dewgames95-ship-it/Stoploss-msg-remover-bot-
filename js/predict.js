@@ -46,6 +46,48 @@ const endsIn = iso => { const t = Date.parse(iso); if (isNaN(t)) return ""; cons
 const img = (src, cls = "pd-img", alt = "") => src ? `<img class="${cls}" src="${esc(src)}" alt="${esc(alt)}" loading="lazy" decoding="async" onerror="this.style.visibility='hidden'">` : `<span class="${cls} pd-img-ph">${ic("target", 18)}</span>`;
 const raf = fn => { let q = false; return () => { if (q) return; q = true; requestAnimationFrame(() => { q = false; fn(); }); }; };
 const hap = (p = 8) => U.buzz && U.buzz(p);
+const notif = (title, body, tone = "info") => { try { if (U.pushNotif) U.pushNotif("predict", title, body, tone); else store.notify && store.notify(title, body, tone); } catch {} };
+
+/* ---------- comma-formatted numeric inputs (v6.9) ---------- */
+const unc = v => String(v == null ? "" : v).replace(/,/g, "");
+const cin = v => { v = unc(v); if (v === "") return ""; const k = v.indexOf("."), i = (k < 0 ? v : v.slice(0, k)).replace(/^0+(?=\d)/, ""), d = k < 0 ? null : v.slice(k + 1); return (i === "" ? "0" : i).replace(/\B(?=(\d{3})+(?!\d))/g, ",") + (d != null ? "." + d : ""); };
+function numInput(el, dec, onCh){
+  if (!el) return;
+  el.addEventListener("input", () => {
+    const pos = el.selectionStart == null ? el.value.length : el.selectionStart, raw = el.value; let before = 0; for (let i = 0; i < pos; i++) if (/[\d.]/.test(raw[i])) before++;
+    let v = raw.replace(/[^\d.]/g, ""); const dot = v.indexOf(".");
+    if (dec <= 0) v = v.replace(/\./g, ""); else if (dot >= 0) v = v.slice(0, dot + 1) + v.slice(dot + 1).replace(/\./g, "").slice(0, dec);
+    const out = cin(v); el.value = out;
+    let c = 0, i = 0; while (i < out.length && c < before){ if (/[\d.]/.test(out[i])) c++; i++; }
+    try { el.setSelectionRange(i, i); } catch {}
+    onCh(unc(out));
+  });
+}
+
+/* ---------- own overlay layer (confirm + help popups; never replaces the open sheet) ---------- */
+function pdOverlay(cls, html){ const el = document.createElement("div"); el.className = "pd-ovl " + cls; el.innerHTML = html; document.body.appendChild(el); requestAnimationFrame(() => el.classList.add("show")); return el; }
+function closeOvl(el){ if (!el) return; el.classList.remove("show"); setTimeout(() => el.remove(), 200); }
+const closeAllOvl = () => document.querySelectorAll(".pd-ovl").forEach(e => e.remove());
+/* confirmation with details; resolves true only on Confirm */
+function pdConfirm({title, sub = "", rows = [], ok = "Confirm", tone = "yes"}){
+  return new Promise(res => {
+    const el = pdOverlay("pd-cfw", `<div class="pd-cf" role="dialog" aria-modal="true" aria-label="${esc(title)}"><div class="pd-cf-h"><b>${esc(title)}</b><button type="button" data-x aria-label="Close">${ic("close", 18)}</button></div>${sub ? `<div class="pd-cf-sub">${sub}</div>` : ""}
+      <div class="pd-cf-rows">${rows.map(([k, v, c]) => `<div class="${c || ""}"><span>${k}</span><b class="num">${v}</b></div>`).join("")}</div>
+      <div class="pd-cf-btns"><button type="button" class="pd-cf-no" data-no>Cancel</button><button type="button" class="pd-cf-ok ${tone}" data-yes>${esc(ok)}</button></div></div>`);
+    let done = false; const fin = v => { if (done) return; done = true; closeOvl(el); res(v); };
+    el.querySelector("[data-yes]").onclick = () => fin(true);
+    el.querySelector("[data-no]").onclick = el.querySelector("[data-x]").onclick = () => fin(false);
+    el.addEventListener("click", e => { if (e.target === el) fin(false); });
+  });
+}
+/* small help popup: title, short text, optional graphic, X close */
+function pdPop(title, html, onMount){
+  const el = pdOverlay("pd-popw", `<div class="pd-pop" role="dialog" aria-modal="true" aria-label="${esc(title)}"><div class="pd-pop-h"><b>${esc(title)}</b><button type="button" data-x aria-label="Close">${ic("close", 18)}</button></div><div class="pd-pop-b">${html}</div></div>`);
+  const close = () => closeOvl(el);
+  el.querySelector("[data-x]").onclick = close; el.addEventListener("click", e => { if (e.target === el) close(); });
+  onMount && onMount(el, close); return el;
+}
+const qIcon = (s = 16) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9.5"/><path d="M9.2 9.3a2.9 2.9 0 0 1 5.6 1c0 1.9-2.8 2.3-2.8 4"/><circle cx="12" cy="17.6" r=".6" fill="currentColor"/></svg>`;
 
 /* ---------- persistent data (per account mode) ---------- */
 let D = null, svT = 0;
@@ -146,19 +188,21 @@ function handleWS(x){
   }
 }
 /* one socket per screen; returns close() */
+let WSN = 0;   // open market sockets (drives the "Live" dot)
 function openWS(assets){
   assets = [...new Set(assets.filter(Boolean))].slice(0, 120);
-  let ws = null, alive = true, ping = 0, tries = 0, rt = 0;
+  let ws = null, alive = true, ping = 0, tries = 0, rt = 0, on = false;
+  const mark = v => { if (v === on) return; on = v; WSN += v ? 1 : -1; };
   const connect = () => {
     if (!alive || !assets.length || typeof WebSocket === "undefined") return;
     try { ws = new WebSocket(WSS); } catch { return; }
-    ws.onopen = () => { tries = 0; try { ws.send(JSON.stringify({assets_ids: assets, type: "market"})); } catch {} clearInterval(ping); ping = setInterval(() => { try { ws.readyState === 1 && ws.send("PING"); } catch {} }, 10000); };
+    ws.onopen = () => { tries = 0; mark(true); try { ws.send(JSON.stringify({assets_ids: assets, type: "market"})); } catch {} clearInterval(ping); ping = setInterval(() => { try { ws.readyState === 1 && ws.send("PING"); } catch {} }, 10000); };
     ws.onmessage = e => { if (typeof e.data !== "string" || e.data[0] !== "{" && e.data[0] !== "[") return; let d; try { d = JSON.parse(e.data); } catch { return; } (Array.isArray(d) ? d : [d]).forEach(handleWS); };
-    ws.onclose = () => { clearInterval(ping); if (alive){ clearTimeout(rt); rt = setTimeout(connect, Math.min(20000, 1000 * 2 ** tries++)); } };
+    ws.onclose = () => { mark(false); clearInterval(ping); if (alive){ clearTimeout(rt); rt = setTimeout(connect, Math.min(20000, 1000 * 2 ** tries++)); } };
     ws.onerror = () => { try { ws.close(); } catch {} };
   };
   connect();
-  return () => { alive = false; clearInterval(ping); clearTimeout(rt); try { ws && ws.close(); } catch {} };
+  return () => { alive = false; mark(false); clearInterval(ping); clearTimeout(rt); try { ws && ws.close(); } catch {} };
 }
 
 /* ---------- REST ---------- */
@@ -180,10 +224,19 @@ async function loadBooks(tokens){
     part.forEach(notifyPx);
   }
 }
-const CATS = [["trending","Trending",""],["new","New",""],["politics","Politics","politics"],["sports","Sports","sports"],["crypto","Crypto","crypto"],["economy","Economy","economy"],["tech","Tech","tech"],["culture","Culture","pop-culture"],["geopolitics","World","geopolitics"],["finance","Finance","finance"]];
-function listUrl(cat, offset){
-  const c = CATS.find(x => x[0] === cat) || CATS[0];
-  return `${GAMMA}/events?active=true&closed=false&archived=false&limit=${PAGE}&offset=${offset}` + (cat === "new" ? "&order=startDate&ascending=false" : "&order=volume24hr&ascending=false") + (c[2] ? "&tag_slug=" + c[2] : "");
+const CATS = [["hot","Hot",""],["live","Live",""],["end1h","Ending in 1h",""],["end24h","Ending in 24h",""],["new","New",""],["politics","Politics","politics"],["sports","Sports","sports"],["crypto","Crypto","crypto"],["economy","Economy","economy"],["tech","Tech","tech"],["culture","Culture","pop-culture"],["geopolitics","World","geopolitics"],["finance","Finance","finance"]];
+const SORTS = [["vol","Volume"],["liq","Liquidity"],["end","Ending soon"],["new","Newest"],["trend","Trending"]];
+const WINS = [[0,"Any time"],[1,"Within 1 hour"],[24,"Within 24 hours"],[168,"Within 7 days"],[720,"Within 30 days"]];
+const DEFF = {sort: "trend", status: "open", win: 0};
+const isoT = ms => new Date(ms).toISOString().replace(/\.\d+Z$/, "Z");
+function listUrl(cat, offset, f = DEFF){
+  const c = CATS.find(x => x[0] === cat) || CATS[0]; let sort = f.sort, win = f.win;
+  if (cat === "end1h"){ win = 1; sort = "end"; } else if (cat === "end24h"){ win = 24; sort = "end"; } else if (cat === "new") sort = "new";
+  const order = {vol: "volume", liq: "liquidity", end: "endDate", new: "startDate", trend: "volume24hr"}[sort] || "volume24hr", asc = sort === "end";
+  const resolved = f.status === "resolved";
+  let u = `${GAMMA}/events?limit=${PAGE}&offset=${offset}&` + (resolved ? "closed=true" : "active=true&closed=false&archived=false") + `&order=${order}&ascending=${asc}&exclude_tag_id=102127`;
+  if (!resolved){ u += "&end_date_min=" + encodeURIComponent(isoT(now())); if (win) u += "&end_date_max=" + encodeURIComponent(isoT(now() + win * 3600e3)); }
+  return u + (c[2] ? "&tag_slug=" + c[2] : "");
 }
 async function fetchEvent(key){
   key = String(key);
@@ -244,7 +297,7 @@ async function order(r){
     }
     const p = r4(+r.price), sh = r2(+r.shares);
     if (!(p >= .001 && p <= .999)) throw new Error("Limit price must be between 0.1¢ and 99.9¢");
-    if (!(sh >= 1)) throw new Error("Minimum 1 share");
+    if (!(sh >= 1)) throw new Error("Order too small: increase the amount");
     const total = r2(p * sh * (1 + fee)); if (total < 1) throw new Error("Minimum order is $1");
     if (total > c.maxBet) throw new Error(`Max per order is $${fmt(c.maxBet, 0)}`);
     if (total > bal() + 1e-9) throw new Error("Insufficient balance");
@@ -350,7 +403,7 @@ function checkOrders(tk){
     busy.add(o.id);
     API.call("predict.fill", {id: o.id, price: o.price}).then(() => {
       U.fx("open"); toast(`Limit order filled: ${o.side === "buy" ? "Bought" : "Sold"} ${shr(o.shares)} ${o.outcome} at ${cents(o.price)}`, "ok", 3200);
-      store.notify && store.notify("Prediction order filled", `${o.side === "buy" ? "Bought" : "Sold"} ${shr(o.shares)} ${o.outcome} · ${o.q}`, "ok");
+      notif("Limit order filled", `${o.side === "buy" ? "Bought" : "Sold"} ${shr(o.shares)} ${o.outcome} at ${cents(o.price)} · ${o.q}`, "ok");
     }).catch(() => {}).finally(() => busy.delete(o.id));
   });
 }
@@ -369,7 +422,7 @@ async function checkSettle(){
         if (r.settled){
           const won = r.payout > 0; U.fx(won ? "win" : "loss"); if (won && U.confetti) U.confetti();
           toast(`Market resolved: ${String(before[0] ? before[0].q : m.q).slice(0, 60)} · ${won ? "You won " + usd(r.payout) : "Position expired at $0"}`, won ? "ok" : "info", 4200);
-          store.notify && store.notify("Prediction resolved", `${m.q} · ${won ? "paid " + usd(r.payout) : "lost"}`, won ? "ok" : "info");
+          notif(won ? "Prediction won" : "Prediction lost", `${before[0] ? before[0].q : m.q} · ${won ? "You won " + usd(r.payout) : "Position expired at $0"}`, won ? "ok" : "bad");
         }
       }
     }
@@ -404,12 +457,97 @@ window.PRED = {data: () => JSON.parse(JSON.stringify(data())), stats, cfg, settl
 let curScreen = null;
 
 /* =====================================================================================================
+   Live crypto rounds — Polymarket's real "Bitcoin/Ethereum Up or Down" 5-minute and 15-minute markets
+   Gamma slug: <btc|eth>-updown-<5|15>m-<round start unix seconds>; resolves by Chainlink; chart reference from Binance spot.
+   ===================================================================================================== */
+const RA = [{k: "btc", n: "BTC", sym: "BTCUSDT", name: "Bitcoin"}, {k: "eth", n: "ETH", sym: "ETHUSDT", name: "Ethereum"}], RIV = [5, 15];
+const rStart = (iv, t = now()) => Math.floor(t / 1000 / (iv * 60)) * iv * 60;
+function roundOf(ev){ const x = /^(btc|eth)-updown-(5|15)m-(\d+)$/.exec(ev && ev.slug || ""); if (!x) return null; const a = RA.find(r => r.k === x[1]), iv = +x[2], t0 = +x[3]; return {a, iv, t0, t1: t0 + iv * 60, sym: a.sym}; }
+const rTitle = r => `${r.a.n} Up or Down · ${r.iv}m`;
+const mmss = ms => { const t = Math.max(0, Math.ceil(ms / 1000)), m = Math.floor(t / 60), s = t % 60; return String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0"); };
+const clockET = sec => new Date(sec * 1000).toLocaleTimeString("en-US", {hour: "numeric", minute: "2-digit", timeZone: "America/New_York"});
+const ROUNDS = {};
+function loadRound(a, iv){
+  const t0 = rStart(iv), key = a.k + iv, c = ROUNDS[key];
+  if (c && c.t0 === t0) return c.p;
+  const p = fetchEvent(`${a.k}-updown-${iv}m-${t0}`).then(e => { e.round = true; return e; });
+  ROUNDS[key] = {t0, p}; p.catch(() => { if (ROUNDS[key] && ROUNDS[key].p === p) delete ROUNDS[key]; });
+  return p;
+}
+const roundEnded = ev => { const r = roundOf(ev); return !!r && now() >= r.t1 * 1000; };
+/* round start price: Binance 1-minute candle open at the round start (reference for the chart line) */
+const SP = {};
+async function startPrice(r){
+  const k = r.sym + r.t0; if (SP[k] != null) return SP[k];
+  const hosts = (window.CONFIG && CONFIG.BINANCE_REST) || ["https://data-api.binance.vision"];
+  for (const h of hosts){
+    try { const d = await getJ(`${h}/api/v3/klines?symbol=${r.sym}&interval=1m&startTime=${r.t0 * 1000}&limit=1`, {}, 6000); if (d && d[0] && +d[0][1] > 0 && Math.abs(d[0][0] - r.t0 * 1000) < 120e3){ SP[k] = +d[0][1]; return SP[k]; } } catch {}
+  }
+  return null;
+}
+const livePx = sym => { const q = window.M && M.get(sym); return q && q.price > 0 ? q.price : null; };
+/* faster settlement polling for rounds that just ended */
+setInterval(() => { try {
+  if (document.hidden || !D) return;
+  if (D.positions.concat(D.orders).some(x => { const r = roundOf({slug: x.slug}); return r && now() > r.t1 * 1000 + 20e3; })) checkSettle().catch(() => {});
+} catch {} }, 8000);
+
+/* =====================================================================================================
+   Quick guide (4 steps) + data-source info popup
+   ===================================================================================================== */
+const TUT_KEY = "nt_pd_tut";
+const tutOff = () => { try { return localStorage.getItem(TUT_KEY) === "1"; } catch { return false; } };
+const G = (b) => `<svg viewBox="0 0 220 84" width="100%" height="84" role="img" aria-hidden="true" class="pd-tg">${b}</svg>`;
+const TUT = [
+  {k: "Transfer", t: "Move funds in", d: "Transfer USDT from Spot or Funding into your Prediction wallet. Your balance is available instantly.", cta: "Transfer now", a: "xf",
+    g: G(`<rect x="12" y="20" width="72" height="44" rx="9" class="g-box"/><text x="48" y="40" text-anchor="middle" class="g-t">Spot</text><text x="48" y="55" text-anchor="middle" class="g-s">USDT</text><rect x="136" y="20" width="72" height="44" rx="9" class="g-box on"/><text x="172" y="40" text-anchor="middle" class="g-t">Prediction</text><text x="172" y="55" text-anchor="middle" class="g-s">wallet</text><path d="M92 42h36m-8-7 8 7-8 7" class="g-ar"/>`)},
+  {k: "Trade", t: "Open a trade", d: "Pick a market, tap Yes or No, enter an amount and confirm. Price in cents = chance of that outcome; each share pays $1 if it wins.", cta: "Browse markets", a: "list",
+    g: G(`<rect x="10" y="8" width="200" height="68" rx="10" class="g-box"/><text x="22" y="28" class="g-t">Will BTC close above 60K?</text><rect x="22" y="40" width="82" height="26" rx="7" class="g-yes"/><text x="63" y="57" text-anchor="middle" class="g-yt">Yes 42¢</text><rect x="116" y="40" width="82" height="26" rx="7" class="g-no"/><text x="157" y="57" text-anchor="middle" class="g-nt">No 60¢</text>`)},
+  {k: "Position", t: "Watch your position", d: "Portfolio shows how much you invested, what it is worth right now and your profit or loss, updating live.", cta: "Open portfolio", a: "portfolio",
+    g: G(`<rect x="10" y="8" width="200" height="68" rx="10" class="g-box"/><text x="24" y="30" class="g-s">Invested</text><text x="24" y="52" class="g-t big">$50.00</text><text x="116" y="30" class="g-s">Value now</text><text x="116" y="52" class="g-t big up">$62.40</text><path d="M24 66l24-8 22 4 26-12" class="g-ln"/>`)},
+  {k: "Close", t: "Cash out or sell", d: "Cash out sells your whole position at the current price in one tap. Or sell part of it, or hold to the end: winning shares pay $1 each.", cta: "", a: "",
+    g: G(`<rect x="14" y="18" width="86" height="48" rx="10" class="g-box"/><text x="57" y="39" text-anchor="middle" class="g-t">120 shares</text><text x="57" y="55" text-anchor="middle" class="g-s">Cash out</text><path d="M108 42h28m-8-7 8 7-8 7" class="g-ar"/><rect x="144" y="18" width="62" height="48" rx="10" class="g-box on"/><text x="175" y="47" text-anchor="middle" class="g-t big up">$62.40</text>`)}
+];
+function tutPop(i){
+  const T = TUT[i];
+  pdPop("Quick guide", "", (el, close) => {
+    const b = el.querySelector(".pd-pop-b");
+    const draw = n => { const x = TUT[n];
+      b.innerHTML = `<div class="pd-tut-steps">${TUT.map((y, j) => `<button type="button" class="${j === n ? "on" : j < n ? "done" : ""}" data-ts="${j}" aria-label="Step ${j + 1}: ${esc(y.k)}">${j + 1}</button>`).join("<i></i>")}</div>
+        <div class="pd-tut-g">${x.g}</div><h4>${n + 1}. ${esc(x.t)}</h4><p>${esc(x.d)}</p>
+        <div class="pd-pop-btns">${n > 0 ? `<button type="button" class="pd-pb" data-pv>Back</button>` : ""}${x.cta ? `<button type="button" class="pd-pb" data-cta>${esc(x.cta)}</button>` : ""}<button type="button" class="pd-pb pri" data-nx>${n < TUT.length - 1 ? "Next" : "Done"}</button></div>`;
+      b.querySelectorAll("[data-ts]").forEach(z => z.onclick = () => { hap(6); draw(+z.dataset.ts); });
+      b.querySelector("[data-pv]") && (b.querySelector("[data-pv]").onclick = () => { hap(6); draw(n - 1); });
+      b.querySelector("[data-nx]").onclick = () => { if (n < TUT.length - 1){ hap(6); draw(n + 1); } else close(); };
+      const c = b.querySelector("[data-cta]"); if (c) c.onclick = () => { close(); hap(8); if (x.a === "xf") UI.transferSheet({to: W}); else location.hash = "#/predict" + (x.a === "portfolio" ? "/portfolio" : ""); };
+    };
+    draw(i);
+  });
+}
+function tutHtml(){
+  if (tutOff()) return "";
+  return `<div class="pd-tut" id="pdTut"><span class="pd-tut-l">${ic("zap", 14, 2.2)}Quick guide</span><div class="pd-tut-s">${TUT.map((x, i) => `<button type="button" data-tut="${i}"><b>${i + 1}</b>${esc(x.k)}</button>`).join('<i aria-hidden="true">›</i>')}</div><button type="button" class="pd-tut-x" data-tutx aria-label="Dismiss quick guide">${ic("close", 14)}</button></div>`;
+}
+function infoPop(){
+  pdPop("Where the data comes from", `<div class="pd-flow" aria-hidden="true"><span><b>Polymarket</b><small>markets &amp; order books</small></span><i>&rarr;</i><span class="on"><b>NovaTrade</b><small>live feed</small></span><i>&rarr;</i><span><b>You</b><small>${WSN > 0 ? "live now" : "connecting"}</small></span></div>
+    <ul class="pd-info">
+      <li><b>Markets and volume</b> come from the Polymarket Gamma API.</li>
+      <li><b>Prices</b> are live order-book midpoints (between the best bid and best ask) from the Polymarket CLOB. Order books load first, then every change is pushed over a WebSocket in real time.</li>
+      <li><b>Your fills</b> walk the live order book: best asks first when you buy, best bids first when you sell.</li>
+      <li><b>BTC and ETH Up or Down</b> rounds are Polymarket's real 5-minute and 15-minute markets. The chart uses Binance spot prices.</li>
+      <li><b>Settlement</b> follows each market's Polymarket resolution source. Winning shares pay $1, losing shares $0, credited to your Prediction wallet automatically.</li>
+    </ul>${tutOff() ? `<div class="pd-pop-btns"><button type="button" class="pd-pb" data-tutshow>Show quick guide again</button></div>` : ""}`, (el, close) => {
+    const b = el.querySelector("[data-tutshow]"); if (b) b.onclick = () => { try { localStorage.removeItem(TUT_KEY); } catch {} close(); if (curScreen === "list") location.reload ? (location.hash = "#/predict", bus.emit("pd-tut")) : 0; };
+  });
+}
+
+/* =====================================================================================================
    UI building blocks
    ===================================================================================================== */
 const STRIP = `<div class="tabs pd-strip" style="gap:20px;margin:0 -16px;padding:4px 16px 0;border:0"><a class="tab" href="#/futures/BTCUSDT" style="font-size:17px">USDⓈ-M</a><a class="tab" href="#/spot/BTCUSDT" style="font-size:17px">Spot</a><a class="tab" href="#/trade/BTCUSDT" style="font-size:17px">Binary</a><button class="tab tab-hot on" style="font-size:17px">Prediction</button><a class="tab tab-hot" href="#/racer" style="font-size:17px">Money Racer</a><a class="tab" href="#/options" style="font-size:17px">Options</a><a class="tab" href="#/copy" style="font-size:17px">Copy</a><a class="tab" href="#/bots" style="font-size:17px">Bots</a></div>`;
 const SUB = [["", "Markets"], ["portfolio", "Portfolio"], ["profile", "Profile"]];
 const subnav = on => `<nav class="pd-sub" aria-label="Prediction sections">${SUB.map(([k, l]) => `<a href="#/predict${k ? "/" + k : ""}" class="${on === k ? "on" : ""}" ${on === k ? 'aria-current="page"' : ""}>${l}</a>`).join("")}</nav>`;
-const balBar = () => `<div class="pd-bal"><div class="pd-bal-l"><span class="pd-bal-k">Prediction balance</span><b class="num" data-pd-bal>${usd(bal())}</b></div>
+const balBar = () => `<div class="pd-bal"><div class="pd-bal-l"><span class="pd-bal-k">Prediction balance<span class="pd-lv" data-lv><i></i>Live</span></span><b class="num" data-pd-bal>${usd(bal())}</b></div>
   <button class="pd-mode ${isDemo() ? "demo" : "real"}" data-acct type="button" aria-label="Account: ${modeLabel()}. Tap to switch">${modeLabel()}${ic("chevd", 12, 2.4)}</button>
   <button class="pd-xf" data-pd-xf type="button" aria-label="Transfer to Prediction wallet">${ic("plus", 18, 2.4)}</button></div>`;
 const backHead = (title, right = "") => `<header class="pd-head"><button class="pd-ib" data-back aria-label="Go back">${ic("back", 22)}</button><h1>${esc(title)}</h1>${right || '<span class="pd-ib"></span>'}</header>`;
@@ -418,6 +556,8 @@ function bindCommon(root, offs){
   root.addEventListener("click", e => { if (e.target.closest("[data-pd-xf]")){ hap(10); UI.transferSheet({to: W}); } });
   const upd = () => root.querySelectorAll("[data-pd-bal]").forEach(b => b.textContent = usd(bal()));
   offs.push(bus.on("balance", upd)); upd();
+  const lv = () => root.querySelectorAll("[data-lv]").forEach(b => b.classList.toggle("off", WSN <= 0)); lv();
+  const lvT = setInterval(lv, 2000); offs.push(() => clearInterval(lvT));
 }
 function seed(){
   const d = data(); if (d.seeded) return; d.seeded = true;
@@ -432,9 +572,22 @@ const gcol = c => c >= .5 ? "var(--up)" : c >= .2 ? "var(--warn)" : "var(--down)
 const gauge = (c, mid) => `<div class="pd-gauge" data-g="${mid}"><svg viewBox="0 0 60 34" aria-hidden="true"><path d="M5 31A25 25 0 0 1 55 31" class="pd-g-bg"/><path d="M5 31A25 25 0 0 1 55 31" class="pd-g-fg" pathLength="100" stroke-dasharray="100" stroke-dashoffset="${(100 - c * 100).toFixed(1)}" style="stroke:${gcol(c)}"/></svg><b class="num" data-ch="${mid}">${chancePct(c)}</b><small>chance</small></div>`;
 function flash(el, up){ if (!el) return; el.classList.remove("pd-fu", "pd-fd"); void el.offsetWidth; el.classList.add(up ? "pd-fu" : "pd-fd"); }
 function setTxt(el, txt){ if (!el || el.textContent === txt) return false; const old = parseFloat(el.textContent); el.textContent = txt; const nw = parseFloat(txt); if (!isNaN(old) && !isNaN(nw) && old !== nw) flash(el, nw > old); return true; }
+const setTxt2 = (el, t) => { if (el && el.textContent !== t) el.textContent = t; };
 const short = s => String(s || "").length > 14 ? String(s).slice(0, 13) + "…" : String(s || "");
 const reqMeta = (ev, m, oi) => ({mid: m.id, eid: ev.id, slug: ev.slug, q: m.q || ev.title, title: ev.markets.length > 1 ? (m.gt || m.q) : "", img: m.img || ev.img, end: m.end || ev.end, outcome: m.outs[oi], oi, token: m.tokens[oi], tokens: m.tokens, outs: m.outs});
 const findPos = tk => data().positions.find(p => p.token === tk);
+const pnlTxt = (v, cost) => `${usdS(v)} (${fmt(cost ? v / cost * 100 : 0, 1)}%)`;
+/* invested vs current value, live */
+function posGrid(p){
+  const v = posValue(p), pnl = v - p.cost, cur = p.shares ? v / p.shares : 0;
+  return `<div class="pd-pg"><div><span>Invested</span><b class="num">${usd(p.cost)}</b></div><div><span>Current value</span><b class="num" data-pv>${usd(v)}</b></div><div><span>PnL</span><b class="num ${pnl >= 0 ? "up" : "down"}" data-pp>${usdS(pnl)}<small>${fmt(p.cost ? pnl / p.cost * 100 : 0, 1)}%</small></b></div><div><span>Now</span><b class="num" data-pc>${cents(cur)}</b></div></div>`;
+}
+function posGridTick(r, p){
+  const v = posValue(p), pnl = v - p.cost;
+  setTxt(r.querySelector("[data-pv]"), usd(v)); setTxt(r.querySelector("[data-pc]"), cents(p.shares ? v / p.shares : 0));
+  const e = r.querySelector("[data-pp]"); if (e){ e.innerHTML = `${usdS(pnl)}<small>${fmt(p.cost ? pnl / p.cost * 100 : 0, 1)}%</small>`; e.className = "num " + (pnl >= 0 ? "up" : "down"); }
+}
+const posBtns = p => `<button type="button" class="pd-cash" data-cash="${p.token}">Cashout</button><button type="button" class="pd-sell" data-sellp="${p.token}">Sell</button>`;
 
 /* ---------- SVG line chart with touch crosshair ---------- */
 const COLS = ["var(--brand)", "#F59E0B", "#20B26C", "#A855F7"];
@@ -480,83 +633,138 @@ function drawChart(box, series, o = {}){
   box._pd = {series, o};
 }
 
-/* ---------- Trade panel (detail page + quick sheet) ---------- */
+/* ---------- Trade panel (detail page + quick sheet) — v6.9: cards, $ or shares, % chips, confirmation ---------- */
+function walkBuySh(L, shares, fb){
+  let left = shares, cost = 0, worst = 0;
+  for (const [p, s] of L || []){ if (left <= 1e-9) break; if (!(p > 0 && p < 1)) continue; const take = Math.min(s, left); cost += take * p; left -= take; worst = p; }
+  if (left > 1e-9){ const p = Math.min(.999, worst || fb || .5); cost += left * p; }
+  return {cost, avg: shares ? cost / shares : 0};
+}
+function sharesForProceeds(L, target, fb, cap){
+  let left = target, sh = 0;
+  for (const [p, s] of L || []){ if (left <= 1e-9 || sh >= cap) break; if (!(p > 0)) continue; const take = Math.min(s, left / p, cap - sh); sh += take; left -= take * p; }
+  if (left > 1e-9 && sh < cap) sh = Math.min(cap, sh + left / Math.max(.001, fb || .5));
+  return sh;
+}
+const fl2 = v => Math.floor((v + 1e-9) * 100) / 100;
 function tradePanel(host, st, opts = {}){
   const uid = "t" + U.uid().slice(0, 6); let busyGo = false;
+  if (!st.unit) st.unit = "usd";
   const P = {st, render, tick, host};
   const q = s => host.querySelector(s);
-  function px(i){ return st.side === "buy" ? buyPx(st.m, i) : sellPx(st.m, i); }
-  function render(){
-    const {ev, m, oi, side, type} = st, multi = ev.markets.length > 1, closed = m.closed || !m.accepting;
-    const pos = findPos(m.tokens[oi]), free = pos ? r4(pos.shares - (pos.locked || 0)) : 0;
-    if (st.lp == null) st.lp = Math.round(Math.min(99, Math.max(1, outPx(m, oi) * 100)));
-    let body;
+  const px = i => st.side === "buy" ? buyPx(st.m, i) : sellPx(st.m, i);
+  const posNow = () => findPos(st.m.tokens[st.oi]);
+  const freeSh = () => { const p = posNow(); return p ? r4(p.shares - (p.locked || 0)) : 0; };
+  const feeR = () => cfg().feePct / 100;
+  /* what the user typed → {sh, usd, avg}; usd = total cost (buy) or net proceeds (sell) */
+  function quote(){
+    const {m, oi, side, type, unit} = st, f = feeR(), a = +st.amt || 0, s0 = +st.sh || 0;
     if (type === "limit"){
-      body = `<div class="pd-field"><label for="${uid}p">Limit price</label><div class="pd-step"><button type="button" data-lp="-1" aria-label="Lower price">${ic("minus", 16, 2.4)}</button><div class="pd-amt"><input id="${uid}p" data-lpv inputmode="decimal" value="${st.lp}" autocomplete="off"><span>¢</span></div><button type="button" data-lp="1" aria-label="Raise price">${ic("plus", 16, 2.4)}</button></div></div>
-        <div class="pd-field"><label for="${uid}s">Shares</label><div class="pd-amt"><input id="${uid}s" data-lsh inputmode="decimal" placeholder="0" value="${esc(st.lsh || "")}" autocomplete="off"></div></div>
-        <div class="pd-chips">${side === "buy" ? `<button type="button" data-sh="10">+10</button><button type="button" data-sh="50">+50</button><button type="button" data-sh="100">+100</button><button type="button" data-shmax>Max</button>` : `<button type="button" data-shp=".25">25%</button><button type="button" data-shp=".5">50%</button><button type="button" data-shp="1">Max</button>`}</div>`;
-    } else if (side === "buy"){
-      body = `<div class="pd-field"><label for="${uid}a">Amount</label><div class="pd-amt big"><span>$</span><input id="${uid}a" data-amt inputmode="decimal" placeholder="0" value="${esc(st.amt || "")}" autocomplete="off"></div></div>
-        <div class="pd-chips"><button type="button" data-add="1">+$1</button><button type="button" data-add="10">+$10</button><button type="button" data-add="100">+$100</button><button type="button" data-max>Max</button></div>`;
-    } else {
-      body = `<div class="pd-field"><label for="${uid}s">Shares</label><div class="pd-amt big"><input id="${uid}s" data-ssh inputmode="decimal" placeholder="0" value="${esc(st.ssh || "")}" autocomplete="off"><span>sh</span></div></div>
-        <div class="pd-chips"><button type="button" data-shp=".25">25%</button><button type="button" data-shp=".5">50%</button><button type="button" data-shp="1">Max</button></div>`;
+      const p = (+st.lp || 0) / 100; if (!(p > 0)) return {sh: 0, usd: 0, avg: 0};
+      if (side === "buy"){ const sh = unit === "sh" ? s0 : fl2(a / (p * (1 + f))); return {sh, usd: p * sh * (1 + f), avg: p}; }
+      const sh = Math.min(st.exact || (unit === "sh" ? s0 : fl2(a / (p * (1 - f)))), freeSh()); return {sh, usd: p * sh * (1 - f), avg: p};
     }
-    const own = pos ? `<div class="pd-own">You own <b class="num">${shr(pos.shares)}</b> ${esc(m.outs[oi])} shares${pos.locked ? ` · <span class="num">${shr(free)}</span> free` : ""} · avg <b class="num">${cents(pos.avg)}</b></div>` : side === "sell" ? `<div class="pd-own muted">You have no ${esc(m.outs[oi])} shares in this market.</div>` : "";
+    if (side === "buy"){
+      const L = levels(m, oi, "ask"), fb = buyPx(m, oi);
+      if (unit === "usd"){ const w = walkBuy(L, a * (1 - f), fb); return {sh: a ? w.shares : 0, usd: a, avg: a ? w.avg : fb}; }
+      const w = walkBuySh(L, s0, fb); return {sh: s0, usd: s0 ? w.cost / (1 - f) : 0, avg: s0 ? w.avg : fb};
+    }
+    const L = levels(m, oi, "bid"), fb = sellPx(m, oi), free = freeSh();
+    let sh = st.exact ? Math.min(st.exact, free) : unit === "sh" ? Math.min(s0, free) : Math.min(sharesForProceeds(L, a / (1 - f), fb, free), free);
+    if (free - sh < .01) sh = free && sh > 0 ? free : sh;
+    const w = walkSell(L, sh, fb); return {sh, usd: sh ? w.proceeds * (1 - f) : 0, avg: sh ? w.avg : fb};
+  }
+  function render(){
+    const {ev, m, oi, side, type, unit} = st, multi = ev.markets.length > 1, closed = m.closed || !m.accepting || roundEnded(ev);
+    const pos = posNow();
+    if (st.lp == null) st.lp = Math.round(Math.min(99, Math.max(1, outPx(m, oi) * 100)));
+    const inp = unit === "sh"
+      ? `<div class="pd-amt big"><input id="${uid}a" data-ssh ${type === "limit" ? "data-lsh " : ""}inputmode="decimal" size="1" placeholder="0" value="${esc(cin(st.sh))}" autocomplete="off" aria-label="Shares"></div>`
+      : `<div class="pd-amt big"><span>$</span><input id="${uid}a" data-amt inputmode="decimal" size="1" placeholder="0" value="${esc(cin(st.amt))}" autocomplete="off" aria-label="Amount in dollars"></div>`;
+    const addRow = (unit === "sh" ? [10, 50, 100] : [1, 10, 100]).map(n => `<button type="button" data-add="${n}">+${unit === "sh" ? "" : "$"}${n}</button>`).join("");
+    const pctRow = [10, 25, 50, 75].map(n => `<button type="button" data-pct="${n / 100}">${n}%</button>`).join("") + `<button type="button" data-pct="1">Max</button>`;
+    const lpf = type === "limit" ? `<div class="pd-field"><label for="${uid}p">Limit price</label><div class="pd-step"><button type="button" data-lp="-1" aria-label="Lower price">${ic("minus", 16, 2.4)}</button><div class="pd-amt pd-cents"><input id="${uid}p" data-lpv inputmode="decimal" size="1" value="${esc(String(st.lp))}" autocomplete="off" aria-label="Limit price in cents"><span>¢</span></div><button type="button" data-lp="1" aria-label="Raise price">${ic("plus", 16, 2.4)}</button></div></div>` : "";
+    const entry = `${lpf}<div class="pd-field"><div class="pd-fl"><label for="${uid}a">${unit === "sh" ? "Shares" : "Amount"}</label><button type="button" class="pd-unit" data-unit aria-label="Switch between amount and shares">${ic("swap", 16, 2)}</button></div>${inp}</div>
+      <div class="pd-chips">${addRow}</div><div class="pd-chips pct">${pctRow}</div>`;
+    const own = pos ? `<div class="pd-own">In position: invested <b class="num">${usd(pos.cost)}</b> · value <b class="num">${usd(posValue(pos))}</b></div>` : side === "sell" ? `<div class="pd-own muted">You have no ${esc(m.outs[oi])} position in this market.</div>` : "";
     host.innerHTML = `${opts.showQ ? `<div class="pd-tp-q">${img(m.img || ev.img, "pd-img sm")}<div><b>${esc(multi ? (m.gt || m.q) : ev.title)}</b>${multi ? `<small>${esc(ev.title)}</small>` : ""}</div></div>` : ""}
-      <div class="pd-tp-top"><div class="pd-bs" role="tablist" aria-label="Buy or sell"><button type="button" role="tab" data-side="buy" class="${side === "buy" ? "on" : ""}" aria-selected="${side === "buy"}">Buy</button><button type="button" role="tab" data-side="sell" class="${side === "sell" ? "on" : ""}" aria-selected="${side === "sell"}">Sell</button></div>
+      <div class="pd-c"><div class="pd-tp-top"><div class="pd-bs" role="tablist" aria-label="Buy or sell"><button type="button" role="tab" data-side="buy" class="${side === "buy" ? "on" : ""}" aria-selected="${side === "buy"}">Buy</button><button type="button" role="tab" data-side="sell" class="${side === "sell" ? "on" : ""}" aria-selected="${side === "sell"}">Sell</button></div>
         <div class="pd-ty" role="tablist" aria-label="Order type"><button type="button" data-type="market" class="${type === "market" ? "on" : ""}">Market</button><button type="button" data-type="limit" class="${type === "limit" ? "on" : ""}">Limit</button></div></div>
-      <div class="pd-oc">${[0, 1].map(i => `<button type="button" class="pd-ocb ${i ? "no" : "yes"} ${oi === i ? "on" : ""}" data-oi="${i}" aria-pressed="${oi === i}"><span>${esc(short(m.outs[i]))}</span><b class="num" data-tpx="${i}">${cents(px(i))}</b></button>`).join("")}</div>
-      ${closed ? `<div class="pd-closed">${ic("lock", 16)}<span>${m.closed ? "This market is closed" + (m.prices.some(v => v >= .99) ? ` · resolved <b>${esc(m.outs[m.prices[0] >= .99 ? 0 : 1])}</b>` : " · awaiting resolution") : "Trading is paused for this market"}</span></div>` : body + own}
-      <div class="pd-sum" data-sum></div>
+        <div class="pd-oc">${[0, 1].map(i => `<button type="button" class="pd-ocb ${i ? "no" : "yes"} ${oi === i ? "on" : ""}" data-oi="${i}" aria-pressed="${oi === i}"><span>${esc(short(m.outs[i]))}</span><b class="num" data-tpx="${i}">${cents(px(i))}</b></button>`).join("")}</div>${own}</div>
+      ${closed ? `<div class="pd-c"><div class="pd-closed">${ic("lock", 16)}<span>${roundEnded(ev) && !m.closed ? "Round ended · result pending" : m.closed ? "This market is closed" + (m.prices.some(v => v >= .99) ? ` · resolved <b>${esc(m.outs[m.prices[0] >= .99 ? 0 : 1])}</b>` : " · awaiting resolution") : "Trading is paused for this market"}</span></div></div>` : `<div class="pd-c pd-c-in">${entry}</div>`}
+      <div class="pd-c pd-c-sum" data-sumc><div class="pd-sum" data-sum></div></div>
       <button type="button" class="pd-go ${side === "sell" ? "sell" : oi ? "no" : "yes"}" data-go ${closed ? "disabled" : ""}>${goLabel()}</button>
       <div class="pd-tp-bal"><span>Balance <b class="num" data-pd-bal>${usd(bal())}</b> · <span class="pd-modetag">${modeLabel()}</span></span><button type="button" data-pd-xf2>${ic("plus", 14, 2.4)}Add funds</button></div>`;
     bind(); calc();
   }
   function goLabel(){ const {m, oi, side, type} = st; return type === "limit" ? `${side === "buy" ? "Buy" : "Sell"} ${esc(short(m.outs[oi]))} · Limit` : `${side === "buy" ? "Buy" : "Sell"} ${esc(short(m.outs[oi]))}`; }
+  const setVal = (key, v, inputSel) => { st[key] = v; const el = q(inputSel); if (el) el.value = cin(v); };
+  /* write a USD budget into whichever unit is active (buy) */
+  function setBudget(v){
+    v = fl2(Math.max(0, v)); st.exact = null;
+    if (st.unit === "usd"){ setVal("amt", v ? String(v) : "", "[data-amt]"); return; }
+    const m = st.m, oi = st.oi, f = feeR(), lim = st.type === "limit", p = (+st.lp || 0) / 100;
+    const sh = lim ? (p > 0 ? fl2(v / (p * (1 + f))) : 0) : fl2(walkBuy(levels(m, oi, "ask"), v * (1 - f), buyPx(m, oi)).shares);
+    setVal("sh", sh ? String(sh) : "", "[data-ssh]");
+  }
   function bind(){
-    host.querySelectorAll("[data-side]").forEach(b => b.onclick = () => { if (st.side === b.dataset.side) return; st.side = b.dataset.side; hap(8); render(); });
-    host.querySelectorAll("[data-type]").forEach(b => b.onclick = () => { if (st.type === b.dataset.type) return; st.type = b.dataset.type; st.lp = null; hap(8); render(); });
-    host.querySelectorAll("[data-oi]").forEach(b => b.onclick = () => { const i = +b.dataset.oi; if (st.oi === i) return; st.oi = i; st.lp = null; hap(8); render(); opts.onOi && opts.onOi(i); });
-    const A = q("[data-amt]"), S = q("[data-ssh]"), LP = q("[data-lpv]"), LS = q("[data-lsh]");
-    if (A) A.oninput = () => { A.value = A.value.replace(/[^\d.]/g, ""); st.amt = A.value; calc(); };
-    if (S) S.oninput = () => { S.value = S.value.replace(/[^\d.]/g, ""); st.ssh = S.value; calc(); };
-    if (LP) LP.oninput = () => { LP.value = LP.value.replace(/[^\d.]/g, ""); st.lp = LP.value; calc(); };
-    if (LS) LS.oninput = () => { LS.value = LS.value.replace(/[^\d.]/g, ""); st.lsh = LS.value; calc(); };
-    host.querySelectorAll("[data-add]").forEach(b => b.onclick = () => { st.amt = String(r2((+st.amt || 0) + +b.dataset.add)); A.value = st.amt; hap(6); calc(); });
-    const mx = q("[data-max]"); if (mx) mx.onclick = () => { st.amt = String(Math.floor(Math.min(bal(), cfg().maxBet) * 100) / 100); A.value = st.amt; hap(10); calc(); };
-    host.querySelectorAll("[data-sh]").forEach(b => b.onclick = () => { st.lsh = String(r2((+st.lsh || 0) + +b.dataset.sh)); LS.value = st.lsh; hap(6); calc(); });
-    const sm = q("[data-shmax]"); if (sm) sm.onclick = () => { const p = (+st.lp || 1) / 100, f = 1 + cfg().feePct / 100; st.lsh = String(Math.floor(Math.min(bal(), cfg().maxBet) / (p * f) * 100) / 100); LS.value = st.lsh; hap(10); calc(); };
-    host.querySelectorAll("[data-shp]").forEach(b => b.onclick = () => {
-      const pos = findPos(st.m.tokens[st.oi]), free = pos ? r4(pos.shares - (pos.locked || 0)) : 0, v = String(Math.floor(free * +b.dataset.shp * 100) / 100);
-      if (!(free > 0)){ toast("You have no free shares to sell", "info"); return; }
-      if (st.type === "limit"){ st.lsh = v; LS.value = v; } else { st.ssh = v; S.value = v; } hap(8); calc();
+    host.querySelectorAll("[data-side]").forEach(b => b.onclick = () => { if (st.side === b.dataset.side) return; st.side = b.dataset.side; st.exact = null; st.amt = ""; st.sh = ""; hap(8); render(); });
+    host.querySelectorAll("[data-type]").forEach(b => b.onclick = () => { if (st.type === b.dataset.type) return; st.type = b.dataset.type; st.lp = null; st.exact = null; hap(8); render(); });
+    host.querySelectorAll("[data-oi]").forEach(b => b.onclick = () => { const i = +b.dataset.oi; if (st.oi === i) return; st.oi = i; st.lp = null; st.exact = null; hap(8); render(); opts.onOi && opts.onOi(i); });
+    const A = q("[data-amt]"), S = q("[data-ssh]"), LP = q("[data-lpv]");
+    numInput(A, 2, v => { st.amt = v; st.exact = null; calc(); });
+    numInput(S, 2, v => { st.sh = v; st.exact = null; calc(); });
+    numInput(LP, 1, v => { st.lp = v; calc(); });
+    const sw = q("[data-unit]"); if (sw) sw.onclick = () => {
+      const Q = quote(); hap(6); st.exact = null;
+      if (st.unit === "usd"){ st.unit = "sh"; st.sh = Q.sh ? String(fl2(Q.sh)) : ""; } else { st.unit = "usd"; st.amt = Q.usd ? String(fl2(Q.usd)) : ""; }
+      render();
+    };
+    host.querySelectorAll("[data-add]").forEach(b => b.onclick = () => {
+      const n = +b.dataset.add; st.exact = null; hap(6);
+      if (st.unit === "usd"){ let v = r2((+st.amt || 0) + n); if (st.side === "sell"){ const mx = fl2(quote().usd || 0), pos = posNow(); if (pos) v = Math.min(v, fl2(sellValue())); } setVal("amt", String(v), "[data-amt]"); }
+      else { let v = r2((+st.sh || 0) + n); if (st.side === "sell") v = Math.min(v, freeSh()); setVal("sh", String(v), "[data-ssh]"); }
+      calc();
     });
-    host.querySelectorAll("[data-lp]").forEach(b => b.onclick = () => { const step = st.m.tick < .01 ? .1 : 1; st.lp = String(Math.round(Math.min(99.9, Math.max(.1, (+st.lp || 50) + step * +b.dataset.lp)) * 10) / 10); LP.value = st.lp; hap(6); calc(); });
+    host.querySelectorAll("[data-pct]").forEach(b => b.onclick = () => {
+      const k = +b.dataset.pct; hap(k === 1 ? 10 : 8);
+      if (st.side === "buy"){ setBudget(Math.min(bal(), cfg().maxBet) * k); }
+      else {
+        const free = freeSh(); if (!(free > 0)){ toast("You have no position to sell", "info"); return; }
+        const sh = k === 1 ? free : fl2(free * k); st.exact = sh;
+        if (st.unit === "sh") setVal("sh", String(sh), "[data-ssh]");
+        else { const f = feeR(), v = st.type === "limit" ? (+st.lp || 0) / 100 * sh * (1 - f) : walkSell(levels(st.m, st.oi, "bid"), sh, sellPx(st.m, st.oi)).proceeds * (1 - f); setVal("amt", String(fl2(v)), "[data-amt]"); st.exact = sh; }
+      }
+      calc();
+    });
+    host.querySelectorAll("[data-lp]").forEach(b => b.onclick = () => { const step = st.m.tick < .01 ? .1 : 1; st.lp = String(Math.round(Math.min(99.9, Math.max(.1, (+st.lp || 50) + step * +b.dataset.lp)) * 10) / 10); if (LP) LP.value = st.lp; hap(6); calc(); });
     q("[data-go]").onclick = go;
     const xf = q("[data-pd-xf2]"); if (xf) xf.onclick = () => { hap(10); UI.transferSheet({to: W}); };
   }
+  function sellValue(){ const pos = posNow(); if (!pos) return 0; const f = feeR(); return walkSell(levels(st.m, st.oi, "bid"), freeSh(), sellPx(st.m, st.oi)).proceeds * (1 - f); }
   function calc(){
     const box = q("[data-sum]"); if (!box) return;
-    const {m, oi, side, type} = st, fee = cfg().feePct / 100; let rows = [], btn = q("[data-go]");
-    if (m.closed || !m.accepting){ box.innerHTML = ""; return; }
+    const {m, oi, side, type, unit} = st, f = feeR(); let rows = [], btn = q("[data-go]");
+    if (m.closed || !m.accepting || roundEnded(st.ev)){ box.innerHTML = ""; box.parentElement.hidden = true; return; }
+    const Q = quote(), pos = posNow();
     if (type === "limit"){
-      const p = (+st.lp || 0) / 100, sh = +st.lsh || 0, tot = p * sh;
-      rows = side === "buy" ? [["Total", usd(tot * (1 + fee))], ["To win", `<em class="up">${usd(sh)}</em>`, "big"]] : [["You'll receive", `<em class="up">${usd(tot * (1 - fee))}</em>`, "big"]];
-      if (p > 0){ const best = side === "buy" ? buyPx(m, oi) : sellPx(m, oi), cross = side === "buy" ? best <= p : best >= p; rows.unshift(["Fills", cross ? "Instantly (crosses the book)" : `When price ${side === "buy" ? "drops to" : "rises to"} ${cents(p)}`]); }
+      const p = (+st.lp || 0) / 100;
+      rows = side === "buy" ? [["Total", usd(Q.usd)]].concat(unit === "usd" ? [] : []).concat([["To win", `<em class="up">${usd(Q.sh)}</em>`, "big"]]) : [["You'll receive", `<em class="up">${usd(Q.usd)}</em>`, "big"]];
+      if (p > 0){ const best = side === "buy" ? buyPx(m, oi) : sellPx(m, oi), cross = side === "buy" ? best <= p : best >= p; rows.unshift(["Fills", cross ? "Instantly" : `When price ${side === "buy" ? "drops to" : "rises to"} ${cents(p)}`]); }
+      if (side === "buy" && f) rows.splice(1, 0, ["Fee", usd(Q.sh * p * f)]);
     } else if (side === "buy"){
-      const amt = +st.amt || 0, net = amt * (1 - fee), w = walkBuy(levels(m, oi, "ask"), net, buyPx(m, oi));
-      rows = [["Avg price", amt ? cents(w.avg) : cents(buyPx(m, oi))], ["Shares", amt ? shr(w.shares) : "0.00"]];
-      if (fee) rows.push(["Fee", usd(amt * fee)]);
-      rows.push(["To win", `<em class="up">${usd(amt ? w.shares : 0)}</em>${amt ? ` <small class="up">(+${fmt((w.shares / amt - 1) * 100, 0)}%)</small>` : ""}`, "big"]);
-      if (btn) btn.innerHTML = goLabel() + (amt ? ` <small class="num">· ${usd(amt)}</small>` : "");
+      rows = [["Avg price", Q.sh ? cents(Q.avg) : cents(buyPx(m, oi))]];
+      if (unit === "sh") rows.push(["Total cost", usd(Q.usd)]);
+      if (f && Q.usd) rows.push(["Fee", usd(Q.usd * f)]);
+      rows.push(["To win", `<em class="up">${usd(Q.sh)}</em>${Q.usd ? ` <small class="up">(+${fmt((Q.sh / Q.usd - 1) * 100, 0)}%)</small>` : ""}`, "big"]);
     } else {
-      const sh = +st.ssh || 0, w = walkSell(levels(m, oi, "bid"), sh, sellPx(m, oi)), net = w.proceeds * (1 - fee), pos = findPos(m.tokens[oi]);
-      rows = [["Avg price", sh ? cents(w.avg) : cents(sellPx(m, oi))]];
-      if (pos && sh) rows.push(["Est. PnL", `<span class="${net - pos.avg * sh >= 0 ? "up" : "down"}">${usdS(net - pos.avg * sh)}</span>`]);
-      rows.push(["You'll receive", `<em class="up">${usd(net)}</em>`, "big"]);
+      rows = [["Avg price", Q.sh ? cents(Q.avg) : cents(sellPx(m, oi))]];
+      if (pos && Q.sh){ const pnl = Q.usd - pos.avg * Q.sh; rows.push(["Est. PnL", `<span class="${pnl >= 0 ? "up" : "down"}">${usdS(pnl)}</span>`]); }
+      rows.push(["You'll receive", `<em class="up">${usd(Q.usd)}</em>`, "big"]);
     }
+    box.parentElement.hidden = false;
     box.innerHTML = rows.map(([k, v, c]) => `<div class="${c || ""}"><span>${k}</span><b class="num">${v}</b></div>`).join("");
+    if (btn && !btn.classList.contains("done") && !btn.classList.contains("loading")) btn.innerHTML = goLabel() + (Q.usd ? ` <small class="num">· ${usd(Q.usd)}</small>` : "");
   }
   function tick(){
     if (!host.isConnected) return;
@@ -566,22 +774,35 @@ function tradePanel(host, st, opts = {}){
   async function go(){
     if (busyGo) return; const {ev, m, oi, side, type} = st, btn = q("[data-go]");
     const bad = msg => { U.fx("err"); toast(msg, "bad"); btn.classList.remove("pd-shake"); void btn.offsetWidth; btn.classList.add("pd-shake"); };
-    const req = Object.assign(reqMeta(ev, m, oi), {side, type});
-    if (type === "limit"){ req.price = (+st.lp || 0) / 100; req.shares = +st.lsh || 0; if (!(req.price > 0 && req.price < 1)) return bad("Enter a limit price between 1¢ and 99¢"); if (!(req.shares > 0)) return bad("Enter number of shares"); }
-    else if (side === "buy"){ req.amount = +st.amt || 0; if (!(req.amount > 0)) return bad("Enter an amount"); if (req.amount > bal() + 1e-9){ bad("Insufficient balance: Add funds to your Prediction wallet"); setTimeout(() => UI.transferSheet({to: W, amount: r2(req.amount - bal())}), 400); return; } }
-    else { req.shares = +st.ssh || 0; if (!(req.shares > 0)) return bad("Enter shares to sell"); }
+    if (roundEnded(ev)) return bad("This round has ended");
+    if (!BOOK[m.tokens[0]] && !BOOK[m.tokens[1]]) await loadBooks(m.tokens).catch(() => {});
+    const Q = quote(), req = Object.assign(reqMeta(ev, m, oi), {side, type}), pos = posNow();
+    if (type === "limit"){
+      req.price = (+st.lp || 0) / 100; req.shares = r2(Q.sh);
+      if (!(req.price > 0 && req.price < 1)) return bad("Enter a limit price between 1¢ and 99¢");
+      if (!(req.shares > 0)) return bad("Enter an amount");
+      if (side === "buy" && Q.usd > bal() + 1e-9){ bad("Insufficient balance: Add funds to your Prediction wallet"); setTimeout(() => UI.transferSheet({to: W, amount: r2(Q.usd - bal())}), 400); return; }
+    } else if (side === "buy"){
+      req.amount = Math.ceil(Q.usd * 100 - 1e-6) / 100; if (!(req.amount > 0)) return bad("Enter an amount");
+      if (req.amount > bal() + 1e-9){ bad("Insufficient balance: Add funds to your Prediction wallet"); setTimeout(() => UI.transferSheet({to: W, amount: r2(req.amount - bal())}), 400); return; }
+    } else { req.shares = Q.sh; if (!(req.shares > 0)) return bad(pos ? "Enter an amount" : "You have no position to sell"); }
+    /* confirmation with details — executes only on Confirm */
+    const out = `<span class="pd-pill ${oi ? "no" : "yes"}">${esc(short(m.outs[oi]))}</span>`, f = feeR(), rows = [["Outcome", out], ["Order type", type === "limit" ? "Limit" : "Market"]];
+    if (side === "buy"){ rows.push([type === "limit" ? "Limit price" : "Avg price", cents(type === "limit" ? req.price : Q.avg)], ["Shares", shr(Q.sh)], ["Total", usd(Q.usd)]); if (f) rows.push(["Fee", usd(Q.usd * f / (1 + (type === "limit" ? f : 0)))]); rows.push(["To win", usd(Q.sh), "big up"]); }
+    else { const basis = pos ? pos.avg * Q.sh : 0; rows.push([type === "limit" ? "Limit price" : "Avg price", cents(type === "limit" ? req.price : Q.avg)], ["Shares", shr(Q.sh)], ["Invested", usd(basis)], ["Est. PnL", `<span class="${Q.usd - basis >= 0 ? "up" : "down"}">${usdS(Q.usd - basis)}</span>`], ["You'll receive", usd(Q.usd), "big up"]); }
+    const ok = await pdConfirm({title: side === "buy" ? "Confirm buy" : "Confirm sell", sub: esc(ev.markets.length > 1 ? (m.gt || m.q) + " · " + ev.title : ev.title), rows, ok: `${side === "buy" ? "Buy" : "Sell"} ${short(m.outs[oi])}`, tone: side === "sell" ? "sell" : oi ? "no" : "yes"});
+    if (!ok || !host.isConnected) return;
     busyGo = true; btn.classList.add("loading"); btn.setAttribute("aria-busy", "true");
     try {
-      if (!BOOK[m.tokens[0]] && !BOOK[m.tokens[1]]) await loadBooks(m.tokens).catch(() => {});
       req.levels = levels(m, oi, side === "buy" ? "ask" : "bid").slice(0, 60);
       if (type === "market") req.price = side === "buy" ? buyPx(m, oi) : sellPx(m, oi);
       const r = await API.call("predict.order", req);
       if (r.fill){
-        const f = r.fill;
-        if (side === "buy"){ U.fx("open"); toast(`Order filled: Bought ${shr(f.shares)} ${m.outs[oi]} at ${cents(f.avg)} avg · ${usd(f.amount)}`, "ok", 3000); }
-        else { U.fx(f.pnl >= 0 ? "claim" : "close"); toast(`Sold ${shr(f.shares)} ${m.outs[oi]}: ${usd(f.amount)} received · PnL ${usdS(f.pnl || 0)}`, f.pnl >= 0 ? "ok" : "info", 3000); }
-        st.amt = ""; st.ssh = ""; st.lsh = "";
-      } else if (r.order){ U.fx("notify"); toast(`Limit order placed: ${side === "buy" ? "Buy" : "Sell"} ${shr(r.order.shares)} ${m.outs[oi]} at ${cents(r.order.price)}`, "ok", 3000); st.lsh = ""; }
+        const fi = r.fill;
+        if (side === "buy"){ U.fx("open"); toast(`Order filled: Bought ${shr(fi.shares)} ${m.outs[oi]} at ${cents(fi.avg)} avg · ${usd(fi.amount)}`, "ok", 3000); notif("Order filled", `Bought ${shr(fi.shares)} ${m.outs[oi]} at ${cents(fi.avg)} · ${usd(fi.amount)} · ${ev.title}`, "ok"); }
+        else { U.fx(fi.pnl >= 0 ? "claim" : "close"); toast(`Sold ${shr(fi.shares)} ${m.outs[oi]}: ${usd(fi.amount)} received · PnL ${usdS(fi.pnl || 0)}`, fi.pnl >= 0 ? "ok" : "info", 3000); notif("Position closed", `Sold ${shr(fi.shares)} ${m.outs[oi]} · ${usd(fi.amount)} received · PnL ${usdS(fi.pnl || 0)}`, fi.pnl >= 0 ? "ok" : "bad"); }
+        st.amt = ""; st.sh = ""; st.exact = null;
+      } else if (r.order){ U.fx("notify"); toast(`Limit order placed: ${side === "buy" ? "Buy" : "Sell"} ${shr(r.order.shares)} ${m.outs[oi]} at ${cents(r.order.price)}`, "ok", 3000); notif("Limit order placed", `${side === "buy" ? "Buy" : "Sell"} ${shr(r.order.shares)} ${m.outs[oi]} at ${cents(r.order.price)} · ${ev.title}`, "info"); st.amt = ""; st.sh = ""; st.exact = null; }
       btn.classList.remove("loading"); btn.classList.add("done"); btn.innerHTML = ic("check", 18, 3) + (r.fill ? " Filled" : " Placed");
       setTimeout(() => { busyGo = false; if (host.isConnected) render(); }, 750);
       opts.onDone && opts.onDone(r);
@@ -592,12 +813,31 @@ function tradePanel(host, st, opts = {}){
   }
   return P;
 }
+/* Cashout: sell the whole free position at the current book price — details, then one confirm */
+async function cashout(p){
+  if (roundEnded({slug: p.slug}) && Date.parse(p.end) < now()) return toast("Round ended. The result is being confirmed", "info");
+  const {ev, m} = posMarket(p), free = r4(p.shares - (p.locked || 0));
+  if (!(free > 0)) return toast("This position is locked in open sell orders", "info");
+  if (!BOOK[m.tokens[0]] && !BOOK[m.tokens[1]]) await loadBooks(m.tokens).catch(() => {});
+  const f = cfg().feePct / 100, calc = () => { const L = levels(m, p.oi, "bid"), w = walkSell(L, free, sellPx(m, p.oi)), net = w.proceeds * (1 - f); return {L, w, net, pnl: net - p.avg * free}; };
+  const c = calc();
+  const ok = await pdConfirm({title: "Cash out", sub: esc(p.q + (p.title ? " · " + p.title : "")), tone: "sell", ok: "Cash out " + usd(c.net),
+    rows: [["Outcome", `<span class="pd-pill ${p.oi ? "no" : "yes"}">${esc(short(p.outcome))}</span>`], ["Invested", usd(p.cost)], ["Cash-out price", cents(c.w.avg)], ["Profit / loss", `<span class="${c.pnl >= 0 ? "up" : "down"}">${usdS(c.pnl)} (${fmt(p.cost ? c.pnl / p.cost * 100 : 0, 1)}%)</span>`], ["You'll receive", usd(c.net), "big up"]]});
+  if (!ok) return;
+  try {
+    const n = calc(), r = await API.call("predict.sell", {token: p.token, shares: free, levels: n.L.slice(0, 60), price: sellPx(m, p.oi)}), fi = r.fill || {};
+    const pnl = fi.pnl != null ? fi.pnl : n.pnl; U.fx(pnl >= 0 ? "claim" : "close");
+    toast(`Cashed out ${usd(fi.amount != null ? fi.amount : n.net)} · PnL ${usdS(pnl)}`, pnl >= 0 ? "ok" : "info", 3200);
+    notif("Cashed out", `${p.q} · ${usd(fi.amount != null ? fi.amount : n.net)} received · PnL ${usdS(pnl)}`, pnl >= 0 ? "ok" : "bad");
+  } catch (e){ U.fx("err"); toast(e.message || "Could not cash out", "bad"); }
+}
 function quickTrade(ev, m, oi, side = "buy"){
   if (!cfg().enabled) return toast("Prediction market is under maintenance", "info");
-  const st = {ev, m, oi, side, type: "market", amt: "", lp: null};
+  const st = {ev, m, oi, side, type: "market", unit: "usd", amt: "", sh: "", lp: null};
   let off = null, close = null, panel = null;
   hap(10);
   U.sheet(side === "buy" ? "Buy" : "Sell", `<div class="pd-qs" data-tp></div><a class="pd-qs-more" href="#/predict/m/${encodeURIComponent(ev.slug)}/${m.id}">Open market ${ic("chev", 14)}</a>`, el => {
+    el.style.maxHeight = "calc(100vh - 88px)";
     panel = tradePanel(el.querySelector("[data-tp]"), st, {showQ: true, onDone: r => { if (r.fill) setTimeout(() => U.closeLayer(), 800); }});
     panel.render();
     const tk = raf(() => panel.tick());
@@ -606,7 +846,7 @@ function quickTrade(ev, m, oi, side = "buy"){
     el.querySelector(".pd-qs-more").onclick = () => U.closeLayer();
     setTimeout(() => { const a = el.querySelector("[data-amt],[data-ssh]"); if (a && matchMedia("(pointer:fine)").matches) a.focus(); }, 320);
     const ob = bus.on("balance", () => panel && panel.tick()); const o0 = off; off = () => { o0 && o0(); ob(); };
-  }, () => { off && off(); close && close(); });
+  }, () => { off && off(); close && close(); const sh = document.getElementById("sheet"); if (sh) sh.style.maxHeight = ""; });
 }
 
 /* =====================================================================================================
@@ -627,86 +867,162 @@ function card(e){
 }
 const skel = n => Array.from({length: n}, () => `<div class="pd-card pd-skel"><div class="pd-card-h"><span class="pd-img sk"></span><span class="sk sk-t"></span><span class="sk sk-g"></span></div><div class="pd-yn"><span class="sk sk-b"></span><span class="sk sk-b"></span></div><span class="sk sk-f"></span></div>`).join("");
 
+const catBtn = ([k, l], cat) => `<button type="button" role="tab" data-cat="${k}" class="${k === cat ? "on" : ""}" aria-selected="${k === cat}">${k === "hot" ? `<span class="pd-fire">${ic("fire", 14, 2)}</span>` : k === "live" ? '<i class="pd-live"></i>' : k.startsWith("end") ? ic("clock", 13, 2.2) : ""}${l}</button>`;
+/* live round card (real Polymarket 5m / 15m Up-or-Down market) */
+function rcard(e){
+  const m = e.markets[0], r = roundOf(e), href = `#/predict/m/${encodeURIComponent(e.slug)}`;
+  return `<article class="pd-card pd-rc" data-ev="${esc(e.slug)}" data-rc="${r.a.k}${r.iv}"><div class="pd-card-h">${img(e.img, "pd-img sm")}<a class="pd-card-q" href="${href}">${esc(rTitle(r))}<small>${clockET(r.t0)} – ${clockET(r.t1)} ET</small></a><span class="pd-rc-t num" data-rct="${r.t1}">${mmss(r.t1 * 1000 - now())}</span></div>
+    <div class="pd-rc-bar"><i data-rcbar="${r.t0},${r.t1}"></i></div><div class="pd-yn">${ynBtn(m, 0)}${ynBtn(m, 1)}</div></article>`;
+}
+const rskel = () => Array.from({length: 4}, () => `<div class="pd-card pd-rc pd-skel"><div class="pd-card-h"><span class="pd-img sm sk"></span><span class="sk sk-t" style="height:30px"></span></div><div class="pd-yn"><span class="sk sk-b"></span><span class="sk sk-b"></span></div></div>`).join("");
+
 function listScreen(){
-  let root, cat = sessionStorage.getItem("pd_cat") || "trending", qs = "", events = [], offset = 0, loading = false, done = false, err = null, stale = false, reqId = 0;
-  let closeWS = null, io = null, offs = [], st = 0;
-  if (!CATS.some(c => c[0] === cat)) cat = "trending";
-  const html = `${STRIP}${subnav("")}<div class="pd-page">${balBar()}
-    <div class="pd-search">${ic("search", 18)}<input type="search" id="pdQ" placeholder="Search markets" autocomplete="off" enterkeyhint="search" aria-label="Search markets"><button type="button" class="pd-qx" data-qx aria-label="Clear search" hidden>${ic("close", 16)}</button></div>
-    <div class="pd-chips-row" id="pdCats" role="tablist">${CATS.map(([k, l]) => `<button type="button" role="tab" data-cat="${k}" class="${k === cat ? "on" : ""}">${k === "trending" ? ic("trend", 14, 2.2) : ""}${l}</button>`).join("")}</div>
-    <div id="pdNote"></div><div class="pd-list" id="pdList"></div><div class="pd-foot" id="pdMore"></div></div>`;
+  let root, cat = sessionStorage.getItem("pd_cat") || "hot", qs = "", events = [], offset = 0, loading = false, done = false, err = null, stale = false, reqId = 0;
+  let closeWS = null, io = null, offs = [], st = 0, timers = [], rounds = [], rReq = 0, rLoaded = false;
+  if (cat === "trending") cat = "hot";
+  if (!CATS.some(c => c[0] === cat)) cat = "hot";
+  let F = Object.assign({}, DEFF); try { Object.assign(F, JSON.parse(sessionStorage.getItem("pd_f") || "{}")); } catch {}
+  const defF = () => F.sort === DEFF.sort && F.status === DEFF.status && F.win === DEFF.win;
+  const html = `${STRIP}${subnav("")}<div class="pd-page">${balBar()}<div id="pdTutBox">${tutHtml()}</div>
+    <div class="pd-srow"><div class="pd-search">${ic("search", 18)}<input type="search" id="pdQ" placeholder="Search markets" autocomplete="off" enterkeyhint="search" aria-label="Search markets"><button type="button" class="pd-qx" data-qx aria-label="Clear search" hidden>${ic("close", 16)}</button></div>
+      <button type="button" class="pd-ibx" data-filt aria-label="Sort and filter">${ic("sort", 18, 1.9)}<i class="pd-dot" hidden></i></button><button type="button" class="pd-ibx" data-info aria-label="Where does the data come from?">${qIcon(18)}</button></div>
+    <div class="pd-chips-row" id="pdCats" role="tablist">${CATS.map(c => catBtn(c, cat)).join("")}</div>
+    <div id="pdNote"></div><div id="pdRounds"></div><div class="pd-list" id="pdList"></div><div class="pd-foot" id="pdMore"></div></div>`;
   const $ = s => root ? root.querySelector(s) : null;
   const tokMap = new Map();
-  function indexTokens(){ tokMap.clear(); events.forEach(e => e.markets.slice(0, 3).forEach(m => tokMap.set(m.tokens[0], m))); }
+  function indexTokens(){ tokMap.clear(); events.forEach(e => e.markets.slice(0, 3).forEach(m => tokMap.set(m.tokens[0], m))); rounds.forEach(e => tokMap.set(e.markets[0].tokens[0], e.markets[0])); }
   function subscribe(){ closeWS && closeWS(); indexTokens(); closeWS = openWS([...tokMap.keys()].slice(0, 100)); }
   const dirty = new Set();
   const flush = raf(() => { dirty.forEach(tk => { const m = tokMap.get(tk); if (!m) return; const c = chance(m);
     root.querySelectorAll(`[data-ch="${m.id}"]`).forEach(el => setTxt(el, chancePct(c)));
     const g = root.querySelector(`[data-g="${m.id}"] .pd-g-fg`); if (g){ g.setAttribute("stroke-dashoffset", (100 - c * 100).toFixed(1)); g.style.stroke = gcol(c); }
-    setTxt(root.querySelector(`[data-yb="${m.id}"]`), cents(buyPx(m, 0))); setTxt(root.querySelector(`[data-nb="${m.id}"]`), cents(buyPx(m, 1))); }); dirty.clear(); });
+    root.querySelectorAll(`[data-yb="${m.id}"]`).forEach(el => setTxt(el, cents(buyPx(m, 0)))); root.querySelectorAll(`[data-nb="${m.id}"]`).forEach(el => setTxt(el, cents(buyPx(m, 1)))); }); dirty.clear(); });
   const onPx = tk => { if (tokMap.has(tk)){ dirty.add(tk); flush(); } };
+  const showRounds = () => (cat === "hot" || cat === "live") && !qs && (cat === "live" || defF());
+  function renderRounds(){
+    const b = $("#pdRounds"); if (!b) return;
+    if (!showRounds()){ b.innerHTML = ""; b.className = ""; return; }
+    b.className = "pd-rounds " + (cat === "live" ? "grid" : "strip");
+    const head = cat === "live" ? "" : `<div class="pd-rh"><b>${ic("zap", 14, 2.2)}Live crypto rounds</b><a href="#/predict" data-rall>BTC &amp; ETH · 5m / 15m</a></div>`;
+    b.innerHTML = head + `<div class="pd-rcs">${rounds.length ? rounds.map(rcard).join("") : rLoaded ? `<div class="pd-err" style="grid-column:1/-1"><b>Live rounds unavailable</b><span>Couldn't reach Polymarket. Try again shortly.</span><button type="button" class="btn btn-primary" data-rretry>Retry</button></div>` : rskel()}</div>`;
+    const ra = b.querySelector("[data-rall]"); if (ra) ra.onclick = e => { e.preventDefault(); switchCat("live"); };
+  }
+  async function loadRounds(){
+    const my = ++rReq;
+    const res = await Promise.all(RA.flatMap(a => RIV.map(iv => loadRound(a, iv).catch(() => null))));
+    if (my !== rReq || !root) return;
+    rounds = res.filter(Boolean); rLoaded = true; rounds.forEach(remember);
+    renderRounds(); if (rounds.length){ loadBooks(rounds.flatMap(e => e.markets[0].tokens)).catch(() => {}); subscribe(); }
+  }
+  function tickRounds(){
+    if (!root) return; let expired = false; const t = now();
+    root.querySelectorAll("[data-rct]").forEach(el => { const e = +el.dataset.rct * 1000; setTxt2(el, mmss(e - t)); if (e - t <= 0) expired = true; });
+    root.querySelectorAll("[data-rcbar]").forEach(el => { const [a, b] = el.dataset.rcbar.split(",").map(Number); el.style.width = Math.max(0, Math.min(100, (t / 1000 - a) / (b - a) * 100)).toFixed(1) + "%"; });
+    if (expired && !loading && rounds.length && !tickRounds.busy){ tickRounds.busy = true; loadRounds().finally(() => setTimeout(() => { tickRounds.busy = false; }, 2500)); }
+  }
   function renderNote(){ const n = $("#pdNote"); if (!n) return; n.innerHTML = stale && events.length ? `<div class="pd-note">${ic("info", 14)}<span>Showing saved markets. Live data unavailable.</span><button type="button" data-retry>Retry</button></div>` : ""; }
   function renderMore(){
     const f = $("#pdMore"); if (!f) return;
+    if (cat === "live" && !qs){ f.innerHTML = ""; return; }
     if (!events.length){ f.innerHTML = ""; return; }
     f.innerHTML = loading ? `<div class="pd-spin" role="status" aria-label="Loading"></div>` : err && !stale ? `<button type="button" class="pd-more-b" data-more>Couldn't load more · Retry</button>` : done ? `<div class="pd-end">You're all caught up</div>` : `<button type="button" class="pd-more-b" data-more>Load more</button>`;
   }
   function renderList(){
     const box = $("#pdList"); if (!box) return;
+    if (cat === "live" && !qs){ box.innerHTML = ""; renderMore(); renderNote(); return; }
     if (!events.length){
       box.innerHTML = loading ? skel(4) : err ? `<div class="pd-err">${ic("info", 34, 1.4)}<b>Couldn't load markets</b><span>Check your connection and try again.</span><button type="button" class="btn btn-primary" data-retry>Retry</button></div>`
-        : `<div class="pd-err">${ic("search", 34, 1.4)}<b>No markets found</b><span>${qs ? "Try a different search." : "Nothing here right now."}</span></div>`;
+        : `<div class="pd-err">${ic("search", 34, 1.4)}<b>No markets found</b><span>${qs ? "Try a different search." : !defF() || cat !== "hot" ? "Nothing matches these filters right now." : "Nothing here right now."}</span></div>`;
     } else box.innerHTML = events.map(card).join("");
     renderMore(); renderNote();
   }
+  const ckey = () => "list_" + cat + (defF() ? "" : "_f");
   async function load(reset){
+    renderRounds();
+    if (cat === "live" && !qs){ events = []; renderList(); if (!rounds.length || reset) loadRounds(); return; }
     if (loading && !reset) return; const my = ++reqId; loading = true;
     if (reset){ offset = 0; done = false; if (!events.length) renderList(); else renderMore(); } else renderMore();
     try {
       let raw, evs;
-      if (qs){ const d = await getJ(`${GAMMA}/public-search?q=${encodeURIComponent(qs)}&limit_per_type=20&events_status=active&page=${Math.floor(offset / 20) + 1}`); raw = d.events || []; done = !(d.pagination && d.pagination.hasMore) || raw.length < 20; }
-      else { raw = await getJ(listUrl(cat, offset)); done = raw.length < PAGE; }
+      if (qs){ const d = await getJ(`${GAMMA}/public-search?q=${encodeURIComponent(qs)}&limit_per_type=20&events_status=${F.status === "resolved" ? "closed" : "active"}&page=${Math.floor(offset / 20) + 1}`); raw = d.events || []; done = !(d.pagination && d.pagination.hasMore) || raw.length < 20; }
+      else { raw = await getJ(listUrl(cat, offset, F)); done = raw.length < PAGE; }
       if (my !== reqId) return;
-      evs = raw.map(normE).filter(e => e.markets.length && !e.closed).map(remember);
+      evs = raw.map(normE).filter(e => e.markets.length && (F.status === "resolved" || !e.closed) && !roundOf(e)).map(remember);
       if (reset){ events = evs; } else { const have = new Set(events.map(e => e.id)); const add = evs.filter(e => !have.has(e.id)); events = events.concat(add);
         loading = false; err = null; const box = $("#pdList"); if (box){ box.insertAdjacentHTML("beforeend", add.map(card).join("")); } offset += raw.length; renderMore(); subscribe(); return; }
       offset = raw.length; err = null; stale = false; loading = false;
-      if (!qs) cache.set("list_" + cat, events.slice(0, 24).map(slim));
+      if (!qs) cache.set(ckey(), events.slice(0, 24).map(slim));
       renderList(); subscribe();
     } catch (e){
       if (my !== reqId) return; loading = false; err = e;
-      if (reset && !events.length){ const c = !qs && cache.get("list_" + cat); if (c){ events = c.v.map(remember); stale = true; } }
+      if (reset && !events.length){ const c = !qs && cache.get(ckey()); if (c){ events = c.v.map(remember); stale = true; } }
       else if (reset) stale = true;
       renderList(); if (events.length) subscribe();
     }
   }
-  function showCached(){ const c = cache.get("list_" + cat); events = c ? c.v.map(remember) : []; renderList(); if (events.length) subscribe(); }
+  function showCached(){ if (cat === "live" && !qs){ events = []; renderList(); return; } const c = cache.get(ckey()); events = c ? c.v.map(remember) : []; renderList(); if (events.length) subscribe(); }
+  function filtDot(){ const d = $(".pd-dot"); if (d) d.hidden = defF(); }
+  function switchCat(k){
+    if (qs){ const Q = $("#pdQ"); Q.value = ""; $("[data-qx]").hidden = true; qs = ""; root.querySelectorAll("[data-cat]").forEach(x => x.classList.remove("dim")); }
+    cat = k; try { sessionStorage.setItem("pd_cat", cat); } catch {}
+    root.querySelectorAll("[data-cat]").forEach(x => { const on = x.dataset.cat === k; x.classList.toggle("on", on); x.setAttribute("aria-selected", on); if (on) x.scrollIntoView({inline: "center", block: "nearest", behavior: "smooth"}); });
+    showCached(); load(true);
+  }
+  function filterSheet(){
+    const w = Object.assign({}, F, {cat}); hap(8);
+    const cats = CATS.filter(c => c[0] === "hot" || c[2]);
+    const chips = (items, key) => items.map(([k, l]) => `<button type="button" data-w="${key}" data-v="${k}" class="${String(w[key]) === String(k) ? "on" : ""}">${k === "hot" && key === "cat" ? "All" : l}</button>`).join("");
+    U.sheet("Sort & filter", `<div class="pd-fs"><section><h4>Sort by</h4><div class="pd-fchips">${chips(SORTS, "sort")}</div></section>
+      <section><h4>Category</h4><div class="pd-fchips">${chips(cats, "cat")}</div></section>
+      <section><h4>Status</h4><div class="pd-fchips">${chips([["open", "Open"], ["resolved", "Resolved"]], "status")}</div></section>
+      <section><h4>Ending</h4><div class="pd-fchips">${chips(WINS, "win")}</div></section>
+      <div class="pd-fs-btns"><button type="button" class="pd-pb" data-reset>Reset</button><button type="button" class="pd-pb pri" data-apply>Show results</button></div></div>`, el => {
+      el.querySelector(".pd-fs").addEventListener("click", e => {
+        const b = e.target.closest("[data-w]"); if (b){ w[b.dataset.w] = b.dataset.w === "win" ? +b.dataset.v : b.dataset.v; hap(6); el.querySelectorAll(`[data-w="${b.dataset.w}"]`).forEach(x => x.classList.toggle("on", x === b)); return; }
+        if (e.target.closest("[data-reset]")){ Object.assign(w, DEFF, {cat: "hot"}); hap(6); el.querySelectorAll("[data-w]").forEach(x => x.classList.toggle("on", String(w[x.dataset.w]) === x.dataset.v)); return; }
+        if (e.target.closest("[data-apply]")){
+          hap(10); F = {sort: w.sort, status: w.status, win: w.win}; try { sessionStorage.setItem("pd_f", JSON.stringify(F)); } catch {}
+          U.closeLayer(); filtDot();
+          if (w.cat !== cat || true){ cat = w.cat === "live" ? "hot" : w.cat; if (!CATS.some(c => c[0] === cat)) cat = "hot"; try { sessionStorage.setItem("pd_cat", cat); } catch {}
+            root.querySelectorAll("[data-cat]").forEach(x => { const on = x.dataset.cat === cat; x.classList.toggle("on", on); if (on) x.scrollIntoView({inline: "center", block: "nearest"}); }); }
+          if (qs){ $("#pdQ").value = ""; $("[data-qx]").hidden = true; qs = ""; }
+          events = []; renderList(); load(true);
+        }
+      });
+    });
+  }
   function mount(r){
     root = r; curScreen = "list"; seed(); bindCommon(root, offs);
     pxListeners.add(onPx); offs.push(() => pxListeners.delete(onPx));
-    const Q = $("#pdQ"), X = root.querySelector("[data-qx]");
-    Q.oninput = () => { X.hidden = !Q.value; clearTimeout(st); st = setTimeout(() => { const v = Q.value.trim(); if (v === qs) return; qs = v; root.querySelectorAll("[data-cat]").forEach(b => b.classList.toggle("dim", !!qs)); events = []; load(true); }, 380); };
+    offs.push(bus.on("pd-tut", () => { const b = $("#pdTutBox"); if (b) b.innerHTML = tutHtml(); }));
+    const Q = $("#pdQ"), X = root.querySelector("[data-qx]"); filtDot();
+    Q.oninput = () => { X.hidden = !Q.value; clearTimeout(st); st = setTimeout(() => { const v = Q.value.trim(); if (v === qs) return; qs = v; root.querySelectorAll("[data-cat]").forEach(b => b.classList.toggle("dim", !!qs)); events = []; renderRounds(); load(true); }, 380); };
     Q.onkeydown = e => { if (e.key === "Enter"){ Q.blur(); } };
     X.onclick = () => { Q.value = ""; X.hidden = true; qs = ""; root.querySelectorAll("[data-cat]").forEach(b => b.classList.remove("dim")); showCached(); load(true); };
     $("#pdCats").onclick = e => { const b = e.target.closest("[data-cat]"); if (!b) return; hap(6);
-      if (qs){ Q.value = ""; X.hidden = true; qs = ""; root.querySelectorAll("[data-cat]").forEach(x => x.classList.remove("dim")); }
       if (b.dataset.cat === cat && !qs){ load(true); return; }
-      cat = b.dataset.cat; try { sessionStorage.setItem("pd_cat", cat); } catch {}
-      root.querySelectorAll("[data-cat]").forEach(x => x.classList.toggle("on", x === b)); b.scrollIntoView({inline: "center", block: "nearest", behavior: "smooth"});
-      showCached(); load(true); };
+      switchCat(b.dataset.cat); };
     root.addEventListener("click", e => {
-      if (e.target.closest("[data-retry]")){ hap(8); load(true); return; }
-      if (e.target.closest("[data-more]")){ load(false); return; }
-      const b = e.target.closest("[data-buy]");
+      const T = e.target;
+      if (T.closest("[data-filt]")){ filterSheet(); return; }
+      if (T.closest("[data-info]")){ hap(6); infoPop(); return; }
+      const tb = T.closest("[data-tut]"); if (tb){ hap(6); tutPop(+tb.dataset.tut); return; }
+      if (T.closest("[data-tutx]")){ hap(6); try { localStorage.setItem(TUT_KEY, "1"); } catch {} const b = $("#pdTutBox"); if (b) b.innerHTML = ""; return; }
+      if (T.closest("[data-rretry]")){ rLoaded = false; renderRounds(); loadRounds(); return; }
+      if (T.closest("[data-retry]")){ hap(8); load(true); return; }
+      if (T.closest("[data-more]")){ load(false); return; }
+      const b = T.closest("[data-buy]");
       if (b){ e.preventDefault(); const c = b.closest("[data-ev]"), ev = EV.get(c.dataset.ev), m = ev && ev.markets.find(x => x.id === b.dataset.buy); if (m) quickTrade(ev, m, +b.dataset.oi); return; }
-      const c = e.target.closest(".pd-card[data-ev]"); if (c && !e.target.closest("a")) location.hash = `#/predict/m/${encodeURIComponent(c.dataset.ev)}`;
+      const c = T.closest(".pd-card[data-ev]"); if (c && !T.closest("a")) location.hash = `#/predict/m/${encodeURIComponent(c.dataset.ev)}`;
     });
     if ("IntersectionObserver" in window){ io = new IntersectionObserver(es => { if (es.some(x => x.isIntersecting) && events.length && !loading && !done && !err) load(false); }, {rootMargin: "600px"}); io.observe($("#pdMore")); }
     if (!cfg().enabled) return;
-    showCached(); if (!events.length){ loading = true; renderList(); loading = false; }
+    timers.push(setInterval(() => { if (!document.hidden) tickRounds(); }, 1000));
+    renderRounds(); if (showRounds()) loadRounds();
+    showCached(); if (!events.length && !(cat === "live" && !qs)){ loading = true; renderList(); loading = false; }
     load(true);
   }
-  function unmount(){ curScreen = null; closeWS && closeWS(); io && io.disconnect(); clearTimeout(st); offs.forEach(f => f()); reqId++; }
+  function unmount(){ curScreen = null; closeWS && closeWS(); io && io.disconnect(); clearTimeout(st); timers.forEach(clearInterval); offs.forEach(f => f()); reqId++; rReq++; closeAllOvl(); }
   return {html: cfg().enabled ? html : STRIP + subnav("") + maint(), title: "Prediction", mount: cfg().enabled ? mount : () => {}, unmount};
 }
 
@@ -731,7 +1047,8 @@ function simHolders(m){ return [0, 1].map(oi => SIMN.slice(oi * 6, oi * 6 + 8).m
 function detailScreen(key, mid){
   let root, ev = EV.get(key) || null, sel = 0, tf = sessionStorage.getItem("pd_tf") || "1d", tab = "book", panel = null, closeWS = null, offs = [], timers = [], loadErr = null;
   let trades = [], holders = null, related = null, chartTok = "", series = [];
-  const st = {ev, m: null, oi: 0, side: "buy", type: "market", amt: "", lp: null};
+  let rd = null, roundDone = false, startPx = null, slEl = null, svEl = null, rPoll = 0;
+  const st = {ev, m: null, oi: 0, side: "buy", type: "market", unit: "usd", amt: "", sh: "", lp: null};
   const $ = s => root ? root.querySelector(s) : null;
   const html = `<div class="pd-page pd-det">${backHead("Market", `<button class="pd-ib" data-share aria-label="Share market">${ic("share", 20)}</button>`)}<div id="pdDet">${skelDet()}</div></div>`;
   function skelDet(){ return `<div class="pd-skel"><div class="pd-dh"><span class="pd-img lg sk"></span><span class="sk sk-t" style="height:44px"></span></div><span class="sk" style="display:block;height:34px;width:40%;margin:14px 0"></span><span class="sk" style="display:block;height:190px"></span></div>`; }
@@ -744,12 +1061,13 @@ function detailScreen(key, mid){
   function render(){
     const box = $("#pdDet"); if (!box) return;
     if (!ev){ box.innerHTML = loadErr ? `<div class="pd-err">${ic("info", 34, 1.4)}<b>Couldn't load this market</b><span>${esc(/fetch|network|abort/i.test(loadErr.message || "") ? "Network error. Check your connection and try again." : loadErr.message || "Network error")}</span><button type="button" class="btn btn-primary" data-retry>Retry</button></div>` : skelDet(); return; }
-    const m = selM(), multi = ev.markets.length > 1, c = chance(m);
-    box.innerHTML = `<div class="pd-dh">${img(ev.img, "pd-img lg")}<div><h2 class="pd-dt">${esc(ev.title)}</h2><div class="pd-dmeta"><span class="num">$${cmp(ev.vol)} Vol.</span><span>${ic("clock", 12)}${esc(dShort(m.end || ev.end))}</span>${ev.closed || m.closed ? '<span class="pd-tag">Closed</span>' : '<span class="pd-tag live"><i class="pd-live"></i>Live</span>'}</div></div></div>
-      <section class="pd-sec pd-hero"><div class="pd-chance">${multi ? `<span class="pd-chname">${esc(m.gt || m.q)}</span>` : ""}<b class="num" data-dch>${chancePct(c)}</b><span>chance</span><em class="num ${m.chg >= 0 ? "up" : "down"}" data-dchg>${m.chg ? (m.chg >= 0 ? "▲" : "▼") + " " + Math.abs(Math.round(m.chg * 100)) + "%" : ""}</em></div>
+    const m = selM(), multi = ev.markets.length > 1, c = chance(m); rd = roundOf(ev); roundDone = false;
+    const hero = rd ? roundHeroHtml(m, c) : `<section class="pd-sec pd-hero"><div class="pd-chance">${multi ? `<span class="pd-chname">${esc(m.gt || m.q)}</span>` : ""}<b class="num" data-dch>${chancePct(c)}</b><span>chance</span><em class="num ${m.chg >= 0 ? "up" : "down"}" data-dchg>${m.chg ? (m.chg >= 0 ? "▲" : "▼") + " " + Math.abs(Math.round(m.chg * 100)) + "%" : ""}</em></div>
       <div class="pd-chart" id="pdChart"><div class="pd-ch-empty" style="height:190px"><span class="pd-spin"></span></div></div>
       ${multi ? `<div class="pd-legend" id="pdLeg"></div>` : ""}
-      <div class="pd-tfs" role="tablist">${TFS.map(([k, l]) => `<button type="button" role="tab" data-tf="${k}" class="${k === tf ? "on" : ""}">${l}</button>`).join("")}</div></section>
+      <div class="pd-tfs" role="tablist">${TFS.map(([k, l]) => `<button type="button" role="tab" data-tf="${k}" class="${k === tf ? "on" : ""}">${l}</button>`).join("")}</div></section>`;
+    box.innerHTML = `<div class="pd-dh">${img(ev.img, "pd-img lg")}<div><h2 class="pd-dt">${esc(rd ? rTitle(rd) : ev.title)}</h2>${rd ? `<div class="pd-dmeta"><span>${clockET(rd.t0)} – ${clockET(rd.t1)} ET</span><span class="pd-tag live" data-rtag><i class="pd-live"></i>Live</span></div>` : `<div class="pd-dmeta"><span class="num">$${cmp(ev.vol)} Vol.</span><span>${ic("clock", 12)}${esc(dShort(m.end || ev.end))}</span>${ev.closed || m.closed ? '<span class="pd-tag">Closed</span>' : '<span class="pd-tag live"><i class="pd-live"></i>Live</span>'}</div>`}</div></div>
+      ${hero}
       ${multi ? `<section class="pd-sec"><h3 class="pd-h3">Outcomes <small>${ev.markets.length}</small></h3><div class="pd-outs" id="pdOuts">${outsHtml()}</div></section>` : ""}
       <section class="pd-sec pd-trade" id="pdTrade"></section>
       <div id="pdMine"></div>
@@ -757,7 +1075,54 @@ function detailScreen(key, mid){
       <section class="pd-sec"><h3 class="pd-h3">Related markets</h3><div id="pdRel"><div class="pd-spin"></div></div></section>
       <div class="pd-sticky" id="pdSticky">${[0, 1].map(i => `<button type="button" class="pd-ynb ${i ? "no" : "yes"}" data-stk="${i}"><span>Buy ${esc(short(m.outs[i]))}</span><b class="num" data-stp="${i}">${cents(buyPx(m, i))}</b></button>`).join("")}</div>`;
     panel = tradePanel($("#pdTrade"), st, {onOi: () => { renderTab(); }}); panel.render();
-    renderMine(); renderTab(); renderRel(); loadChart();
+    renderMine(); renderTab(); renderRel();
+    if (rd) mountRoundChart(); else loadChart();
+  }
+  /* ---- live round hero: live price, start price, countdown, app chart (timeframes + indicators) ---- */
+  function roundHeroHtml(m, c){
+    return `<section class="pd-sec pd-rh"><div class="pd-rh-top"><div class="pd-rh-p"><span>${esc(rd.a.name)} price</span><b class="num" data-rpx>--</b><em class="num" data-rdl></em></div><div class="pd-rh-cd"><span data-rcl>Ends in</span><b class="num" data-rcd>${mmss(rd.t1 * 1000 - now())}</b></div></div>
+      <div class="pd-rc-bar"><i data-rcbar="${rd.t0},${rd.t1}"></i></div>
+      <div class="pd-rh-meta"><span>Start price <b class="num" data-rsp>--</b></span><span>${esc(m.outs[0])} <b class="num up" data-dch>${chancePct(c)}</b></span></div>
+      <div class="pd-rh-chart"><div id="pdRC" style="height:280px"></div></div>
+      <div class="pd-fine" data-rres></div></section>`;
+  }
+  function mountRoundChart(){
+    const host = $("#pdRC"); if (!host || !window.CH) return;
+    try { CH.mount(host, {sym: rd.sym, tf: sessionStorage.getItem("tf_ch3") || "1m", indicators: true, compact: true, tfbar: true, mode: "none", height: "280px", tfs: ["1s", "1m", "5m", "15m", "1h"]}); } catch (e){ console.warn(e); }
+    startPrice(rd).then(v => { startPx = v != null ? v : livePx(rd.sym); updateRound(); });
+    updateRound();
+  }
+  const nextLink = txt => `${txt} <a class="pd-link" href="#/predict/m/${rd.a.k}-updown-${rd.iv}m-${rd.t1}">Go to the next round ${ic("chev", 14)}</a>`;
+  const fp = v => v == null ? "--" : window.M && M.fmtPx ? M.fmtPx(M.get(rd.sym), v) : fmt(v, 2);
+  function placeLines(){
+    const g = window.CH && CH.geo && CH.geo(); const wrap = g && g.el && g.el.parentElement;
+    if (!wrap || startPx == null){ if (slEl) slEl.style.display = "none"; if (svEl) svEl.style.display = "none"; return; }
+    if (!slEl || !slEl.isConnected){ slEl = document.createElement("div"); slEl.className = "pd-sl"; slEl.innerHTML = "<i></i><span></span>"; wrap.appendChild(slEl); svEl = document.createElement("div"); svEl.className = "pd-sv"; wrap.appendChild(svEl); }
+    const y = g.p2y(startPx);
+    if (y == null || isNaN(y) || y < 0 || y > g.h){ slEl.style.display = "none"; } else { slEl.style.display = ""; slEl.style.top = y.toFixed(1) + "px"; slEl.lastChild.textContent = "Start " + fp(startPx); }
+    let x = null; try { x = g.t2x(rd.t0); } catch {}
+    if (x == null || isNaN(x) || x < 0 || x > g.pw){ svEl.style.display = "none"; } else { svEl.style.display = ""; svEl.style.left = x.toFixed(1) + "px"; }
+  }
+  function updateRound(){
+    if (!rd || !root) return; const t = now(), left = rd.t1 * 1000 - t, px = livePx(rd.sym);
+    setTxt2($("[data-rcd]"), mmss(left));
+    const bar = $("[data-rcbar]"); if (bar) bar.style.width = Math.max(0, Math.min(100, (t / 1000 - rd.t0) / (rd.t1 - rd.t0) * 100)).toFixed(1) + "%";
+    if (px != null){ setTxt($("[data-rpx]"), fp(px)); if (startPx != null){ const d = px - startPx, e = $("[data-rdl]"); if (e){ e.textContent = (d >= 0 ? "+" : "-") + fp(Math.abs(d)) + " (" + (d >= 0 ? "+" : "-") + fmt(Math.abs(d / startPx * 100), 3) + "%)"; e.className = "num " + (d >= 0 ? "up" : "down"); } } }
+    setTxt2($("[data-rsp]"), fp(startPx));
+    placeLines();
+    if (left <= 0 && !roundDone){ roundDone = true; const l = $("[data-rcl]"); if (l) l.textContent = "Round ended"; const tg = $("[data-rtag]"); if (tg){ tg.classList.remove("live"); tg.textContent = "Resolving"; } panel && panel.render(); rPoll = 0; const rs = $("[data-rres]"); if (rs) rs.innerHTML = nextLink("Waiting for the final result."); pollRound(); }
+    if (roundDone) { const l = $("[data-rcl]"); if (l && ev.markets[0].closed) l.textContent = "Result"; }
+  }
+  async function pollRound(){
+    if (!root || !rd || !roundDone) return;
+    try {
+      const e = await fetchEvent(ev.slug), nm0 = e.markets[0], m = ev.markets[0];
+      if (nm0 && nm0.closed){ Object.assign(m, {closed: true, prices: nm0.prices, active: nm0.active, accepting: false});
+        const up = nm0.prices[0] >= .99, dn = nm0.prices[1] >= .99, tg = $("[data-rtag]");
+        if (tg) tg.textContent = "Resolved"; const rs = $("[data-rres]"); if (rs) rs.innerHTML = up || dn ? nextLink(`Result: <b class="${up ? "up" : "down"}">${esc(m.outs[up ? 0 : 1])}</b>. Winning shares pay $1 each.`) : nextLink("Round resolved.");
+        panel && panel.render(); renderMine(); checkSettle().catch(() => {}); return; }
+    } catch {}
+    rPoll++; if (root && rPoll < 90) setTimeout(pollRound, 4000);
   }
   function outsHtml(){
     return ev.markets.map((m, i) => `<div class="pd-out ${i === sel ? "on" : ""}" data-sel="${i}" role="button" tabindex="0"><div class="pd-out-l">${ev.markets.length > 1 && m.img && m.img !== ev.img ? img(m.img, "pd-img xs") : ""}<div><b>${esc(m.gt || m.q)}</b><small class="num">$${cmp(m.vol)} Vol.</small></div></div>
@@ -768,7 +1133,7 @@ function detailScreen(key, mid){
       root.querySelectorAll("[data-sel]").forEach(x => x.classList.toggle("on", +x.dataset.sel === sel));
       const m = selM(); const cn = $(".pd-chname"); if (cn) cn.textContent = m.gt || m.q; loadBooks(m.tokens).catch(() => {}); loadTabData(); }
     if (oi != null) st.oi = oi;
-    panel.render(); renderMine(); renderTab(); updateHead(); loadChart(true);
+    panel.render(); renderMine(); renderTab(); updateHead(); if (!rd) loadChart(true);
   }
   function updateHead(){
     if (!ev) return; const m = selM(), c = chance(m);
@@ -791,7 +1156,7 @@ function detailScreen(key, mid){
   }
   function drawSeries(){ lastChartDraw = now(); drawChart($("#pdChart"), series, {pct: true, h: 190, label: "Chance over time"}); }
   function liveChart(){
-    if (!series.length || now() - lastChartDraw < 1500) return;
+    if (rd || !series.length || now() - lastChartDraw < 1500) return;
     let ch = false; series.forEach(s => { const c = chance(s.m), l = s.pts[s.pts.length - 1]; if (l && Math.abs(l[1] - c) > 1e-6){ s.pts.push([now(), c]); ch = true; } else if (l) l[0] = now(); });
     const tip = $("#pdChart .pd-ch-tip"); if (ch && (!tip || tip.style.display === "none")) drawSeries();
     series.forEach(s => setTxt(root.querySelector(`[data-leg="${s.m.id}"]`), chancePct(chance(s.m))));
@@ -801,10 +1166,10 @@ function detailScreen(key, mid){
     const box = $("#pdMine"); if (!box || !ev) return; const d = data(), ids = new Set(ev.markets.map(m => m.id));
     const ps = d.positions.filter(p => ids.has(p.mid)), os = d.orders.filter(o => ids.has(o.mid));
     if (!ps.length && !os.length){ box.innerHTML = ""; return; }
-    box.innerHTML = `<section class="pd-sec"><h3 class="pd-h3">Your positions</h3>${ps.map(p => { const v = posValue(p), pnl = v - p.cost; return `<div class="pd-mine" data-ptk="${p.token}"><div><span class="pd-pill ${p.oi ? "no" : "yes"}">${esc(short(p.outcome))}</span>${p.title ? `<small>${esc(p.title)}</small>` : ""}<div class="pd-mine-s num">${shr(p.shares)} shares · avg ${cents(p.avg)}</div></div><div class="pd-mine-r"><b class="num" data-pv>${usd(v)}</b><small class="num ${pnl >= 0 ? "up" : "down"}" data-pp>${usdS(pnl)} (${fmt(p.cost ? pnl / p.cost * 100 : 0, 1)}%)</small></div><button type="button" class="pd-sell" data-sellp="${p.token}">Sell</button></div>`; }).join("")}
+    box.innerHTML = `<section class="pd-sec"><h3 class="pd-h3">Your positions</h3>${ps.map(p => `<div class="pd-mine pd-mp" data-ptk="${p.token}"><div class="pd-mp-h"><span class="pd-pill ${p.oi ? "no" : "yes"}">${esc(short(p.outcome))}</span>${p.title ? `<small>${esc(p.title)}</small>` : ""}<span class="pd-mine-s num">${shr(p.shares)} shares · avg ${cents(p.avg)}</span></div>${posGrid(p)}<div class="pd-mp-b">${posBtns(p)}</div></div>`).join("")}
       ${os.length ? `<h3 class="pd-h3" style="margin-top:12px">Open orders</h3>` + os.map(o => `<div class="pd-mine"><div><span class="pd-pill ${o.side === "buy" ? "yes" : "no"}">${o.side === "buy" ? "Buy" : "Sell"} ${esc(short(o.outcome))}</span>${o.title ? `<small>${esc(o.title)}</small>` : ""}<div class="pd-mine-s num">${shr(o.shares)} shares @ ${cents(o.price)}</div></div><div class="pd-mine-r"><b class="num">${usd(o.price * o.shares)}</b><small>${ago(o.t)}</small></div><button type="button" class="pd-cancel" data-cancel="${o.id}">Cancel</button></div>`).join("") : ""}</section>`;
   }
-  function tickMine(){ const box = $("#pdMine"); if (!box) return; box.querySelectorAll("[data-ptk]").forEach(r => { const p = findPos(r.dataset.ptk); if (!p) return; const v = posValue(p), pnl = v - p.cost; setTxt(r.querySelector("[data-pv]"), usd(v)); const pp = r.querySelector("[data-pp]"); pp.textContent = `${usdS(pnl)} (${fmt(p.cost ? pnl / p.cost * 100 : 0, 1)}%)`; pp.className = "num " + (pnl >= 0 ? "up" : "down"); }); }
+  function tickMine(){ const box = $("#pdMine"); if (!box) return; box.querySelectorAll("[data-ptk]").forEach(r => { const p = findPos(r.dataset.ptk); if (p) posGridTick(r, p); }); }
   /* tabs */
   function bookHtml(m, oi, n){
     const asks = levels(m, oi, "ask").slice(0, n), bids = levels(m, oi, "bid").slice(0, n);
@@ -842,6 +1207,12 @@ function detailScreen(key, mid){
   }
   async function renderRel(){
     const box = $("#pdRel"); if (!box || !ev) return;
+    if (rd){
+      const hd = box.parentElement.querySelector(".pd-h3"); if (hd) hd.textContent = "More live rounds";
+      const res = await Promise.all(RA.flatMap(a => RIV.map(iv => loadRound(a, iv).catch(() => null)))); const b2 = $("#pdRel"); if (!b2) return;
+      b2.innerHTML = res.filter(e => e && e.slug !== ev.slug).map(e => { const r = roundOf(e); return `<a class="pd-rel" href="#/predict/m/${encodeURIComponent(e.slug)}">${img(e.img, "pd-img sm")}<span>${esc(rTitle(r))}<small class="pd-rel-s">ends ${clockET(r.t1)} ET</small></span><b class="num">${chancePct(chance(e.markets[0]))}</b></a>`; }).join("") || `<div class="pd-fine">No other rounds right now.</div>`;
+      return;
+    }
     if (!related){
       try { const tag = ev.tags.find(t => !/^(all|recurring|hide|featured)/i.test(t)) || "";
         const raw = await getJ(`${GAMMA}/events?active=true&closed=false&order=volume24hr&ascending=false&limit=8` + (tag ? "&tag_slug=" + encodeURIComponent(tag) : ""));
@@ -881,15 +1252,18 @@ function detailScreen(key, mid){
       const tb = t.closest("[data-tab]"); if (tb){ tab = tb.dataset.tab; root.querySelectorAll("[data-tab]").forEach(x => x.classList.toggle("on", x === tb)); hap(6); renderTab(); return; }
       const bo = t.closest("[data-bkoi]"); if (bo){ st.oi = +bo.dataset.bkoi; st.lp = null; panel.render(); renderTab(); return; }
       const bp = t.closest("[data-bkp]"); if (bp){ st.type = "limit"; st.lp = Math.round(+bp.dataset.bkp * 1000) / 10; st.side = bp.classList.contains("ask") ? "buy" : "sell"; if (st.side === "sell" && !findPos(selM().tokens[st.oi])) st.side = "buy"; hap(8); panel.render(); $("#pdTrade").scrollIntoView({behavior: "smooth", block: "center"}); return; }
-      const sp = t.closest("[data-sellp]"); if (sp){ const p = findPos(sp.dataset.sellp); if (p){ st.oi = p.oi; const i = ev.markets.findIndex(x => x.id === p.mid); if (i >= 0 && i !== sel) select(i, p.oi); st.side = "sell"; st.type = "market"; st.ssh = String(r4(p.shares - (p.locked || 0))); panel.render(); $("#pdTrade").scrollIntoView({behavior: "smooth", block: "center"}); } return; }
+      const ch = t.closest("[data-cash]"); if (ch){ const p = findPos(ch.dataset.cash); if (p) cashout(p); return; }
+      const sp = t.closest("[data-sellp]"); if (sp){ const p = findPos(sp.dataset.sellp); if (p){ st.oi = p.oi; const i = ev.markets.findIndex(x => x.id === p.mid); if (i >= 0 && i !== sel) select(i, p.oi); st.side = "sell"; st.type = "market"; st.unit = "usd"; st.amt = ""; st.sh = ""; st.exact = null; panel.render(); $("#pdTrade").scrollIntoView({behavior: "smooth", block: "center"}); } return; }
       const cc = t.closest("[data-cancel]"); if (cc){ cancelOrder(cc.dataset.cancel); return; }
     });
     timers.push(setInterval(() => { if (!document.hidden) liveChart(); }, 5000));
+    timers.push(setInterval(() => { if (!document.hidden && rd) updateRound(); }, 500));
+    timers.push(setInterval(() => { if (!document.hidden && ev && WSN <= 0) loadBooks(selM().tokens).then(onPx).catch(() => {}); else if (!document.hidden && ev && now() - ((PX[selM().tokens[0]] || {}).t || 0) > 8000) loadBooks(selM().tokens).then(onPx).catch(() => {}); }, 6000));
     timers.push(setInterval(() => { if (!document.hidden && ev && ev.markets.some(m => Date.parse(m.end) < now())) checkSettle().catch(() => {}); }, 90000));
     let rz = 0; const onRz = () => { clearTimeout(rz); rz = setTimeout(() => series.length && drawSeries(), 200); }; addEventListener("resize", onRz); offs.push(() => removeEventListener("resize", onRz));
     boot();
   }
-  function unmount(){ curScreen = null; root = null; closeWS && closeWS(); timers.forEach(clearInterval); offs.forEach(f => f()); }
+  function unmount(){ curScreen = null; root = null; closeWS && closeWS(); timers.forEach(clearInterval); offs.forEach(f => f()); closeAllOvl(); if (rd){ try { CH.destroy(); } catch {} } }
   return {html: cfg().enabled ? html : backHead("Market") + maint(), title: ev ? ev.title : "Prediction market", mount: cfg().enabled ? mount : () => {}, unmount};
 }
 async function cancelOrder(id){
@@ -984,10 +1358,10 @@ function portfolioScreen(){
   function renderList(){
     const d = data(), box = $("#pdPL"); if (!box) return;
     if (tab === "pos"){
-      box.innerHTML = d.positions.length ? d.positions.map(p => { const v = posValue(p), pnl = v - p.cost, cur = p.shares ? v / p.shares : 0, ended = Date.parse(p.end) < now();
-        return `<div class="pd-prow" data-ptk="${p.token}"><a class="pd-prow-t" href="#/predict/m/${encodeURIComponent(p.slug)}/${p.mid}">${img(p.img, "pd-img sm")}<div><b>${esc(p.q)}</b><span><span class="pd-pill ${p.oi ? "no" : "yes"}">${esc(short(p.outcome))}</span>${p.title ? esc(p.title) + " · " : ""}<span class="num">${shr(p.shares)} shares</span></span></div></a>
-          <div class="pd-prow-g"><div><span>Avg</span><b class="num">${cents(p.avg)}</b></div><div><span>Current</span><b class="num" data-pc>${cents(cur)}</b></div><div><span>Value</span><b class="num" data-pv>${usd(v)}</b></div><div><span>PnL</span><b class="num ${pnl >= 0 ? "up" : "down"}" data-pp>${usdS(pnl)}<small>${fmt(p.cost ? pnl / p.cost * 100 : 0, 1)}%</small></b></div></div>
-          <div class="pd-prow-f"><span>${ended ? `${ic("clock", 12)}Awaiting resolution` : `${ic("clock", 12)}Ends ${esc(dShort(p.end))}`}${p.locked ? ` · <span class="num">${shr(p.locked)}</span> in orders` : ""}</span><button type="button" class="pd-sell" data-sellp="${p.token}">Sell</button></div></div>`; }).join("")
+      box.innerHTML = d.positions.length ? d.positions.map(p => { const ended = Date.parse(p.end) < now();
+        return `<div class="pd-prow" data-ptk="${p.token}"><a class="pd-prow-t" href="#/predict/m/${encodeURIComponent(p.slug)}/${p.mid}">${img(p.img, "pd-img sm")}<div><b>${esc(p.q)}</b><span><span class="pd-pill ${p.oi ? "no" : "yes"}">${esc(short(p.outcome))}</span>${p.title ? esc(p.title) + " · " : ""}<span class="num">${shr(p.shares)} shares · avg ${cents(p.avg)}</span></span></div></a>
+          ${posGrid(p)}
+          <div class="pd-prow-f"><span>${ended ? `${ic("clock", 12)}Awaiting resolution` : `${ic("clock", 12)}Ends ${esc(dShort(p.end))}`}${p.locked ? ` · <span class="num">${shr(p.locked)}</span> in orders` : ""}</span><span class="pd-prow-b">${posBtns(p)}</span></div></div>`; }).join("")
         : `<div class="pd-err">${ic("pie", 34, 1.4)}<b>No positions yet</b><span>Buy Yes or No on any market and it shows up here.</span><a class="btn btn-primary" href="#/predict">Browse markets</a></div>`;
     } else if (tab === "ord"){
       box.innerHTML = d.orders.length ? d.orders.map(o => `<div class="pd-prow"><a class="pd-prow-t" href="#/predict/m/${encodeURIComponent(o.slug)}/${o.mid}">${img(o.img, "pd-img sm")}<div><b>${esc(o.q)}</b><span><span class="pd-pill ${o.side === "buy" ? "yes" : "no"}">${o.side === "buy" ? "Buy" : "Sell"}</span>${esc(short(o.outcome))}${o.title ? " · " + esc(o.title) : ""}</span></div></a>
@@ -999,7 +1373,7 @@ function portfolioScreen(){
     }
   }
   const tick = raf(() => { if (!root) return; const t = totals(); setTxt($("[data-tv]"), usd(t.total)); const u = $("[data-tu]"); if (u){ u.textContent = usdS(t.un) + " unrealized"; u.className = "num " + (t.un >= 0 ? "up" : "down"); } setTxt($("[data-tp]"), usd(t.pv));
-    if (tab === "pos") root.querySelectorAll("[data-ptk]").forEach(r => { const p = findPos(r.dataset.ptk); if (!p) return; const v = posValue(p), pnl = v - p.cost; setTxt(r.querySelector("[data-pc]"), cents(p.shares ? v / p.shares : 0)); setTxt(r.querySelector("[data-pv]"), usd(v)); const e = r.querySelector("[data-pp]"); e.innerHTML = `${usdS(pnl)}<small>${fmt(p.cost ? pnl / p.cost * 100 : 0, 1)}%</small>`; e.className = "num " + (pnl >= 0 ? "up" : "down"); }); });
+    if (tab === "pos") root.querySelectorAll("[data-ptk]").forEach(r => { const p = findPos(r.dataset.ptk); if (p) posGridTick(r, p); }); });
   function live(){ const d = data(), toks = d.positions.flatMap(p => p.tokens || [p.token]).concat(d.orders.flatMap(o => o.tokens || [o.token])); closeWS && closeWS(); closeWS = toks.length ? openWS(toks) : null; loadBooks(toks).then(tick).catch(() => {}); }
   function all(){ renderSum(); renderTabs(); renderList(); }
   function mount(r){
@@ -1008,13 +1382,14 @@ function portfolioScreen(){
     offs.push(bus.on("predict", () => { all(); }));
     root.addEventListener("click", e => {
       const t = e.target.closest("[data-pt]"); if (t){ tab = t.dataset.pt; try { sessionStorage.setItem("pd_ptab", tab); } catch {} hap(6); renderTabs(); renderList(); return; }
+      const ch = e.target.closest("[data-cash]"); if (ch){ const p = findPos(ch.dataset.cash); if (p) cashout(p); return; }
       const s = e.target.closest("[data-sellp]"); if (s){ const p = findPos(s.dataset.sellp); if (p){ const {ev, m} = posMarket(p); quickTrade(ev, m, p.oi, "sell"); } return; }
       const c = e.target.closest("[data-cancel]"); if (c) cancelOrder(c.dataset.cancel);
     });
     live(); checkSettle().catch(() => {});
     timers.push(setInterval(() => { if (!document.hidden){ const d = data(); loadBooks(d.positions.flatMap(p => p.tokens || [p.token])).then(tick).catch(() => {}); } }, 20000));
   }
-  function unmount(){ curScreen = null; root = null; closeWS && closeWS(); timers.forEach(clearInterval); offs.forEach(f => f()); }
+  function unmount(){ curScreen = null; root = null; closeWS && closeWS(); timers.forEach(clearInterval); offs.forEach(f => f()); closeAllOvl(); }
   return {html, title: "Prediction portfolio", mount, unmount};
 }
 
