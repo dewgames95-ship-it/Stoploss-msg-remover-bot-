@@ -125,3 +125,6 @@ body .fxc .indbar .il{padding:5px 0}
 .bbc-b button{flex:1;height:36px;border-radius:var(--r-ctl,8px);font-size:13.5px;font-weight:700;border:1px solid var(--line);background:transparent;color:var(--text)}
 .bbc-b .bb-go{background:var(--grad-brand,var(--brand));border-color:transparent;color:#fff}.bbc-b .bb-stp{color:var(--down);border-color:var(--down)}
 .bb-new{display:flex;align-items:center;justify-content:center;gap:6px;height:40px;margin:12px 0;border-radius:var(--r-ctl,8px);border:1px dashed var(--line-2,var(--line));color:var(--brand);font-weight:700;font-size:14px}
+.ovl2 .bin-card .bc-d{font-style:normal;font-weight:700;color:var(--text);opacity:.9}
+.ovl2 .bin-card .bc-d::after{content:" ·";color:var(--muted);font-weight:400}
+.ovl2 .bin-card.u .bc-d{color:var(--up);opacity:1}.ovl2 .bin-card.d .bc-d{color:var(--down);opacity:1}

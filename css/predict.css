@@ -588,6 +588,6 @@ html[data-theme="dark"]{--pd-g1:color-mix(in srgb,var(--brand) 8%,var(--pd-box))
 .pd-tut-s button{padding:0 5px;font-size:11.5px}
 .pd-pop-btns{flex-wrap:wrap}
 .pd-pop-btns [data-cta]{flex:1 0 100%;order:-1;color:var(--brand)}
-@media (max-width:389px){.pd-tut-l{display:inline-flex}}
+@media (max-width:389px){.pd-tut-l{display:none}}
 .pd-step>.pd-cents input{flex:0 1 4.4ch;width:4.4ch;text-align:right}
 .pd-fine:empty{display:none}

@@ -1,8 +1,8 @@
-/* v6.8 Money Racer: the 3D race game (racer/index.html) inside NovaTrade at #/racer.
+/* v6.8 Money Game: the 3D race game (racer/index.html) inside NovaTrade at #/racer.
    - The game runs in a same-origin iframe, created on mount and removed on unmount (frees the GPU).
    - Its backend (bet, settle, history) is racer/local-server.js, loaded only when #/racer opens and registered
      on the app's API adapter (API.call("racer.bet", ...)); a real server can take over the same names later.
-   - Money = the current account mode's `games` wallet (shown as "Money Racer"), moved only via API wallet calls.
+   - Money = the current account mode's `games` wallet (shown as "Money Game"), moved only via API wallet calls.
    - window.RACER = {data(), stats()} for Admin; data lives in localStorage ACCT.key("nt_racer"). */
 (function(){
 const {store, bus} = U;
@@ -24,7 +24,7 @@ function fallbackStats(d){
   return o;
 }
 
-/* Every transfer into / out of the Money Racer wallet (Transfer sheet, Assets page, first-open seed) goes to nt_racer.tx */
+/* Every transfer into / out of the Money Game wallet (Transfer sheet, Assets page, first-open seed) goes to nt_racer.tx */
 bus.on("balance", (bal, reason) => {
   if (reason !== "transfer") return;
   const x = (store.s.tx || [])[0];
@@ -72,7 +72,7 @@ function ensureServer(){
     if (window.MoneyRacerServer) return done();
     const s = document.createElement("script");
     s.src = "racer/local-server.js?v=6.8"; s.async = true;
-    s.onload = done; s.onerror = () => { srvP = null; rej(new Error("Money Racer failed to load")); };
+    s.onload = done; s.onerror = () => { srvP = null; rej(new Error("Money Game failed to load")); };
     document.head.appendChild(s);
   });
 }
@@ -81,10 +81,10 @@ function ensureServer(){
 Pages.racer = () => {
   let root, frame = null, onRz = null, raf = 0;
   const html = `
-  <div class="tabs" style="gap:20px;margin:0 -16px;padding:4px 16px 0;border:0"><a class="tab" href="#/futures/BTCUSDT" style="font-size:17px">USDⓈ-M</a><a class="tab" href="#/spot/BTCUSDT" style="font-size:17px">Spot</a><a class="tab" href="#/trade/BTCUSDT" style="font-size:17px">Binary</a><a class="tab tab-hot" href="#/predict" style="font-size:17px">Prediction</a><button class="tab tab-hot on" style="font-size:17px">Money Racer</button><a class="tab" href="#/options" style="font-size:17px">Options</a><a class="tab" href="#/copy" style="font-size:17px">Copy</a><a class="tab" href="#/bots" style="font-size:17px">Bots</a></div>
+  <div class="tabs" style="gap:20px;margin:0 -16px;padding:4px 16px 0;border:0"><a class="tab" href="#/futures/BTCUSDT" style="font-size:17px">USDⓈ-M</a><a class="tab" href="#/spot/BTCUSDT" style="font-size:17px">Spot</a><a class="tab" href="#/trade/BTCUSDT" style="font-size:17px">Binary</a><a class="tab tab-hot" href="#/predict" style="font-size:17px">Prediction</a><button class="tab tab-hot on" style="font-size:17px">Money Game</button><a class="tab" href="#/options" style="font-size:17px">Options</a><a class="tab" href="#/copy" style="font-size:17px">Copy</a><a class="tab" href="#/bots" style="font-size:17px">Bots</a></div>
   <div class="rc-stage" id="rcStage">
     <div class="rc-load" id="rcLoad" role="status" aria-live="polite">
-      <div class="rc-logo"><span class="rc-flag"></span>Money Racer</div>
+      <div class="rc-logo"><span class="rc-flag"></span>Money Game</div>
       <div class="rc-bar"><i id="rcBar"></i></div>
       <small id="rcLoadTx">Loading game…</small>
     </div>
@@ -101,7 +101,7 @@ Pages.racer = () => {
     if (tx) { const t = root.querySelector("#rcLoadTx"); if (t) t.textContent = tx; }
   }
   return {
-    title: "Money Racer",
+    title: "Money Game",
     html,
     mount(r){
       root = r;
@@ -118,7 +118,7 @@ Pages.racer = () => {
         if (!root || !root.isConnected) return;
         frame = document.createElement("iframe");
         frame.className = "rc-frame";
-        frame.title = "Money Racer";
+        frame.title = "Money Game";
         frame.setAttribute("allow", "autoplay; fullscreen");
         frame.src = "racer/index.html?v=6.8";
         frame.addEventListener("load", () => {
@@ -126,7 +126,7 @@ Pages.racer = () => {
           setTimeout(() => { const l = root && root.querySelector("#rcLoad"); if (l) l.classList.add("hide"); }, 180);
         }, {once: true});
         root.querySelector("#rcStage").appendChild(frame);
-      }).catch(e => { clearInterval(tick); setProg(100, e.message || "Money Racer failed to load"); });
+      }).catch(e => { clearInterval(tick); setProg(100, e.message || "Money Game failed to load"); });
       root._rcTick = tick;
     },
     unmount(){

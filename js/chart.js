@@ -687,7 +687,7 @@ function overlay(){
     const cls = win == null ? "n" : win ? "g" : "r", up = pos.dir === "up";
     if (xs != null && xs > 0 && xs < axisX){ h += `<div class="start-line" style="left:${xs}px"></div><div class="bin-dot ${up ? "g" : "r"}" style="left:${xs}px;top:${ye0}px"></div>`; }
     let xex = null; if (xe != null && okT){ xex = Math.min(Math.max(xe, 34), axisX - 38); h += `<div class="exp-line" style="left:${xex}px"><span style="top:${4 + used.length * 18}px">⏱ ${mmss(lft)}</span></div>`; }
-    const txt = (win == null ? "+" + money(pos.amount) : win ? "+" + money(pnl) : "-" + money(pos.amount)) + " USDT", pw = Math.round(txt.length * 6.7 + 40);
+    const amt = (win == null ? "+" + money(pos.amount) : win ? "+" + money(pnl) : "-" + money(pos.amount)) + " USDT", txt = amt, pw = Math.round((amt.length + (up ? 5 : 7)) * 6.7 + 34);
     let L;
     if (xs != null && xs > 0 && xs < axisX && xs - 8 - pw >= 4) L = xs - 8 - pw;                      // left of the start line
     else if (xex != null && xex + 10 + pw <= axisX - 2) L = xex + 10;                                 // a bit to the side of the expiry line
@@ -696,7 +696,7 @@ function overlay(){
     let cy = ye0 + (up ? -19 : 19); if (y != null && Math.abs(cy - y) < 15) cy = ye0 + (up ? 19 : -19);   // keep the live price line free
     while (used.some(u => Math.abs(u - cy) < 26)) cy += 26; used.push(cy);
     cy = Math.max(14, Math.min(HH - 14, cy));
-    h += `<div class="bin-card ${cls} ${up ? "u" : "d"}" style="left:${L}px;top:${cy}px" aria-label="${up ? "Up" : "Down"} trade ${txt}"><i class="bc-ic">${up ? '<svg viewBox="0 0 12 12"><path d="M6 1.5l5 8H1z"/></svg>' : '<svg viewBox="0 0 12 12"><path d="M6 10.5l5-8H1z"/></svg>'}</i><b class="num">${txt}</b></div>`;
+    h += `<div class="bin-card ${cls} ${up ? "u" : "d"}" style="left:${L}px;top:${cy}px" aria-label="${up ? "Up" : "Down"} trade ${txt}"><i class="bc-ic">${up ? '<svg viewBox="0 0 12 12"><path d="M6 1.5l5 8H1z"/></svg>' : '<svg viewBox="0 0 12 12"><path d="M6 10.5l5-8H1z"/></svg>'}</i><em class="bc-d">${up ? "Up" : "Down"}</em><b class="num">${amt}</b></div>`;
   });
   // Support / Resistance zones: thin translucent rectangles from the first touch to the price axis
   if (srOn && srZones.length && !(tf === "tick" || type === "line")){

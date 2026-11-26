@@ -238,7 +238,7 @@ Pages.chart = (params) => {
       return;
     }
     let bids = M.book.bids.slice(0, 20), asks = M.book.asks.slice(0, 20);
-    if (p.type !== "crypto" && p.price){ const st = Math.pow(10, -p.dp); bids = [...Array(10)].map((_,i) => [p.price - st*(i+1), 0]); asks = [...Array(10)].map((_,i) => [p.price + st*(i+1), 0]); }
+    if (p.type !== "crypto" && p.src !== "bnf" && p.price){ const st = Math.pow(10, -p.dp); bids = [...Array(10)].map((_,i) => [p.price - st*(i+1), 0]); asks = [...Array(10)].map((_,i) => [p.price + st*(i+1), 0]); }
     if (!bids.length){ box.innerHTML = `<div class="skel"></div><div class="skel"></div>`; return; }
     const tb = bids.reduce((a,b) => a + +b[1], 0), ta = asks.reduce((a,b) => a + +b[1], 0), bp = tb + ta ? tb / (tb + ta) * 100 : 50;
     const ratio = `<div class="ratio num"><span class="up">${bp.toFixed(2)}%</span><div class="bar"><i style="width:${bp}%;background:var(--up)"></i><i style="flex:1;background:var(--down)"></i></div><span class="down">${(100-bp).toFixed(2)}%</span></div>`;
@@ -450,7 +450,7 @@ Pages.futures = (params) => {
     fundEnd = next.getTime(); const left = Math.max(0, (fundEnd - Date.now())/1000);
     const pad = (a, n) => { a = a.slice(0, n); while (a.length < n) a.push(null); return a; };
     let bids = pad(aggBook(M.book.bids, prec, true), 6), asks = pad(aggBook(M.book.asks, prec, false), 6).reverse();
-    if (p.type !== "crypto" && p.price){ const st = Math.pow(10, -p.dp); bids = [...Array(6)].map((_,i) => [p.price - st*(i+1), 0]); asks = [...Array(6)].map((_,i) => [p.price + st*(6-i), 0]).reverse().reverse(); }
+    if (p.type !== "crypto" && p.src !== "bnf" && p.price){ const st = Math.pow(10, -p.dp); bids = [...Array(6)].map((_,i) => [p.price - st*(i+1), 0]); asks = [...Array(6)].map((_,i) => [p.price + st*(6-i), 0]).reverse().reverse(); }
     const val = r => r ? +r[0] * +r[1] : 0, mx = Math.max(1, ...bids.map(val), ...asks.map(val)), v = x => x ? CH.fmtVol(x) : "--", em = c => `<div class="r em"><span class="${c}">--</span><span>--</span></div>`;
     // mark rows where your own open limit orders sit (bucketed to the nearest visible level)
     const myO = s.fut.orders.filter(o => o.sym === sym).map(o => o.price), all = [...asks, ...bids].filter(Boolean).map(r => +r[0]);
@@ -853,31 +853,13 @@ Pages.trade = (params) => {
       r.querySelector("[data-pg]").style.width = U.clamp((now - pos.open)/(pos.exp - pos.open)*100, 0, 100) + "%";
       const sc = Math.ceil(left); if (sc <= 5 && sc > 0 && cdLast[pos.id] !== sc && pos.sym === sym){ cdLast[pos.id] = sc; U.beep("tick"); } });
   }
-  function showResult(rec){
-    const p = M.get(rec.sym), w = rec.result === "win" && rec.profit > 0, l = rec.result === "loss", ttl = rec.early ? "Closed early" : w ? "You won!" : l ? "Trade lost" : "Draw — refunded";
-    window.TX?.clearFx?.();
-    if (w){ U.confetti(); U.fx("win"); window.TX?.flyMoney?.(); } else if (l) U.fx("loss");
-    U.modal(`<div class="rs ${w?"w":l?"l":"d"}" data-rs><button class="rs-x" data-x aria-label="Close">${ic("x",18,2.2)}</button>
-      <div class="res-ic ${w?"w":l?"l":"d"}">${ic(w?"trophy":l?"x":"reset",30)}</div><div class="rs-t">${ttl}</div>
-      <div class="rs-a num ${w?"up":l?"down":""}">${signed(rec.profit)} USDT</div>
-      <div class="rs-d">${esc(M.label(p))} · ${rec.dir==="up"?"Up":"Down"} · ${money(rec.amount)} USDT<br>Entry ${M.fmtPx(p, rec.entry)} → ${rec.early ? "Exit" : "Close"} ${M.fmtPx(p, rec.exit)}</div>
-      <div class="rs-bar"><i></i></div><div class="rs-cd">Closing in <b>3</b>s</div></div>`, el => {
-      const box = el.querySelector("[data-rs]"), t0 = Date.now(), cd = el.querySelector(".rs-cd b");
-      const stop = () => clearInterval(iv), done = () => { stop(); window.TX?.clearFx?.(); rsBusy = false; setTimeout(nextResult, 350); }, iv = setInterval(() => {
-        if (!box.isConnected || el.querySelector("[data-rs]") !== box) return done();
-        const left = 3000 - (Date.now() - t0); cd.textContent = Math.max(1, Math.ceil(left / 1000));
-        if (left <= 0){ U.closeLayer(); done(); } }, 100);
-      el.querySelector("[data-x]").onclick = () => { U.closeLayer(); done(); }; });
-  }
-  let rsQ = [], rsBusy = false;
-  function nextResult(){ if (rsBusy || !rsQ.length || !root) return; rsBusy = true; showResult(rsQ.shift()); }
   /* result: the chart shows a 2 s win / loss animation with the amount (see CH binFx); here only sound + haptics */
   function result(rec){
     const w = rec.result === "win" && rec.profit > 0, l = rec.result === "loss";
     if (document.hidden || rec.sym !== sym){ toast(`${M.label(M.get(rec.sym))}: ${rec.result === "win" ? "Won" : rec.result === "loss" ? "Lost" : "Refunded"} ${signed(rec.profit)} USDT`, w ? "ok" : l ? "bad" : "info", 2500); return; }
     window.TX?.clearFx?.();
     if (w){ U.fx("win"); window.TX?.flyMoney?.(); } else if (l) U.fx("loss"); else U.fx("notify"); }
-  function resetResults(){ rsQ = []; rsBusy = false; if (root?.isConnected !== false && document.querySelector("[data-rs]")) U.closeLayer(); window.TX?.clearFx?.(); TX.sweep(); }
+  function resetResults(){ window.TX?.clearFx?.(); TX.sweep(); }
   const onVis = () => { if (document.hidden) resetResults(); else TX.sweep(); };
   return {html, title: M.label(P()) + " Binary", mount(r){
     root = r; M.watchTrades(sym);
@@ -911,7 +893,7 @@ Pages.trade = (params) => {
     const iv = setInterval(renderOrder, 2000); timers.push(() => clearInterval(iv));
     document.addEventListener("visibilitychange", onVis); timers.push(() => document.removeEventListener("visibilitychange", onVis));
     const sw = setInterval(TX.sweep, 2500); timers.push(() => clearInterval(sw));
-  }, unmount(){ offs.forEach(f => f()); timers.forEach(f => f()); unChart?.(); M.unwatchTrades(); rsQ = []; rsBusy = false; if (document.querySelector("[data-rs]")) U.closeLayer(); window.TX?.clearFx?.(); setTimeout(TX.sweep, 400); }};
+  }, unmount(){ offs.forEach(f => f()); timers.forEach(f => f()); unChart?.(); M.unwatchTrades(); window.TX?.clearFx?.(); setTimeout(TX.sweep, 400); }};
 };
 
 /* ---------------- Futures trade history (#/history) ---------------- */

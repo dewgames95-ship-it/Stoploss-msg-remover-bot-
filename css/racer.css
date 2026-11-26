@@ -1,4 +1,4 @@
-/* v6.8 Money Racer page: Futures tab strip + full-height game iframe above the bottom nav */
+/* v6.8 Money Game page: Futures tab strip + full-height game iframe above the bottom nav */
 body.rc-on .app{padding-bottom:0}
 html.rc-lock, html.rc-lock body{overflow:hidden !important; overscroll-behavior:none}
 .rc-stage{position:relative;margin:4px -16px 0;height:calc(100dvh - 150px);min-height:320px;background:#060a12;overflow:hidden}

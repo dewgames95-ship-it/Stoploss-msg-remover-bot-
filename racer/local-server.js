@@ -1,14 +1,14 @@
-/* ===== Money Racer: LocalServer (the game's backend, running on this device for now) =====
+/* ===== Money Game: LocalServer (the game's backend, running on this device for now) =====
    The old Python server (bet, race result, balances, /api/*) lives here as plain functions. Every function is
    registered under a stable name, so a real server can implement the same names later (POST /api/<name>):
 
    racer.config  {}                                   -> {enabled, minBet, maxBet, odds:{2,3}, playerWinPct, mode, wallet:"games"}
    racer.state   {boot?:bool}                         -> {balance, mode, config, seeded, pending, seq}
                    boot:true settles a bet left open by a race that never finished (app closed mid-race).
-                   Demo only: the first open moves 1,000 USDT Spot -> Money Racer once if that wallet is empty.
+                   Demo only: the first open moves 1,000 USDT Spot -> Money Game once if that wallet is empty.
    racer.bet     {amount, cars:2|3, car, field:[car..], drive:"auto"|"manual", len}
                                                       -> {betId, raceId, no, car, cars, amount, mult, target, balance}
-                   Debits the stake from the Money Racer wallet (wallet.debit). target = the car the race is set
+                   Debits the stake from the Money Game wallet (wallet.debit). target = the car the race is set
                    to be won by in Car Bet (auto) mode: fair uniform pick, or admin playerWinPct (0-100) for the
                    player's car. Manual Drive has no target (the finish line decides).
    racer.settle  {betId, winner, rank, fin}           -> {betId, win, payout, mult, balance, bet, race}
@@ -57,7 +57,7 @@
     async function settleBet(d, p, winner, rank, fin) {
       const win = winner === p.car;
       const payout = win ? r2(p.amount * p.mult) : (p.refund ? r2(p.amount) : 0);
-      if (payout > 0) await host.call('wallet.credit', { wallet: 'games', amount: payout, reason: win ? 'Money Racer win' : 'Money Racer refund' });
+      if (payout > 0) await host.call('wallet.credit', { wallet: 'games', amount: payout, reason: win ? 'Money Game win' : 'Money Game refund' });
       const t = now();
       const bet = { id: p.betId, raceId: p.raceId, car: p.car, cars: p.cars, amount: p.amount, mult: p.mult, win, payout, mode: p.mode, t, drive: p.drive, rank: rank || (win ? 1 : null) };
       if (p.refund) bet.refunded = true;
@@ -88,7 +88,7 @@
       },
       'racer.bet': async (q) => {
         const c = config();
-        if (!c.enabled) throw new Error('Money Racer is under maintenance');
+        if (!c.enabled) throw new Error('Money Game is under maintenance');
         const amount = r2(q.amount), cars = +q.cars === 2 ? 2 : 3;
         const car = CARS.includes(q.car) ? q.car : 'red';
         if (!(amount >= c.minBet && amount <= c.maxBet)) throw new Error(`Bet must be ${c.minBet}–${c.maxBet} USDT`);
@@ -96,7 +96,7 @@
         if (d.pending) await settleOrphan(d);
         let field = Array.isArray(q.field) ? q.field.filter((k) => CARS.includes(k)) : [];
         if (field.length !== cars || !field.includes(car)) field = [car].concat(CARS.filter((k) => k !== car)).slice(0, cars);
-        await host.call('wallet.debit', { wallet: 'games', amount, reason: 'Money Racer bet' }); // throws "Insufficient balance"
+        await host.call('wallet.debit', { wallet: 'games', amount, reason: 'Money Game bet' }); // throws "Insufficient balance"
         d.seq += 1;
         const no = d.seq, t = now();
         const drive = q.drive === 'manual' ? 'manual' : 'auto';

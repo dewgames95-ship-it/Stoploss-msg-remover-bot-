@@ -544,7 +544,7 @@ function infoPop(){
 /* =====================================================================================================
    UI building blocks
    ===================================================================================================== */
-const STRIP = `<div class="tabs pd-strip" style="gap:20px;margin:0 -16px;padding:4px 16px 0;border:0"><a class="tab" href="#/futures/BTCUSDT" style="font-size:17px">USDⓈ-M</a><a class="tab" href="#/spot/BTCUSDT" style="font-size:17px">Spot</a><a class="tab" href="#/trade/BTCUSDT" style="font-size:17px">Binary</a><button class="tab tab-hot on" style="font-size:17px">Prediction</button><a class="tab tab-hot" href="#/racer" style="font-size:17px">Money Racer</a><a class="tab" href="#/options" style="font-size:17px">Options</a><a class="tab" href="#/copy" style="font-size:17px">Copy</a><a class="tab" href="#/bots" style="font-size:17px">Bots</a></div>`;
+const STRIP = `<div class="tabs pd-strip" style="gap:20px;margin:0 -16px;padding:4px 16px 0;border:0"><a class="tab" href="#/futures/BTCUSDT" style="font-size:17px">USDⓈ-M</a><a class="tab" href="#/spot/BTCUSDT" style="font-size:17px">Spot</a><a class="tab" href="#/trade/BTCUSDT" style="font-size:17px">Binary</a><button class="tab tab-hot on" style="font-size:17px">Prediction</button><a class="tab tab-hot" href="#/racer" style="font-size:17px">Money Game</a><a class="tab" href="#/options" style="font-size:17px">Options</a><a class="tab" href="#/copy" style="font-size:17px">Copy</a><a class="tab" href="#/bots" style="font-size:17px">Bots</a></div>`;
 const SUB = [["", "Markets"], ["portfolio", "Portfolio"], ["profile", "Profile"]];
 const subnav = on => `<nav class="pd-sub" aria-label="Prediction sections">${SUB.map(([k, l]) => `<a href="#/predict${k ? "/" + k : ""}" class="${on === k ? "on" : ""}" ${on === k ? 'aria-current="page"' : ""}>${l}</a>`).join("")}</nav>`;
 const balBar = () => `<div class="pd-bal"><div class="pd-bal-l"><span class="pd-bal-k">Prediction balance<span class="pd-lv" data-lv><i></i>Live</span></span><b class="num" data-pd-bal>${usd(bal())}</b></div>
@@ -563,7 +563,7 @@ function seed(){
   const d = data(); if (d.seeded) return; d.seeded = true;
   if (isDemo() && bal() <= 0){
     const amt = Math.min(1000, Math.floor(store.wb("spot") * 100) / 100);
-    if (amt > 0 && !store.transfer("spot", W, amt)) setTimeout(() => toast(`Prediction wallet funded: ${fmt(amt, 2)} USDT moved from Spot (demo)`, "ok", 3400), 500);
+    if (amt > 0 && !store.transfer("spot", W, amt)) setTimeout(() => toast(`Prediction wallet funded: ${fmt(amt, 2)} USDT moved from Spot`, "ok", 3400), 500);
   }
   saveNow();
 }
