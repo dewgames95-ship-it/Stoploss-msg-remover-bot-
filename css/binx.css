@@ -111,7 +111,7 @@ body .fxc .indbar .il{padding:5px 0}
 /* 2 s result animation */
 .bin-fx{position:absolute;left:50%;top:40%;z-index:6;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:2px;pointer-events:none;animation:bfPop 2s cubic-bezier(.2,.8,.2,1) both;text-align:center}
 .bin-fx .bf-t{font-size:12px;font-weight:800;letter-spacing:.16em}
-.bin-fx .bf-a{font-size:26px;font-weight:800;line-height:1.1;white-space:nowrap}
+.bin-fx .bf-a{font-size:23px;font-weight:800;line-height:1.1;white-space:nowrap}
 .bin-fx.g{color:var(--up)}.bin-fx.r{color:var(--down)}.bin-fx.n{color:var(--text-2)}
 .bin-fx .bf-ring{position:absolute;left:50%;top:50%;width:90px;height:90px;margin:-45px 0 0 -45px;border-radius:50%;border:2px solid currentColor;opacity:0;animation:bfRing 1.2s ease-out .05s both}
 .bin-fx.r .bf-ring{animation:none}
