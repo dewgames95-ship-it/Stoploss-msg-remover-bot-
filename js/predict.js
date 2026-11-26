@@ -552,6 +552,12 @@ const balBar = () => `<div class="pd-bal"><div class="pd-bal-l"><span class="pd-
   <button class="pd-xf" data-pd-xf type="button" aria-label="Transfer to Prediction wallet">${ic("plus", 18, 2.4)}</button></div>`;
 const backHead = (title, right = "") => `<header class="pd-head"><button class="pd-ib" data-back aria-label="Go back">${ic("back", 22)}</button><h1>${esc(title)}</h1>${right || '<span class="pd-ib"></span>'}</header>`;
 function bindCommon(root, offs){
+  /* v6.9: leaving Prediction (tab strip / bottom nav / back) asks first; moving between Prediction screens does not */
+  if (window.App && App.guardNav){
+    App.guardNav("Prediction"); const ask = window.NAV_GUARD;
+    const g = (to, from) => /^#\/predict/.test(to || "") ? true : ask(to, from);
+    window.NAV_GUARD = g; offs.push(() => { if (window.NAV_GUARD === g) window.NAV_GUARD = null; });
+  }
   root.querySelectorAll("[data-acct]").forEach(b => b.onclick = e => { e.stopPropagation(); if (window.ACCT) ACCT.sheet(); else toast("Demo account", "info"); });
   root.addEventListener("click", e => { if (e.target.closest("[data-pd-xf]")){ hap(10); UI.transferSheet({to: W}); } });
   const upd = () => root.querySelectorAll("[data-pd-bal]").forEach(b => b.textContent = usd(bal()));

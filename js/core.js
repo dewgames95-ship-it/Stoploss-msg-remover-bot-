@@ -102,7 +102,7 @@ const defaults = () => ({
   settings: {theme: "light", lang:"en", sound:true, haptic:true, hideBal:false, defAmt:10, defExp:30, lev:20, inds:["EMA","VOL"], chartType:"candle"},
   fut: {positions:[], orders:[], history:[]}, alerts: [], favs: ["BTCUSDT","ETHUSDT","XAUUSD"], rewards: {checkins:[], claimed:{}, xp:0, used:{}}, vault: {bal:0, since:Date.now()},
   balHist: [], bots: {}, auto: {on:false, pair:"BTCUSDT", amount:10, expiry:30, strategy:"trend", interval:20, max:20, count:0, log:[]},
-  profile: {name:"Trader" + Math.floor(1000 + Math.random()*9000), uid: String(Math.floor(10000000 + Math.random()*89999999)), ref: Math.random().toString(36).slice(2,8).toUpperCase(), joined: Date.now()},
+  profile: {name:"Trader" + Math.floor(1000 + Math.random()*9000), uid: String(Math.floor(1000000000 + Math.random()*8999999999)), ref: Math.random().toString(36).slice(2,8).toUpperCase(), joined: Date.now()},
   tickets: [], posts: [], likes: {}, created: Date.now()
 });
 let S;

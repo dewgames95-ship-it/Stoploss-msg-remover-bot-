@@ -13216,7 +13216,6 @@ window.dispatchEvent(new Event('tr-three'));
     pendingBet = null;
     window._trActiveRoom = null;
     MR.lock(false);
-    try { MR.buzz(rank === 1 ? 'win' : 'loss'); } catch (e) {}
   };
 
   // ---- Wallet: Transfer + (NovaTrade Transfer sheet into the Money Game wallet) ----
