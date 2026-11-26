@@ -576,16 +576,17 @@ const setTxt2 = (el, t) => { if (el && el.textContent !== t) el.textContent = t;
 const short = s => String(s || "").length > 14 ? String(s).slice(0, 13) + "…" : String(s || "");
 const reqMeta = (ev, m, oi) => ({mid: m.id, eid: ev.id, slug: ev.slug, q: m.q || ev.title, title: ev.markets.length > 1 ? (m.gt || m.q) : "", img: m.img || ev.img, end: m.end || ev.end, outcome: m.outs[oi], oi, token: m.tokens[oi], tokens: m.tokens, outs: m.outs});
 const findPos = tk => data().positions.find(p => p.token === tk);
-const pnlTxt = (v, cost) => `${usdS(v)} (${fmt(cost ? v / cost * 100 : 0, 1)}%)`;
+const z0 = v => Math.abs(v) < .005 ? 0 : v;
+const pctN = (v, cost) => { const x = cost ? v / cost * 100 : 0; return fmt(Math.abs(x) < .05 ? 0 : x, 1); };
 /* invested vs current value, live */
 function posGrid(p){
-  const v = posValue(p), pnl = v - p.cost, cur = p.shares ? v / p.shares : 0;
-  return `<div class="pd-pg"><div><span>Invested</span><b class="num">${usd(p.cost)}</b></div><div><span>Current value</span><b class="num" data-pv>${usd(v)}</b></div><div><span>PnL</span><b class="num ${pnl >= 0 ? "up" : "down"}" data-pp>${usdS(pnl)}<small>${fmt(p.cost ? pnl / p.cost * 100 : 0, 1)}%</small></b></div><div><span>Now</span><b class="num" data-pc>${cents(cur)}</b></div></div>`;
+  const v = posValue(p), pnl = z0(v - p.cost), cur = p.shares ? v / p.shares : 0;
+  return `<div class="pd-pg"><div><span>Invested</span><b class="num">${usd(p.cost)}</b></div><div><span>Current value</span><b class="num" data-pv>${usd(v)}</b></div><div><span>PnL</span><b class="num ${pnl >= 0 ? "up" : "down"}" data-pp>${usdS(pnl)}<small>${pctN(pnl, p.cost)}%</small></b></div><div><span>Now</span><b class="num" data-pc>${cents(cur)}</b></div></div>`;
 }
 function posGridTick(r, p){
-  const v = posValue(p), pnl = v - p.cost;
+  const v = posValue(p), pnl = z0(v - p.cost);
   setTxt(r.querySelector("[data-pv]"), usd(v)); setTxt(r.querySelector("[data-pc]"), cents(p.shares ? v / p.shares : 0));
-  const e = r.querySelector("[data-pp]"); if (e){ e.innerHTML = `${usdS(pnl)}<small>${fmt(p.cost ? pnl / p.cost * 100 : 0, 1)}%</small>`; e.className = "num " + (pnl >= 0 ? "up" : "down"); }
+  const e = r.querySelector("[data-pp]"); if (e){ e.innerHTML = `${usdS(pnl)}<small>${pctN(pnl, p.cost)}%</small>`; e.className = "num " + (pnl >= 0 ? "up" : "down"); }
 }
 const posBtns = p => `<button type="button" class="pd-cash" data-cash="${p.token}">Cashout</button><button type="button" class="pd-sell" data-sellp="${p.token}">Sell</button>`;
 
@@ -717,7 +718,7 @@ function tradePanel(host, st, opts = {}){
     numInput(LP, 1, v => { st.lp = v; calc(); });
     const sw = q("[data-unit]"); if (sw) sw.onclick = () => {
       const Q = quote(); hap(6); st.exact = null;
-      if (st.unit === "usd"){ st.unit = "sh"; st.sh = Q.sh ? String(fl2(Q.sh)) : ""; } else { st.unit = "usd"; st.amt = Q.usd ? String(fl2(Q.usd)) : ""; }
+      if (st.unit === "usd"){ st.unit = "sh"; st.sh = Q.sh ? String(fl2(Q.sh)) : ""; } else { st.unit = "usd"; st.amt = Q.usd ? String(r2(Q.usd)) : ""; }
       render();
     };
     host.querySelectorAll("[data-add]").forEach(b => b.onclick = () => {
@@ -733,7 +734,7 @@ function tradePanel(host, st, opts = {}){
         const free = freeSh(); if (!(free > 0)){ toast("You have no position to sell", "info"); return; }
         const sh = k === 1 ? free : fl2(free * k); st.exact = sh;
         if (st.unit === "sh") setVal("sh", String(sh), "[data-ssh]");
-        else { const f = feeR(), v = st.type === "limit" ? (+st.lp || 0) / 100 * sh * (1 - f) : walkSell(levels(st.m, st.oi, "bid"), sh, sellPx(st.m, st.oi)).proceeds * (1 - f); setVal("amt", String(fl2(v)), "[data-amt]"); st.exact = sh; }
+        else { const f = feeR(), v = st.type === "limit" ? (+st.lp || 0) / 100 * sh * (1 - f) : walkSell(levels(st.m, st.oi, "bid"), sh, sellPx(st.m, st.oi)).proceeds * (1 - f); setVal("amt", String(r2(v)), "[data-amt]"); st.exact = sh; }
       }
       calc();
     });
@@ -1351,7 +1352,7 @@ function portfolioScreen(){
     return {pv, cost, res, un: pv - cost, total: bal() + pv + res, real: d.realized || 0}; }
   function renderSum(){
     const t = totals(), box = $("#pdPS"); if (!box) return;
-    box.innerHTML = `<div class="pd-sum-top"><span>Portfolio value</span><b class="num" data-tv>${usd(t.total)}</b><small class="num ${t.un >= 0 ? "up" : "down"}" data-tu>${usdS(t.un)} unrealized</small></div>
+    box.innerHTML = `<div class="pd-sum-top"><span>Portfolio value</span><b class="num" data-tv>${usd(t.total)}</b><small class="num ${t.un > -.005 ? "up" : "down"}" data-tu>${usdS(t.un)} unrealized</small></div>
       <div class="pd-sum-g"><div><span>Cash</span><b class="num" data-pd-bal>${usd(bal())}</b></div><div><span>Positions</span><b class="num" data-tp>${usd(t.pv)}</b></div><div><span>In orders</span><b class="num">${usd(t.res)}</b></div><div><span>Realized PnL</span><b class="num ${t.real >= 0 ? "up" : "down"}">${usdS(t.real)}</b></div></div>`;
   }
   function renderTabs(){ const d = data(); $("#pdPT").innerHTML = [["pos", `Positions (${d.positions.length})`], ["ord", `Open orders (${d.orders.length})`], ["hist", "History"]].map(([k, l]) => `<button type="button" role="tab" data-pt="${k}" class="${k === tab ? "on" : ""}">${l}</button>`).join(""); }
@@ -1372,7 +1373,7 @@ function portfolioScreen(){
       box.innerHTML = d.history.length ? `<div class="pd-hlist">${d.history.slice(0, 80).map(histRow).join("")}</div>` : `<div class="pd-err">${ic("history", 34, 1.4)}<b>No history</b></div>`;
     }
   }
-  const tick = raf(() => { if (!root) return; const t = totals(); setTxt($("[data-tv]"), usd(t.total)); const u = $("[data-tu]"); if (u){ u.textContent = usdS(t.un) + " unrealized"; u.className = "num " + (t.un >= 0 ? "up" : "down"); } setTxt($("[data-tp]"), usd(t.pv));
+  const tick = raf(() => { if (!root) return; const t = totals(); setTxt($("[data-tv]"), usd(t.total)); const u = $("[data-tu]"); if (u){ u.textContent = usdS(t.un) + " unrealized"; u.className = "num " + (t.un > -.005 ? "up" : "down"); } setTxt($("[data-tp]"), usd(t.pv));
     if (tab === "pos") root.querySelectorAll("[data-ptk]").forEach(r => { const p = findPos(r.dataset.ptk); if (p) posGridTick(r, p); }); });
   function live(){ const d = data(), toks = d.positions.flatMap(p => p.tokens || [p.token]).concat(d.orders.flatMap(o => o.tokens || [o.token])); closeWS && closeWS(); closeWS = toks.length ? openWS(toks) : null; loadBooks(toks).then(tick).catch(() => {}); }
   function all(){ renderSum(); renderTabs(); renderList(); }
