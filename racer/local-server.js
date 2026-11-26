@@ -3,7 +3,7 @@
    registered under a stable name, so a real server can implement the same names later (POST /api/<name>):
 
    racer.config  {}                                   -> {enabled, minBet, maxBet, odds:{2,3}, playerWinPct, mode, wallet:"games"}
-   racer.state   {boot?:bool}                         -> {balance, mode, config, seeded, pending}
+   racer.state   {boot?:bool}                         -> {balance, mode, config, seeded, pending, seq}
                    boot:true settles a bet left open by a race that never finished (app closed mid-race).
                    Demo only: the first open moves 1,000 USDT Spot -> Money Racer once if that wallet is empty.
    racer.bet     {amount, cars:2|3, car, field:[car..], drive:"auto"|"manual", len}
@@ -86,7 +86,7 @@
           try { await host.seed(); } catch (e) {}
         }
         if (changed) save(d);
-        return { balance: await balance(), mode: host.mode(), config: c, seeded: d.seeded, pending: d.pending };
+        return { balance: await balance(), mode: host.mode(), config: c, seeded: d.seeded, pending: d.pending, seq: d.seq };
       },
       'racer.bet': async (q) => {
         const c = config();

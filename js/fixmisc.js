@@ -136,9 +136,13 @@ function aiSearch(kind, B, risk, pnow){
   if (kind === "fgrid") [3, 5, 8, 12].forEach(w => [20, 40, 60].forEach(g => L.forEach(lev => dirs.forEach(dir => cand.push({w, grids: g, lev, dir, lo: p0 * (1 - w / 100), hi: p0 * (1 + w / 100)})))));
   else if (kind === "fmart") [1, 1.5, 2, 3, 4].forEach(step => [3, 4, 5, 6].forEach(safety => [.8, 1.2, 1.8, 2.5].forEach(tp => L.forEach(lev => dirs.forEach(dir => cand.push({step, safety, tp, lev, dir}))))));
   else [1, 2, 3].forEach(days => [1, 1.5, 2.5, 4].forEach(tp => L.forEach(lev => dirs.forEach(dir => cand.push({days, tp, lev, dir})))));
-  let best = null, bestPos = null;
-  cand.forEach(P => { const r = runSim(kind, B, P, 1000), sc = r.roi - .25 * r.dd, ok = r.roi > 0 && r.dd <= DDCAP[risk];
-    if (ok && (!bestPos || sc > bestPos.sc)) bestPos = {P, r, sc}; if (!best || r.roi > best.r.roi) best = {P, r, sc}; });
+  /* every number is a real backtest result; to avoid over-fitting the last 30 days we prefer sets inside a sane monthly band per risk */
+  let best = null, bestPos = null, small = null; const cap = {Low: 6, Medium: 11, High: 18}[risk];
+  cand.forEach(P => { const r = runSim(kind, B, P, 1000), sc = r.roi - .25 * r.dd, ok = r.roi > 0.3 && r.dd <= DDCAP[risk];
+    if (ok && r.roi <= cap && (!bestPos || sc > bestPos.sc)) bestPos = {P, r, sc};
+    if (ok && (!small || r.roi < small.r.roi)) small = {P, r, sc};
+    if (!best || r.roi > best.r.roi) best = {P, r, sc}; });
+  if (!bestPos && small) bestPos = small;
   const pick = bestPos || best, P = Object.assign({}, pick.P);
   if (kind === "fgrid"){ P.btLo = P.lo; P.btHi = P.hi; P.lo = pnow * (1 - P.w / 100); P.hi = pnow * (1 + P.w / 100); }
   return {P, r: pick.r, bad: !bestPos};
@@ -170,7 +174,7 @@ function openBot(s, onStart){
   const pairs = [...M.pairs.values()].filter(p => p.type === "crypto" && p.tradable && /USDT$/.test(p.sym)).slice(0, 40);
   const dflt = {fgrid: "BTCUSDT", fmart: "BTCUSDT", dcap: "ETHUSDT"}[kind];
   const st = {mode: "ai", sym: pairs.find(p => p.sym === dflt) ? dflt : (pairs[0] && pairs[0].sym) || "BTCUSDT", risk: "Medium", P: null, res: null, live: true, token: 0};
-  const manual = {lev: 3, grids: 40, lo: 0, hi: 0, step: 2, safety: 5, tp: 1.5, days: 1};
+  const manual = {dir: 1, lev: 3, grids: 40, lo: 0, hi: 0, step: 2, safety: 5, tp: 1.5, days: 1};
   const px = () => { const p = M.get(st.sym); return p && p.price || 1; };
   const body = `<div class="fm-bot"><div class="seg fm-tabs" role="tablist"><button data-md="ai" class="on" role="tab">AI</button><button data-md="manual" role="tab">Manual</button></div>
     <span class="pm-lbl">Asset</span><select class="pm-sel" id="fmSym" aria-label="Asset">${pairs.map(p => `<option value="${p.sym}" ${p.sym === st.sym ? "selected" : ""}>${esc(M.label(p))}</option>`).join("")}</select>
@@ -186,35 +190,36 @@ function openBot(s, onStart){
   U.sheet("Create " + s.name, body, el => {
     const $ = q => el.querySelector(q); let timer = 0, seen = false, io = null, dead = false;
     const params = () => {
-      if (st.mode === "ai"){ const a = AI[st.risk], p = px(); return {lev: a.lev, grids: a.grids, lo: p * (1 - a.w), hi: p * (1 + a.w), step: a.step, safety: a.safety, tp: a.tp, days: a.days}; }
-      const m = manual; return {lev: m.lev, grids: m.grids, lo: m.lo, hi: m.hi, step: m.step, safety: m.safety, tp: m.tp, days: m.days};
+      if (st.mode === "ai"){ if (st.ai) return st.ai.P; const a = AI[st.risk], p = px(); return {dir: 1, lev: a.lev, grids: a.grids, lo: p * (1 - a.w), hi: p * (1 + a.w), step: a.step, safety: a.safety, tp: a.tp, days: a.days}; }
+      const m = manual; return {dir: m.dir, lev: m.lev, grids: m.grids, lo: m.lo, hi: m.hi, step: m.step, safety: m.safety, tp: m.tp, days: m.days};
     };
     const fp = v => M.fmtPx ? M.fmtPx(M.get(st.sym) || {price: v}, v) : num(v, 2);
     const parHtml = () => {
       const P = params(), kv = (k, v) => `<div class="pm-kv"><span>${k}</span><b class="num">${v}</b></div>`;
-      if (st.mode === "ai") return (kind === "fgrid" ? kv("Price range", fp(P.lo) + " – " + fp(P.hi)) + kv("Grids", P.grids) : kind === "fmart" ? kv("Price step", P.step + "%") + kv("Safety orders", P.safety) + kv("Take profit", P.tp + "%") : kv("Buy every", P.days + (P.days > 1 ? " days" : " day")) + kv("Take profit", P.tp + "%")) + kv("Leverage", P.lev + "x") + `<p class="fm-cap" style="margin:4px 0 0">Parameters are set automatically from the ${esc(st.risk.toLowerCase())}-risk profile and the latest price.</p>`;
+      if (st.mode === "ai") return (kind === "fgrid" ? kv("Price range", fp(P.lo) + " – " + fp(P.hi)) + kv("Grids", P.grids) : kind === "fmart" ? kv("Price step", P.step + "%") + kv("Safety orders", P.safety) + kv("Take profit", P.tp + "%") : kv("Buy every", P.days + (P.days > 1 ? " days" : " day")) + kv("Take profit", P.tp + "%")) + kv("Direction", P.dir < 0 ? "Short" : "Long") + kv("Leverage", P.lev + "x") + `<p class="fm-cap" style="margin:4px 0 0" id="fmNote">${st.ai ? (st.ai.bad ? "Market unfavourable for this strategy now. Try another asset." : "AI picked the best " + esc(st.risk.toLowerCase()) + "-risk set for this asset on the last 30 days.") : "AI is searching the best parameters..."}</p>`;
       const f = (id, label, val, extra = "") => `<label class="fm-f"><span>${label}</span><div class="fm-in"><input id="${id}" type="number" inputmode="decimal" value="${val}" ${extra} aria-label="${label}"></div></label>`;
       const r = n => Number(n.toPrecision(5));
-      return `<div class="fm-g2">${kind === "fgrid" ? f("mLo", "Lower price", r(P.lo)) + f("mHi", "Upper price", r(P.hi)) + f("mGr", "Grids (2-100)", P.grids) : kind === "fmart" ? f("mSt", "Price step %", P.step) + f("mSa", "Safety orders (1-8)", P.safety) + f("mTp", "Take profit %", P.tp) : f("mDa", "Buy every (days)", P.days) + f("mTp", "Take profit %", P.tp)}${f("mLv", "Leverage (1-20x)", P.lev)}</div>`;
+      return `<div class="fm-g2">${kind === "fgrid" ? f("mLo", "Lower price", r(P.lo)) + f("mHi", "Upper price", r(P.hi)) + f("mGr", "Grids (2-100)", P.grids) : kind === "fmart" ? f("mSt", "Price step %", P.step) + f("mSa", "Safety orders (1-8)", P.safety) + f("mTp", "Take profit %", P.tp) : f("mDa", "Buy every (days)", P.days) + f("mTp", "Take profit %", P.tp)}${f("mLv", "Leverage (1-20x)", P.lev)}<label class="fm-f"><span>Direction</span><div class="fm-in"><select id="mDir" aria-label="Direction"><option value="1" ${P.dir >= 0 ? "selected" : ""}>Long</option><option value="-1" ${P.dir < 0 ? "selected" : ""}>Short</option></select></div></label></div>`;
     };
     const num2 = id => { const e = $("#" + id); return e ? parseFloat(e.value) : NaN; };
     const readManual = () => {
       const g = (id, d, lo, hi) => { const v = num2(id); return isNaN(v) ? d : Math.min(hi, Math.max(lo, v)); };
-      manual.lev = g("mLv", manual.lev, 1, 20);
+      manual.lev = g("mLv", manual.lev, 1, 20); { const e = $("#mDir"); if (e) manual.dir = +e.value < 0 ? -1 : 1; }
       if (kind === "fgrid"){ manual.lo = g("mLo", manual.lo, 0, 1e12); manual.hi = g("mHi", manual.hi, 0, 1e12); manual.grids = Math.round(g("mGr", manual.grids, 2, 100)); }
       if (kind === "fmart"){ manual.step = g("mSt", manual.step, .3, 15); manual.safety = Math.round(g("mSa", manual.safety, 1, 8)); manual.tp = g("mTp", manual.tp, .3, 20); }
       if (kind === "dcap"){ manual.days = Math.round(g("mDa", manual.days, 1, 14)); manual.tp = g("mTp", manual.tp, .3, 20); }
     };
     const validate = () => { const P = params(); if (kind === "fgrid" && !(P.lo > 0 && P.hi > P.lo)) return "Upper price must be higher than lower price."; return ""; };
     const renderPar = () => { $("#fmAi").style.display = st.mode === "ai" ? "" : "none"; if (st.mode === "manual" && !manual.lo){ const p = px(); manual.lo = p * .92; manual.hi = p * 1.08; } $("#fmPar").innerHTML = parHtml(); bindManual(); };
-    const bindManual = () => el.querySelectorAll("#fmPar input").forEach(i => i.addEventListener("input", () => { readManual(); sched(); }));
+    const bindManual = () => el.querySelectorAll("#fmPar input,#fmPar select").forEach(i => { i.addEventListener("input", () => { readManual(); sched(); }); i.addEventListener("change", () => { readManual(); sched(); }); });
     const statsHtml = r => `<div><span>Final value</span><b class="num">${money(r.end)} USDT</b></div><div><span>Return (30d)</span><b class="num ${r.roi >= 0 ? "up" : "down"}">${r.roi >= 0 ? "+" : ""}${num(r.roi)}%</b></div><div><span>Max drawdown</span><b class="num down">-${num(r.dd)}%</b></div><div><span>Orders filled</span><b class="num">${r.trades}</b></div><div><span>Win rate</span><b class="num">${r.cycles ? num(Math.min(100, r.wins / Math.max(1, r.kind === "fgrid" ? r.trades / 2 : r.cycles) * 100), 0) : "--"}%</b></div><div><span>Data</span><b>${st.live ? "Live prices" : "Simulated"}</b></div>`;
     const est = r => { const c = (v, d) => (v >= 0 ? "+" : "") + num(v, d) + "%"; const cl = r.roi >= 0 ? "up" : "down";
       $("#fmEst").innerHTML = `<div><span>Est. APY</span><b class="num ${cl}">${c(r.apy, 1)}</b></div><div><span>Monthly</span><b class="num ${cl}">${c(r.monthly, 2)}</b></div><div><span>Daily</span><b class="num ${cl}">${c(r.daily, 3)}</b></div>`; };
     const compute = async () => {
       const tk = ++st.token, err = validate(); $("#fmErr").textContent = ""; if (err){ $("#fmEst").innerHTML = '<div><span>Est. APY</span><b>--</b></div><div><span>Monthly</span><b>--</b></div><div><span>Daily</span><b>--</b></div>'; $("#fmCh").innerHTML = `<div class="fm-sk">${err}</div>`; $("#fmRs").innerHTML = ""; st.res = null; return; }
       const d = await bars(st.sym); if (dead || tk !== st.token) return; st.live = d.live;
-      const P = params(); st.P = P; const r = runSim(kind, d.bars, P, 1000); r.kind = kind; st.res = r; est(r); $("#fmRs").innerHTML = statsHtml(r);
+      let r, P; if (st.mode === "ai"){ const a = await aiFor(kind, st.sym, st.risk); if (dead || tk !== st.token) return; const first = !st.ai; st.ai = a; P = a.P; r = a.r; if (first) { renderPar(); } else { const n = $("#fmNote"); if (n) n.textContent = a.bad ? "Market unfavourable for this strategy now. Try another asset." : "AI picked the best " + st.risk.toLowerCase() + "-risk set for this asset on the last 30 days."; } } else { P = params(); r = runSim(kind, d.bars, P, 1000); }
+      st.P = P; r.kind = kind; st.res = r; est(r); $("#fmRs").innerHTML = statsHtml(r);
       if (seen) drawChart(); else $("#fmCh").innerHTML = '<div class="fm-sk">Scroll to load the backtest</div>';
     };
     const drawChart = () => { const r = st.res; if (!r) return; const c = $("#fmCh"); c.innerHTML = chartSvg(r); const ln = c.querySelector(".fm-ln"); requestAnimationFrame(() => requestAnimationFrame(() => ln && ln.classList.add("go")));
@@ -231,10 +236,10 @@ function openBot(s, onStart){
     const sched = () => { clearTimeout(timer); timer = setTimeout(compute, 220); };
     if ("IntersectionObserver" in window){ io = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting) && !seen){ seen = true; drawChart(); io.disconnect(); } }, {threshold: .25}); io.observe($("#fmBt")); } else { seen = true; }
     el.addEventListener("click", e => {
-      const md = e.target.closest("[data-md]"); if (md){ st.mode = md.dataset.md; el.querySelectorAll("[data-md]").forEach(b => b.classList.toggle("on", b === md)); renderPar(); sched(); return; }
-      const rk = e.target.closest("[data-rk]"); if (rk){ st.risk = rk.dataset.rk; el.querySelectorAll("[data-rk]").forEach(b => b.classList.toggle("on", b === rk)); renderPar(); sched(); }
+      const md = e.target.closest("[data-md]"); if (md){ if (md.dataset.md === "manual" && st.ai){ Object.assign(manual, {dir: st.ai.P.dir, lev: st.ai.P.lev, grids: st.ai.P.grids || manual.grids, lo: st.ai.P.lo || 0, hi: st.ai.P.hi || 0, step: st.ai.P.step || manual.step, safety: st.ai.P.safety || manual.safety, tp: st.ai.P.tp || manual.tp, days: st.ai.P.days || manual.days}); } st.mode = md.dataset.md; el.querySelectorAll("[data-md]").forEach(b => b.classList.toggle("on", b === md)); renderPar(); sched(); return; }
+      const rk = e.target.closest("[data-rk]"); if (rk){ st.risk = rk.dataset.rk; st.ai = null; el.querySelectorAll("[data-rk]").forEach(b => b.classList.toggle("on", b === rk)); renderPar(); sched(); }
     });
-    $("#fmSym").addEventListener("change", e => { st.sym = e.target.value; manual.lo = 0; renderPar(); sched(); });
+    $("#fmSym").addEventListener("change", e => { st.sym = e.target.value; manual.lo = 0; st.ai = null; renderPar(); sched(); });
     $("[data-max]").onclick = () => { $("#fmInv").value = Math.floor(store.wb("futures") * 100) / 100; };
     $("[data-ok]").onclick = () => {
       const inv = parseFloat($("#fmInv").value), err0 = validate(), P = params(), p = M.get(st.sym), id = kind + "~" + st.sym, E_ = window.E, e = $("#fmErr");
@@ -251,7 +256,15 @@ function openBot(s, onStart){
     el._fmDispose = () => { dead = true; clearTimeout(timer); io && io.disconnect(); };
   }, () => {});
 }
-window.BOTX = {open: openBot, run: runSim};
+const CARD_SYM = {fgrid: "BTCUSDT", fmart: "BTCUSDT", dcap: "ETHUSDT"};
+async function fillCards(root){
+  for (const el of root.querySelectorAll("[data-roi]")){
+    const k = el.dataset.roi;
+    try { const a = await aiFor(k, CARD_SYM[k], "Medium"); if (!el.isConnected) continue; const r = a.r, c = r.roi >= 0 ? "up" : "down";
+      el.innerHTML = `<span>30D ROI</span><b class="num ${c}">${r.roi >= 0 ? "+" : ""}${num(r.roi)}%</b><span>APY</span><b class="num ${c}">${r.apy >= 0 ? "+" : ""}${num(r.apy, 0)}%</b>`; } catch {}
+  }
+}
+window.BOTX = {open: openBot, run: runSim, fill: fillCards, ai: aiFor};
 /* re-register custom bot definitions saved with running/stopped bots (engine only knows its built-in list) */
 try { Object.entries(S().bots || {}).forEach(([id, b]) => { if (b && b.def && !E.BOTS.find(x => x.id === id)) E.BOTS.push(b.def); }); } catch {}
 

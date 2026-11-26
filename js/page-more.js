@@ -237,12 +237,13 @@ Pages.bots = (params) => {
     };
     const card = s => { const d = s.def && defOf(s.def), on = d && S().bots[d.id]?.running;
       return `<div class="bt-card"><div class="bt-ch"><b>${esc(s.name)}</b>${s.hot ? `<span class="bt-hot">Hot</span>` : ""}</div><p>${esc(s.desc)}</p>
-        <div class="bt-ti"><span>Total Investment</span><b class="num">${demoInv(s.k)} USDT</b></div>
+        <div class="bt-ti"><span>Total Investment</span><b class="num">${demoInv(s.k)} USDT</b></div>${s.g === "perp" ? `<div class="bt-roi" data-roi="${s.k}"></div>` : ""}
         <div class="bt-cf"><div><span>Users</span><div class="bt-us">${avs(s.k)}<b class="num">${demoUsers(s.k)}</b></div></div>${on ? `<span class="bt-run">Running</span>` : `<button class="bt-cb" data-create="${s.k}">Create</button>`}</div></div>`; };
     const drawBots = () => {
       $("#btBody").innerHTML = `<div class="bt-tabs"><button data-t="perp" class="${tab === "perp" ? "on" : ""}">Perp</button><button data-t="binary" class="${tab === "binary" ? "on" : ""}">Binary</button></div>
         <div class="bt-list">${STRATS.filter(s => s.g === tab).map(card).join("")}</div>
         <p class="pm-risk" style="margin-top:12px">Bots are simulated on live prices with demo funds. Past performance does not guarantee future results.</p>`;
+      if (window.BOTX) setTimeout(() => $("#btBody") && BOTX.fill($("#btBody")), 60);
     };
     const drawInv = () => {
       const run = E.BOTS.filter(d => S().bots[d.id]?.running), hist = E.BOTS.filter(d => { const b = S().bots[d.id]; return b && !b.running && b.stopped; }).sort((a,b) => S().bots[b.id].stopped - S().bots[a.id].stopped);
