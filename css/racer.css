@@ -1,1 +1,14 @@
-/* v6.8 */
+/* v6.8 Money Racer page: Futures tab strip + full-height game iframe above the bottom nav */
+body.rc-on .app{padding-bottom:0}
+html.rc-lock, html.rc-lock body{overflow:hidden !important; overscroll-behavior:none}
+.rc-stage{position:relative;margin:4px -16px 0;height:calc(100dvh - 150px);min-height:320px;background:#060a12;overflow:hidden}
+.rc-frame{position:absolute;inset:0;width:100%;height:100%;border:0;display:block;background:#060a12}
+.rc-load{position:absolute;inset:0;z-index:2;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;
+  background:radial-gradient(ellipse at 50% 34%,#16325f 0%,#0c1b36 45%,#060a12 100%);color:#e2f3ff;transition:opacity .25s ease}
+.rc-load.hide{opacity:0;pointer-events:none}
+.rc-logo{display:flex;align-items:center;gap:8px;font-size:20px;font-weight:800;font-style:italic;letter-spacing:.04em;text-transform:uppercase}
+.rc-flag{width:22px;height:22px;border-radius:5px;background:conic-gradient(#fff 0 25%,#0b1220 0 50%,#fff 0 75%,#0b1220 0) 0 0/11px 11px;box-shadow:0 0 0 1px rgba(255,255,255,.35)}
+.rc-bar{width:min(240px,62vw);height:4px;border-radius:4px;background:rgba(255,255,255,.12);overflow:hidden}
+.rc-bar i{display:block;height:100%;width:0;border-radius:inherit;background:linear-gradient(90deg,var(--brand,#2E6BFF),var(--brand-2,#5AA9FF));transition:width .15s linear}
+.rc-load small{font-size:12px;color:#9fb0c8}
+@media (min-width:900px){ .rc-stage{margin:4px 0 0;border-radius:var(--r-card,12px)} }

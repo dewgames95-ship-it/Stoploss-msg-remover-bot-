@@ -131,3 +131,74 @@ html body .fs3 .cp-chart .chart-wrap{flex:1!important;height:auto!important;max-
 .fs3 .cp-chart .fs-head{display:none!important}
 .dw3-hint{display:none;font-size:11px;color:var(--muted);white-space:nowrap;flex:1;min-width:8px}
 .fs3 .dw3-hint{display:block}
+
+/* ===== v6.8 (agent D): Binance-matched chart look, glass "A" button, binary trade window, S/R zones, hot indicator chips, quick order ===== */
+html body .chart-wrap{--up:#2EBD85;--down:#F6465D;--cbg:#181A20;--ctx:#EAECEF;--cmut:#848E9C;background:var(--cbg)}
+html[data-theme="light"] body .chart-wrap{--cbg:#FFFFFF;--ctx:#1E2329;--cmut:#707A8A}
+/* live price tag: Binance outlined box (chart colour fill, thin neutral border, price over countdown) */
+html body .chart-wrap .ovl2 .pbox,html body .chart-wrap .ovl2 .pbox.pu,html body .chart-wrap .ovl2 .pbox.pd{background:var(--cbg)!important;color:var(--ctx)!important;border:1px solid var(--cmut)!important;border-radius:4px!important;font-size:10.5px!important;font-weight:600!important;line-height:1.3!important;padding:1px 5px!important;min-width:58px;text-align:center}
+html body .chart-wrap .ovl2 .hl{color:var(--cmut)}
+html body .chart-wrap .ovl2 .hl i{background:var(--cmut)}
+.xlab,html[data-theme="light"] .xlab{background:#2B3139;color:#EAECEF;border-radius:4px;font-size:10px;font-weight:600}
+html[data-theme="light"] .xlab{background:#EAECEF;color:#1E2329}
+
+/* crosshair window: Binance size (compact 9-row card), pinned to the top corner opposite to the finger */
+html body .cbox,html[data-theme="light"] body .cbox{font-size:10px;width:132px;min-width:0;padding:5px 8px;border-radius:4px;top:4px;background:rgba(30,35,41,.94);color:#EAECEF;border:1px solid #2B3139;box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none}
+html[data-theme="light"] body .cbox{background:rgba(255,255,255,.96);color:#1E2329;border-color:#EAECEF;box-shadow:0 2px 8px rgba(0,0,0,.08)}
+html body .cbox div{line-height:14px;gap:6px;font-size:10px}
+html body .cbox span{color:#848E9C}
+html[data-theme="light"] body .cbox span{color:#707A8A}
+html body .cbox b{font-weight:500;font-size:10px}
+
+/* "A" auto-fit button: transparent glass, not blue */
+html body .auto-btn{background:rgba(132,142,156,.16);color:var(--text-2);border:1px solid rgba(132,142,156,.28);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);box-shadow:none;font-weight:700;font-size:10.5px;width:24px;height:24px;display:grid;place-items:center;line-height:1}
+html body .auto-btn:active{background:rgba(132,142,156,.3)}
+
+/* binary trade window: 3 rows (direction/stake/entry, Win-Loss + amount, timer) anchored at the candle where the trade was placed */
+.plab.bin-pl{display:grid!important;grid-template-columns:auto auto;max-width:none!important;overflow:hidden}
+.plab.bin-pl .bp-l{grid-column:1/-1;font-weight:700;font-size:10px;padding:2px 6px;border-top:1px solid rgba(128,138,150,.22);font-variant-numeric:tabular-nums}
+.plab.bin-pl.g .bp-w{color:var(--up);background:rgba(46,189,133,.14)}
+.plab.bin-pl.r .bp-w{color:var(--down);background:rgba(246,70,93,.14)}
+.plab.bin-pl.n .bp-w{color:var(--text-2);background:rgba(128,138,150,.14)}
+.plab.bin-pl .bp-t{color:var(--text);background:var(--cbg,transparent);font-weight:600}
+.plab.bin-pl{background:var(--cbg,var(--bg));box-shadow:0 0 0 1px rgba(128,138,150,.28)}
+.ovl2 .bin-dot{position:absolute;width:9px;height:9px;margin:-4.5px 0 0 -4.5px;border-radius:50%;border:2px solid var(--cbg,#fff);box-sizing:border-box;pointer-events:none;background:#848E9C}
+.ovl2 .bin-dot.g{background:var(--up)}.ovl2 .bin-dot.r{background:var(--down)}
+
+/* Support / Resistance zones */
+.ovl2 .srz{position:absolute;pointer-events:none;border-radius:2px}
+.ovl2 .srz.r{background:rgba(246,70,93,.16);border-top:1px solid rgba(246,70,93,.55);border-bottom:1px solid rgba(246,70,93,.55)}
+.ovl2 .srz.s{background:rgba(46,189,133,.16);border-top:1px solid rgba(46,189,133,.55);border-bottom:1px solid rgba(46,189,133,.55)}
+.ovl2 .srz em{position:absolute;right:4px;font-style:normal;font-size:9.5px;font-weight:700;letter-spacing:.2px;white-space:nowrap;line-height:1}
+.ovl2 .srz.r em{bottom:calc(100% + 2px);color:var(--down)}
+.ovl2 .srz.s em{top:calc(100% + 2px);color:var(--up)}
+
+/* indicator chips: full names + "hot" (fire) SuperTrend / Liquidation */
+.indbar .il button{display:inline-flex;align-items:center;gap:4px}
+.indbar .il button.hot{padding:3px 8px 3px 6px;margin:-3px 0;border-radius:999px;color:#E9722A;background:linear-gradient(180deg,rgba(255,138,0,.10),rgba(255,59,29,.08));box-shadow:0 0 9px rgba(255,106,0,.34),inset 0 0 0 1px rgba(255,120,30,.22)}
+.indbar .il button.hot .flame{filter:drop-shadow(0 0 3px rgba(255,100,0,.9));animation:flameFlick 1.6s ease-in-out infinite;transform-origin:50% 90%}
+.indbar .il button.hot.on{color:#FF7A1A;font-weight:700;background:linear-gradient(180deg,rgba(255,138,0,.20),rgba(255,59,29,.14));box-shadow:0 0 13px rgba(255,90,0,.55),inset 0 0 0 1px rgba(255,120,30,.45)}
+html:not([data-theme="light"]) .indbar .il button.hot{color:#FF9A4D}
+html:not([data-theme="light"]) .indbar .il button.hot.on{color:#FFB070}
+@keyframes flameFlick{0%,100%{transform:scale(1) rotate(-2deg)}35%{transform:scale(1.1,1.16) rotate(2deg)}70%{transform:scale(.96,1.05) rotate(-1deg)}}
+@media (prefers-reduced-motion:reduce){.indbar .il button.hot .flame{animation:none}}
+
+/* full screen: the close button always stays pinned in the top corner */
+.fs3{--fsx:34px}
+.fs3 .fs3-x{position:absolute;left:6px;top:4px;z-index:12;width:var(--fsx);height:var(--fsx);border-radius:50%;background:rgba(132,142,156,.22);color:var(--text);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.fs3 .fs3-h{padding-left:48px}
+
+/* quick order sheet */
+.qo{display:flex;flex-direction:column;gap:2px;padding-bottom:6px}
+.qo .oc{margin-bottom:8px}
+.qo-seg button{padding:9px 0;font-size:14px;font-weight:600}
+.qo-seg button.on[data-sd="long"],.qo-seg button.on[data-sd="buy"]{background:var(--up-bg,rgba(46,189,133,.14));color:var(--up)}
+.qo-seg button.on[data-sd="short"],.qo-seg button.on[data-sd="sell"]{background:var(--down-bg,rgba(246,70,93,.14));color:var(--down)}
+.qo .famt.hide,.qo .qo-tpsl.hide{display:none}
+.qo-pc{margin:0 0 10px}.qo-pc button{flex:1;text-align:center}
+.qo-lab{font-size:12px;color:var(--muted);margin:2px 0 6px}
+.qo-lv{margin-bottom:10px}.qo-lv button{padding:6px 10px}
+.qo-lv .qo-mode{margin-left:auto;background:transparent;border:1px solid var(--line);color:var(--text)}
+.qo-tp{display:flex;align-items:center;gap:8px;font-size:13px;margin:0 0 8px;color:var(--text-2)}
+.qo-tpsl{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.qo #qogo{margin-top:10px}

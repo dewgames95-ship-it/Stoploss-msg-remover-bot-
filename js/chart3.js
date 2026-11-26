@@ -36,7 +36,11 @@ const SCH = [
 ];
 const hex = v => /^#[0-9a-f]{6}$/i.test(v) ? v : "#2e6bff";
 let tmr = 0;
-const syncRow = () => document.querySelectorAll("[data-ind]").forEach(b => b.classList.toggle("on", CH.inds.includes(b.dataset.ind)));
+/* indicator chips: full names; SuperTrend + Liquidation get a faint "hot" background, glow and a flame icon */
+const CHIP = {SR:["Support/Resistance", 0], LIQ:["Liquidation", 1], SUPER:["SuperTrend", 1]};
+const flame = k => `<svg class="flame" viewBox="0 0 24 24" width="12" height="12" aria-hidden="true"><defs><linearGradient id="flg${k}" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#FF3B1D"/><stop offset=".55" stop-color="#FF8A00"/><stop offset="1" stop-color="#FFD24A"/></linearGradient></defs><path fill="url(#flg${k})" d="M12.5 2c.5 3.4-1.3 5-2.8 6.9C8.1 10.8 6.4 12.7 6.4 15.5 6.4 19 9 22 12.4 22s6-3 6-6.6c0-2.3-1-4-2.3-5.4-.2 1.3-.9 2.3-1.9 2.7.7-3.6-.3-7.7-2.1-10.7z"/></svg>`;
+function decorate(){ document.querySelectorAll("[data-ind]").forEach(b => { const c = CHIP[b.dataset.ind]; if (!c || b.dataset.dec) return; b.dataset.dec = "1"; b.innerHTML = (c[1] ? flame(b.dataset.ind) : "") + `<span>${c[0]}</span>`; if (c[1]) b.classList.add("hot"); b.setAttribute("aria-label", c[0]); }); }
+const syncRow = () => { decorate(); document.querySelectorAll("[data-ind]").forEach(b => b.classList.toggle("on", CH.inds.includes(b.dataset.ind))); };
 
 function open(){
   if (document.getElementById("indPage")) return;
@@ -318,4 +322,108 @@ document.addEventListener("click", e => {
   const dt = e.target.closest("[data-drawt]"); if (dt && cur){ e.stopImmediatePropagation(); e.preventDefault(); showBar(cur.bar.classList.contains("hide")); return; }
   const fs = e.target.closest("[data-fs],.tfbar a.ti[href^='#/chart']"); if (fs && cur){ e.stopImmediatePropagation(); e.preventDefault(); FS ? closeFS() : openFS(); }
 }, true);
+
+/* ================= quick order sheet (the "+" on the live price tag): Long/Short on futures, Buy/Sell on spot ================= */
+const FEE_F = () => (window.C && C.FEE) || 0.0001;
+function qoOpen(sym){
+  sym = sym || (CH.geo() && CH.geo().sym); const p = sym && M.get(sym); if (!p || !p.price) return U.toast("Price unavailable", "bad");
+  (/^#\/spot\b/.test(location.hash) ? qoSpot : qoFut)(sym, p);
+}
+const SEG = (attr, items, cur) => `<div class="oc qo-seg">${items.map(([v, l]) => `<button ${attr}="${v}" class="${v === cur ? "on" : ""}">${l}</button>`).join("")}</div>`;
+function qoFut(sym, p){
+  const s = store.s; let side = "long", ot = "market", lev = Math.min(s.settings.lev || 20, E.maxLev(p)), mode = s.settings.marginMode || "cross", ts = false;
+  const levs = [3, 5, 10, 20, 50, 75, 100, 125].filter(x => x <= E.maxLev(p)); if (!levs.includes(lev)) levs.push(lev); levs.sort((a, b) => a - b);
+  U.sheet(`Quick order · ${esc(M.label ? M.label(p) : sym)} Perp`, `<div class="qo">
+    ${SEG("data-sd", [["long", "Long"], ["short", "Short"]], side)}
+    ${SEG("data-ot", [["market", "Market"], ["limit", "Limit"]], ot)}
+    <div class="famt qo-px hide"><input id="qopx" type="number" inputmode="decimal" placeholder="Limit price"><span>USDT</span></div>
+    <div class="famt"><input id="qoa" type="number" inputmode="decimal" placeholder="Cost (margin)"><span>USDT</span></div>
+    <div class="chips qo-pc">${[10, 25, 50, 75, 100].map(v => `<button data-qp="${v}">${v}%</button>`).join("")}</div>
+    <div class="qo-lab">Leverage</div><div class="chips qo-lv">${levs.map(x => `<button data-lv="${x}" class="${x === lev ? "on" : ""}">${x}x</button>`).join("")}<button data-qm class="qo-mode">${mode === "cross" ? "Cross" : "Isolated"}</button></div>
+    <label class="qo-tp"><input type="checkbox" id="qots"> <span>TP / SL</span></label>
+    <div class="qo-tpsl hide"><div class="famt"><input id="qotp" type="number" inputmode="decimal" placeholder="Take profit price"></div><div class="famt"><input id="qosl" type="number" inputmode="decimal" placeholder="Stop loss price"></div></div>
+    <div class="fkv"><span>Avbl</span><b class="num">${U.money(store.wb("futures"))} USDT <button class="wl-plus" data-wlto="futures" aria-label="Transfer in">${U.ic("plus", 13, 3)}</button></b></div>
+    <div class="fkv"><span>Position size</span><b class="num" id="qosz">--</b></div><div class="fkv"><span>Est. liq. price</span><b class="num" id="qolq">--</b></div>
+    <button class="fbtn2 l" id="qogo"><span>Open Long</span></button></div>`, el => {
+    const $ = q => el.querySelector(q), px = () => ot === "limit" ? (parseFloat($("#qopx").value) || 0) : p.price;
+    const upd = () => { const c = parseFloat($("#qoa").value) || 0, ep = px() || p.price, sz = c * lev, q = sz / ep, lq = c ? E.liqPrice(side, ep, lev, mode, q, c) : 0;
+      $("#qosz").textContent = c ? U.money(sz) + " USDT" : "--"; $("#qolq").textContent = lq > 0 ? M.fmtPx(p, lq) : "--";
+      const g = $("#qogo"); g.className = "fbtn2 " + (side === "long" ? "l" : "s"); g.querySelector("span").textContent = (ot === "limit" ? "Limit " : "") + (side === "long" ? "Open Long" : "Open Short"); };
+    el.querySelectorAll("[data-sd]").forEach(b => b.onclick = () => { side = b.dataset.sd; el.querySelectorAll("[data-sd]").forEach(x => x.classList.toggle("on", x === b)); U.buzz(8); upd(); });
+    el.querySelectorAll("[data-ot]").forEach(b => b.onclick = () => { ot = b.dataset.ot; el.querySelectorAll("[data-ot]").forEach(x => x.classList.toggle("on", x === b)); $(".qo-px").classList.toggle("hide", ot !== "limit"); if (ot === "limit" && !$("#qopx").value) $("#qopx").value = M.fmtPx(p, p.price).replace(/,/g, ""); U.buzz(8); upd(); });
+    el.querySelectorAll("[data-lv]").forEach(b => b.onclick = () => { lev = +b.dataset.lv; el.querySelectorAll("[data-lv]").forEach(x => x.classList.toggle("on", x === b)); U.buzz(8); upd(); });
+    $("[data-qm]").onclick = () => { mode = mode === "cross" ? "isolated" : "cross"; $("[data-qm]").textContent = mode === "cross" ? "Cross" : "Isolated"; upd(); };
+    $("#qots").onchange = e => { ts = e.target.checked; $(".qo-tpsl").classList.toggle("hide", !ts); };
+    el.querySelectorAll("[data-qp]").forEach(b => b.onclick = () => { $("#qoa").value = Math.floor(store.wb("futures") / (1 + lev * FEE_F()) * +b.dataset.qp) / 100; upd(); });
+    $("#qoa").oninput = upd; $("#qopx").oninput = upd;
+    $("#qogo").onclick = () => {
+      const c = parseFloat($("#qoa").value) || 0, lp = ot === "limit" ? parseFloat($("#qopx").value) || 0 : null;
+      if (ot === "limit" && !(lp > 0)) return U.toast("Please enter the price", "bad");
+      if (!(c > 0)) return U.toast("Please enter the cost", "bad");
+      const tp = ts ? parseFloat($("#qotp").value) || null : null, sl = ts ? parseFloat($("#qosl").value) || null : null;
+      const r = E.openFut({sym, side, margin:c, lev, type:ot, price:lp, tp, sl, mode});
+      if (r.err){ U.toast(r.err, "bad"); window.UI && UI.walletErr && UI.walletErr(r.err); return; }
+      if (tp || sl) E.award && E.award("tpsl");
+      s.settings.lev = lev; store.save(); U.closeLayer(); U.fx("open");
+      U.toast(r.order ? `Limit order placed: ${side === "long" ? "Long" : "Short"} ${M.label(p)} ${lev}x` : `Order filled: ${side === "long" ? "Long" : "Short"} ${M.label(p)} ${lev}x`, "ok");
+    };
+    upd();
+  });
+}
+function qoSpot(sym, p){
+  if (!store.s.spot) store.s.spot = {hold:{}, orders:[], history:[]}; const sp0 = store.s.spot; sp0.hold ||= {}; sp0.orders ||= []; sp0.history ||= [];
+  let side = "buy", ot = "market";
+  const key = (p.type === "crypto" || p.type === "stock") ? p.base : p.sym, unit = key;
+  const avail = () => Math.max(0, ((store.s.spot.hold || {})[key]?.qty || 0) - (store.s.spot.orders || []).filter(o => o.side === "sell" && o.sym === sym).reduce((a, o) => a + o.qty, 0));
+  const qd = px => p.type !== "crypto" ? (p.type === "stock" ? 3 : 2) : (px >= 1000 ? 5 : px >= 10 ? 4 : px >= 1 ? 2 : 0);
+  U.sheet(`Quick order · ${esc(M.label ? M.label(p) : sym)} Spot`, `<div class="qo">
+    ${SEG("data-sd", [["buy", "Buy"], ["sell", "Sell"]], side)}
+    ${SEG("data-ot", [["market", "Market"], ["limit", "Limit"]], ot)}
+    <div class="famt qo-px hide"><input id="qopx" type="number" inputmode="decimal" placeholder="Limit price"><span>USDT</span></div>
+    <div class="famt"><input id="qoa" type="number" inputmode="decimal" placeholder="Total"><span>USDT</span></div>
+    <div class="chips qo-pc">${[25, 50, 75, 100].map(v => `<button data-qp="${v}">${v}%</button>`).join("")}</div>
+    <div class="fkv"><span id="qoav">Avbl</span><b class="num" id="qoavv">--</b></div>
+    <div class="fkv"><span>Quantity</span><b class="num" id="qoq">--</b></div><div class="fkv"><span>Fee (est.)</span><b class="num" id="qofee">--</b></div>
+    <button class="fbtn2 l" id="qogo"><span>Buy</span></button></div>`, el => {
+    const $ = q => el.querySelector(q), px = () => ot === "limit" ? (parseFloat($("#qopx").value) || 0) : p.price;
+    const upd = () => { const t = parseFloat($("#qoa").value) || 0, ep = px() || p.price, q = t / ep;
+      $("#qoav").textContent = side === "buy" ? "Avbl" : "Avbl " + unit; $("#qoavv").textContent = side === "buy" ? U.money(store.wb("spot")) + " USDT" : U.fmt(avail(), qd(ep)) + " " + unit;
+      $("#qoq").textContent = t ? U.fmt(q, qd(ep)) + " " + unit : "--"; $("#qofee").textContent = t ? U.money(t * 0.0002) + " USDT" : "--";
+      const g = $("#qogo"); g.className = "fbtn2 " + (side === "buy" ? "l" : "s"); g.querySelector("span").textContent = (side === "buy" ? "Buy " : "Sell ") + unit; };
+    el.querySelectorAll("[data-sd]").forEach(b => b.onclick = () => { side = b.dataset.sd; el.querySelectorAll("[data-sd]").forEach(x => x.classList.toggle("on", x === b)); $("#qoa").value = ""; U.buzz(8); upd(); });
+    el.querySelectorAll("[data-ot]").forEach(b => b.onclick = () => { ot = b.dataset.ot; el.querySelectorAll("[data-ot]").forEach(x => x.classList.toggle("on", x === b)); $(".qo-px").classList.toggle("hide", ot !== "limit"); if (ot === "limit" && !$("#qopx").value) $("#qopx").value = M.fmtPx(p, p.price).replace(/,/g, ""); U.buzz(8); upd(); });
+    el.querySelectorAll("[data-qp]").forEach(b => b.onclick = () => { const f = +b.dataset.qp / 100, ep = px() || p.price; $("#qoa").value = side === "buy" ? Math.floor(store.wb("spot") * f * 100) / 100 : Math.floor(avail() * ep * f * 100) / 100; upd(); });
+    $("#qoa").oninput = upd; $("#qopx").oninput = upd;
+    $("#qogo").onclick = () => {
+      const t = parseFloat($("#qoa").value) || 0, lp = ot === "limit" ? parseFloat($("#qopx").value) || 0 : 0, ep = ot === "limit" ? lp : p.price;
+      if (ot === "limit" && !(lp > 0)) return U.toast("Please enter the price", "bad");
+      if (!(t > 0)) return U.toast("Please enter the amount", "bad");
+      const k = Math.pow(10, qd(ep)), q = side === "sell" && t >= avail() * ep - 1e-9 ? avail() : Math.floor(t / ep * k + 1e-9) / k;
+      const r = qoSpotPlace({sym, side, type:ot, price:lp, qty:q});
+      if (r.err){ U.toast(r.err, "bad"); window.UI && UI.walletErr && UI.walletErr(r.err); return; }
+      U.closeLayer(); if (!r.filled){ U.fx("open"); U.toast("Order placed", "ok"); }
+    };
+    upd();
+  });
+}
+/* same engine as the Spot page: SPOT.place when the page exposes it, otherwise an identical local copy working on the same store (store.s.spot + spot wallet) */
+function qoSpotPlace(o){
+  if (window.SPOT && SPOT.place) return SPOT.place(o);
+  const {sym, side, type, price, qty} = o, p = M.get(sym), sp = store.s.spot, key = (p.type === "crypto" || p.type === "stock") ? p.base : p.sym, FEE = 0.0002;
+  if (!p || !p.price) return {err:"Price unavailable"}; if (p.closed) return {err:"Market closed — reopens with the next session"};
+  if (!(qty > 0)) return {err:"Please enter the amount"}; const px = type === "market" ? p.price : price; if (!(px > 0)) return {err:"Please enter the price"};
+  if (qty * px < 1) return {err:"Minimum order value is 1 USDT"};
+  const locked = sp.orders.filter(x => x.side === "sell" && x.sym === sym).reduce((a, x) => a + x.qty, 0), av = Math.max(0, (sp.hold[key]?.qty || 0) - locked);
+  if (side === "buy"){ if (qty * px > store.wb("spot") + 1e-9) return {err:"Insufficient Spot balance"}; } else if (qty > av + 1e-9) return {err:`Insufficient ${key} balance`};
+  const fill = (px2, fromLimit) => { const h = sp.hold[key] ||= {qty:0, cost:0};
+    if (side === "buy"){ h.sym = sym; h.qty += qty * (1 - FEE); h.cost += qty * px2; if (!fromLimit) store.addWallet("spot", -qty * px2, "spot"); }
+    else { const ac = h.qty > 0 ? h.cost / h.qty : 0; h.cost = Math.max(0, h.cost - ac * qty); h.qty = Math.max(0, h.qty - qty); store.addWallet("spot", qty * px2 * (1 - FEE), "spot"); }
+    if (h.qty < 1e-9) delete sp.hold[key];
+    sp.history.unshift({id:U.uid(), sym, side, price:px2, qty, fee:qty * px2 * FEE, ts:Date.now(), type: fromLimit ? "limit" : "market"}); store.save(); U.fx("open");
+    U.toast(`${side === "buy" ? "Bought" : "Sold"} ${U.fmt(qty, 4)} ${key} @ ${M.fmtPx(p, px2)}`, "ok"); U.bus.emit("spot"); };
+  if (type === "market"){ fill(px, false); return {ok:true, filled:true}; }
+  const ord = {id:U.uid(), sym, side, price:px, qty, ts:Date.now()}; if (side === "buy") store.addWallet("spot", -qty * px, "spot");
+  sp.orders.push(ord); store.save(); U.bus.emit("spot"); return {ok:true, order:ord};
+}
+CH.quickOrder = qoOpen;
 })();

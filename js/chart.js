@@ -185,7 +185,7 @@ function calcSR(){
   const q = IS("SR"), lv = Math.max(1, Math.min(3, Math.round(q.lv))), k0 = Math.max(2, Math.round(q.k)), L = bars.length - 1, out = {res:[], sup:[]};
   if (L < 24) return out;
   const last = bars[L].close, from = Math.max(0, L - 700); let atr = 0, cn = 0; for (let i = Math.max(1, L - 30); i < L; i++){ atr += bars[i].high - bars[i].low; cn++; } atr = atr / (cn || 1);
-  const tol = Math.max(atr * 0.9, last * 0.0012), far = last * 0.2;
+  const tol = Math.max(atr * 0.9, last * 0.0003), far = last * 0.2;
   const pivots = k => { const piv = [];
     for (let i = from + k; i <= L - 1 - k; i++){
       let h = true, l = true; for (let j = 1; j <= k; j++){ if (bars[i-j].high >= bars[i].high || bars[i+j].high > bars[i].high) h = false; if (bars[i-j].low <= bars[i].low || bars[i+j].low < bars[i].low) l = false; if (!h && !l) break; }
@@ -193,7 +193,7 @@ function calcSR(){
     return piv; };
   const cluster = piv => { const cl = []; piv.sort((x, y) => x.p - y.p);
     piv.forEach(v => { const c = cl[cl.length - 1]; if (c && v.p - c.sum / c.n <= tol){ c.sum += v.p; c.n++; c.hi = v.p; c.last = Math.max(c.last, v.i); c.first = Math.min(c.first, v.i); } else cl.push({sum:v.p, n:1, lo:v.p, hi:v.p, last:v.i, first:v.i}); });
-    return cl.map(c => { const m = c.sum / c.n, th = Math.max(c.hi - c.lo, atr * 0.45); return {p:m, lo:m - th / 2, hi:m + th / 2, n:c.n, i0:c.first, sc:c.n * 10 + c.last / L * 6 - Math.abs(m - last) / far * 4}; }); };
+    return cl.map(c => { const m = c.sum / c.n, th = Math.min(Math.max(c.hi - c.lo, atr * 0.15), atr * 0.4, last * 0.0028); return {p:m, lo:m - th / 2, hi:m + th / 2, n:c.n, i0:c.first, sc:c.n * 10 + c.last / L * 6 - Math.abs(m - last) / far * 4}; }); };
   const pick = (arr, side) => { const o = []; arr.sort((x, y) => y.sc - x.sc).forEach(z => { if (o.length < lv && !o.some(y => Math.abs(y.p - z.p) < tol * 1.6)) o.push(z); }); return o.sort((x, y) => side === "res" ? x.p - y.p : y.p - x.p); };
   let cand = [];
   for (const k of [k0, 3, 2]){

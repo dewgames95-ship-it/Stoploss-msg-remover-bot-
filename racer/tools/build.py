@@ -2,8 +2,9 @@
 """Inject tools/r3d.js (the Three.js race renderer) into index.html.
 
 Run from the repo root:  python3 tools/build.py
-Safe to re-run: the injected blocks are replaced in place. Also refreshes the
-byte-identical twin turbo_usdt_racer_3d.html.
+Safe to re-run: the injected blocks are replaced in place.
+Money Racer (NovaTrade): run from anywhere with `python3 -I racer/tools/build.py`; writes racer/index.html only
+(the old twin turbo_usdt_racer_3d.html is refreshed only if it exists). Three.js loads from the local vendor copy only.
 """
 import pathlib
 import re
@@ -38,11 +39,9 @@ LOADER = f"""<style>
 {{ "imports": {{ "three": "./assets/vendor/three/build/three.module.js", "three/addons/": "./assets/vendor/three/addons/", "postprocessing": "./assets/vendor/postprocessing/postprocessing.js" }} }}
 </script>
 <script type="module">
-// Three.js for the race view: local copy first, pinned CDN second, a 'no WebGL' message if both fail.
-const CDN = 'https://cdn.jsdelivr.net/npm/three@{THREE_VERSION}';
+// Three.js for the race view: local vendor copy only (no CDN), a 'no WebGL' message if it fails.
 const sources = [
-  {{ core: 'three', gltf: 'three/addons/loaders/GLTFLoader.js', draco: 'three/addons/loaders/DRACOLoader.js', dracoPath: './assets/vendor/three/addons/libs/draco/', pp: 'postprocessing' }},
-  {{ core: CDN + '/+esm', gltf: CDN + '/examples/jsm/loaders/GLTFLoader.js/+esm', draco: CDN + '/examples/jsm/loaders/DRACOLoader.js/+esm', dracoPath: CDN + '/examples/jsm/libs/draco/gltf/' }}
+  {{ core: 'three', gltf: 'three/addons/loaders/GLTFLoader.js', draco: 'three/addons/loaders/DRACOLoader.js', dracoPath: './assets/vendor/three/addons/libs/draco/', pp: 'postprocessing' }}
 ];
 let lastError = 'three.js unavailable';
 for (const src of sources) {{
@@ -172,8 +171,9 @@ def main():
 
     with HTML.open("w", encoding="utf-8", newline="") as fh:
         fh.write(src)
-    shutil.copyfile(HTML, TWIN)
-    print(f"build: ok, index.html {len(src.encode('utf-8'))} bytes, twin refreshed")
+    if TWIN.exists():
+        shutil.copyfile(HTML, TWIN)
+    print(f"build: ok, index.html {len(src.encode('utf-8'))} bytes")
 
 
 if __name__ == "__main__":

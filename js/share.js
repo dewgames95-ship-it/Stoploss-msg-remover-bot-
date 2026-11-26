@@ -69,7 +69,7 @@ function drawCard(cv, d, ti){
   const sideTxt = ({long:"Long", short:"Short", up:"Up", down:"Down"})[d.side] || "", sc = (d.side === "long" || d.side === "up") ? "#2EE6A6" : "#FF5C70";
   if (sideTxt){ c.font = `800 22px ${FONT}`; const tw = c.measureText(sideTxt).width + 28; rr(c, x, 186, tw, 44, 10); c.fillStyle = sc + "26"; c.fill(); c.strokeStyle = sc + "99"; c.lineWidth = 1.5; c.stroke(); c.fillStyle = sc; c.fillText(sideTxt, x + 14, 217); x += tw + 12; }
   const meta = [d.lev ? d.lev + "x" : "", d.mode || ""].filter(Boolean).join("  |  ");
-  if (meta){ c.font = `700 22px ${FONT}`; c.fillStyle = "rgba(255,255,255,.62)"; c.fillText(meta, x, 217); }
+  if (meta){ c.font = `700 22px ${FONT}`; c.fillStyle = "rgba(255,255,255,.62)"; if (d.summary) c.fillText(meta, 48, 262); else c.fillText(meta, x, 217); }
   // ROI
   c.fillStyle = "rgba(255,255,255,.55)"; c.font = `600 24px ${FONT}`; c.fillText(d.product === "Binary" || d.product === "Options" ? "Return" : "ROI", 48, 330);
   const roiTxt = (pos ? "+" : "") + num(d.roi, 2) + "%";
@@ -110,7 +110,8 @@ UI.sharePnl = function(d){
     el.querySelectorAll("[data-th]").forEach(b => b.onclick = () => { ti = +b.dataset.th; el.querySelectorAll("[data-th]").forEach(x => x.classList.toggle("on", x === b)); draw(); });
     el.querySelector("[data-copy]").onclick = () => U.copyText(shareText(d), "Text copied");
     const blobOf = () => new Promise(res => { draw(); cv.toBlob(b => res(b), "image/png"); });
-    const dl = (blob, name) => { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); };
+    const dl = (blob, name) => { if (window.NativeApp && NativeApp.saveImage){ const r = new FileReader(); r.onload = () => { try { if (!NativeApp.saveImage(String(r.result).split(",")[1], name)) U.toast("Could not save image", "bad"); } catch { U.toast("Could not save image", "bad"); } }; r.readAsDataURL(blob); return; }   // APK: save to gallery
+      const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); };
     const fname = () => `novatrade-pnl-${(d.sym || "card")}-${Date.now()}.png`;
     el.querySelector("[data-save]").onclick = async () => {
       const blob = await blobOf(); if (!blob){ toast("Could not create image", "bad"); return; }

@@ -1,1 +1,102 @@
-/* v6.8 */
+/* v6.8 trade-form fixes (futures / spot / binary) */
+
+/* E1: never show an empty result layer */
+.modal:empty{display:none!important}
+
+/* E9: Open/Close segmented control + Cross / 20x / S row (Binance sizing, no text touching borders) */
+.fxr .oc{display:grid;grid-template-columns:1fr 1fr;gap:0;height:38px;padding:3px;margin-bottom:8px;border-radius:10px;background:transparent;border:1px solid var(--line-2,var(--line));overflow:visible;box-sizing:border-box}
+.fxr .oc button{height:30px;padding:0 8px;border-radius:8px;font-size:14px;font-weight:600;color:var(--muted);background:transparent;box-shadow:none;white-space:nowrap}
+.fxr .oc button.on{background:var(--input);color:var(--text);box-shadow:none}
+.fxr .fx-row{grid-template-columns:1.45fr 1fr .8fr;gap:6px;margin-bottom:8px}
+.fxr .fx-row button{height:32px;padding:0 6px;border-radius:8px;font-size:13px;font-weight:600;white-space:nowrap;min-width:0;overflow:hidden;text-overflow:clip;letter-spacing:-.1px}
+@media(max-width:380px){.fxr .fx-row{grid-template-columns:1.55fr 1fr .75fr}.fxr .fx-row button{font-size:12.5px;padding:0 4px}}
+
+/* E4: unit select inside the amount field */
+.famt .unl,.sp-in .sp-un{display:inline-flex;align-items:center;gap:4px;flex:none;height:100%;padding:0 0 0 8px;margin-left:2px;border:0;background:transparent;color:var(--text);font-size:13px;font-weight:600;border-left:1px solid var(--line-2,var(--line));padding-left:10px}
+.famt .unl svg,.sp-in .sp-un svg{color:var(--muted)}
+.famt .unl.fixed{pointer-events:none;border-left:0}.famt .unl.fixed svg{display:none}
+.famt .unl span,.sp-in .sp-un span{font-size:13px;font-weight:600;color:var(--text)}
+.un-o{display:block;width:100%;text-align:left;padding:16px;margin-bottom:12px;border:1px solid var(--line);border-radius:var(--r-card);color:var(--text);background:transparent}
+.un-o b{display:block;font-size:17px;font-weight:700;margin-bottom:8px}
+.un-o p{margin:0;font-size:13.5px;line-height:1.5;color:var(--text-2)}
+.un-o.on{border:2px solid var(--text);padding:15px}
+
+/* E5: TP/SL ghost value + hint */
+.famt,.sp-in{position:relative}
+.famt .gh,.sp-in .gh{font-style:normal;font-size:12px;color:var(--text);opacity:.38;margin-right:8px;white-space:nowrap;font-variant-numeric:tabular-nums;pointer-events:none}
+.tsh{font-size:12px;line-height:1.55;color:var(--text-2);margin:4px 0 8px}
+.tsh:empty{display:none}
+.tsh b{font-weight:600}
+.sp-tprow{display:flex;align-items:center;justify-content:space-between;margin:6px 0 4px;min-height:32px}
+.sp-tprow.hide{display:none}
+.sp-tprow .sp-chk u{text-decoration:underline dotted;text-underline-offset:3px}
+.sp-tprow .tsm,.row .tsm{font-size:12px;font-weight:600;color:var(--text);padding:4px 0}
+#sptpsl .sp-in span.tpu{font-size:12px}
+#sptpsl.hide{display:none}
+
+/* E6/E7: fee note */
+.fee-n{margin-top:8px;text-align:center;font-size:11.5px;line-height:1.5;color:var(--muted)}
+.fee-n b{color:var(--text);font-weight:600}
+.fee-bn{margin-left:8px;text-decoration:line-through;text-decoration-thickness:1px;opacity:.85}
+.fee-5x{margin-top:2px;font-weight:700;color:var(--brand)}
+.sp-fee{display:none}
+.bx-nofee{text-align:center;font-size:12px;font-weight:600;color:var(--brand);margin-top:6px}
+
+/* E3: order book rows */
+.fbook .r.em,.sp-book .r.em{cursor:default;color:var(--muted)}
+.fbook .r.em span,.sp-book .r.em span{opacity:.7}
+.fbook .mid,.sp-book .mid{cursor:pointer}
+.fbook .r,.sp-book .r{min-height:22px;align-items:center}
+.sp-book .sp-prec{display:flex;align-items:center;justify-content:space-between;width:100%;height:32px;padding:0 10px;border-radius:8px;background:var(--input);border:0;color:var(--text);font-size:12.5px;font-weight:600}
+.sp-book .sp-prec svg{color:var(--muted)}
+
+/* E11: open limit order card */
+.oc-card .pc-h{align-items:center}
+.oc-cancel{height:32px;padding:0 14px;border-radius:var(--r-ctl);border:1px solid var(--line-2,var(--line));background:transparent;color:var(--text);font-size:13px;font-weight:600}
+.oc-cancel:active{background:var(--hover)}
+.oc-tp button{display:inline-flex;align-items:center;gap:5px;padding:2px 0;color:var(--muted);background:transparent;border:0}
+.oc-tp button b{font-size:14px;font-weight:500;color:var(--text)}
+.oc-tp em,.sp-card em{font-style:normal}
+.oc-tp em.up,.sp-card em.up{color:var(--up)}.oc-tp em.down,.sp-card em.down{color:var(--down)}
+.oc-tp span{display:block}
+
+/* E8: position card (Binance layout: compact, one-line labels, bordered, wider) */
+.fxr .pc,.bin-page .pc{margin:0 -6px 10px;padding:12px 12px 10px;border:1px solid var(--line-2,var(--line));border-radius:var(--r-card);background:var(--card)}
+.fxr .pc-h{margin-bottom:8px;flex-wrap:nowrap;overflow:hidden}
+.fxr .pc-h .sym{font-size:15.5px;line-height:22px;white-space:nowrap}
+.fxr .pc-h .perp{white-space:nowrap;flex:none}
+.fxr .pc-big{margin-bottom:8px}
+.fxr .pc-big span{margin-bottom:2px;min-height:18px;font-size:11.5px}
+.fxr .pc-big b{font-size:22px;line-height:26px}
+.fxr .pc-big button{width:28px;height:28px;margin:-5px 0 -5px -4px}
+.fxr .pc-g{gap:8px 6px;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1fr)}
+.fxr .pc-g span,.fxr .ph-g span{font-size:11px;margin-bottom:2px;white-space:nowrap;letter-spacing:-.15px}
+.fxr .pc-g b{font-size:13.5px;line-height:18px}
+.fxr .pc-g>div:nth-child(3n+2){text-align:left}
+.fxr .pc-tp{margin:8px 0 0;min-height:22px}
+.fxr .pc-tp>span{font-size:12px}
+.fxr .pc-tp b{font-size:13px}
+.fxr .rpnl{height:34px;margin:8px 0 8px;padding:0 10px;font-size:12px}
+.fxr .rpnl b{font-size:13px}
+.fxr .pc-btns{gap:6px}
+.fxr .pc-btns button{height:34px;font-size:13px;border-radius:var(--r-ctl)}
+.fxr .ph-g{gap:8px 6px}
+.fxr .ph-g b{font-size:13px}
+.bin-page .pc-g span,.bin-page .ph-g span{white-space:nowrap}
+.sp-card{margin:0 -6px 10px;padding:12px;border:1px solid var(--line-2,var(--line));border-radius:var(--r-card);background:var(--card)}
+.sp-card .g span{white-space:nowrap}
+
+/* Auto Trade Bot tab */
+.bt-wrap{padding:12px 0 4px}
+.bt-t{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.bt-t b{font-size:16px}
+.bt-g{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px 8px;margin-bottom:12px}
+.bt-g span,.bt-roi span{display:block;font-size:11.5px;color:var(--muted);margin-bottom:2px}
+.bt-g b{font-size:13.5px;font-weight:500;white-space:nowrap}
+.bt-g>div:nth-child(3n){text-align:right}.bt-g>div:nth-child(3n+2){text-align:center}
+.bt-roi{display:flex;justify-content:space-between;gap:10px;margin:6px 0 8px;padding-top:12px;border-top:1px solid var(--line)}
+.bt-roi b{font-size:20px;font-weight:700}
+.bt-svg{display:block;width:100%;height:110px}
+.bt-ax{display:flex;justify-content:space-between;gap:6px;font-size:11px;color:var(--muted);margin:4px 0 12px}
+.bt-n{font-size:11.5px;line-height:1.5;color:var(--muted);margin:10px 0 0}
+.bt-h2{font-size:14px;font-weight:700;margin:18px 0 4px}
