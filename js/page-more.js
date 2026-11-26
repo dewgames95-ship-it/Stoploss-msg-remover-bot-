@@ -214,9 +214,9 @@ const STRATS = [
   {k:"bmart", g:"binary", name:"Binary Martingale", href:"#/auto", preset:{strategy:"reversal", expiry:60}, hot:false, desc:"Counter-trend entries on 60s expiries, sized to recover after a loss"},
   {k:"trend", g:"binary", name:"Trend Follower", href:"#/auto", preset:{strategy:"trend", expiry:30}, hot:false, desc:"Follows momentum and opens trades in the direction of the trend"}
 ];
-const demoInv = k => { const h = HM.hash(k); return fmt2(1e9 + (h % 4e9) + (h % 100) / 100); };
+const demoInv = k => { const h = HM.hash(k); return fmt2(420000 + (h % 8600000) + (h % 100) / 100); };
 const fmt2 = v => v.toLocaleString("en-US", {minimumFractionDigits:2, maximumFractionDigits:2});
-const demoUsers = k => (20000 + HM.hash(k + "u") % 980000).toLocaleString("en-US");
+const demoUsers = k => (640 + HM.hash(k + "u") % 8900).toLocaleString("en-US");
 const avs = k => `<span class="bt-avs">${[0,1,2].map(i => `<span>${HM.avatar(k + i, 22)}</span>`).join("")}</span>`;
 
 Pages.bots = (params) => {
@@ -247,11 +247,11 @@ Pages.bots = (params) => {
     const drawInv = () => {
       const run = E.BOTS.filter(d => S().bots[d.id]?.running), hist = E.BOTS.filter(d => { const b = S().bots[d.id]; return b && !b.running && b.stopped; }).sort((a,b) => S().bots[b.id].stopped - S().bots[a.id].stopped);
       $("#btBody").innerHTML = `<h3 class="bt-h">Running (${run.length})</h3>` + (run.length ? run.map(d => { const b = S().bots[d.id], p = M.get(d.pair);
-        return `<div class="bt-card" data-bot="${d.id}"><div class="bt-ch">${UI.pairIcon(p, 26)}<b>${esc(d.name)}</b><span class="bt-pill">${BOT_TAG[d.id]}</span><span class="bt-sp" data-sp></span></div>
+        return `<div class="bt-card" data-bot="${d.id}"><div class="bt-ch">${UI.pairIcon(p, 26)}<b>${esc(d.name)}</b><span class="bt-pill">${BOT_TAG[d.id] || d.tag || "Bot"}</span><span class="bt-sp" data-sp></span></div>
           <div class="bt-g"><div><span>PnL (USDT)</span><b class="num" data-pnl>--</b></div><div><span>Invested</span><b class="num">${money(b.invest)}</b></div><div><span>Runtime</span><b data-rt>--</b></div></div>
           <button class="bt-stop" data-stop>Stop</button></div>`; }).join("") : pemp("No running bots", "Create a bot from the Bots tab."))
         + `<h3 class="bt-h">History</h3>` + (hist.length ? hist.map(d => { const b = S().bots[d.id];
-        return `<div class="bt-card"><div class="bt-ch">${UI.pairIcon(M.get(d.pair), 26)}<b>${esc(d.name)}</b><span class="bt-pill">${BOT_TAG[d.id]}</span></div>
+        return `<div class="bt-card"><div class="bt-ch">${UI.pairIcon(M.get(d.pair), 26)}<b>${esc(d.name)}</b><span class="bt-pill">${BOT_TAG[d.id] || d.tag || "Bot"}</span></div>
           <div class="bt-g"><div><span>PnL (USDT)</span><b class="num ${pnlCls(b.pnl)}">${signed(b.pnl)}</b></div><div><span>Invested</span><b class="num">${money(b.invest)}</b></div><div><span>Stopped</span><b>${fdate(b.stopped)}</b></div></div></div>`; }).join("") : pemp("No history yet", "Stopped bots show up here."));
       tick();
     };
@@ -272,6 +272,7 @@ Pages.bots = (params) => {
       if (cr){
         const s = STRATS.find(x => x.k === cr.dataset.create);
         if (s.href){ if (s.preset && !S().auto.on){ Object.assign(S().auto, s.preset); store.save(); } location.hash = s.href; return; }
+        if (window.BOTX) return BOTX.open(s, () => { view = "inv"; draw(); });
         const d = defOf(s.def), p = M.get(d.pair);
         return U.sheet("Create " + s.name, `<div class="pm-kv" style="padding-top:2px"><span>Strategy</span><b>${esc(s.name)}</b></div><div class="pm-kv"><span>Pair</span><b>${esc(M.label(p || {type:"crypto", base:d.pair}))}</b></div><div class="pm-kv"><span>Risk</span><b>${d.risk}</b></div><div class="pm-kv"><span>Est. APY</span><b class="num up">${esc(d.apy)}</b></div>
           <p class="pm-s" style="margin:6px 0 0">${esc(s.desc)}</p>
@@ -515,7 +516,7 @@ Pages.profile = () => {
   const G = items => `<div class="pf-grid">${items.map(([i, n, h]) => `<a class="pf-gi" href="${h}">${ic(i, 24, 1.6)}<span>${n}</span></a>`).join("")}</div>`;
   const html = `<div class="pf-page"><header class="pf-top"><button class="pf-circ" data-back aria-label="Go back">${ic("back",20)}</button><span class="grow"></span><button class="pf-ib" data-scan aria-label="Scan">${scan}</button><button class="pf-ib" data-th aria-label="Toggle theme"></button><a class="pf-ib" href="#/settings" aria-label="Settings">${ic("gear",22,1.7)}</a></header>
     <section class="pf-id"><a class="pf-av" id="pa" href="#/profileedit" aria-label="Edit profile"></a><div class="grow" style="min-width:0"><div class="row" style="gap:8px;flex-wrap:nowrap"><button class="pf-nm ellipsis" id="pn" data-edit></button><button class="pf-lv" data-lv>Regular user ${ic("chev",12)}</button></div>
-      <div class="row" style="gap:8px;margin-top:6px"><button class="pf-uid" data-uid>UID:<span id="pu"></span> ${ic("copy",13)}</button><span class="pf-main">Main Account</span></div></div></section>
+      <div class="row" style="gap:8px;margin-top:6px"><button class="pf-uid" data-uid>UID:<span id="pu"></span> ${ic("copy",13)}</button><span class="pf-main">Main Account</span></div></div><a class="pf-go" href="#/profileedit" aria-label="Open profile">${ic("chev",22,2)}</a></section>
     <div class="pf-tiles">${tile("share","Refer",'href="#/referral"')}${tile("gift","Vouchers",'data-vou')}${tile("cal","Events",'href="#/rewards"')}</div>
     <h3 class="pf-h">Trade</h3>
     ${G([["chart","Markets","#/markets"],["swap","Spot","#/spot"],["candle","Futures","#/futures"],["clock","Binary","#/trade"],["layers","Options","#/options"],["users","Copy Trading","#/copy"],["bot","Trading Bots","#/bots"],["auto","Auto Trading","#/auto"]])}
@@ -535,7 +536,7 @@ Pages.profile = () => {
     $("[data-scan]").onclick = () => toast("Scanner is not available in the demo", "info");
     $("[data-uid]").onclick = () => U.copyText(S().profile.uid, "UID copied");
     $("[data-switch]").onclick = () => toast("Demo account", "info");
-    $("[data-lv]").onclick = () => { const lv = E.level(); U.sheet("Account level", `<div class="pm-kv"><span>Level</span><b>Lv.${lv.lvl}</b></div><div class="pm-kv"><span>XP to next level</span><b class="num">${Math.max(0, lv.need - lv.cur)}</b></div><div class="pm-bar"><i style="width:${Math.min(100, lv.cur / lv.need * 100)}%"></i></div><p class="pm-s" style="margin-top:12px">Trade, complete tasks and check in daily to level up.</p>`); };
+    $("[data-lv]").onclick = () => { if (window.VIPX) return VIPX.open(); const lv = E.level(); U.sheet("Account level", `<div class="pm-kv"><span>Level</span><b>Lv.${lv.lvl}</b></div><div class="pm-kv"><span>XP to next level</span><b class="num">${Math.max(0, lv.need - lv.cur)}</b></div><div class="pm-bar"><i style="width:${Math.min(100, lv.cur / lv.need * 100)}%"></i></div><p class="pm-s" style="margin-top:12px">Trade, complete tasks and check in daily to level up.</p>`); };
     $("[data-edit]").onclick = () => { location.hash = "#/profileedit"; };
     $("[data-vou]").onclick = () => U.sheet("Vouchers", [["Trading fee coupon","5 USDT","Valid for 30 days"],["Futures bonus voucher","20 USDT","Valid for 14 days"]].map(([n,v,e]) => `<div class="pf-vou"><div><b>${n}</b><span>${e}</span></div><b class="num">${v}</b></div>`).join("") + `<p class="pm-s" style="margin-top:10px">Demo vouchers. They cannot be redeemed.</p>`);
     $("[data-ver]").onclick = () => U.sheet("Verification", `<div class="pm-kv" style="padding-top:2px"><span>Identity (KYC)</span><b class="up">Verified</b></div><div class="pm-kv"><span>Address proof</span><b class="up">Verified</b></div><div class="pm-kv"><span>Withdrawal limit</span><b>Unlimited (demo)</b></div>`);

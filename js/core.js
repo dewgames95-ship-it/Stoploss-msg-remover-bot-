@@ -87,7 +87,10 @@ const bus = {
 };
 
 /* ----- Store (localStorage) ----- */
-const KEY = "novatrade_v1";
+/* v6.8 account mode: "demo" (virtual 10,000) or "real" (starts at 0, later synced with the backend). Each mode has its own store. */
+const MODE = (() => { try { return localStorage.getItem("nt_mode") === "real" ? "real" : "demo"; } catch { return "demo"; } })();
+const KEY = MODE === "real" ? "novatrade_real_v1" : "novatrade_v1";
+const START = MODE === "real" ? 0 : C.START_BALANCE;
 const WALLETS = ["spot","futures","binary","options","earn"];
 const r2 = v => Math.round(v*100)/100;
 function splitWallets(total){
@@ -95,7 +98,7 @@ function splitWallets(total){
   return {spot: r2(total - f - b - o), futures: f, binary: b, options: o, earn: 0};
 }
 const defaults = () => ({
-  balance: C.START_BALANCE, wallets: splitWallets(C.START_BALANCE), walletsV1: true, positions: [], history: [], tx: [], notifs: [], unread: 0,
+  balance: START, wallets: splitWallets(START), walletsV1: true, positions: [], history: [], tx: [], notifs: [], unread: 0,
   settings: {theme: "light", lang:"en", sound:true, haptic:true, hideBal:false, defAmt:10, defExp:30, lev:20, inds:["EMA","VOL"], chartType:"candle"},
   fut: {positions:[], orders:[], history:[]}, alerts: [], favs: ["BTCUSDT","ETHUSDT","XAUUSD"], rewards: {checkins:[], claimed:{}, xp:0, used:{}}, vault: {bal:0, since:Date.now()},
   balHist: [], bots: {}, auto: {on:false, pair:"BTCUSDT", amount:10, expiry:30, strategy:"trend", interval:20, max:20, count:0, log:[]},
@@ -127,6 +130,7 @@ if (S.profile && S.profile.name === "Demo Trader") S.profile.name = "Trader" + M
 let saveT;
 const store = {
   get s(){ return S; },
+  mode: MODE, KEY,
   save(){ clearTimeout(saveT); saveT = setTimeout(() => { try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch{} }, 120); },
   saveNow(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch{} },
   WALLETS,

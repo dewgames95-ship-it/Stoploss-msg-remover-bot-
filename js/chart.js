@@ -4,7 +4,7 @@
 (function(){
 const LW = window.LightweightCharts, {bus, store, money, mmss, signed} = U;
 const TZ = -new Date().getTimezoneOffset() * 60;
-let UP = "#12B886", DN = "#F0435A";
+let UP = "#2EBD85", DN = "#F6465D";   // Binance app candle colours (both themes)
 const COL = {m7:"#F59E0B", m25:"#0EA5E9", m99:"#64748B", e7:"#F59E0B", e25:"#0EA5E9", e99:"#64748B", boll:"#0EA5E9", bollMid:"#F59E0B", rsi:"#2E6BFF", macd:"#2E6BFF", sig:"#F59E0B", sar:"#E6A23C", vwap:"#4FC3F7"};
 /* user-editable indicator parameters (store.s.indSettings) — defaults here, edited on the Indicator Settings page */
 const IDEF = {
@@ -31,12 +31,12 @@ let lineSpec = new Map(), draw = {tool:null, temp:null}, drawEl = null, binExpFn
 const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 const dark = () => document.documentElement.dataset.theme !== "light";
 function opts(){
-  const d = dark(), grid = d ? "rgba(148,163,184,.07)" : "rgba(100,116,139,.08)";
+  const d = dark(), grid = d ? "rgba(43,49,57,.75)" : "rgba(222,226,232,.55)";
   return {
-    layout:{background:{type:"solid", color: css("--chart-bg") || css("--bg")}, textColor: d ? "#7D8BA3" : "#8391A7", fontFamily:"Manrope, system-ui, sans-serif", fontSize:10.5, attributionLogo:false,
+    layout:{background:{type:"solid", color: d ? "#181A20" : "#FFFFFF"}, textColor: d ? "#848E9C" : "#707A8A", fontFamily:"Manrope, system-ui, sans-serif", fontSize:10.5, attributionLogo:false,
       panes:{separatorColor: d ? "#222E45" : "#E4E9F2", separatorHoverColor:"rgba(46,107,255,.25)", enableResize:true}},
     grid:{vertLines:{color:grid}, horzLines:{color:grid}},
-    rightPriceScale:{borderVisible:false, scaleMargins:{top:0.04, bottom:0.04}, minimumWidth:62, entireTextOnly:true},
+    rightPriceScale:{borderVisible:false, scaleMargins:{top:0.03, bottom:0.03}, minimumWidth:62, entireTextOnly:true},
     timeScale:{borderVisible:false, timeVisible:true, secondsVisible: sec < 60, rightOffset:8, barSpacing: tf === "tick" ? 3 : 7, minBarSpacing:0.8, tickMarkFormatter: undefined},
     crosshair:{mode:0, vertLine:{color: d ? "#848E9C" : "#707A8A", style:2, width:1, labelBackgroundColor: d ? "#474D57" : "#3B424C"}, horzLine:{color: d ? "#848E9C" : "#707A8A", style:2, width:1, labelVisible:false}},
     handleScroll:{vertTouchDrag:true, mouseWheel:true, pressedMouseMove:true, horzTouchDrag:true},
@@ -64,23 +64,40 @@ function mount(container, parts, detailCb){
   loop();
 }
 
+/* ---- Auto-fit: the price scale always contains the visible candles' high AND low (+ room for the legend and the High/Low labels).
+   Indicator overlays (SuperTrend, BOLL, ...) never stretch the scale, so candles stay full-size on every timeframe (1s ... 1M). ---- */
+function fitInfo(base){
+  try {
+    if (!chart || !bars.length) return base();
+    const vr = chart.timeScale().getVisibleLogicalRange(); if (!vr) return base();
+    const lineMode = tf === "tick" || type === "line", L = bars.length - 1;
+    let hi = -Infinity, lo = Infinity;
+    for (let i = Math.max(0, Math.floor(vr.from)), z = Math.min(L, Math.ceil(vr.to)); i <= z; i++){ const b = bars[i]; const h = lineMode ? b.close : b.high, l = lineMode ? b.close : b.low; if (h > hi) hi = h; if (l < lo) lo = l; }
+    if (!(hi >= lo) || !isFinite(hi) || !isFinite(lo)) return base();
+    const ref = bars[L].close || hi, minR = Math.max(ref * 0.00035, Math.pow(10, -(M.get(sym)?.dp ?? 2)) * 8);
+    if (hi - lo < minR){ const m = (hi + lo) / 2; hi = m + minR / 2; lo = m - minR / 2; }
+    const lg = ui.legend ? ui.legend.offsetHeight : 0;
+    return {priceRange:{minValue:lo, maxValue:hi}, margins:{above: Math.max(26, lg + 18), below: 26}};
+  } catch { return base(); }
+}
+
 /* ---- Build / rebuild series ---- */
 function build(){
   if (chart){ chart.remove(); chart = null; }
   lines.clear();
-  UP = css("--up") || UP; DN = css("--down") || DN; syncCols();
+  UP = "#2EBD85"; DN = "#F6465D"; syncCols();
   chart = LW.createChart(el, Object.assign({width: el.clientWidth, height: el.clientHeight}, opts()));
   const p = M.get(sym), dp = p?.dp ?? 2, pf = {type:"price", precision:dp, minMove: Math.pow(10, -dp)};
   S = {};
   const lineMode = tf === "tick" || type === "line";
   if (lineMode){
-    S.main = chart.addSeries(LW.AreaSeries, {lineColor:"#2E6BFF", topColor:"rgba(46,107,255,.30)", bottomColor:"rgba(46,107,255,0)", lineWidth:1.5, lineType: tf === "tick" ? 2 : 0, priceFormat:pf, lastPriceAnimation:1, lastValueVisible:false, priceLineVisible:true, priceLineColor: dark() ? "#B7BDC6" : "#474D57", priceLineStyle:2, crosshairMarkerRadius:3});
+    S.main = chart.addSeries(LW.AreaSeries, {lineColor:"#2E6BFF", topColor:"rgba(46,107,255,.30)", bottomColor:"rgba(46,107,255,0)", lineWidth:1.5, lineType: tf === "tick" ? 2 : 0, priceFormat:pf, autoscaleInfoProvider:fitInfo, lastPriceAnimation:1, lastValueVisible:false, priceLineVisible:true, priceLineColor: dark() ? "#B7BDC6" : "#474D57", priceLineStyle:2, crosshairMarkerRadius:3});
   } else {
-    S.main = chart.addSeries(LW.CandlestickSeries, {upColor:UP, downColor:DN, borderVisible:false, wickUpColor:UP, wickDownColor:DN, priceFormat:pf, lastValueVisible:false, priceLineVisible:true, priceLineColor: dark() ? "#B7BDC6" : "#474D57", priceLineStyle:2});
+    S.main = chart.addSeries(LW.CandlestickSeries, {upColor:UP, downColor:DN, borderVisible:false, wickUpColor:UP, wickDownColor:DN, priceFormat:pf, autoscaleInfoProvider:fitInfo, lastValueVisible:false, priceLineVisible:true, priceLineColor: dark() ? "#B7BDC6" : "#474D57", priceLineStyle:2});
   }
   chart.priceScale("right").applyOptions({mode: pctMode ? 2 : 0});
   try { LW.createTextWatermark(chart.panes()[0], {horzAlign:"center", vertAlign:"center", lines:[{text:"NovaTrade", color: dark() ? "rgba(148,163,184,.07)" : "rgba(100,116,139,.07)", fontSize:28, fontStyle:"700"}]}); } catch {}
-  const ln = (color, w=1, pane=0, extra={}) => chart.addSeries(LW.LineSeries, Object.assign({color, lineWidth:w, priceLineVisible:false, lastValueVisible:false, crosshairMarkerVisible:false, priceFormat:pf}, extra), pane);
+  const ln = (color, w=1, pane=0, extra={}) => chart.addSeries(LW.LineSeries, Object.assign({color, lineWidth:w, autoscaleInfoProvider:() => null, priceLineVisible:false, lastValueVisible:false, crosshairMarkerVisible:false, priceFormat:pf}, extra), pane);
   if (!lineMode && inds.includes("MA")){ S.m7 = ln(COL.m7); S.m25 = ln(COL.m25); S.m99 = ln(COL.m99); }
   if (!lineMode && inds.includes("EMA")){ S.e7 = ln(COL.e7); S.e25 = ln(COL.e25); S.e99 = ln(COL.e99); }
   if (!lineMode && inds.includes("BOLL")){ S.bu = ln(COL.boll); S.bm = ln(COL.bollMid, 1, 0, {lineStyle:2}); S.bl = ln(COL.boll); }
@@ -116,8 +133,8 @@ function build(){
     if (!prm || !prm.point){ hover = null; hoverPt = null; lastHov = null; legend(); crossBox(); return; }
     if (prm.time == null){ hover = null; lastHov = null; hoverPt = prm.point; legend(); crossBox(); priceLabel(); return; }   // right / empty area: price + % only
     const i = findIdx(prm.time - TZ); hover = i >= 0 ? i : null; hoverPt = prm.point;
-    if (hover != null && hover !== lastHov){ const n = performance.now();   // haptics: strong when the crosshair window opens, light tick per candle while dragging
-      if (lastHov == null) U.buzz(36); else if (n - lastTick > 28) U.buzz(8); lastTick = n; lastHov = hover; }
+    if (hover != null && hover !== lastHov){ const n = performance.now();   // haptics (Binance-strong): long pulse when the crosshair window opens, a hard 20 ms click on EVERY new candle while sliding (U.buzz respects the haptic setting)
+      if (lastHov == null) U.buzz(45); else if (n - lastTick > 16) U.buzz(20); lastTick = n; lastHov = hover; }
     legend(); crossBox();
   });
   chart.subscribeClick(() => { if (hover == null) ui.cbox?.classList.add("hide"); });
@@ -287,7 +304,7 @@ function bindLiq(){
 function point(i, r){
   const b = bars[i], t = T(b.time), o = {};
   o.main = (tf === "tick" || type === "line") ? {time:t, value:b.close} : {time:t, open:b.open, high:b.high, low:b.low, close:b.close};
-  if (S.vol) o.vol = {time:t, value:b.volume || 0, color: b.close >= b.open ? "rgba(18,184,134,.7)" : "rgba(240,67,90,.7)"};
+  if (S.vol) o.vol = {time:t, value:b.volume || 0, color: b.close >= b.open ? "rgba(46,189,133,.7)" : "rgba(246,70,93,.7)"};
   const lp = arr => arr[i] == null ? {time:t} : {time:t, value:arr[i]};
   if (S.m7){ o.m7 = lp(r.m7); o.m25 = lp(r.m25); o.m99 = lp(r.m99); }
   if (S.e7){ o.e7 = lp(r.e7); o.e25 = lp(r.e25); o.e99 = lp(r.e99); }
@@ -296,7 +313,7 @@ function point(i, r){
   if (S.vw) o.vw = lp(r.vw);
   if (S.st) o.st = r.st.val[i] == null ? {time:t} : {time:t, value:r.st.val[i], color: r.st.dir[i] === 1 ? UP : DN};
   if (S.rsi) o.rsi = lp(r.rsi);
-  if (S.mh){ o.mh = r.macd.hist[i] == null ? {time:t} : {time:t, value:r.macd.hist[i], color: r.macd.hist[i] >= 0 ? "rgba(18,184,134,.7)" : "rgba(240,67,90,.7)"}; o.ml = lp(r.macd.line); o.ms = lp(r.macd.signal); }
+  if (S.mh){ o.mh = r.macd.hist[i] == null ? {time:t} : {time:t, value:r.macd.hist[i], color: r.macd.hist[i] >= 0 ? "rgba(46,189,133,.7)" : "rgba(246,70,93,.7)"}; o.ml = lp(r.macd.line); o.ms = lp(r.macd.signal); }
   return o;
 }
 function seriesKeys(){ return Object.keys(S).filter(k => S[k] && typeof S[k].setData === "function"); }
@@ -441,8 +458,9 @@ function overlay(){
     const cd = left == null ? "" : sec < 60 ? mmss(Math.min(left, sec)) : left >= 3600 ? `${Math.floor(left/3600)}:${String(Math.floor(left%3600/60)).padStart(2,"0")}:${String(Math.floor(left%60)).padStart(2,"0")}` : mmss(left);
     h += `<div class="pbox ${last.close >= last.open ? "pu" : "pd"}" style="top:${y}px">${M.fmtPx(p, last.close)}${cd ? `<br>${cd}` : ""}</div>`;
     // "+" next to the live price: drag it up/down to create TP (profit side) or SL (loss side) for the latest position
-    const myPos = (ui.mode !== "bin" && ui.mode !== "none") ? s.fut.positions.filter(x => x.sym === sym).slice(-1)[0] : null;
-    if (myPos && now < plusUntil && !(dragS && dragS.kind === "new")) h += `<div class="pplus drag" data-drag="new:${myPos.id}" style="top:${y}px" title="Drag to set TP / SL">+</div>`;
+    const tradeable = ui.mode !== "bin" && ui.mode !== "none", myPos = tradeable ? s.fut.positions.filter(x => x.sym === sym).slice(-1)[0] : null;
+    // "+" = tap: quick order sheet (Long/Short or Buy/Sell); with an open futures position it can also be dragged up/down to set TP / SL
+    if (tradeable && now < plusUntil && !(dragS && dragS.kind === "new")) h += `<div class="pplus${myPos ? " drag" : ""}" ${myPos ? `data-drag="new:${myPos.id}"` : 'data-qo="1"'} style="top:${y}px" title="${myPos ? "Tap: quick order · drag: TP / SL" : "Quick order"}">+</div>`;
     if (dragS && dragS.kind === "new" && dragS.price != null){ const yy2 = S.main.priceToCoordinate(dragS.price), pos2 = s.fut.positions.find(x => x.id === dragS.id);
       if (yy2 != null && pos2){ const est = E.futPnl(pos2, dragS.price).pnl; h += `<div class="dline ${dragS.as || "tp"}" style="top:${yy2}px"></div><div class="dtag ${est >= 0 ? "g" : "r"}" style="top:${yy2}px">${(dragS.as || "tp").toUpperCase()} ${M.fmtPx(p, dragS.price)} · ${signed(est)} USDT (${(est / (pos2.margin || 1) * 100).toFixed(1)}%)</div>`; } }
   }
@@ -563,15 +581,18 @@ function bindDrag(){
   host.addEventListener("pointerdown", e => {
     const t = e.target.closest("[data-drag]"); if (!t || !chart || !S.main) return;
     e.preventDefault(); e.stopPropagation();
-    const [kind, id] = t.dataset.drag.split(":"); dragS = {kind, id, price:null, as:null, y0:e.clientY};
+    const [kind, id] = t.dataset.drag.split(":"); dragS = {kind, id, price:null, as:null, y0:e.clientY, moved:false};
     const move = ev => {
+      if (Math.abs(ev.clientY - dragS.y0) > 6) dragS.moved = true; if (!dragS.moved) return;
       const r = el.getBoundingClientRect(), pr = S.main.coordinateToPrice(ev.clientY - r.top); if (pr == null) return;
       dragS.price = pr;
       if (kind === "new"){ const pos = store.s.fut.positions.find(x => x.id === id); if (pos) dragS.as = (pos.side === "long") === (pr > pos.entry) ? "tp" : "sl"; }
     };
     const up = () => {
       removeEventListener("pointermove", move); removeEventListener("pointerup", up); removeEventListener("pointercancel", up);
-      const d = dragS; dragS = null; if (d && d.kind === "new") plusUntil = 0; if (!d || d.price == null) return;
+      const d = dragS; dragS = null; if (d && d.kind === "new") plusUntil = 0;
+      if (d && d.kind === "new" && !d.moved){ U.buzz(14); if (CH.quickOrder) CH.quickOrder(sym); return; }   // plain tap on "+" → quick order
+      if (!d || d.price == null) return;
       const P = M.get(sym), v = +M.fmtPx(P, d.price).replace(/,/g, "");
       if (d.kind === "ord"){ const o = store.s.fut.orders.find(x => x.id === d.id); if (o){ o.price = v; store.save(); bus.emit("positions"); U.toast(`Limit price moved to ${M.fmtPx(P, v)}`, "ok", 1400); } return; }
       const pos = store.s.fut.positions.find(x => x.id === d.id); if (!pos) return;
@@ -589,8 +610,7 @@ function bindPbox(){
   const host = el.parentElement; let st = null, tm = 0;
   const inBox = (x, y) => { const b = ui.ovl2 && ui.ovl2.querySelector(".pbox"); if (!b) return false; const r = b.getBoundingClientRect(); return x >= r.left - 8 && x <= r.right + 8 && y >= r.top - 8 && y <= r.bottom + 8; };
   const show = () => {
-    const pos = (ui.mode !== "bin" && ui.mode !== "none") ? store.s.fut.positions.filter(x => x.sym === sym).slice(-1)[0] : null;
-    if (!pos){ if (ui.mode === "bin") U.toast("TP / SL is available on futures positions", "info", 1400); return; }
+    if (ui.mode === "bin" || ui.mode === "none") return;
     plusUntil = Date.now() + 6000; U.buzz(20);
   };
   host.addEventListener("pointerdown", e => { clearTimeout(tm); st = null; if (e.target.closest("[data-drag]") || !inBox(e.clientX, e.clientY)) return;
@@ -598,6 +618,10 @@ function bindPbox(){
   host.addEventListener("pointermove", e => { if (st && Math.hypot(e.clientX - st.x, e.clientY - st.y) > 8){ clearTimeout(tm); st = null; } }, true);
   host.addEventListener("pointerup", e => { clearTimeout(tm); if (st){ st = null; show(); } }, true);
   host.addEventListener("pointercancel", () => { clearTimeout(tm); st = null; }, true);
+  // "+" without an open position: plain tap opens the quick order sheet
+  let qs = null;
+  host.addEventListener("pointerdown", e => { const t = e.target.closest("[data-qo]"); qs = t ? {x:e.clientX, y:e.clientY} : null; if (t){ e.preventDefault(); e.stopPropagation(); } }, true);
+  host.addEventListener("pointerup", e => { if (!qs) return; const s0 = qs; qs = null; if (Math.hypot(e.clientX - s0.x, e.clientY - s0.y) < 10){ plusUntil = 0; U.buzz(14); if (CH.quickOrder) CH.quickOrder(sym); } }, true);
 }
 
 /* ---- Tap on price axis toggles % scale ---- */
