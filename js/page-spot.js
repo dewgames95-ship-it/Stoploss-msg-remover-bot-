@@ -155,7 +155,7 @@ Pages.spot = (params) => {
       <div class="sp-in" id="spa"><input id="spq" type="number" inputmode="decimal" placeholder="Amount"><button class="sp-un" data-unit type="button"><span id="spun">${esc(unit)}</span>${ic("chevd",11)}</button></div>
       <div class="sp-sl"><div class="tr"></div><div class="fl" id="spfl"></div>${[0,25,50,75,100].map(v => `<i class="nd" style="left:${v}%" data-nd="${v}"></i>`).join("")}<div class="th" id="spth"></div><div class="bub" id="spbub"></div><input type="range" min="0" max="100" step="1" value="0" id="spsl" aria-label="Amount percent"></div>
       <div class="sp-kv"><span id="sptl">Total</span><b id="sptot">-- ${Q}</b></div>
-      <div id="sptprow" class="sp-tprow"><label class="sp-chk"><input type="checkbox" id="sptpc"> <u data-info="tpsl">TP/SL</u></label><button class="tsm hide" id="sptsm" type="button">⇄ <span>ROI %</span></button></div>
+      <div id="sptprow" class="sp-tprow"><label class="fchk" style="margin:0"><input type="checkbox" id="sptpc"> <u data-info="tpsl">TP/SL</u></label><button class="tsm hide" id="sptsm" type="button">⇄ <span>ROI %</span></button></div>
       <div id="sptpsl" class="hide"><div class="tsh" id="sptsh"></div>
         <div class="sp-in"><input id="sptp" type="number" inputmode="decimal" placeholder="Take Profit"><em class="gh" id="sptpg"></em><span class="tpu">${Q}</span></div>
         <div class="sp-in"><input id="spsl2" type="number" inputmode="decimal" placeholder="Stop Loss"><em class="gh" id="spslg"></em><span class="tpu">${Q}</span></div></div>
@@ -198,7 +198,7 @@ Pages.spot = (params) => {
     { const buy = side === "buy"; $("#sptprow").classList.toggle("hide", !buy); if (!buy) $("#sptpsl").classList.add("hide"); else $("#sptpsl").classList.toggle("hide", !$("#sptpc").checked); $("#sptsm").classList.toggle("hide", !buy || !$("#sptpc").checked); if (buy && $("#sptpc").checked) spTsHint(); }
     $("#spf").classList.toggle("hide", otype !== "limit"); $("#spm").classList.toggle("hide", otype === "limit");
     $("#sptot").textContent = q && px ? (unitMode === "coin" ? money(q * px) + " " + Q : fmt(q, qd(px, p)) + " " + unit) : "-- " + (unitMode === "coin" ? Q : unit);
-    $("#spef").textContent = q && px ? (side === "buy" ? fmt(q * FEE, 6) + " " + unit : fmt(q * px * FEE, 4) + " " + Q) : "-- " + (side === "buy" ? unit : Q);
+    $("#spef").textContent = q && px ? (side === "buy" ? fmt(q * FEE, 8) + " " + unit : fmt(q * px * FEE, 4) + " " + Q) : "-- " + (side === "buy" ? unit : Q);
     $("#spav").textContent = side === "buy" ? money(store.wb("spot")) + " " + Q : fmt(avail(coin), qd(p.price, p)) + " " + unit;
     const go = $("#spgo"); go.className = "sp-go " + (side === "buy" ? "b" : "s"); go.textContent = (side === "buy" ? "Buy " : "Sell ") + unit; go.disabled = !!p.closed; $("#spclosed").classList.toggle("hide", !p.closed);
     root.querySelectorAll("[data-side]").forEach(b => b.classList.toggle("on", b.dataset.side === side));
@@ -348,7 +348,7 @@ Pages.spot = (params) => {
     sl.addEventListener("pointerdown", () => bub.classList.add("on"));
     ["pointerup", "pointercancel", "blur"].forEach(ev => sl.addEventListener(ev, () => bub.classList.remove("on")));
     sl.oninput = () => { const v = +sl.value, snap = [0, 25, 50, 75, 100].find(x => Math.abs(x - v) <= 2); if (snap != null && snap !== v) sl.value = snap; const st = Math.round((snap ?? v) / 5); if (st !== lastStep && (S().settings.layout || {}).slideVib !== false) TX.buzz((snap ?? v) % 25 === 0 ? 12 : 5); lastStep = st; setPct(snap ?? v); };
-    $("#spq").addEventListener("input", () => { $("#sperr").textContent = ""; const m = maxQty(); sliderPct = m > 0 ? U.clamp((parseFloat($("#spq").value) || 0) / m * 100, 0, 100) : 0; $("#spsl").value = sliderPct; renderForm(); });
+    $("#spq").addEventListener("input", () => { $("#sperr").textContent = ""; const m = maxQty(); sliderPct = m > 0 ? U.clamp(qtyOf() / m * 100, 0, 100) : 0; $("#spsl").value = sliderPct; renderForm(); });
     $("#spp").addEventListener("input", () => { if (side === "buy" && sliderPct) setPct(sliderPct); else renderForm(); });
     $("#spgo").onclick = submit;
     $("#spbook").addEventListener("click", e => { if (e.target.closest("[data-prec]")) precSheet(); });

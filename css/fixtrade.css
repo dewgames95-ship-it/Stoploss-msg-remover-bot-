@@ -13,6 +13,8 @@
 
 /* E4: unit select inside the amount field */
 .famt .unl,.sp-in .sp-un{display:inline-flex;align-items:center;gap:4px;flex:none;height:100%;padding:0 0 0 8px;margin-left:2px;border:0;background:transparent;color:var(--text);font-size:13px;font-weight:600;border-left:1px solid var(--line-2,var(--line));padding-left:10px}
+.sp-in .sp-un{width:auto;height:100%;border-radius:0}
+.sp-in:has(.sp-un) input,.sp-in:has(.sp-un) input::placeholder{text-align:left}
 .famt .unl svg,.sp-in .sp-un svg{color:var(--muted)}
 .famt .unl.fixed{pointer-events:none;border-left:0}.famt .unl.fixed svg{display:none}
 .famt .unl span,.sp-in .sp-un span{font-size:13px;font-weight:600;color:var(--text)}
@@ -101,3 +103,7 @@
 .bt-ax{display:flex;justify-content:space-between;gap:6px;font-size:11px;color:var(--muted);margin:4px 0 12px}
 .bt-n{font-size:11.5px;line-height:1.5;color:var(--muted);margin:10px 0 0}
 .bt-h2{font-size:14px;font-weight:700;margin:18px 0 4px}
+.oc-tp{grid-column:1/-1;display:flex!important;justify-content:space-between;align-items:center;text-align:left!important}
+.oc-tp>span{margin:0!important}
+.oc-tp button{margin-left:auto;display:inline-flex;align-items:center;gap:8px}
+.oc-tp button svg{color:var(--text-2)}

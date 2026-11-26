@@ -4737,6 +4737,67 @@ body.v17-racing #weatherCycleBtn, body.v17-racing #weatherChip > .chip-q { opaci
 .hr-tip svg { width: 16px; height: 16px; color: #22E07A; }
 #hrAccelTip { top: auto; bottom: 22%; max-width: calc(100% - 140px); white-space: nowrap; font-size: 11.5px; } /* sits above the cars, clear of the HUD columns and chips */
 </style>
+<style id="mrOverrides">
+/* ===== Money Racer (NovaTrade): one bet / play screen; the page scrolls down to the history ===== */
+html, body { height: auto !important; min-height: 100%; overflow-x: hidden !important; overflow-y: auto !important; display: block !important; background: #060a12 !important; }
+body { overscroll-behavior-y: contain; }
+html.mr-lock, html.mr-lock body { overflow: hidden !important; overscroll-behavior: none; }
+.app-shell { margin: 0 auto; height: var(--tg-vh, 100dvh) !important; max-height: none !important; box-shadow: none !important; }
+/* removed: lobby tabs (Invest / Invite / Profile / Login), bottom tab bar, Telegram banner, server-offline card */
+.bottom-nav, #tgNotifBanner, .cr-screen, #trOffline, #trModeMenu { display: none !important; }
+.left-hud-stack { gap: 6px !important; }
+.top-header .balance-label { letter-spacing: .2px; }
+.top-header .deposit-btn svg { flex-shrink: 0; }
+/* maintenance */
+#mrMaint { position: absolute; inset: 0; z-index: 45; display: none; align-items: center; justify-content: center; padding: 18px; background: rgba(4,8,16,.78); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
+#mrMaint.show { display: flex; }
+#mrMaint .mr-mt-card { max-width: 300px; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; padding: 18px 16px; border-radius: 12px; background: #0f1b31; border: 1px solid rgba(132,163,196,.25); color: #f7fbff; }
+#mrMaint .mr-mt-card b { font-size: 16px; font-weight: 900; font-style: italic; }
+#mrMaint .mr-mt-card span { font-size: 12.5px; color: #aeb9ca; line-height: 1.45; }
+#mrMaint .mr-mt-ic svg { width: 30px; height: 30px; color: #ffc83d; }
+body.mr-maint #centerStartCircle { filter: grayscale(1); opacity: .5; pointer-events: none; }
+/* ---- history under the game ---- */
+.mr-hist { max-width: 460px; margin: 0 auto; padding: 14px 12px calc(28px + env(safe-area-inset-bottom, 0px)); background: #0b0e14; color: #eaecef; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; border-top: 1px solid #1e2329; user-select: text; -webkit-user-select: text; }
+.mr-hist * { user-select: text; -webkit-user-select: text; }
+.mr-hist-hd { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+.mr-hist-hd h2 { font-size: 16px; font-weight: 700; margin: 0; color: #eaecef; font-style: normal; }
+.mr-acct { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 4px; background: rgba(46,107,255,.16); color: #6e9bff; }
+.mr-acct.real { background: rgba(14,203,129,.14); color: #2ebd85; }
+.mr-sum { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin-bottom: 12px; }
+.mr-sum div { background: #161a1e; border-radius: 8px; padding: 8px 8px 7px; min-width: 0; }
+.mr-sum small { display: block; font-size: 10.5px; color: #848e9c; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mr-sum b { display: block; margin-top: 3px; font-size: 13px; font-weight: 600; color: #eaecef; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mr-tabs { display: flex; gap: 18px; border-bottom: 1px solid #1e2329; margin: 0 -12px 2px; padding: 0 12px; overflow-x: auto; scrollbar-width: none; }
+.mr-tabs::-webkit-scrollbar { display: none; }
+.mr-tabs button { appearance: none; background: none; border: 0; padding: 9px 0 10px; font: 500 14px/1 inherit; font-family: inherit; color: #848e9c; position: relative; white-space: nowrap; cursor: pointer; }
+.mr-tabs button.on { color: #eaecef; font-weight: 600; }
+.mr-tabs button.on::after { content: ''; position: absolute; left: 50%; bottom: -1px; width: 18px; height: 3px; margin-left: -9px; border-radius: 2px; background: linear-gradient(90deg, #2e6bff, #5aa9ff); }
+.mr-tabs em { font-style: normal; font-size: 11px; color: #5e6673; margin-left: 3px; }
+.mr-row { padding: 12px 0; border-bottom: 1px solid #1e2329; }
+.mr-r1 { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.mr-r1 .l { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.mr-r1 .l b { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mr-dot { display: inline-block; vertical-align: -1px; width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 0 2px rgba(255,255,255,.08); }
+.mr-tag { font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: 4px; white-space: nowrap; }
+.mr-tag.win { color: #2ebd85; background: rgba(46,189,133,.12); }
+.mr-tag.loss { color: #f6465d; background: rgba(246,70,93,.12); }
+.mr-tag.ref { color: #aeb4bc; background: rgba(174,180,188,.12); }
+.mr-tag.mode { color: #848e9c; background: #1e2329; font-weight: 500; }
+.mr-pnl { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.mr-pnl.up { color: #2ebd85; } .mr-pnl.dn { color: #f6465d; }
+.mr-kv { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px 8px; margin-top: 9px; }
+.mr-kv div { min-width: 0; }
+.mr-kv small { display: block; font-size: 11px; color: #848e9c; }
+.mr-kv span { display: block; margin-top: 2px; font-size: 12.5px; color: #eaecef; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mr-kv div:nth-child(3n) { text-align: right; }
+.mr-empty { padding: 34px 0 26px; text-align: center; color: #5e6673; font-size: 13px; }
+.mr-empty svg { width: 46px; height: 46px; display: block; margin: 0 auto 8px; color: #2b3139; }
+.mr-empty b { display: block; color: #848e9c; font-weight: 500; margin-bottom: 2px; }
+.mr-more { display: block; width: 100%; margin-top: 10px; padding: 10px; border: 1px solid #2b3139; border-radius: 8px; background: none; color: #eaecef; font: 500 13px inherit; font-family: inherit; cursor: pointer; }
+.mr-up { position: fixed; right: 12px; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); z-index: 70; width: 38px; height: 38px; border-radius: 50%; border: 1px solid #2b3139; background: #1e2329; color: #eaecef; display: none; align-items: center; justify-content: center; box-shadow: 0 6px 16px rgba(0,0,0,.45); cursor: pointer; }
+.mr-up.show { display: flex; }
+.mr-hint { display: flex; align-items: center; justify-content: center; gap: 4px; padding: 2px 0 10px; font-size: 11px; color: #5e6673; }
+</style>
 </head>
 <body>
 <!-- ICON SET v17 (shared sprite). Usage: <svg class="ic"><use href="#ic-name"/></svg>
@@ -5808,6 +5869,21 @@ body.v17-racing #weatherCycleBtn, body.v17-racing #weatherChip > .chip-q { opaci
   <div class="hr-tip" id="hrAccelTip" aria-hidden="true"></div>
   <div class="cr-toast" id="crToast">Copied to clipboard</div>
 </div>
+
+<!-- Money Racer: scroll down under the game for bets, races and transfers -->
+<section class="mr-hist" id="mrHist" aria-label="Money Racer history">
+  <div class="mr-hint"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>History</div>
+  <div class="mr-hist-hd"><h2>Money Racer history</h2><span class="mr-acct" id="mrAcct">Demo</span></div>
+  <div class="mr-sum" id="mrSum"></div>
+  <div class="mr-tabs" role="tablist" id="mrTabs">
+    <button type="button" role="tab" class="on" data-t="bets">My bets<em id="mrNBets"></em></button>
+    <button type="button" role="tab" data-t="races">Race history<em id="mrNRaces"></em></button>
+    <button type="button" role="tab" data-t="tx">Transfers<em id="mrNTx"></em></button>
+  </div>
+  <div id="mrList"></div>
+</section>
+<button type="button" class="mr-up" id="mrUp" aria-label="Back to the game"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18 15l-6-6-6 6"/></svg></button>
+
 
 <script>
 (() => {
@@ -8235,14 +8311,14 @@ body.v17-racing #weatherCycleBtn, body.v17-racing #weatherChip > .chip-q { opaci
   document.getElementById('howToPlayBtn').addEventListener('click', () => {
     modalSvgHolder.innerHTML = TROPHY_SVG;
     modalTitle.textContent = 'HOW TO PLAY';
-    modalSubtitle.textContent = 'Simple rules';
+    modalSubtitle.textContent = 'Money Racer: simple rules';
     modalSubtitle.style.color = '';
     modalBodyContent.innerHTML = `
       <div class="ui-list">
         <div class="ui-step" style="--c:#22E07A"><span class="ui-num">1</span><div><b>Pick a car and set your bet.</b><p>Choose Red, Blue or Gold Ferrari. Tap the green circle to start.</p></div></div>
         <div class="ui-step" style="--c:#38bdf8"><span class="ui-num">2</span><div><b>Wait for the race to start.</b><p>Players join within 10 seconds. Bots fill empty seats.</p></div></div>
         <div class="ui-step" style="--c:#FFC83D"><span class="ui-num">3</span><div><b>First car over the finish line wins.</b><p>Obstacles slow cars down. Boost pads speed them up.</p></div></div>
-        <div class="ui-step" style="--c:#a855f7"><span class="ui-num">4</span><div><b>Winnings are added to your balance right away.</b><p>2-car race pays 1.9x. 3-car race pays 2.5x.</p></div></div>
+        <div class="ui-step" style="--c:#a855f7"><span class="ui-num">4</span><div><b>Winnings are added to your balance right away.</b><p>Your Money Racer wallet: 2-car race pays ${vcOdds(2)}x, 3-car race pays ${vcOdds(3)}x. Tap TRANSFER to add funds.</p></div></div>
       </div>
     `;
     modalActionBtn.textContent = 'GOT IT';
@@ -8261,16 +8337,16 @@ body.v17-racing #weatherCycleBtn, body.v17-racing #weatherChip > .chip-q { opaci
         <div class="ui-step" style="--c:#22E07A"><div><b>Prize pool</b><p>All players' bets are pooled together. The winner is paid based on their own bet amount and the race odds.</p><p style="margin-top:5px">We don't match players by equal bet amount - that would make matching very slow. Each payout depends only on your own bet.</p></div></div>
       </div>
       <div class="ui-tiles" style="margin-top:7px">
-        <div class="ui-tile" style="--c:#22E07A"><span class="ui-ic" style="color:#22E07A">${UI_IC.coin}</span><span class="ui-row-lbl">2-car race</span><span class="ui-row-val">1.9x</span><span class="ui-row-sub">Bet 10 USDT, win 19 USDT</span></div>
-        <div class="ui-tile" style="--c:#FFC83D"><span class="ui-ic" style="color:#FFC83D">${UI_IC.coin}</span><span class="ui-row-lbl">3-car race</span><span class="ui-row-val">2.5x</span><span class="ui-row-sub">Bet 10 USDT, win 25 USDT</span></div>
+        <div class="ui-tile" style="--c:#22E07A"><span class="ui-ic" style="color:#22E07A">${UI_IC.coin}</span><span class="ui-row-lbl">2-car race</span><span class="ui-row-val">${vcOdds(2)}x</span><span class="ui-row-sub">Bet 10 USDT, win ${vcFmt(10 * vcOdds(2))} USDT</span></div>
+        <div class="ui-tile" style="--c:#FFC83D"><span class="ui-ic" style="color:#FFC83D">${UI_IC.coin}</span><span class="ui-row-lbl">3-car race</span><span class="ui-row-val">${vcOdds(3)}x</span><span class="ui-row-sub">Bet 10 USDT, win ${vcFmt(10 * vcOdds(3))} USDT</span></div>
       </div>
       <div class="ui-list ri-list" style="margin-top:7px">
         <div class="ui-step" style="--c:#a855f7"><div><b>FAQ</b>
           <p><strong>How is the winner decided?</strong><br>First car over the finish line.</p>
           <p style="margin-top:6px"><strong>Can I change map or climate?</strong><br>Yes, with the top-right chips, before the race starts.</p>
           <p style="margin-top:6px"><strong>What is Manual Drive?</strong><br>You steer your own car. The payout is the same.</p>
-          <p style="margin-top:6px"><strong>When is money credited?</strong><br>Instantly when you win.</p>
-          <p style="margin-top:6px"><strong>How do referrals pay?</strong><br>1% of your referrals' bet volume, 2% after 10 referrals, lifetime.</p>
+          <p style="margin-top:6px"><strong>When is money credited?</strong><br>Instantly to your Money Racer wallet when you win.</p>
+          <p style="margin-top:6px"><strong>How do I add or withdraw funds?</strong><br>Tap TRANSFER to move USDT between your NovaTrade wallets and Money Racer.</p>
         </div></div>
       </div>
     `;
@@ -9415,6 +9491,10 @@ body.v17-racing #weatherCycleBtn, body.v17-racing #weatherChip > .chip-q { opaci
     if (gameState === 'IDLE' && (currentBet < minBet || currentBet > maxBet)) currentBet = Math.min(maxBet, Math.max(minBet, currentBet));
     const inp = $('#trInlineBetInput'); if (inp) { inp.min = String(minBet); inp.max = String(maxBet); }
     showMaintenance(!c.enabled);
+    $$('.mode-option-card').forEach(card => {
+      const n = card.id === 'cardMode2' ? 2 : 3;
+      $$('.mode-stat-box', card).forEach(bx => { const l = $('.mode-stat-lbl', bx), v = $('.mode-stat-val', bx); if (l && v && /WIN CHANCE/i.test(l.textContent)) v.textContent = (c.playerWinPct != null ? Math.round(c.playerWinPct) : Math.round(100 / n)) + '%'; });
+    });
     try { vcRefreshModeOdds(); } catch (e) {}
     try { updateUIValues(); } catch (e) {}
   }
@@ -10290,6 +10370,83 @@ body.v17-racing #weatherCycleBtn, body.v17-racing #weatherChip > .chip-q { opaci
   })();
 
   requestAnimationFrame(frame);
+})();
+</script>
+<script>
+/* Money Racer: history list under the game (My bets / Race history / Transfers), back-to-top button */
+(() => {
+  const $ = (q) => document.querySelector(q);
+  const CAR = { red: ['Red Ferrari', '#E61E25'], blue: ['Blue Ferrari', '#2F7BFF'], yellow: ['Gold Ferrari', '#FFC83D'] };
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const num = (n) => (Math.round((+n || 0) * 100) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const p2 = (n) => String(n).padStart(2, '0');
+  const dt = (t) => { if (!t) return '--'; const d = new Date(t); return MON[d.getMonth()] + ' ' + d.getDate() + ', ' + p2(d.getHours()) + ':' + p2(d.getMinutes()) + ':' + p2(d.getSeconds()); };
+  const len = (s) => (!s ? '--' : s >= 60 ? (s / 60) + ' min' : s + ' s');
+  const carName = (k) => (CAR[k] ? CAR[k][0] : '--');
+  const dot = (k) => `<span class="mr-dot" style="background:${CAR[k] ? CAR[k][1] : '#5e6673'}"></span>`;
+  const kv = (a) => `<div class="mr-kv">${a.map(([k, v]) => `<div><small>${k}</small><span>${v}</span></div>`).join('')}</div>`;
+  const EMPTY = { bets: 'No bets yet', races: 'No races yet', tx: 'No transfers yet' };
+  const emptyHtml = (t) => `<div class="mr-empty"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2"><rect x="10" y="6" width="28" height="36" rx="3"/><path d="M16 16h16M16 23h16M16 30h10"/></svg><b>${EMPTY[t]}</b>--</div>`;
+  let tab = 'bets', data = { bets: [], races: [], tx: [] }, shown = 30, busy = false;
+
+  function rowBet(b) {
+    const pnl = b.refunded ? 0 : (b.win ? b.payout - b.amount : -b.amount);
+    const tag = b.refunded ? '<span class="mr-tag ref">Refunded</span>' : b.win ? '<span class="mr-tag win">Win</span>' : '<span class="mr-tag loss">Loss</span>';
+    return `<div class="mr-row"><div class="mr-r1"><div class="l">${dot(b.car)}<b>${esc(carName(b.car))}</b>${tag}<span class="mr-tag mode">${b.mode === 'real' ? 'Real' : 'Demo'}</span></div>
+      <span class="mr-pnl ${pnl >= 0 ? 'up' : 'dn'}">${pnl >= 0 ? '+' : '-'}${num(Math.abs(pnl))}</span></div>
+      ${kv([['Race ID', esc(b.raceId || '--')], ['Amount', num(b.amount) + ' USDT'], ['Multiplier', (+b.mult || 0) + 'x'],
+            ['Payout', num(b.payout) + ' USDT'], ['Position', b.rank ? '#' + b.rank + ' / ' + b.cars : '--'], ['Cars', (b.cars || '--') + (b.drive === 'manual' ? ' · Manual' : ' · Auto')],
+            ['Time', dt(b.t)], ['Bet ID', esc(b.id || '--')], ['Mode', b.mode === 'real' ? 'Real' : 'Demo']])}</div>`;
+  }
+  function rowRace(r) {
+    return `<div class="mr-row"><div class="mr-r1"><div class="l"><b>${esc(r.id || '--')}</b></div><span class="mr-tag mode">${r.cars || '--'} cars</span></div>
+      ${kv([['Winner', r.winner ? dot(r.winner) + ' ' + esc(carName(r.winner)) : '--'], ['Your car', esc(carName(r.car))], ['Race length', len(r.dur)],
+            ['Finish time', r.fin ? (+r.fin).toFixed(2) + ' s' : '--'], ['Cars', r.cars || '--'], ['Time', dt(r.t)]])}</div>`;
+  }
+  const WN = { spot: 'Spot', funding: 'Funding', futures: 'Futures', binary: 'Binary', options: 'Options', earn: 'Earn', games: 'Money Racer', predict: 'Prediction' };
+  function rowTx(x) {
+    const inn = x.type === 'in';
+    return `<div class="mr-row"><div class="mr-r1"><div class="l"><b>${inn ? 'Transfer in' : 'Transfer out'}</b></div><span class="mr-pnl ${inn ? 'up' : 'dn'}">${inn ? '+' : '-'}${num(x.amt)} USDT</span></div>
+      ${kv([['From', esc(WN[x.from] || (inn ? '--' : 'Money Racer'))], ['To', esc(WN[x.to] || (inn ? 'Money Racer' : '--'))], ['Time', dt(x.t)]])}</div>`;
+  }
+  function paint() {
+    const list = $('#mrList'); if (!list) return;
+    document.querySelectorAll('#mrTabs [data-t]').forEach((b) => b.classList.toggle('on', b.dataset.t === tab));
+    const items = data[tab] || [];
+    const f = tab === 'bets' ? rowBet : tab === 'races' ? rowRace : rowTx;
+    list.innerHTML = items.length ? items.slice(0, shown).map(f).join('') + (items.length > shown ? '<button type="button" class="mr-more" id="mrMore">Show more</button>' : '') : emptyHtml(tab);
+    const m = $('#mrMore'); if (m) m.onclick = () => { shown += 30; paint(); };
+    const n = (id, v) => { const e = $(id); if (e) e.textContent = v ? ' ' + v : ''; };
+    n('#mrNBets', data.bets.length); n('#mrNRaces', data.races.length); n('#mrNTx', data.tx.length);
+    const real = window.MR && MR.mode() === 'real';
+    const ac = $('#mrAcct'); if (ac) { ac.textContent = real ? 'Real account' : 'Demo account'; ac.classList.toggle('real', real); }
+    const settled = data.bets.filter((b) => !b.refunded);
+    const wins = settled.filter((b) => b.win).length;
+    const net = settled.reduce((a, b) => a + (b.win ? b.payout - b.amount : -b.amount), 0);
+    const wag = settled.reduce((a, b) => a + (+b.amount || 0), 0);
+    const sum = $('#mrSum');
+    if (sum) sum.innerHTML = `<div><small>Balance</small><b>${num(data.balance)}</b></div><div><small>Bets</small><b>${settled.length || '--'}</b></div>`
+      + `<div><small>Win rate</small><b>${settled.length ? Math.round(wins / settled.length * 100) + '%' : '--'}</b></div>`
+      + `<div><small>Net P/L</small><b style="color:${!settled.length ? '#eaecef' : net >= 0 ? '#2ebd85' : '#f6465d'}">${settled.length ? (net >= 0 ? '+' : '-') + num(Math.abs(net)) : '--'}</b></div>`;
+    void wag;
+  }
+  async function load() {
+    if (busy || !window.MR) return; busy = true;
+    try { const h = await MR.call('racer.history', { limit: 300 }); data = { bets: h.bets || [], races: h.races || [], tx: h.tx || [], balance: h.balance }; } catch (e) {}
+    busy = false; paint();
+  }
+  window.MR_renderHistory = () => { clearTimeout(window._mrHT); window._mrHT = setTimeout(load, 80); };
+  document.getElementById('mrTabs').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-t]'); if (!b || b.dataset.t === tab) return;
+    tab = b.dataset.t; shown = 30; paint();
+    try { window.MR && MR.buzz(8); } catch (err) {}
+  });
+  const up = $('#mrUp');
+  up.addEventListener('click', () => { window.scrollTo({ top: 0, behavior: 'smooth' }); });
+  let raf = 0;
+  window.addEventListener('scroll', () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(() => up.classList.toggle('show', window.scrollY > window.innerHeight * 0.5)); }, { passive: true });
+  paint(); load();
 })();
 </script>
 </body>

@@ -202,3 +202,6 @@ html:not([data-theme="light"]) .indbar .il button.hot.on{color:#FFB070}
 .qo-tp{display:flex;align-items:center;gap:8px;font-size:13px;margin:0 0 8px;color:var(--text-2)}
 .qo-tpsl{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .qo #qogo{margin-top:10px}
+.ovl2 .pplus[data-qo]{pointer-events:auto;touch-action:none;cursor:pointer}
+.ovl2 .pplus{background:#2B3139;color:#EAECEF;border:1px solid #848E9C;box-shadow:none;font-weight:600}
+html[data-theme="light"] .ovl2 .pplus{background:#F5F5F5;color:#1E2329;border-color:#707A8A}

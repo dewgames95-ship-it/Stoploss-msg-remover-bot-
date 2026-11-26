@@ -3,9 +3,54 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
-<meta name="backend-url" content="https://sin-marathon-ripe-george.trycloudflare.com" />
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<meta name="theme-color" content="#060a12" />
 <title>Money Racer</title>
+<script src="local-server.js?v=6.8"></script>
+<script>
+/* Money Racer bridge: inside NovaTrade (same-origin iframe) everything goes through window.parent.MoneyRacerHost
+   and the app's API adapter; opened on its own, a local demo wallet (10,000 USDT) is used instead. */
+(function () {
+  let H = null;
+  try { if (window.parent !== window && window.parent.MoneyRacerHost && window.parent.API) H = window.parent.MoneyRacerHost; } catch (e) { H = null; }
+  const WKEY = 'nt_racer_web_bal', START = 10000;
+  const r2 = (x) => Math.round((+x || 0) * 100) / 100;
+  const wGet = () => { try { const v = parseFloat(localStorage.getItem(WKEY)); return isFinite(v) ? v : START; } catch (e) { return START; } };
+  const wSet = (v) => { try { localStorage.setItem(WKEY, String(r2(v))); } catch (e) {} };
+  const standaloneHost = {
+    mode: () => 'demo',
+    key: (n) => n + '_web',
+    admin: () => { try { return (JSON.parse(localStorage.getItem('nt_admin') || '{}') || {}).racer || {}; } catch (e) { return {}; } },
+    call: async (name, d) => {
+      if (name === 'wallet.balance') return { balance: r2(wGet()) };
+      if (name === 'wallet.debit') { if (wGet() + 1e-9 < +d.amount) throw new Error('Insufficient balance'); wSet(wGet() - d.amount); return { balance: r2(wGet()) }; }
+      if (name === 'wallet.credit') { wSet(wGet() + (+d.amount || 0)); return { balance: r2(wGet()) }; }
+      throw new Error('No handler for ' + name);
+    }
+  };
+  const local = H ? null : window.MoneyRacerServer.create(standaloneHost);
+  let locked = false;
+  window.MR = {
+    embedded: !!H,
+    host: H,
+    mode: () => (H ? H.mode() : 'demo'),
+    call: (name, data) => (H ? window.parent.API.call(name, data || {}) : local.call(name, data || {})),
+    buzz(p) { if (H) { H.buzz(p); return true; } return false; },
+    sound: () => (H ? H.sound() : true),
+    transfer(done) { if (H) H.transfer(done); else { wSet(START); done && done(); } },
+    switchMode() { if (H) H.switchMode(); },
+    onBalance(fn) { return H ? H.onBalance(fn) : () => {}; },
+    resetDemo() { if (!H) wSet(START); },
+    lock(on) {
+      locked = !!on;
+      document.documentElement.classList.toggle('mr-lock', locked);
+      if (locked) { try { window.scrollTo(0, 0); } catch (e) {} }
+      if (H) { try { H.lock(locked); } catch (e) {} }
+    },
+    isLocked: () => locked
+  };
+  window.addEventListener('pagehide', () => { if (locked && H) { try { H.lock(false); } catch (e) {} } });
+})();
+</script>
 <style>
   :root {
     --bg-dark: #050811;
@@ -4692,6 +4737,67 @@ body.v17-racing #weatherCycleBtn, body.v17-racing #weatherChip > .chip-q { opaci
 .hr-tip svg { width: 16px; height: 16px; color: #22E07A; }
 #hrAccelTip { top: auto; bottom: 22%; max-width: calc(100% - 140px); white-space: nowrap; font-size: 11.5px; } /* sits above the cars, clear of the HUD columns and chips */
 </style>
+<style id="mrOverrides">
+/* ===== Money Racer (NovaTrade): one bet / play screen; the page scrolls down to the history ===== */
+html, body { height: auto !important; min-height: 100%; overflow-x: hidden !important; overflow-y: auto !important; display: block !important; background: #060a12 !important; }
+body { overscroll-behavior-y: contain; }
+html.mr-lock, html.mr-lock body { overflow: hidden !important; overscroll-behavior: none; }
+.app-shell { margin: 0 auto; height: var(--tg-vh, 100dvh) !important; max-height: none !important; box-shadow: none !important; }
+/* removed: lobby tabs (Invest / Invite / Profile / Login), bottom tab bar, Telegram banner, server-offline card */
+.bottom-nav, #tgNotifBanner, .cr-screen, #trOffline, #trModeMenu { display: none !important; }
+.left-hud-stack { gap: 6px !important; }
+.top-header .balance-label { letter-spacing: .2px; }
+.top-header .deposit-btn svg { flex-shrink: 0; }
+/* maintenance */
+#mrMaint { position: absolute; inset: 0; z-index: 45; display: none; align-items: center; justify-content: center; padding: 18px; background: rgba(4,8,16,.78); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
+#mrMaint.show { display: flex; }
+#mrMaint .mr-mt-card { max-width: 300px; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; padding: 18px 16px; border-radius: 12px; background: #0f1b31; border: 1px solid rgba(132,163,196,.25); color: #f7fbff; }
+#mrMaint .mr-mt-card b { font-size: 16px; font-weight: 900; font-style: italic; }
+#mrMaint .mr-mt-card span { font-size: 12.5px; color: #aeb9ca; line-height: 1.45; }
+#mrMaint .mr-mt-ic svg { width: 30px; height: 30px; color: #ffc83d; }
+body.mr-maint #centerStartCircle { filter: grayscale(1); opacity: .5; pointer-events: none; }
+/* ---- history under the game ---- */
+.mr-hist { max-width: 460px; margin: 0 auto; padding: 14px 12px calc(28px + env(safe-area-inset-bottom, 0px)); background: #0b0e14; color: #eaecef; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; border-top: 1px solid #1e2329; user-select: text; -webkit-user-select: text; }
+.mr-hist * { user-select: text; -webkit-user-select: text; }
+.mr-hist-hd { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+.mr-hist-hd h2 { font-size: 16px; font-weight: 700; margin: 0; color: #eaecef; font-style: normal; }
+.mr-acct { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 4px; background: rgba(46,107,255,.16); color: #6e9bff; }
+.mr-acct.real { background: rgba(14,203,129,.14); color: #2ebd85; }
+.mr-sum { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin-bottom: 12px; }
+.mr-sum div { background: #161a1e; border-radius: 8px; padding: 8px 8px 7px; min-width: 0; }
+.mr-sum small { display: block; font-size: 10.5px; color: #848e9c; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mr-sum b { display: block; margin-top: 3px; font-size: 13px; font-weight: 600; color: #eaecef; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mr-tabs { display: flex; gap: 18px; border-bottom: 1px solid #1e2329; margin: 0 -12px 2px; padding: 0 12px; overflow-x: auto; scrollbar-width: none; }
+.mr-tabs::-webkit-scrollbar { display: none; }
+.mr-tabs button { appearance: none; background: none; border: 0; padding: 9px 0 10px; font: 500 14px/1 inherit; font-family: inherit; color: #848e9c; position: relative; white-space: nowrap; cursor: pointer; }
+.mr-tabs button.on { color: #eaecef; font-weight: 600; }
+.mr-tabs button.on::after { content: ''; position: absolute; left: 50%; bottom: -1px; width: 18px; height: 3px; margin-left: -9px; border-radius: 2px; background: linear-gradient(90deg, #2e6bff, #5aa9ff); }
+.mr-tabs em { font-style: normal; font-size: 11px; color: #5e6673; margin-left: 3px; }
+.mr-row { padding: 12px 0; border-bottom: 1px solid #1e2329; }
+.mr-r1 { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.mr-r1 .l { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.mr-r1 .l b { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mr-dot { display: inline-block; vertical-align: -1px; width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 0 2px rgba(255,255,255,.08); }
+.mr-tag { font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: 4px; white-space: nowrap; }
+.mr-tag.win { color: #2ebd85; background: rgba(46,189,133,.12); }
+.mr-tag.loss { color: #f6465d; background: rgba(246,70,93,.12); }
+.mr-tag.ref { color: #aeb4bc; background: rgba(174,180,188,.12); }
+.mr-tag.mode { color: #848e9c; background: #1e2329; font-weight: 500; }
+.mr-pnl { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.mr-pnl.up { color: #2ebd85; } .mr-pnl.dn { color: #f6465d; }
+.mr-kv { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px 8px; margin-top: 9px; }
+.mr-kv div { min-width: 0; }
+.mr-kv small { display: block; font-size: 11px; color: #848e9c; }
+.mr-kv span { display: block; margin-top: 2px; font-size: 12.5px; color: #eaecef; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mr-kv div:nth-child(3n) { text-align: right; }
+.mr-empty { padding: 34px 0 26px; text-align: center; color: #5e6673; font-size: 13px; }
+.mr-empty svg { width: 46px; height: 46px; display: block; margin: 0 auto 8px; color: #2b3139; }
+.mr-empty b { display: block; color: #848e9c; font-weight: 500; margin-bottom: 2px; }
+.mr-more { display: block; width: 100%; margin-top: 10px; padding: 10px; border: 1px solid #2b3139; border-radius: 8px; background: none; color: #eaecef; font: 500 13px inherit; font-family: inherit; cursor: pointer; }
+.mr-up { position: fixed; right: 12px; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); z-index: 70; width: 38px; height: 38px; border-radius: 50%; border: 1px solid #2b3139; background: #1e2329; color: #eaecef; display: none; align-items: center; justify-content: center; box-shadow: 0 6px 16px rgba(0,0,0,.45); cursor: pointer; }
+.mr-up.show { display: flex; }
+.mr-hint { display: flex; align-items: center; justify-content: center; gap: 4px; padding: 2px 0 10px; font-size: 11px; color: #5e6673; }
+</style>
 </head>
 <body>
 <!-- ICON SET v17 (shared sprite). Usage: <svg class="ic"><use href="#ic-name"/></svg>
@@ -4812,14 +4918,9 @@ body.v17-racing #weatherCycleBtn, body.v17-racing #weatherChip > .chip-q { opaci
       <span id="headerSoundIcon"><svg viewBox="0 0 24 24" fill="none"><g transform="rotate(-18 12 12)"><path d="M4 10.4v3.2a1 1 0 0 0 1 1h1.3l1.2 4a1 1 0 0 0 1 .7h.9a.8.8 0 0 0 .8-1l-1-3.700L16 17.600V6.400L7.200 9.400H5a1 1 0 0 0-1 1z" fill="#ffffff"/><path d="M18.6 9.600a3.800 3.800 0 0 1 0 4.800M20.900 7.300a7.300 7.300 0 0 1 0 9.400" stroke="#ffffff" stroke-width="1.7" stroke-linecap="round"/></g></svg></span>
     </button>
     <button class="header-sfx-btn" id="headerNotifBtn" title="Notifications" aria-label="Notifications"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 3a6 6 0 0 0-6 6v3.600L4.300 16a1 1 0 0 0 .900 1.500h13.600a1 1 0 0 0 .900-1.500L18 12.600V9a6 6 0 0 0-6-6z" fill="#ffffff"/><path d="M9.800 19.200a2.300 2.300 0 0 0 4.400 0z" fill="#ffffff"/><circle cx="18.200" cy="5.400" r="3.400" fill="#ff3b3b" stroke="#0c172b" stroke-width="1.200"/></svg></button>
-    <button class="deposit-btn" id="depositBtn">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-        <path d="M4.500 7.500L15.500 4a1.200 1.200 0 0 1 1.600 1.100V7.500" fill="#1e293b" stroke="#0f172a" stroke-width="1.5" stroke-linejoin="round"/>
-        <rect x="2" y="7" width="20" height="13.500" rx="3" fill="#111827" stroke="#0f172a" stroke-width="1.5"/>
-        <path d="M16 11.500H22V16H16C14.800 16 13.800 15 13.800 13.750C13.800 12.500 14.800 11.500 16 11.500Z" fill="#f59f00" stroke="#0f172a" stroke-width="1"/>
-        <circle cx="16.600" cy="13.750" r="1" fill="#111827"/>
-        </svg>
-      <span>DEPOSIT</span>
+    <button class="deposit-btn" id="depositBtn" aria-label="Transfer to Money Racer wallet">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="10.2" fill="#111827" stroke="#0f172a" stroke-width="1.5"/><path d="M12 7v10M7 12h10" stroke="#f59f00" stroke-width="2.8" stroke-linecap="round"/></svg>
+      <span id="depositBtnTxt">TRANSFER</span>
     </button>
   </header>
 
@@ -4872,11 +4973,6 @@ body.v17-racing #weatherCycleBtn, body.v17-racing #weatherChip > .chip-q { opaci
     <div class="final-five" id="finalFive" aria-hidden="true"><div class="ff-label">FINAL 5s</div><div class="ff-num" id="finalFiveNum">5</div></div>
 
     <div class="left-hud-stack">
-      <div class="hud-pill" id="leaderboardBtn">
-        <svg class="ic"><use href="#ic-leaderboard"/></svg>
-        <span class="hud-pill-label">LEADERBOARD</span>
-      </div>
-
       <div class="hud-pill" id="modeSelectHudBtn">
         <svg class="ic"><use href="#ic-car"/></svg>
         <span class="hud-pill-label">MODE / CAR</span>
@@ -5774,6 +5870,21 @@ body.v17-racing #weatherCycleBtn, body.v17-racing #weatherChip > .chip-q { opaci
   <div class="cr-toast" id="crToast">Copied to clipboard</div>
 </div>
 
+<!-- Money Racer: scroll down under the game for bets, races and transfers -->
+<section class="mr-hist" id="mrHist" aria-label="Money Racer history">
+  <div class="mr-hint"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>History</div>
+  <div class="mr-hist-hd"><h2>Money Racer history</h2><span class="mr-acct" id="mrAcct">Demo</span></div>
+  <div class="mr-sum" id="mrSum"></div>
+  <div class="mr-tabs" role="tablist" id="mrTabs">
+    <button type="button" role="tab" class="on" data-t="bets">My bets<em id="mrNBets"></em></button>
+    <button type="button" role="tab" data-t="races">Race history<em id="mrNRaces"></em></button>
+    <button type="button" role="tab" data-t="tx">Transfers<em id="mrNTx"></em></button>
+  </div>
+  <div id="mrList"></div>
+</section>
+<button type="button" class="mr-up" id="mrUp" aria-label="Back to the game"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M18 15l-6-6-6 6"/></svg></button>
+
+
 <!-- R3D-LOADER-BEGIN -->
 <style>
 #centerStartCircle { scale: none; left: 50% !important; right: auto !important; margin: 0 !important; transform: translate(-50%, -50%) scale(0.66) !important; }
@@ -5793,11 +5904,9 @@ body.v17-racing #weatherCycleBtn, body.v17-racing #weatherChip > .chip-q { opaci
 { "imports": { "three": "./assets/vendor/three/build/three.module.js", "three/addons/": "./assets/vendor/three/addons/", "postprocessing": "./assets/vendor/postprocessing/postprocessing.js" } }
 </script>
 <script type="module">
-// Three.js for the race view: local copy first, pinned CDN second, a 'no WebGL' message if both fail.
-const CDN = 'https://cdn.jsdelivr.net/npm/three@0.187.0';
+// Three.js for the race view: local vendor copy only (no CDN), a 'no WebGL' message if it fails.
 const sources = [
-  { core: 'three', gltf: 'three/addons/loaders/GLTFLoader.js', draco: 'three/addons/loaders/DRACOLoader.js', dracoPath: './assets/vendor/three/addons/libs/draco/', pp: 'postprocessing' },
-  { core: CDN + '/+esm', gltf: CDN + '/examples/jsm/loaders/GLTFLoader.js/+esm', draco: CDN + '/examples/jsm/loaders/DRACOLoader.js/+esm', dracoPath: CDN + '/examples/jsm/libs/draco/gltf/' }
+  { core: 'three', gltf: 'three/addons/loaders/GLTFLoader.js', draco: 'three/addons/loaders/DRACOLoader.js', dracoPath: './assets/vendor/three/addons/libs/draco/', pp: 'postprocessing' }
 ];
 let lastError = 'three.js unavailable';
 for (const src of sources) {
@@ -5826,19 +5935,6 @@ window.dispatchEvent(new Event('tr-three'));
     green: 'assets/ui/21cdd3bfcf.webp'
   };
 
-  // Telegram WebApp SDK auto-init if running inside Telegram Mini App
-  try {
-    if (window.Telegram && window.Telegram.WebApp) {
-      window.Telegram.WebApp.ready();
-      window.Telegram.WebApp.expand();
-      const tgUser = window.Telegram.WebApp.initDataUnsafe && window.Telegram.WebApp.initDataUnsafe.user;
-      if (tgUser && tgUser.first_name) {
-        const cleanTg = tgUser.first_name.toUpperCase().slice(0, 12);
-        const pNameEl = document.querySelector('.profile-name');
-        if (pNameEl) pNameEl.textContent = cleanTg;
-      }
-    }
-  } catch (e) {}
 
   // =========================================================================
   // 1. V8 FERRARI AUDIO SYNTHESIZER, EXCITEMENT SFX & PER-SEC HAPTICS
@@ -6058,12 +6154,7 @@ window.dispatchEvent(new Event('tr-three'));
     const now = performance.now();
     if (now - _lastHapticMs < 65) return;
     _lastHapticMs = now;
-    try {
-      if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.HapticFeedback) {
-        window.Telegram.WebApp.HapticFeedback.impactOccurred('medium');
-        return;
-      }
-    } catch (e) {}
+    try { if (window.MR && MR.buzz(pattern)) return; } catch (e) {} // NovaTrade: U.buzz (honours the app's haptic setting)
     if (navigator.vibrate) {
       try { navigator.vibrate(pattern); } catch (e) {}
     }
@@ -6331,7 +6422,7 @@ window.dispatchEvent(new Event('tr-three'));
   const betSteps = [0.1, 0.5, 1, 2, 5, 10];
   let currentBet = 1.0;
   // v17 ui2: race / bet numbers count up per race / bet on this device (3-digit zero padded)
-  function padNo(n) { return '#' + String(Math.max(0, Math.floor(+n) || 0)).padStart(3, '0'); }
+  function padNo(n) { return 'R' + String(100000 + Math.max(0, Math.floor(+n) || 0)); } // Money Racer: same id as the race history
   function lsNo(k, d) { const v = parseInt(lsGetSafe(k), 10); return v > 0 ? v : d; }
   let raceIdCounter = lsNo('tr_race_no', 1);   // number of the current / next race
   let betNoCounter = lsNo('tr_betid_no', 0);   // Car Bet (auto) bets placed so far; Manual Drive races use raceIdCounter
@@ -7455,12 +7546,6 @@ window.dispatchEvent(new Event('tr-three'));
     if (tgNotifText) tgNotifText.textContent = msg;
     if (tgNotifBanner) tgNotifBanner.classList.add('show');
     sfxWin();
-    // Optional POST to local Python Telegram Bot backend if running
-    try {
-      if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.HapticFeedback) {
-        window.Telegram.WebApp.HapticFeedback.notificationOccurred('success');
-      }
-    } catch (e) {}
     clearTimeout(window._tgBannerTimer);
     window._tgBannerTimer = setTimeout(() => {
       if (tgNotifBanner) tgNotifBanner.classList.remove('show');
@@ -8256,7 +8341,7 @@ window.dispatchEvent(new Event('tr-three'));
     { rank: 5, uid: '9047731240', color: '#2F7BFF', profit: '+510.00 USDT', volume: 8940 }
   ];
 
-  document.getElementById('leaderboardBtn').addEventListener('click', () => {
+  document.getElementById('leaderboardBtn')?.addEventListener('click', () => {
     const sorted = [...cars].sort((a, b) => b.z - a.z);
     modalSvgHolder.innerHTML = TROPHY_SVG;
     modalTitle.textContent = 'LEADERBOARD';
@@ -8271,14 +8356,14 @@ window.dispatchEvent(new Event('tr-three'));
   document.getElementById('howToPlayBtn').addEventListener('click', () => {
     modalSvgHolder.innerHTML = TROPHY_SVG;
     modalTitle.textContent = 'HOW TO PLAY';
-    modalSubtitle.textContent = 'Simple rules';
+    modalSubtitle.textContent = 'Money Racer: simple rules';
     modalSubtitle.style.color = '';
     modalBodyContent.innerHTML = `
       <div class="ui-list">
         <div class="ui-step" style="--c:#22E07A"><span class="ui-num">1</span><div><b>Pick a car and set your bet.</b><p>Choose Red, Blue or Gold Ferrari. Tap the green circle to start.</p></div></div>
         <div class="ui-step" style="--c:#38bdf8"><span class="ui-num">2</span><div><b>Wait for the race to start.</b><p>Players join within 10 seconds. Bots fill empty seats.</p></div></div>
         <div class="ui-step" style="--c:#FFC83D"><span class="ui-num">3</span><div><b>First car over the finish line wins.</b><p>Obstacles slow cars down. Boost pads speed them up.</p></div></div>
-        <div class="ui-step" style="--c:#a855f7"><span class="ui-num">4</span><div><b>Winnings are added to your balance right away.</b><p>2-car race pays 1.9x. 3-car race pays 2.5x.</p></div></div>
+        <div class="ui-step" style="--c:#a855f7"><span class="ui-num">4</span><div><b>Winnings are added to your balance right away.</b><p>Your Money Racer wallet: 2-car race pays ${vcOdds(2)}x, 3-car race pays ${vcOdds(3)}x. Tap TRANSFER to add funds.</p></div></div>
       </div>
     `;
     modalActionBtn.textContent = 'GOT IT';
@@ -8297,16 +8382,16 @@ window.dispatchEvent(new Event('tr-three'));
         <div class="ui-step" style="--c:#22E07A"><div><b>Prize pool</b><p>All players' bets are pooled together. The winner is paid based on their own bet amount and the race odds.</p><p style="margin-top:5px">We don't match players by equal bet amount - that would make matching very slow. Each payout depends only on your own bet.</p></div></div>
       </div>
       <div class="ui-tiles" style="margin-top:7px">
-        <div class="ui-tile" style="--c:#22E07A"><span class="ui-ic" style="color:#22E07A">${UI_IC.coin}</span><span class="ui-row-lbl">2-car race</span><span class="ui-row-val">1.9x</span><span class="ui-row-sub">Bet 10 USDT, win 19 USDT</span></div>
-        <div class="ui-tile" style="--c:#FFC83D"><span class="ui-ic" style="color:#FFC83D">${UI_IC.coin}</span><span class="ui-row-lbl">3-car race</span><span class="ui-row-val">2.5x</span><span class="ui-row-sub">Bet 10 USDT, win 25 USDT</span></div>
+        <div class="ui-tile" style="--c:#22E07A"><span class="ui-ic" style="color:#22E07A">${UI_IC.coin}</span><span class="ui-row-lbl">2-car race</span><span class="ui-row-val">${vcOdds(2)}x</span><span class="ui-row-sub">Bet 10 USDT, win ${vcFmt(10 * vcOdds(2))} USDT</span></div>
+        <div class="ui-tile" style="--c:#FFC83D"><span class="ui-ic" style="color:#FFC83D">${UI_IC.coin}</span><span class="ui-row-lbl">3-car race</span><span class="ui-row-val">${vcOdds(3)}x</span><span class="ui-row-sub">Bet 10 USDT, win ${vcFmt(10 * vcOdds(3))} USDT</span></div>
       </div>
       <div class="ui-list ri-list" style="margin-top:7px">
         <div class="ui-step" style="--c:#a855f7"><div><b>FAQ</b>
           <p><strong>How is the winner decided?</strong><br>First car over the finish line.</p>
           <p style="margin-top:6px"><strong>Can I change map or climate?</strong><br>Yes, with the top-right chips, before the race starts.</p>
           <p style="margin-top:6px"><strong>What is Manual Drive?</strong><br>You steer your own car. The payout is the same.</p>
-          <p style="margin-top:6px"><strong>When is money credited?</strong><br>Instantly when you win.</p>
-          <p style="margin-top:6px"><strong>How do referrals pay?</strong><br>1% of your referrals' bet volume, 2% after 10 referrals, lifetime.</p>
+          <p style="margin-top:6px"><strong>When is money credited?</strong><br>Instantly to your Money Racer wallet when you win.</p>
+          <p style="margin-top:6px"><strong>How do I add or withdraw funds?</strong><br>Tap TRANSFER to move USDT between your NovaTrade wallets and Money Racer.</p>
         </div></div>
       </div>
     `;
@@ -12560,22 +12645,15 @@ window.dispatchEvent(new Event('tr-three'));
 /* v3 overlay: API, Live/Demo, theme, toasts, music, leaderboard, safe areas, modals */
 (function () {
   'use strict';
-  const TG = (window.Telegram && window.Telegram.WebApp) || null;
+  const TG = null; // Money Racer: no Telegram
   const $ = (s, r) => (r || document).querySelector(s);
   const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const fmt = (n) => (Math.round((+n || 0) * 100) / 100).toFixed(2);
 
-  // ---- API base ----
-  const qp = new URLSearchParams(location.search);
-  const metaBackend = (($('meta[name="backend-url"]') || {}).content || '').trim();
-  let API = qp.get('api') || '';
-  if (API) try { localStorage.setItem('tr_api', API); } catch (e) {}
-  if (!API && metaBackend) API = metaBackend;
-  if (!API) try { API = localStorage.getItem('tr_api') || ''; } catch (e) {}
-  if (!API && /^https?:/.test(location.protocol) && !/github\.io$/i.test(location.hostname)) API = location.origin;
-  API = (API || '').replace(/\/+$/, '');
-  window.TR_API = API;
+  // ---- No remote game server: the old backend runs locally (local-server.js) through MR.call('racer.*') ----
+  const API = '';
+  window.TR_API = '';
 
   // ---- Toast queue ----
   const toastBox = document.createElement('div'); toastBox.id = 'trToasts'; document.body.appendChild(toastBox);
@@ -12615,203 +12693,59 @@ window.dispatchEvent(new Event('tr-three'));
     if (msg) $('#trOffMsg').textContent = msg;
   }
 
-  // ---- Live / Demo mode ----
+  // ---- Account mode (NovaTrade Demo / Real) + balance: all money is the Money Racer (`games`) wallet ----
   let booting = true;
-  const hasTgAuth = !!(TG && TG.initData && String(TG.initData).length > 10);
-  let playMode = hasTgAuth ? 'live' : 'demo';
-  try {
-    const savedMode = localStorage.getItem('tr_mode');
-    if (savedMode === 'demo' || (savedMode === 'live' && hasTgAuth)) playMode = savedMode;
-  } catch (e) {}
-  let demoBal = 1000;
-  try { demoBal = parseFloat(localStorage.getItem('tr_demo_bal') || '1000') || 1000; } catch (e) {}
-  let state = null, online = false, busy = false;
-  let minBet = 0.1, maxBet = 100;
-  let pendingBet = null; // {bet_id, winner, payout, amount}
+  const playMode = MR.mode() === 'real' ? 'live' : 'demo'; // 'live' = Real account
+  let state = null, online = true, busy = false;
+  let minBet = 1, maxBet = 1000;
+  let pendingBet = null; // racer.bet reply: {betId, raceId, no, car, cars, amount, mult, target, balance}
+  let mrConfig = null;
+  function setMode() { MR.switchMode(); }
+  // the old /api/* endpoints are gone; their logic is the racer.* handlers in local-server.js
+  async function api() { throw new Error('Not available in Money Racer'); }
+  const fmtUs = (n) => (Math.round((+n || 0) * 100) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-  function saveDemo() { try { localStorage.setItem('tr_demo_bal', String(demoBal)); } catch (e) {} }
-  function setMode(m) {
-    playMode = m === 'live' ? 'live' : 'demo';
-    try { localStorage.setItem('tr_mode', playMode); } catch (e) {}
-    paintMode();
-    const refill = $('#trRefillBtn');
-    if (refill) refill.style.display = playMode === 'demo' ? '' : 'none';
-    applyBalanceUI();
-    if (playMode === 'live') refresh(true);
-    else setOffline(false);
-  }
-
-  function getInitData() {
-    let d = (TG && TG.initData) || '';
-    if (!d) {
-      try {
-        const h = new URLSearchParams((location.hash || '').slice(1));
-        d = h.get('tgWebAppData') || '';
-        if (!d) d = sessionStorage.getItem('tr_initdata') || '';
-      } catch (e) {}
+  function showMaintenance(on) {
+    let m = $('#mrMaint');
+    if (on && !m) {
+      m = document.createElement('div'); m.id = 'mrMaint';
+      m.innerHTML = `<div class="mr-mt-card"><div class="mr-mt-ic">${UI_IC.info || ''}</div><b>Money Racer is under maintenance</b><span>Betting is paused for a short while. Your balance is safe. Please check back soon.</span></div>`;
+      const vp = $('.viewport-wrap'); (vp || document.body).appendChild(m);
     }
-    if (d) try { sessionStorage.setItem('tr_initdata', d); } catch (e) {}
-    return d;
+    if (m) m.classList.toggle('show', !!on);
+    document.body.classList.toggle('mr-maint', !!on);
   }
-  // ---- API ----
-  async function api(path, body) {
-    if (!API) throw Object.assign(new Error('No game server configured. Open via the bot or set ?api='), { offline: true });
-    const initData = getInitData();
-    let r;
-    const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
-    const timer = ctrl ? setTimeout(() => { try { ctrl.abort(); } catch (e) {} }, 12000) : null;
-    try {
-      r = await fetch(API + path, {
-        method: body ? 'POST' : 'GET',
-        headers: Object.assign({ 'X-Telegram-Init-Data': initData }, body ? { 'Content-Type': 'application/json' } : {}),
-        body: body ? JSON.stringify(body) : undefined,
-        signal: ctrl ? ctrl.signal : undefined,
-      });
-    } catch (e) {
-      if (timer) clearTimeout(timer);
-      throw Object.assign(new Error('Server offline'), { offline: true });
-    }
-    if (timer) clearTimeout(timer);
-    let j = {};
-    try { j = await r.json(); } catch (e) {}
-    if (r.status === 401) throw Object.assign(new Error(j.error || 'Open the Mini App from the bot.'), { auth: true });
-    if (r.status === 429) throw new Error(j.error || 'Slow down a little');
-    if (!r.ok || j.ok === false) throw new Error(j.error || ('HTTP ' + r.status));
-    return j;
+  function applyConfig(c) {
+    if (!c) return;
+    mrConfig = c;
+    if (gameState === 'IDLE') { RACE_ODDS[2] = +c.odds[2] || 1.9; RACE_ODDS[3] = +c.odds[3] || 2.5; }
+    minBet = +c.minBet || 1; maxBet = Math.max(minBet, +c.maxBet || 1000);
+    // quick-pick chips follow the minimum bet: 1 / 2 / 5 / 10 / 20 / 50 x min
+    const steps = [1, 2, 5, 10, 20, 50].map(k => +(k * minBet).toFixed(2)).filter(v => v <= maxBet);
+    presetButtons.forEach((b, i) => { const v = steps[i]; b.style.display = v ? '' : 'none'; if (v) { b.dataset.bet = String(v); b.textContent = String(v); } });
+    if (gameState === 'IDLE' && (currentBet < minBet || currentBet > maxBet)) currentBet = Math.min(maxBet, Math.max(minBet, currentBet));
+    const inp = $('#trInlineBetInput'); if (inp) { inp.min = String(minBet); inp.max = String(maxBet); }
+    showMaintenance(!c.enabled);
+    $$('.mode-option-card').forEach(card => {
+      const n = card.id === 'cardMode2' ? 2 : 3;
+      $$('.mode-stat-box', card).forEach(bx => { const l = $('.mode-stat-lbl', bx), v = $('.mode-stat-val', bx); if (l && v && /WIN CHANCE/i.test(l.textContent)) v.textContent = (c.playerWinPct != null ? Math.round(c.playerWinPct) : Math.round(100 / n)) + '%'; });
+    });
+    try { vcRefreshModeOdds(); } catch (e) {}
+    try { updateUIValues(); } catch (e) {}
   }
 
   function applyBalanceUI() {
-    const bal = playMode === 'live' ? (state ? state.balance : 0) : demoBal;
+    const bal = state ? +state.balance || 0 : 0;
     try { balanceUsdt = +fmt(bal); } catch (e) {}
-    if (typeof syncSharedWalletUI === 'function') syncSharedWalletUI();
-    else if (typeof updateUIValues === 'function') updateUIValues();
+    if (typeof updateUIValues === 'function') updateUIValues();
     const balEl = $('#balanceText');
-    if (balEl) balEl.textContent = fmt(bal);
-    if (state) {
-      const rc = state.referrals || 0;
-      const bl = $('#bonusLockedVal'); if (bl) bl.textContent = '0.00';
-      $$('.vip-badge, .vip-pill-lg').forEach(el => el.style.display = 'none');
-      $$('.refer-box .profile-name-tag').forEach(el => el.textContent = String(state.user.id));
-      $$('.refer-box [data-copy]').forEach(el => el.dataset.copy = String(state.user.id));
-    }
-    const tu = (state && state.user) || (TG && TG.initDataUnsafe && TG.initDataUnsafe.user);
-    if (tu) {
-      const nm = String(tu.first_name || tu.username || 'TRADER').toUpperCase().slice(0, 14);
-      $$('.profile-name, #profileTitleText').forEach(el => el.textContent = nm);
-      const idEl = $('.profile-id'); if (idEl) idEl.textContent = 'ID: ' + tu.id;
-      $$('.profile-identity .muted').forEach(el => { if (/User ID/i.test(el.textContent)) el.textContent = 'User ID: ' + tu.id; });
-      const un = $('#profileUsernameText'); if (un) un.textContent = tu.username ? '@' + tu.username : 'Player';
-    }
-    if (!tu) {
-      $$('.profile-name, #profileTitleText').forEach(el => el.textContent = 'GUEST');
-      const idEl = $('.profile-id'); if (idEl) idEl.textContent = 'ID: —';
-      $$('.profile-identity .muted').forEach(el => { if (/User ID/i.test(el.textContent)) el.textContent = 'User ID: —'; });
-      const un = $('#profileUsernameText'); if (un) un.textContent = 'Open from Telegram';
-    }
-    const bl0 = $('#bonusLockedVal'); if (bl0) bl0.textContent = '0.00';
-    $$('.refer-box .profile-name-tag').forEach(el => el.textContent = tu ? String(tu.id) : '—');
+    if (balEl) balEl.textContent = fmtUs(bal);
+    const lbl = $('.top-header .balance-label');
+    if (lbl) lbl.textContent = playMode === 'live' ? 'REAL BALANCE' : 'DEMO BALANCE';
+    $$('.profile-name').forEach(el => el.textContent = 'MONEY RACER');
+    const idEl = $('.profile-id'); if (idEl) idEl.textContent = (playMode === 'live' ? 'Real' : 'Demo') + ' wallet';
     $$('.vip-badge, .vip-pill-lg').forEach(el => el.style.display = 'none');
-    if (state && playMode === 'live') {
-      const pb = $('#profileMainBalance'); if (pb) pb.innerHTML = fmt(state.balance) + ' <small>USDT</small>';
-      const pp = $('#profileProfitBalance'); if (pp) pp.innerHTML = fmt(state.profit_balance) + ' <small>USDT</small>';
-      const si = $('#statTotalInvest'); if (si) si.textContent = fmt((state.investments || []).reduce((a, x) => a + (x.active ? x.cost : 0), 0));
-      totalReferralsCount = +state.referrals || 0;
-      refVolumeUsdt = +(state.ref_volume != null ? state.ref_volume : state.referral_volume) || 0;
-      lifetimeRefCommUsdt = +(state.ref_earned != null ? state.ref_earned : state.referral_earned) || 0;
-      availRefCommUsdt = +(state.ref_available != null ? state.ref_available : lifetimeRefCommUsdt) || 0;
-      if (typeof updateUIValues === 'function') updateUIValues();
-      const name = (state.user && (state.user.first_name || state.user.username)) || 'TRADER';
-      $$('.profile-name, #profileTitleText').forEach(el => { if (el) el.textContent = String(name).toUpperCase().slice(0, 14); });
-      const idEl = $('.profile-id'); if (idEl) idEl.textContent = 'ID: ' + state.user.id;
-      $$('#profileUsernameText, .profile-identity .muted').forEach(el => {
-        if (!el) return;
-        if (el.id === 'profileUsernameText') el.textContent = state.user.username ? '@' + state.user.username : 'Player';
-        else if (/User ID/i.test(el.textContent)) el.textContent = 'User ID: ' + state.user.id;
-      });
-      // invite link
-      if (state.ref_link) {
-        $$('[data-copy]').forEach(b => {
-          if (b.dataset.copy === 'TRADER582') b.dataset.copy = String(state.user.id);
-        });
-      }
-      applyInviteRef();
-    }
-    // Photo avatar upgrade if Telegram user has photo_url
-    try {
-      const photoUrl = (tu && tu.photo_url) || '';
-      const ring = $('#topHeaderAvatarRing');
-      if (ring && photoUrl && !ring.dataset.photoLoaded) {
-        ring.dataset.photoLoaded = '1';
-        const img = new Image();
-        img.onload = () => {
-          ring.innerHTML = `<img src="${esc(photoUrl)}" alt="Avatar" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;" />`;
-        };
-        img.src = photoUrl;
-      }
-    } catch (e) {}
-    renderLiveWalletHistory();
-  }
-
-  function renderLiveWalletHistory() {
-    const body = $('.profile-body') || $('#screenProfile');
-    if (!body) return;
-    let sec = $('#trLiveWalletHistory');
-    if (!sec) {
-      sec = document.createElement('section');
-      sec.id = 'trLiveWalletHistory';
-      sec.className = 'tr-settings';
-      sec.style.marginTop = '10px';
-      const settingsCard = $('#trSettings');
-      if (settingsCard) settingsCard.before(sec);
-      else body.appendChild(sec);
-    }
-    if (playMode !== 'live' || !state) {
-      sec.style.display = 'none';
-      return;
-    }
-    sec.style.display = 'block';
-    const deps = (state.deposits || []).slice(0, 8);
-    const wds = (state.withdrawals || []).slice(0, 8);
-    const depRows = deps.length ? deps.map(d => {
-      const st = d.status === 'confirming'
-        ? `<span style="color:#fbbf24;font-weight:800;">⏳ Confirming (${d.confirmations || 1}/3)</span>`
-        : `<span style="color:#28e066;font-weight:800;">✅ Completed</span>`;
-      const txh = d.tx_hash ? String(d.tx_hash).split(':')[0] : '';
-      const link = txh && txh.startsWith('0x')
-        ? `<a href="https://bscscan.com/tx/${esc(txh)}" target="_blank" rel="noopener" style="color:#38bdf8;font-size:10px;text-decoration:underline;">BSCScan ↗</a>`
-        : '';
-      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;background:rgba(8,15,28,0.85);border:1px solid rgba(148,163,184,0.16);border-radius:8px;margin-top:5px;font-size:11px;">
-        <div><b style="color:#28e066;">+${fmt(d.amount)} USDT</b> <span style="color:#64748b;font-size:9.5px;">Deposit</span></div>
-        <div style="display:flex;align-items:center;gap:8px;">${st} ${link}</div>
-      </div>`;
-    }).join('') : `<div style="font-size:11px;color:#64748b;padding:6px 0;">No live deposits yet.</div>`;
-
-    const wdRows = wds.length ? wds.map(w => {
-      let st = `<span style="color:#fbbf24;font-weight:800;">⏳ Pending (Max 12h)</span>`;
-      if (w.status === 'paid_auto' || w.status === 'paid_manual') st = `<span style="color:#28e066;font-weight:800;">✅ Paid</span>`;
-      else if (w.status === 'rejected') st = `<span style="color:#ef4444;font-weight:800;">❌ Cancelled${w.note ? ' (' + esc(w.note) + ')' : ''}</span>`;
-      const txh = w.txid ? String(w.txid).trim() : '';
-      const link = txh && txh.startsWith('0x')
-        ? `<a href="https://bscscan.com/tx/${esc(txh)}" target="_blank" rel="noopener" style="color:#38bdf8;font-size:10px;text-decoration:underline;">BSCScan ↗</a>`
-        : '';
-      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;background:rgba(8,15,28,0.85);border:1px solid rgba(148,163,184,0.16);border-radius:8px;margin-top:5px;font-size:11px;">
-        <div><b style="color:#f8fafc;">-${fmt(w.amount)} USDT</b> <span style="color:#64748b;font-size:9.5px;">#${w.id}</span></div>
-        <div style="display:flex;align-items:center;gap:8px;">${st} ${link}</div>
-      </div>`;
-    }).join('') : `<div style="font-size:11px;color:#64748b;padding:6px 0;">No withdrawals yet.</div>`;
-
-    sec.innerHTML = `
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-        <h4 style="margin:0;">📜 LIVE DEPOSITS &amp; WITHDRAWALS</h4>
-        <button type="button" class="tr-btn ghost" id="trProfCheckDepBtn" style="padding:3px 8px;font-size:10px;width:auto;">🔄 Check Deposit</button>
-      </div>
-      <div style="font-size:10px;font-weight:800;color:#94a3b8;margin-top:4px;">RECENT DEPOSITS (BSC BEP20)</div>
-      ${depRows}
-      <div style="font-size:10px;font-weight:800;color:#94a3b8;margin-top:8px;">RECENT WITHDRAWALS</div>
-      ${wdRows}
-    `;
-    const cBtn = $('#trProfCheckDepBtn');
-    if (cBtn) cBtn.onclick = () => openLiveDeposit();
+    try { window.MR_renderHistory && window.MR_renderHistory(); } catch (e) {}
   }
 
   // ---- Masked User ID & Real-Time Left HUD Players + Room Sync ----
@@ -12962,7 +12896,7 @@ window.dispatchEvent(new Event('tr-three'));
     try {
       const room = window._trActiveRoom;
       const t = isAutoBetMode
-        ? `BET ID: ${padNo((gameState !== 'IDLE' && lastBetNo) ? lastBetNo : betNoCounter + 1)}`
+        ? `RACE ID: ${padNo((gameState !== 'IDLE' && lastBetNo) ? lastBetNo : betNoCounter + 1)}`
         : `RACE ID: ${padNo(raceIdCounter)}`;
       if (raceIdText.textContent !== t) raceIdText.textContent = t;
     } catch (e) {}
@@ -13117,226 +13051,86 @@ window.dispatchEvent(new Event('tr-three'));
     } catch (e) {}
   };
 
-  let _roomSyncInFlight = false;
-  function startRoomPolling(roomId) {
-    stopRoomPolling();
-    if (!roomId || !API) return;
-    const myUid = getMyUidStr();
-    _roomPollTimer = setInterval(async () => {
-      if (gameState !== 'MATCHMAKING' && gameState !== 'COUNTDOWN' && gameState !== 'RACING') {
-        stopRoomPolling();
-        return;
-      }
-      if (_roomSyncInFlight) return;
-      _roomSyncInFlight = true;
-      try {
-        const pCar = cars.find(c => c.isPlayer);
-        const payload = {
-          room_id: roomId,
-          uid: myUid,
-          telemetry: (pCar && gameState === 'RACING') ? {
-            x: +pCar.x.toFixed(4),
-            target_x: +pCar.targetX.toFixed(4),
-            lane: pCar.lane,
-            z: +pCar.z.toFixed(2),
-            speed: +pCar.speed.toFixed(1),
-            boost: +(pCar.boostTimer || 0).toFixed(2),
-            roll: +(pCar.hitRoll || 0).toFixed(3)
-          } : null
-        };
-        const r = await fetch(`${API}/api/match/status`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-        const j = await r.json();
-        if (j && j.ok && j.room) {
-          applyRoomSnapshot(j.room);
-        }
-      } catch (e) {} finally {
-        _roomSyncInFlight = false;
-      }
-    }, 240);
-  }
+  // shared online rooms were a feature of the old VPS server; Money Racer races locally (bots fill the seats)
+  function startRoomPolling() {}
 
-  function cacheDepositAddress(addr) {
-    if (!addr || !/^0x[a-fA-F0-9]{40}$/.test(addr)) return;
-    try {
-      const uid = getMyUidStr();
-      if (uid) localStorage.setItem('tr_dep_addr_' + uid, addr);
-      localStorage.setItem('tr_dep_addr_last', addr);
-    } catch (e) {}
-  }
 
-  function getResolvedDepositAddress() {
-    if (state && state.deposit_address && /^0x[a-fA-F0-9]{40}$/.test(state.deposit_address)) {
-      cacheDepositAddress(state.deposit_address);
-      return state.deposit_address;
-    }
+  async function refresh(force, boot) {
     try {
-      const uid = getMyUidStr();
-      const cachedUid = uid ? localStorage.getItem('tr_dep_addr_' + uid) : '';
-      if (cachedUid && /^0x[a-fA-F0-9]{40}$/.test(cachedUid)) return cachedUid;
-      const cachedLast = localStorage.getItem('tr_dep_addr_last') || '';
-      if (cachedLast && /^0x[a-fA-F0-9]{40}$/.test(cachedLast)) return cachedLast;
-    } catch (e) {}
-    return '0xe845915Ba96417f0124c5159927Ba3538Ba42519';
-  }
-
-  async function refresh(force) {
-    if (playMode !== 'live' && !force) { applyBalanceUI(); return; }
-    if (!API) { setOffline(true, 'No API URL. Append ?api=https://your-server to the Mini App link.'); applyBalanceUI(); return; }
-    try {
-      const j = await api('/api/state');
-      state = j; online = true; setOffline(false);
-      if (j && j.deposit_address) cacheDepositAddress(j.deposit_address);
-      const s = j.settings || {};
-      minBet = +s.min_bet || 0.1; maxBet = +s.max_bet || 100;
-      window._trServerOdds = { 2: +s.mult_2 || null, 3: +s.mult_3 || null }; // informational only: labels/demo use RACE_ODDS
+      const j = await MR.call('racer.state', boot ? { boot: true } : {});
+      state = j; online = true;
+      if (boot && gameState === 'IDLE' && j.seq >= 0) { betNoCounter = j.seq; raceIdCounter = j.seq + 1; try { syncRaceIdText(); } catch (e) {} }
+      applyConfig(j.config);
       applyBalanceUI();
-      syncInvestFromState();
-      syncCarsAndLabelsWithRoom();
     } catch (e) {
       online = false;
-      if (playMode === 'live') {
-        setOffline(true, e.message || 'Server offline');
-        if (e.offline || e.auth) toast(e.message, 'error');
-      }
+      if (force) toast(e.message || 'Money Racer is not available', 'error');
     }
   }
 
-  function syncInvestFromState() {
-    if (!state || typeof activeInvestments === 'undefined') return;
-    activeInvestments = (state.investments || []).filter(x => x.active).map(x => ({
-      id: x.id, plan: x.plan + ' Plan', tierBadge: x.plan.toUpperCase() + ' • ACTIVE',
-      racerName: 'Assigned Pro Racer', riderShare: '20%', cost: x.cost, daily: x.daily,
-      totalEarned: x.earned, dayCurrent: x.days_done, dayTotal: x.days_total,
-      duration: x.days_total + ' Days', carImg: (window.CAR_IMAGES && CAR_IMAGES.blue) || '',
-      taskSecLeft: x.next_claim_in || 0, taskCompleted: (x.next_claim_in || 0) <= 0, claimedToday: (x.next_claim_in || 0) > 0,
-    }));
-    if (typeof renderMyInvestments === 'function') try { renderMyInvestments(); } catch (e) {}
-  }
+  function syncInvestFromState() {}
 
   const _gm = getMultiplier;
   getMultiplier = function () {
     return raceOdds();
   };
 
-  // ---- Bet flow: supports 10s shared multiplayer rooms in BOTH Live and Demo modes ----
+  // Car Bet (auto): the race favourite is the car the bet was set up with (racer.bet -> target)
+  const _pickFav = pickRaceFavourite;
+  pickRaceFavourite = function () {
+    if (!isAutoBetMode) return null;
+    const k = pendingBet && pendingBet.target;
+    const c = k && cars.find(x => x.themeKey === k);
+    return c ? c.id : _pickFav();
+  };
+
+  function raceField() {
+    const all = ['red', 'blue', 'yellow'];
+    return [selectedPlayerTheme].concat(all.filter(k => k !== selectedPlayerTheme)).slice(0, raceModeCars);
+  }
+
+  // ---- Bet flow: one bet per race, through racer.bet / racer.settle ----
   beginMatchmaking = async function () {
     if (typeof gameState !== 'undefined' && gameState !== 'IDLE') return;
     if (busy) return;
+    if (mrConfig && !mrConfig.enabled) { showMaintenance(true); toast('Money Racer is under maintenance', 'warn'); return; }
     const amount = +currentBet;
-    if (amount < minBet || amount > maxBet) { toast(`Bet must be ${minBet}–${maxBet} USDT`, 'warn'); return; }
-
-    try { if (typeof initAudio === 'function') initAudio(); if (typeof audioCtx !== 'undefined' && audioCtx && audioCtx.state !== 'running') audioCtx.resume().catch(()=>{}); if (musicOn) startMusic(); } catch (e) {}
-    if (playMode === 'demo') {
-      if (demoBal < amount) { toast('Insufficient demo balance. Tap Refill $1000.', 'warn'); return; }
-      demoBal = +fmt(demoBal - amount);
-      saveDemo(); applyBalanceUI();
-
-      // Join shared Demo Room on server if reachable so 2 phones in Demo Mode also match together!
-      let joinedServerDemo = false;
-      if (API) {
-        try {
-          const r = await fetch(API + '/api/match/demo_join', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              uid: getMyUidStr(),
-              mode: raceModeCars,
-              car: selectedPlayerTheme,
-              amount: amount
-            })
-          });
-          const dj = await r.json();
-          if (dj && dj.ok && dj.result) {
-            pendingBet = Object.assign({ demo: true }, dj.result);
-            designatedWinnerId = pendingBet.winner;
-            raceCount++;
-            startMatchmakingUI(dj.result.room);
-            joinedServerDemo = true;
-          }
-        } catch (e) {}
-      }
-      if (!joinedServerDemo) {
-        // nothing is decided here any more: the payout is settled from the real finish order
-        pendingBet = { bet_id: 'demo-' + Date.now(), winner: null, payout: 0, amount, demo: true };
-        raceCount++;
-        startMatchmakingUI(null);
-      }
+    if (amount < minBet || amount > maxBet) { toast(`Bet must be ${fmtUs(minBet)}–${fmtUs(maxBet)} USDT`, 'warn'); return; }
+    if (balanceUsdt + 1e-9 < amount) {
+      toast('Insufficient balance. Transfer USDT to your Money Racer wallet.', 'warn');
+      try { MR.buzz('err'); } catch (e) {}
+      if (MR.embedded) setTimeout(openTransfer, 350);
       return;
     }
-
-    // LIVE MODE
-    if (!online) { toast('Server offline — switch to Demo or retry.', 'error'); refresh(true); return; }
+    try { if (typeof initAudio === 'function') initAudio(); if (typeof audioCtx !== 'undefined' && audioCtx && audioCtx.state !== 'running') audioCtx.resume().catch(()=>{}); if (musicOn) startMusic(); } catch (e) {}
     busy = true;
     try {
-      const j = await api('/api/bet', { amount, mode: raceModeCars, car: selectedPlayerTheme, drive_type: isAutoBetMode ? 'auto' : 'manual' });
-      pendingBet = Object.assign({ demo: false }, j.result);
-      state = j; applyBalanceUI();
-      designatedWinnerId = pendingBet.winner;
+      const j = await MR.call('racer.bet', { amount, cars: raceModeCars, car: selectedPlayerTheme, field: raceField(), drive: isAutoBetMode ? 'auto' : 'manual', len: RACE_DURATION_SEC });
+      pendingBet = j;
+      state = Object.assign(state || {}, { balance: j.balance });
+      applyBalanceUI();
       raceCount++;
-      startMatchmakingUI(j.result && j.result.room);
+      MR.lock(true);           // PLAY: scroll to the top and freeze the page until the result is shown
+      startMatchmakingUI(j);
     } catch (e) {
       toast(e.message || 'Bet failed', 'error');
-      if (e.offline) setOffline(true, e.message);
+      if (/insufficient/i.test(e.message || '') && MR.embedded) setTimeout(openTransfer, 350);
     } finally { busy = false; }
   };
 
-  function savePendingDemoBet(pb) {
-    if (!pb || !pb.demo) return;
-    try {
-      localStorage.setItem('tr_pending_demo_bet', JSON.stringify({
-        bet_id: pb.bet_id,
-        payout: +pb.amount || 0, // a demo race that never reached the finish gives the stake back
-        amount: +pb.amount || 0,
-        winner: pb.winner || 'bot1',
-        created_at: Date.now()
-      }));
-    } catch (e) {}
-  }
-
-  function clearPendingDemoBet() {
-    try { localStorage.removeItem('tr_pending_demo_bet'); } catch (e) {}
-  }
-
-  function settleOrphanedDemoBetOnBoot() {
-    try {
-      const raw = localStorage.getItem('tr_pending_demo_bet');
-      if (!raw) return;
-      localStorage.removeItem('tr_pending_demo_bet');
-      const saved = JSON.parse(raw);
-      if (saved && saved.payout > 0) {
-        demoBal = +fmt(demoBal + (+saved.payout));
-        saveDemo();
-        applyBalanceUI();
-        setTimeout(() => toast(`Previous background race settled: +${fmt(saved.payout)} Demo USDT!`, 'success'), 400);
-      }
-    } catch (e) {}
-  }
-
-  function startMatchmakingUI(roomObj) {
+  function startMatchmakingUI(bet) {
     cameraShake = 0;
     if (musicOn) startMusic();
-    if (pendingBet && pendingBet.demo) savePendingDemoBet(pendingBet);
     lastSimWallMs = Date.now();
-    rollOppIds(); lastBetNo = 0; if (isAutoBetMode) { betNoCounter++; lastBetNo = betNoCounter; lsSetSafe('tr_betid_no', String(betNoCounter)); }
+    rollOppIds();
+    if (bet && bet.no) { betNoCounter = bet.no; lastBetNo = bet.no; raceIdCounter = bet.no; }
     gameState = 'MATCHMAKING'; (window._trSyncRaceId || Function.prototype)();
-    const initRem = (roomObj && typeof roomObj.remaining_sec === 'number') ? Math.max(1.0, +roomObj.remaining_sec) : 10.0;
+    const initRem = 10.0;
     matchmakingTimer = initRem;
     lastMatchmakingSecInt = Math.ceil(initRem) + 1;
-    if (roomObj) {
-      if (roomObj.room_id) {
-        try { generateTrackObjects(roomObj.room_id); } catch (e) {}
-      }
-      applyRoomSnapshot(roomObj);
-      startRoomPolling(roomObj.room_id);
-    } else {
-      window._trActiveRoom = null;
-      window._trRoomJoinedCount = 1;
-      syncCarsAndLabelsWithRoom();
-    }
+    window._trActiveRoom = null;
+    window._trRoomJoinedCount = 1;
+    syncCarsAndLabelsWithRoom();
     updateWeatherButtonLabel && updateWeatherButtonLabel();
     updateTopPositionBanner && updateTopPositionBanner();
     sfxMatchmakingTick && sfxMatchmakingTick(Math.ceil(initRem));
@@ -13345,536 +13139,49 @@ window.dispatchEvent(new Event('tr-three'));
     if (circle) circle.classList.remove('hidden');
   }
 
-  // When race finishes, settle demo payout / reveal live bet
+  // When the race finishes: settle the bet from the real finish order, then show the result
   const _showResult = showRaceResultModal;
   showRaceResultModal = async function (rank, sorted) {
     stopRoomPolling();
-    // test-only: _trForceWin = true (win) or 'lose' (loss), honoured ONLY for a demo/offline bet (never live)
-    if (window._trForceWin && pendingBet && pendingBet.demo) {
+    // test-only: _trForceWin = true (win) or 'lose' (loss), honoured ONLY in the Demo account
+    if (window._trForceWin && playMode === 'demo') {
       const me = sorted.find(c => c.isPlayer);
       if (me) sorted = window._trForceWin === 'lose' ? sorted.filter(c => c !== me).concat([me]) : [me].concat(sorted.filter(c => c !== me));
     }
-    // v17 money: one idempotent credit per race (key = bet id, else race counter)
-    const _raceKey = (pendingBet && pendingBet.bet_id) ? String(pendingBet.bet_id) : ('race-' + raceIdCounter);
-    const _alreadyCredited = creditedRaces.has(_raceKey);
-    creditedRaces.add(_raceKey);
+    const _raceKey = (pendingBet && pendingBet.betId) ? String(pendingBet.betId) : ('race-' + raceIdCounter);
+    creditedRaces.add(_raceKey); // the wallet is credited by racer.settle, never by the old local counter
     currentRaceCreditKey = _raceKey;
-    // Honest result: `sorted` is the order the cars really crossed the line. A winner that was pre-assigned
-    // by a bet or room reply never reorders it, and the demo payout is worked out from this order.
     rank = sorted.findIndex(c => c.isPlayer) + 1;
-    if (window._trRaceDbg) { window._trRaceDbg.order = sorted.map(c => c.id); window._trRaceDbg.z = sorted.map(c => Math.round(c.z)); }
+    if (window._trRaceDbg) { window._trRaceDbg.order = sorted.map(c => c.id); window._trRaceDbg.z = sorted.map(c => Math.round(c.z)); window._trRaceDbg.target = pendingBet && pendingBet.target; }
     if (pendingBet) {
-      pendingBet.winner = sorted[0] && sorted[0].id;
-      if (pendingBet.demo) {
-        clearPendingDemoBet();
-        const stake = +pendingBet.amount || +currentBet || 0;
-        pendingBet.payout = rank === 1 ? +fmt(stake * raceOdds()) : 0;
-        if (pendingBet.payout > 0 && !_alreadyCredited) {
-          demoBal = +fmt(demoBal + pendingBet.payout);
-          saveDemo();
-          applyBalanceUI();
-        }
-      } else if (!pendingBet.demo && pendingBet.bet_id && !_alreadyCredited) {
-        try { const j = await api('/api/race/result', { bet_id: pendingBet.bet_id }); state = j; applyBalanceUI(); } catch (e) {}
-      }
+      try {
+        const r = await MR.call('racer.settle', { betId: pendingBet.betId, winner: sorted[0] && sorted[0].themeKey, rank, fin: Math.max(0, RACE_DURATION_SEC - timeRemaining) });
+        state = Object.assign(state || {}, { balance: r.balance });
+      } catch (e) { toast(e.message || 'Could not settle the bet', 'error'); }
     }
-    const wasLive = pendingBet && !pendingBet.demo;
     if (_showResult) _showResult(rank, sorted);
-    if (wasLive ? state : true) applyBalanceUI(); // demo: show the settled demo balance, credited once
+    applyBalanceUI();
     pendingBet = null;
     window._trActiveRoom = null;
+    MR.lock(false);
+    try { MR.buzz(rank === 1 ? 'win' : 'loss'); } catch (e) {}
   };
 
-  // Intercept invest / claim / withdraw / deposit
-  document.addEventListener('click', async (ev) => {
-    const inv = ev.target.closest && ev.target.closest('#screenInvest .invest-now');
-    if (inv) {
-      if (playMode === 'demo') {
-        const cost = parseFloat(inv.dataset.cost || '10');
-        if (demoBal < cost) { ev.stopImmediatePropagation(); toast('Insufficient demo balance', 'warn'); return; }
-        return;
-      }
-      ev.preventDefault(); ev.stopImmediatePropagation();
-      if (busy) return;
-      busy = true;
-      try {
-        const j = await api('/api/invest', { plan: inv.dataset.plan });
-        state = j; applyBalanceUI(); syncInvestFromState();
-        $('#tabMyInvestmentsBtn') && $('#tabMyInvestmentsBtn').click();
-      } catch (e) { toast(e.message, 'error'); }
-      finally { busy = false; }
-      return;
-    }
-    const claim = ev.target.closest && ev.target.closest('.claim-daily-btn');
-    if (claim && playMode === 'live') {
-      ev.preventDefault(); ev.stopImmediatePropagation();
-      try {
-        const j = await api('/api/invest/claim', { id: parseInt(claim.dataset.id, 10) });
-        state = j; applyBalanceUI(); syncInvestFromState();
-        toast('Claimed +' + fmt(j.result.claimed) + ' USDT', 'success');
-      } catch (e) { toast(e.message, 'error'); }
-    }
-  }, true);
-
-  // ---- Official USDT SVG + ISO 18004 Scannable QR Generator + Exchange-Grade Deposit / Withdraw Modals ----
+  // ---- Wallet: Transfer + (NovaTrade Transfer sheet into the Money Racer wallet) ----
   const OFFICIAL_USDT_SVG = `<svg width="20" height="20" viewBox="0 0 32 32" fill="none" style="flex-shrink:0;vertical-align:middle;"><circle cx="16" cy="16" r="16" fill="#26A17B"/><path fill="#ffffff" d="M17.922 17.383v-.002c-.11.008-.677.042-1.942.042-1.01 0-1.721-.03-1.971-.042v.003c-3.888-.171-6.79-.848-6.79-1.658 0-.809 2.902-1.486 6.79-1.66v2.644c.254.018.982.061 1.988.061 1.207 0 1.812-.05 1.925-.06v-2.643c3.88.173 6.775.85 6.775 1.658 0 .81-2.895 1.485-6.775 1.657m0-3.59v-2.366h5.414V7.819H8.595v3.608h5.414v2.365c-4.4.202-7.709 1.074-7.709 2.118 0 1.044 3.309 1.915 7.709 2.118v7.582h3.913v-7.584c4.393-.202 7.694-1.073 7.694-2.116 0-1.043-3.301-1.914-7.694-2.117"/></svg>`;
 
-  const BNB_CHAIN_SVG = `<svg width="13" height="13" viewBox="0 0 32 32" fill="none" style="vertical-align:-2px;flex-shrink:0;"><circle cx="16" cy="16" r="16" fill="#F3BA2F"/><path fill="#ffffff" d="M12.116 14.404L16 10.52l3.886 3.886 2.26-2.26L16 6l-6.144 6.144 2.26 2.26zM6 16l2.26-2.26L10.52 16l-2.26 2.26L6 16zm6.116 1.596L16 21.48l3.886-3.886 2.26 2.259L16 26l-6.144-6.144-.003-.003 2.263-2.257zM21.48 16l2.26-2.26L26 16l-2.26 2.26L21.48 16zm-3.188-.002h.002L16 13.706 14.305 15.4l-.195.195-.404.405.004.003-.004.002L16 18.295l2.293-2.293.001-.004-.002-.001z"/></svg>`;
-
-  const COPY_ICON_SVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" style="flex-shrink:0;"><rect x="9" y="9" width="11" height="11" rx="2.2" stroke="currentColor" stroke-width="2.2"/><path d="M5 15H4C2.9 15 2 14.1 2 13V4C2 2.9 2.9 2 4 2H13C14.1 2 15 2.9 15 4V5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>`;
-
-  const SCAN_ICON_SVG = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" style="flex-shrink:0;"><path d="M21 12a9 9 0 1 1-2.64-6.36" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"/><path d="M21 3v6h-6" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-
-  const SEND_ICON_SVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="flex-shrink:0;"><path d="M22 2L11 13" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-
-  // Standards-compliant ISO/IEC 18004 QR Version 3-M (29x29) SVG Generator for 42-char 0x addresses
-  function buildQrSvg(text, sizePx) {
-    sizePx = sizePx || 132;
-    const raw = String(text || '0xe845915Ba96417f0124c5159927Ba3538Ba42519').slice(0, 42);
-    const bytes = [];
-    for (let i = 0; i < raw.length; i++) bytes.push(raw.charCodeAt(i) & 0xff);
-    const bits = [0, 1, 0, 0];
-    for (let i = 7; i >= 0; i--) bits.push((bytes.length >> i) & 1);
-    for (let b of bytes) for (let i = 7; i >= 0; i--) bits.push((b >> i) & 1);
-    for (let i = 0; i < 4 && bits.length < 352; i++) bits.push(0);
-    while (bits.length % 8 !== 0) bits.push(0);
-    const data = [];
-    for (let i = 0; i < bits.length; i += 8) {
-      let v = 0;
-      for (let k = 0; k < 8; k++) v = (v << 1) | bits[i + k];
-      data.push(v);
-    }
-    const pad = [0xec, 0x11];
-    while (data.length < 44) data.push(pad[data.length % 2]);
-
-    function gmul(x, y) {
-      let r = 0;
-      for (let i = 0; i < 8; i++) if ((y >> (7 - i)) & 1) r ^= x << (7 - i);
-      for (let i = 14; i >= 8; i--) if ((r >> i) & 1) r ^= 0x11d << (i - 8);
-      return r;
-    }
-    let gen = [1], root = 1;
-    for (let d = 0; d < 26; d++) {
-      const ng = new Array(gen.length + 1).fill(0);
-      for (let i = 0; i < gen.length; i++) {
-        ng[i] ^= gen[i];
-        ng[i + 1] ^= gmul(gen[i], root);
-      }
-      gen = ng;
-      root = gmul(root, 2);
-    }
-    const msg = data.slice().concat(new Array(26).fill(0));
-    for (let i = 0; i < 44; i++) {
-      const c = msg[i];
-      if (c !== 0) for (let j = 1; j < gen.length; j++) msg[i + j] ^= gmul(gen[j], c);
-    }
-    const codewords = data.concat(msg.slice(44));
-    const N = 29;
-    const grid = Array.from({ length: N }, () => new Array(N).fill(0));
-    const isFn = Array.from({ length: N }, () => new Array(N).fill(false));
-    function setFn(r, c, val) { grid[r][c] = val ? 1 : 0; isFn[r][c] = true; }
-    function finder(R, C) {
-      for (let dr = -1; dr <= 7; dr++) {
-        for (let dc = -1; dc <= 7; dc++) {
-          const rr = R + dr, cc = C + dc;
-          if (rr >= 0 && rr < N && cc >= 0 && cc < N) {
-            const outer = (dr >= 0 && dr <= 6 && (dc === 0 || dc === 6 || dr === 0 || dr === 6));
-            const inner = (dr >= 2 && dr <= 4 && dc >= 2 && dc <= 4);
-            setFn(rr, cc, outer || inner);
-          }
-        }
-      }
-    }
-    finder(0, 0); finder(0, N - 7); finder(N - 7, 0);
-    for (let dr = -2; dr <= 2; dr++) {
-      for (let dc = -2; dc <= 2; dc++) {
-        const m = Math.max(Math.abs(dr), Math.abs(dc));
-        setFn(22 + dr, 22 + dc, m === 0 || m === 2);
-      }
-    }
-    for (let i = 8; i < N - 8; i++) {
-      setFn(6, i, i % 2 === 0);
-      setFn(i, 6, i % 2 === 0);
-    }
-    setFn(N - 8, 8, true);
-    for (let i = 0; i < 9; i++) {
-      if (!isFn[8][i]) setFn(8, i, false);
-      if (!isFn[i][8]) setFn(i, 8, false);
-    }
-    for (let i = 0; i < 8; i++) {
-      if (!isFn[8][N - 1 - i]) setFn(8, N - 1 - i, false);
-      if (!isFn[N - 1 - i][8]) setFn(N - 1 - i, 8, false);
-    }
-    const allBits = [];
-    for (let cw of codewords) for (let i = 7; i >= 0; i--) allBits.push((cw >> i) & 1);
-    for (let i = 0; i < 7; i++) allBits.push(0);
-    let bi = 0, up = true;
-    for (let col = N - 1; col > 0; col -= 2) {
-      if (col === 6) col--;
-      for (let step = 0; step < N; step++) {
-        const r = up ? (N - 1 - step) : step;
-        for (let dc = 0; dc >= -1; dc--) {
-          const c = col + dc;
-          if (!isFn[r][c]) {
-            let bval = bi < allBits.length ? allBits[bi++] : 0;
-            if ((r + c) % 2 === 0) bval ^= 1;
-            grid[r][c] = bval;
-          }
-        }
-      }
-      up = !up;
-    }
-    const fmtBits = 0x5412;
-    const c1 = [[8,0],[8,1],[8,2],[8,3],[8,4],[8,5],[8,7],[8,8],[7,8],[5,8],[4,8],[3,8],[2,8],[1,8],[0,8]];
-    const c2 = [[N-1,8],[N-2,8],[N-3,8],[N-4,8],[N-5,8],[N-6,8],[N-7,8],[8,N-8],[8,N-7],[8,N-6],[8,N-5],[8,N-4],[8,N-3],[8,N-2],[8,N-1]];
-    for (let i = 0; i < 15; i++) {
-      const bit = (fmtBits >> (14 - i)) & 1;
-      grid[c1[i][0]][c1[i][1]] = bit;
-      grid[c2[i][0]][c2[i][1]] = bit;
-    }
-    let pathD = '';
-    for (let r = 0; r < N; r++) {
-      for (let c = 0; c < N; c++) {
-        if (grid[r][c]) pathD += `M${c + 2},${r + 2}h1v1h-1z`;
-      }
-    }
-    return `<svg width="${sizePx}" height="${sizePx}" viewBox="0 0 33 33" shape-rendering="crispEdges" style="display:block;border-radius:8px;background:#ffffff;">
-      <rect width="33" height="33" fill="#ffffff"/>
-      <path d="${pathD}" fill="#050811"/>
-      <circle cx="16.5" cy="16.5" r="3.6" fill="#ffffff"/>
-      <circle cx="16.5" cy="16.5" r="3.0" fill="#26A17B"/>
-      <path d="M15.1 15.1h2.8v0.65h-1.05v2.1h-0.7v-2.1h-1.05z" fill="#ffffff"/>
-    </svg>`;
+  function openTransfer() {
+    if (gameState !== 'IDLE') { toast('Transfers are available between races', 'warn'); return; }
+    MR.transfer(() => { refresh(); if (!MR.embedded) toast('Demo balance reset to 10,000 USDT', 'success'); });
   }
-
-  let _depPollTimer = null;
-  function stopDepPoll() { if (_depPollTimer) { clearInterval(_depPollTimer); _depPollTimer = null; } }
-
-  try {
-    new MutationObserver(() => { if (!resultModalBackdrop.classList.contains('open') && resultModalBackdrop.classList.contains('tr-dep-mode')) resultModalBackdrop.classList.remove('tr-dep-mode'); })
-      .observe(resultModalBackdrop, { attributes: true, attributeFilter: ['class'] });
-  } catch (e) {}
-
-  async function triggerDepositCheck(silent) {
-    if (!online || playMode !== 'live') {
-      if (!silent && playMode === 'demo') toast('Switch to LIVE mode to scan real BSC blockchain deposits!', 'info');
-      return;
-    }
-    const statusBox = $('#trDepLiveStatus');
-    const btn = $('#trCheckDepBtn');
-    if (btn && !silent) { btn.disabled = true; btn.innerHTML = `${SCAN_ICON_SVG} <span>Scanning BSC…</span>`; }
-    try {
-      const j = await api('/api/deposit/check', {});
-      state = j; applyBalanceUI();
-      if (j && j.deposit_address) {
-        cacheDepositAddress(j.deposit_address);
-        const addrEl = $('#trDepAddrText');
-        const qrEl = $('#trDepQrHolder');
-        if (addrEl && addrEl.textContent !== j.deposit_address) {
-          addrEl.textContent = j.deposit_address;
-          if (qrEl) qrEl.innerHTML = buildQrSvg(j.deposit_address, 128);
-        }
-      }
-      const res = j.result || {};
-      const deps = j.deposits || [];
-      const latest = deps[0];
-      try { if (res.status === 'completed' || (latest && latest.status === 'completed')) uiHistRecordTx({ key: 'dep:' + ((latest || res).tx_hash || (latest || res).id || ''), type: 'Deposit', amt: +((latest || res).amount || 0), status: 'Completed' }); } catch (e) {}
-      if (statusBox) {
-        if (res.status === 'completed' || (latest && latest.status === 'completed' && (Date.now()/1000 - latest.created_at) < 120)) {
-          const d = latest || res;
-          const txh = d.tx_hash || '';
-          statusBox.innerHTML = `<div style="background:rgba(40,224,102,0.14);border:1px solid #28e066;border-radius:9px;padding:7px 9px;margin-top:7px;text-align:left;font-size:11px;color:#e2e8f0;">
-            <b style="color:#28e066;">✅ Deposit Credited! (+${fmt(d.amount || 0)} USDT)</b><br/>
-            ${txh ? `<a href="https://bscscan.com/tx/${esc(txh)}" target="_blank" rel="noopener" style="color:#38bdf8;text-decoration:underline;font-size:10px;">🔗 View on BSCScan (${esc(txh.slice(0,10))}…)</a>` : ''}
-          </div>`;
-          if (!silent) toast('Deposit credited!', 'success');
-        } else if (res.status === 'confirming' || (latest && latest.status === 'confirming')) {
-          const d = (res.status === 'confirming') ? res : latest;
-          const txh = d.tx_hash || '';
-          statusBox.innerHTML = `<div style="background:rgba(245,158,11,0.14);border:1px solid #f59e0b;border-radius:9px;padding:7px 9px;margin-top:7px;text-align:left;font-size:11px;color:#e2e8f0;">
-            <b style="color:#fbbf24;">⏳ Confirming (${d.confirmations || 1}/${d.required || 3} blocks)…</b><br/>
-            <span>Amount: <b>${fmt(d.amount || 0)} USDT</b> — auto-credits in ~6s!</span>
-          </div>`;
-          if (!silent) toast('Deposit detected! Confirming on BSC…', 'info');
-        } else if (!silent) {
-          statusBox.innerHTML = `<div style="font-size:10.5px;color:#94a3b8;margin-top:6px;text-align:center;">No new transfer detected in the last 45s. Auto-monitoring every 6s…</div>`;
-        }
-      }
-    } catch (e) {
-      if (!silent) toast(e.message || 'Scan failed', 'error');
-    } finally {
-      if (btn && !silent) { btn.disabled = false; btn.innerHTML = `${SCAN_ICON_SVG} <span>Check Payment</span>`; }
-    }
-  }
-
-  function openLiveDeposit() {
-    stopDepPoll();
-    const addr = getResolvedDepositAddress();
-    const minD = (state && state.settings && state.settings.min_deposit) || 0.5;
-    modalSvgHolder.innerHTML = OFFICIAL_USDT_SVG.replace('width="20" height="20"', 'width="40" height="40"');
-    modalTitle.textContent = 'DEPOSIT USDT';
-    modalSubtitle.textContent = '';
-    resultModalBackdrop.classList.add('tr-dep-mode');
-
-    const lastDep = ((state && state.deposits) || [])[0];
-    const depWhen = (d) => { try { const t = new Date((d.created_at || 0) * 1000); return t.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) + ', ' + t.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }); } catch (e) { return ''; } };
-    const CLOCK_SVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#fff" stroke-width="2"/><path d="M12 7v5l3 2" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-    const recentHtml = lastDep
-      ? `<div class="trd-recent-row">
-           ${OFFICIAL_USDT_SVG.replace('width="20" height="20"', 'width="20" height="20"')}
-           <b class="trd-recent-amt">+${fmt(lastDep.amount || 0)} USDT</b>
-           <i class="trd-sep"></i>
-           <span class="trd-recent-time">${CLOCK_SVG}<span>${esc(depWhen(lastDep))}</span></span>
-           ${lastDep.status === 'confirming'
-             ? `<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#f59e0b"/><path d="M12 7v5l3 2" stroke="#fff" stroke-width="2.200" stroke-linecap="round"/></svg>`
-             : `<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" fill="#22c55e"/><path d="M7.500 12.300l3 3 6-6.300" stroke="#fff" stroke-width="2.400" stroke-linecap="round" stroke-linejoin="round"/></svg>`}
-         </div>`
-      : `<div class="trd-recent-row trd-empty">No deposits yet</div>`;
-
-    modalBodyContent.innerHTML = `
-      <div class="trd-info">
-        <div><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M13.500 2L5 13.500h5.500L9.500 22 19 10h-6z" fill="#ffc928"/></svg><span>~9s<br/>Credit</span></div>
-        <i class="trd-sep"></i>
-        <div>${CLOCK_SVG.replace('width="14" height="14"', 'width="17" height="17"')}<span>Max Time to<br/>Receive: 1 Min</span></div>
-        <i class="trd-sep"></i>
-        <div><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><ellipse cx="12" cy="17.500" rx="8" ry="3.200" fill="#f2a90f"/><ellipse cx="12" cy="12" rx="8" ry="3.200" fill="#ffc928" stroke="#0b1424" stroke-width="1"/><ellipse cx="12" cy="6.500" rx="8" ry="3.200" fill="#ffd84a" stroke="#0b1424" stroke-width="1"/></svg><span>Minimum<br/>Amount: <b>${minD} USDT</b></span></div>
-      </div>
-
-      <div class="trd-chain">
-        <div>${BNB_CHAIN_SVG}<span>BNB Smart Chain</span></div>
-        <i class="trd-sep"></i>
-        <div>Network: <b>BEP20</b></div>
-      </div>
-
-      <div style="display:flex;justify-content:center;margin:10px 0;">
-        <div id="trDepQrHolder" class="trd-qr">${buildQrSvg(addr, 128)}</div>
-      </div>
-
-      <div id="trDepAddrBox" class="trd-addr" title="Tap to copy address">
-        <span id="trDepAddrText">${esc(addr)}</span>
-        <button type="button" id="trInlineCopyBtn">${COPY_ICON_SVG}</button>
-      </div>
-
-      <button type="button" class="trd-check" id="trCheckDepBtn">${SCAN_ICON_SVG} <span>Check Payment</span></button>
-
-      <div id="trDepLiveStatus"></div>
-      <div class="trd-recent-hdr"><svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M4 12a8 8 0 1 0 2.600-5.900M4 4.500v4h4" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 8v4.300l2.700 1.600" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg><span>Recent Deposit</span></div>
-      ${recentHtml}`;
-
-    modalActionBtn.textContent = 'CLOSE';
-    resultModalBackdrop.classList.add('open');
-    showBack();
-
-    const doCopy = (e) => {
-      if (e) e.stopPropagation();
-      const curAddr = ($('#trDepAddrText') && $('#trDepAddrText').textContent) || addr;
-      navigator.clipboard.writeText(curAddr).then(() => {
-        toast('BEP20 deposit address copied!', 'success');
-        const ic = $('#trInlineCopyBtn');
-        if (ic) { ic.textContent = '✓'; setTimeout(() => { ic.innerHTML = COPY_ICON_SVG; }, 1400); }
-      }).catch(() => toast('Address selected', 'info'));
-    };
-    $('#trCopyAddr') && ($('#trCopyAddr').onclick = doCopy);
-    $('#trDepAddrBox') && ($('#trDepAddrBox').onclick = doCopy);
-    $('#trCheckDepBtn') && ($('#trCheckDepBtn').onclick = () => triggerDepositCheck(false));
-    $$('.tr-demo-topup-pill').forEach(b => {
-      b.onclick = () => {
-        const add = parseFloat(b.dataset.add || '100');
-        demoBal = +fmt(demoBal + add);
-        saveDemo(); applyBalanceUI();
-        toast(`+${add} Demo USDT added!`, 'success');
-      };
-    });
-
-    if ((!state || !state.deposit_address) && (playMode === 'live' || (TG && TG.initData))) {
-      refresh(true).then(() => {
-        if (state && state.deposit_address) {
-          cacheDepositAddress(state.deposit_address);
-          const addrEl = $('#trDepAddrText');
-          const qrEl = $('#trDepQrHolder');
-          if (addrEl) addrEl.textContent = state.deposit_address;
-          if (qrEl) qrEl.innerHTML = buildQrSvg(state.deposit_address, 128);
-        }
-      }).catch(() => {});
-    }
-    if (playMode === 'live') {
-      triggerDepositCheck(true);
-      _depPollTimer = setInterval(() => {
-        if (!resultModalBackdrop.classList.contains('open')) { stopDepPoll(); return; }
-        triggerDepositCheck(true);
-      }, 6000);
-    }
-  }
-
-  function openLiveWithdraw() {
-    stopDepPoll();
-    const avail = (state && isFinite(+state.balance)) ? Math.max(0, +state.balance) : 0; // always the LIVE balance, never demoBal
-    if (playMode === 'demo' && !state && API && !window._trWdTried) { window._trWdTried = true; refresh(true).then(() => { if (state && resultModalBackdrop.classList.contains('open') && modalTitle.textContent.indexOf('WITHDRAW') === 0) openLiveWithdraw(); }); }
-    const minW = (state && state.settings && +state.settings.min_withdraw) || 0.5;
-    const maxW = (state && state.settings && +state.settings.max_withdraw) || 0;
-    const maxLabel = maxW > 0 ? `${maxW} USDT` : 'No Limit';
-    modalSvgHolder.innerHTML = OFFICIAL_USDT_SVG.replace('width="20" height="20"', 'width="40" height="40"');
-    modalTitle.textContent = 'WITHDRAW USDT (BEP20)';
-    modalSubtitle.textContent = `Available: ${fmt(avail)} USDT · Min ${minW} USDT · Max ${maxLabel}`;
-    modalSubtitle.style.color = '#38bdf8';
-    modalBodyContent.innerHTML = `
-      <div style="text-align:left;">
-        <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(15,23,42,0.92);border:1px solid rgba(243,186,47,0.35);border-radius:9px;padding:6px 9px;margin-bottom:8px;">
-          <div style="display:flex;align-items:center;gap:5px;font-size:10.5px;font-weight:800;color:#f8fafc;">
-            ${BNB_CHAIN_SVG}
-            <span>Network: <b style="color:#facc15;">BNB Smart Chain (BEP20)</b></span>
-          </div>
-          <span style="color:#4ade80;font-size:9.5px;font-weight:900;">0 USDT Fee</span>
-        </div>
-
-        <label style="font-size:10px;font-weight:900;color:#94a3b8;display:flex;justify-content:space-between;margin-bottom:4px;letter-spacing:0.3px;">
-          <span>RECEIVING WALLET ADDRESS</span>
-          <span id="trWdAddrStatus" style="color:#64748b;">0x… (42 chars)</span>
-        </label>
-        <input class="tr-field" id="trWdAddr" placeholder="Paste 0x… BEP20 wallet address" autocomplete="off" spellcheck="false" style="font-family:'SFMono-Regular',Consolas,monospace;font-size:11px;" />
-
-        <label style="font-size:10px;font-weight:900;color:#94a3b8;display:flex;justify-content:space-between;margin:8px 0 4px;letter-spacing:0.3px;">
-          <span>WITHDRAWAL AMOUNT (USDT)</span>
-          <span style="color:#28e066;">Avail: ${fmt(avail)} USDT</span>
-        </label>
-        <div style="display:flex;gap:6px;align-items:stretch;">
-          <input class="tr-field" id="trWdAmt" type="number" step="0.01" min="${minW}" placeholder="Min ${minW} USDT" style="margin:0;flex:1;" />
-          <button type="button" class="tr-btn ghost" id="trWdMaxBtn" style="margin:0;width:auto;padding:0 13px;font-weight:900;color:#28e066;border-color:rgba(40,224,102,0.45);flex-shrink:0;">MAX</button>
-        </div>
-
-        <div style="background:rgba(15,23,42,0.85);border:1px solid rgba(148,163,184,0.18);border-radius:8px;padding:7px 9px;margin-top:8px;font-size:10px;color:#cbd5e1;display:flex;flex-direction:column;gap:3px;">
-          <div style="display:flex;justify-content:space-between;"><span>Network Fee:</span><b style="color:#4ade80;">0.00 USDT (Covered)</b></div>
-          <div style="display:flex;justify-content:space-between;"><span>Est. Arrival:</span><b style="color:#f8fafc;">Instant Auto-Pay (Max 12h)</b></div>
-          <div style="display:flex;justify-content:space-between;"><span>Receipt:</span><b style="color:#38bdf8;">Live BSCScan Tx Link via Bot</b></div>
-        </div>
-
-        <button type="button" class="tr-btn" id="trWdSend" style="margin-top:10px;width:100%;display:inline-flex;align-items:center;justify-content:center;gap:6px;">
-          ${SEND_ICON_SVG} <span>Submit USDT Withdrawal</span>
-        </button>
-      </div>`;
-    modalActionBtn.textContent = 'CLOSE';
-    resultModalBackdrop.classList.add('open');
-    showBack();
-    const addrInp = $('#trWdAddr');
-    const addrSt = $('#trWdAddrStatus');
-    const amtInp = $('#trWdAmt');
-    if (addrInp && addrSt) {
-      addrInp.addEventListener('input', () => {
-        const v = addrInp.value.trim();
-        if (!v) { addrSt.textContent = '0x… (42 chars)'; addrSt.style.color = '#64748b'; }
-        else if (/^0x[a-fA-F0-9]{40}$/.test(v)) { addrSt.textContent = '✓ Valid BEP20'; addrSt.style.color = '#28e066'; }
-        else { addrSt.textContent = '✗ Must be 0x + 40 hex'; addrSt.style.color = '#ef4444'; }
-      });
-    }
-    $('#trWdMaxBtn') && ($('#trWdMaxBtn').onclick = () => {
-      const cap = maxW > 0 ? Math.min(avail, maxW) : avail;
-      if (amtInp) amtInp.value = cap > 0 ? fmt(cap) : '';
-    });
-    $('#trWdSend').onclick = async () => {
-      if (playMode === 'demo') {
-        toast('Switch to LIVE mode to withdraw real USDT (BEP20)!', 'warn');
-        return;
-      }
-      const a = (addrInp ? addrInp.value.trim() : '');
-      const amt = parseFloat(amtInp ? amtInp.value : '0');
-      if (!/^0x[a-fA-F0-9]{40}$/.test(a)) { toast('Enter a valid USDT (BEP20) 0x address', 'error'); return; }
-      if (!isFinite(amt) || amt < minW) { toast(`Minimum withdrawal is ${minW} USDT`, 'warn'); return; }
-      if (amt > avail + 1e-6) { toast('Insufficient live balance', 'warn'); return; }
-      const btn = $('#trWdSend');
-      if (btn) { btn.disabled = true; btn.innerHTML = '<span>⏳ Submitting…</span>'; }
-      try {
-        const j = await api('/api/withdraw', { amount: amt, address: a });
-        state = j; applyBalanceUI();
-        try { uiHistRecordTx({ key: 'wd:' + j.result.withdrawal_id, type: 'Withdrawal', amt: -amt, status: 'Pending' }); } catch (e) {}
-        toast('Withdrawal #' + j.result.withdrawal_id + ' submitted!', 'success');
-        closeResultModal();
-      } catch (e) {
-        toast(e.message || 'Withdrawal failed', 'error');
-        if (btn) { btn.disabled = false; btn.innerHTML = `${SEND_ICON_SVG} <span>Submit USDT Withdrawal</span>`; }
-      }
-    };
-  }
-
-  // Hook deposit/withdraw buttons in BOTH Live and Demo modes so the upgraded BEP20 QR modal always opens!
   function rewireWalletButtons() {
-    ['quickTopupBtn', 'depositBtn', 'profileDepositBtn'].forEach(id => {
+    ['quickTopupBtn', 'depositBtn'].forEach(id => {
       const el = document.getElementById(id);
       if (!el) return;
-      el.addEventListener('click', (e) => {
-        e.stopImmediatePropagation();
-        openLiveDeposit();
-      }, true);
+      el.addEventListener('click', (e) => { e.stopImmediatePropagation(); openTransfer(); }, true);
     });
-    const wd = document.getElementById('profileWithdrawBtn');
-    if (wd) wd.addEventListener('click', (e) => {
-      e.stopImmediatePropagation();
-      openLiveWithdraw();
-    }, true);
-  }
-
-  // ---- Leaderboard: keep layout, real rows only, highlight me, auto-refresh ----
-  let lbCache = null;
-  async function fetchLeaderboard(force) {
-    if (playMode === 'demo') return { board: [], empty: true, demo: true };
-    if (!force && lbCache && Date.now() - lbCache.at < 60e3) return lbCache.data;
-    try {
-      const j = await api('/api/leaderboard');
-      lbCache = { at: Date.now(), data: j };
-      return j;
-    } catch (e) { return { board: [], empty: true, error: e.message }; }
-  }
-
-  function paintLeaderboard(extraLiveHtml) {
-    const me = state && state.user && state.user.id;
-    return fetchLeaderboard().then(data => {
-      const board = data.board || [];
-      let rows;
-      if (data.demo) {
-        rows = `<div style="padding:18px 10px;text-align:center;color:#94a3b8;font-size:12px;">
-          Leaderboard is available in <b style="color:#fff">Live</b> mode only.<br/>Switch to Live to see real racers.</div>`;
-      } else if (!board.length) {
-        rows = `<div style="padding:22px 12px;text-align:center;">
-          <div style="font-size:28px;margin-bottom:6px;">🏆</div>
-          <div style="font-weight:900;font-size:14px;color:#fff;">Be the first on the leaderboard!</div>
-          <div style="font-size:11px;color:#94a3b8;margin-top:4px;">Win races in Live mode to claim the top spot.</div></div>`;
-      } else {
-        // Ensure current user row is present
-        let list = board.slice();
-        const mine = list.find(r => r.user_id === me);
-        if (me && !mine && state) {
-          // fetch not in top — show as trailing highlighted row with rank "?"
-          list.push({ rank: '—', user_id: me, name: (state.user.first_name || 'You'), wins: 0, profit: 0, _me: true, _outside: true });
-        }
-        rows = list.map(r => {
-          const isMe = r.user_id === me;
-          const border = isMe ? '#28e066' : 'rgba(255,255,255,0.12)';
-          const name = isMe ? (r.name + ' (YOU)') : r.name;
-          return `<div style="display:flex;align-items:center;justify-content:space-between;background:${isMe ? 'rgba(40,224,102,0.12)' : 'rgba(8,14,26,0.92)'};border:1px solid ${border};border-radius:8px;padding:6px 8px;">
-            <div style="display:flex;align-items:center;gap:6px;min-width:0;">
-              <span style="color:${r.rank <= 3 ? '#fbbf24' : '#94a3b8'};font-weight:900;width:22px;">#${r.rank}</span>
-              <b style="color:${isMe ? '#28e066' : '#fff'};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(name)}</b>
-            </div>
-            <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
-              <span style="color:#94a3b8;font-size:9px;">${r.wins}W</span>
-              <b style="color:#28e066;">+${fmt(r.profit)} USDT</b>
-            </div>
-          </div>`;
-        }).join('');
-      }
-      const refreshNote = data.refreshes_in != null
-        ? `<div style="font-size:9px;color:#64748b;margin-top:6px;text-align:center;">Updates every hour · next refresh in ${Math.ceil((data.refreshes_in || 0) / 60)} min</div>`
-        : '';
-      modalSvgHolder.innerHTML = (typeof TROPHY_SVG !== 'undefined') ? TROPHY_SVG : '🏆';
-      modalTitle.textContent = 'CHAMPIONSHIP LEADERBOARD';
-      modalSubtitle.textContent = playMode === 'live' ? `Live standings · Race ${padNo(raceIdCounter)}` : 'Switch to Live for real rankings';
-      modalSubtitle.style.color = '#fbbf24';
-      modalBodyContent.innerHTML = (extraLiveHtml || '') +
-        `<div style="text-align:left;font-size:9.5px;font-weight:900;color:#fbbf24;margin-bottom:4px;letter-spacing:0.4px;">🏆 TOP EARNERS (REAL)</div>
-         <div style="display:flex;flex-direction:column;gap:4px;max-height:220px;overflow-y:auto;margin-bottom:6px;">${rows}</div>${refreshNote}`;
-      modalActionBtn.textContent = 'CLOSE';
-      resultModalBackdrop.classList.add('open');
-      showBack();
-    });
+    const t = $('#depositBtnTxt'); if (t) t.textContent = MR.embedded ? 'TRANSFER' : 'RESET';
+    const d = $('#depositBtn'); if (d) d.title = MR.embedded ? 'Transfer USDT to / from your Money Racer wallet' : 'Reset the demo balance to 10,000 USDT';
   }
 
   // ---- Theme ----
@@ -14129,302 +13436,40 @@ window.dispatchEvent(new Event('tr-three'));
     }
   }
 
-  // ---- Settings panel & Wallet Card Mode Switch in Profile ----
-  function injectSettings() {
-    const body = $('.profile-body') || $('#screenProfile');
-    if (!body || $('#trSettings')) return;
-    const UBI = window.__ubI || (() => '');
-
-    // Also inject compact Live/Demo + Refill bar into Profile .wallet-card top-right
-    const wallet = body.querySelector('.wallet-card');
-    if (wallet && !$('#trWalletModeBar')) {
-      const wBar = document.createElement('div');
-      wBar.id = 'trWalletModeBar';
-      wBar.className = 'tr-wallet-mode-bar';
-      wBar.innerHTML = `
-        <div class="tr-wmode-pills">
-          <button type="button" class="tr-wmode-btn" data-wm="demo">DEMO</button>
-          <button type="button" class="tr-wmode-btn" data-wm="live">LIVE</button>
-        </div>
-        <button type="button" class="tr-wrefill-btn" id="trWalletRefillBtn" title="Refill Demo $1000">${UBI('refresh')} $1000</button>
-      `;
-      wallet.prepend(wBar);
-      wBar.querySelectorAll('[data-wm]').forEach(btn => {
-        btn.onclick = (e) => { e.stopPropagation(); if (btn.dataset.wm !== playMode) setMode(btn.dataset.wm); };
-      });
-      const wRefill = $('#trWalletRefillBtn');
-      if (wRefill) wRefill.onclick = (e) => {
-        e.stopPropagation();
-        demoBal = 1000; saveDemo(); applyBalanceUI();
-        toast('Demo balance refilled to 1000 USDT', 'ok');
-      };
-    }
-
-    const card = document.createElement('section');
-    card.id = 'trSettings'; card.className = 'tr-settings';
-    card.innerHTML = `
-      <h4>${UBI('sliders')} SETTINGS &amp; AUDIO</h4>
-      <div class="tr-set-row"><span>${UBI('gamepad')} Play Mode</span>
-        <span class="tr-set-pills">
-          <button type="button" class="tr-btn ghost" id="trModeDemo">DEMO</button>
-          <button type="button" class="tr-btn" id="trModeLive">LIVE</button>
-        </span></div>
-      <div class="tr-set-row"><span>${UBI('music')} Background Music</span><button type="button" class="tr-switch" id="trMusicSw" aria-label="Toggle music"></button></div>
-      <div class="tr-set-row"><span>${UBI('sound')} Sound Effects</span><button type="button" class="tr-switch" id="trSfxSw" aria-label="Toggle SFX"></button></div>
-      <div class="tr-set-row" id="trRefillRow"><span>${UBI('coin')} Demo Balance</span>
-        <button type="button" class="tr-btn green" id="trRefillBtn">${UBI('refresh')} Refill $1000</button></div>
-      <div class="tr-set-row"><span>${UBI('globe')} Language</span><span style="color:#94a3b8;font-size:11.5px;font-weight:700;">English</span></div>`;
-    if (wallet) wallet.after(card); else body.prepend(card);
-
-    $('#trModeDemo').onclick = () => setMode('demo');
-    $('#trModeLive').onclick = () => setMode('live');
-    $('#trMusicSw').classList.toggle('on', musicOn);
-    $('#trSfxSw').classList.toggle('on', sfxOn);
-    $('#trMusicSw').onclick = () => {
-      musicOn = !musicOn; try { localStorage.setItem('tr_music', musicOn ? '1' : '0'); } catch (e) {}
-      $('#trMusicSw').classList.toggle('on', musicOn);
-      if (musicOn) startMusic(); else stopMusic();
-    };
-    $('#trSfxSw').onclick = () => {
-      sfxOn = !sfxOn; soundEnabled = sfxOn;
-      try { localStorage.setItem('tr_sfx', sfxOn ? '1' : '0'); } catch (e) {}
-      $('#trSfxSw').classList.toggle('on', sfxOn);
-    };
-    $('#trRefillBtn').onclick = () => {
-      demoBal = 1000; saveDemo(); applyBalanceUI();
-      toast('Demo balance refilled to 1000 USDT', 'ok');
-    };
-    paintMode();
-  }
-
-  // Compact Live/Demo switcher INSIDE .balance-box
+  // ---- Account pill (D / R) inside the balance box: opens NovaTrade's Demo / Real account switch ----
   function injectModePill() {
     const balBox = $('.top-header .balance-box');
     if (!balBox || $('#trModeChev')) return;
-    // Remove any old external .tr-mode-wrap if present
-    $$('.top-header > .tr-mode-wrap').forEach(el => el.remove());
-
-    const oldTag = $('#trBalModeTag');
-    if (oldTag) oldTag.remove();
-
     const chevBtn = document.createElement('button');
     chevBtn.type = 'button';
     chevBtn.id = 'trModeChev';
     chevBtn.className = 'tr-chev demo';
-    chevBtn.setAttribute('aria-label', 'Switch Live or Demo mode');
-    chevBtn.innerHTML = `<span id="trModeChevTxt">D</span><svg style="display:none" width="8" height="8" viewBox="0 0 10 10" fill="none"><path d="M2 3.5L5 6.5L8 3.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    chevBtn.setAttribute('aria-label', 'Account mode: tap to switch Demo or Real');
+    chevBtn.innerHTML = `<span id="trModeChevTxt">D</span>`;
     balBox.appendChild(chevBtn);
-
-    const menu = document.createElement('div');
-    menu.className = 'tr-mode-menu';
-    menu.id = 'trModeMenu';
-    menu.innerHTML = `
-      <button type="button" data-m="demo"><span>🟡 Demo Mode</span><small>Practice</small></button>
-      <button type="button" data-m="live"><span>🟢 Live USDT</span><small>Real Play</small></button>
-      <button type="button" id="trMenuRefillBtn" class="tr-menu-refill">↻ Refill $1000 Demo</button>
-    `;
-    balBox.appendChild(menu);
-
-    const toggleMenu = (e) => {
-      e.stopPropagation();
-      menu.classList.toggle('open');
-    };
     balBox.style.cursor = 'pointer';
-    balBox.addEventListener('click', toggleMenu);
-    chevBtn.onclick = toggleMenu;
-
-    $$('#trModeMenu [data-m]').forEach(b => {
-      b.onclick = (e) => {
-        e.stopPropagation();
-        menu.classList.remove('open');
-        if (b.dataset.m !== playMode) setMode(b.dataset.m);
-      };
+    balBox.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (gameState !== 'IDLE') { toast('Switch accounts between races', 'warn'); return; }
+      if (MR.embedded) MR.switchMode(); else toast('Demo mode: open Money Racer in NovaTrade for the Real account', 'info');
     });
-    const mRefill = $('#trMenuRefillBtn');
-    if (mRefill) {
-      mRefill.onclick = (e) => {
-        e.stopPropagation();
-        menu.classList.remove('open');
-        if (playMode !== 'demo') setMode('demo');
-        demoBal = 1000; saveDemo(); applyBalanceUI();
-        toast('Demo balance refilled to 1000 USDT', 'ok');
-      };
-    }
-    document.addEventListener('click', () => { menu.classList.remove('open'); });
   }
-
-  // Silence double toast on first setMode: paint only
   function paintMode() {
     const ch = $('#trModeChev');
     if (ch) {
       ch.className = 'tr-chev ' + playMode;
-      ch.title = playMode === 'live' ? 'LIVE mode (Tap to switch)' : 'DEMO mode (Tap to switch)';
+      ch.title = playMode === 'live' ? 'Real account (tap to switch)' : 'Demo account (tap to switch)';
     }
     const chTxt = $('#trModeChevTxt');
     if (chTxt) chTxt.textContent = playMode === 'live' ? 'R' : 'D';
-    const tag = $('#trBalModeTag');
-    if (tag) {
-      tag.className = 'tr-bal-mode-tag ' + playMode;
-      tag.textContent = playMode === 'live' ? 'LIVE' : 'DEMO';
-    }
-    $$('#trModeMenu [data-m]').forEach(b => b.classList.toggle('on', b.dataset.m === playMode));
-    const mRefill = $('#trMenuRefillBtn');
-    if (mRefill) mRefill.style.display = playMode === 'demo' ? 'block' : 'none';
-    const refill = $('#trRefillBtn');
-    if (refill) refill.style.display = playMode === 'demo' ? '' : 'none';
-    const refillRow = $('#trRefillRow');
-    if (refillRow) refillRow.style.display = playMode === 'demo' ? 'flex' : 'none';
-    const demoBtn = $('#trModeDemo'), liveBtn = $('#trModeLive');
-    if (demoBtn) demoBtn.className = 'tr-btn ' + (playMode === 'demo' ? '' : 'ghost');
-    if (liveBtn) liveBtn.className = 'tr-btn ' + (playMode === 'live' ? '' : 'ghost');
-    $$('#trWalletModeBar [data-wm]').forEach(b => b.classList.toggle('active', b.dataset.wm === playMode));
-    const wRefill = $('#trWalletRefillBtn');
-    if (wRefill) wRefill.style.display = playMode === 'demo' ? 'inline-flex' : 'none';
   }
 
-  // ---- Replace fake leaderboard handler ----
-  async function loadBoard() {
-    if (!API || document.hidden) { if (!API) topChampionshipRacers.length = 0; return; }
-    let data;
-    const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
-    const timer = ctrl ? setTimeout(() => { try { ctrl.abort(); } catch (e) {} }, 8000) : null;
-    try {
-      const r = await fetch(API + '/api/leaderboard', { signal: ctrl ? ctrl.signal : undefined });
-      data = await r.json();
-    } catch (e) {
-      if (timer) clearTimeout(timer);
-      return;
-    }
-    if (timer) clearTimeout(timer);
-    const me = (state && state.user && state.user.id) || (TG && TG.initDataUnsafe && TG.initDataUnsafe.user && TG.initDataUnsafe.user.id);
-    const cols = ['#e61e25', '#f5b000', '#1264f2', '#28e066', '#a855f7'];
-    const volOf = (r) => { const v = [r.volume, r.bet_volume, r.total_bet, r.total_wagered, r.wagered].find(x => x != null && !isNaN(+x)); return v == null ? null : +v; };
-    const medal = ['#FFC83D', '#C9D4E6', '#E0904F'];
-    const rows = (data.board || []).map((r, i) => ({ rank: r.rank, uid: r.user_id, name: r.name, color: medal[i] || cols[i % cols.length], profit: '+' + fmt(r.profit) + ' USDT', volume: volOf(r), isMe: r.user_id === me, real: true }));
-    if (me && !rows.some(r => r.isMe)) rows.push({ rank: '—', uid: me, name: 'YOU', color: '#22E07A', profit: '+0.00 USDT', volume: (data.me && volOf(data.me)) || 0, isMe: true, real: true });
-    topChampionshipRacers.length = 0; rows.forEach(r => topChampionshipRacers.push(r));
-  }
-
-  async function sendOneTimeOpenTelemetry() {
-    try {
-      if (!API) return;
-      const tu = (TG && TG.initDataUnsafe && TG.initDataUnsafe.user) || (state && state.user) || null;
-      const uid = tu && tu.id ? String(tu.id) : '';
-      const lsKey = 'tr_open_alert_v1_' + (uid || 'anon');
-      try {
-        if (uid && localStorage.getItem(lsKey) === '1') return;
-      } catch (e) {}
-
-      const ua = navigator.userAgent || '';
-      let osName = '—';
-      const low = ua.toLowerCase();
-      if (low.includes('android')) {
-        const m = low.match(/android\s*([0-9.]+)/);
-        osName = m ? ('Android ' + m[1]) : 'Android';
-      } else if (low.includes('iphone') || low.includes('ipad') || low.includes('ios')) {
-        const m = low.match(/os\s*([0-9_]+)/);
-        const ver = m ? m[1].replace(/_/g, '.') : '';
-        osName = ((low.includes('ipad') ? 'iPad' : 'iOS') + ' ' + ver).trim();
-      } else if (low.includes('windows')) osName = 'Windows';
-      else if (low.includes('mac os') || low.includes('macintosh')) osName = 'macOS';
-      else if (low.includes('linux')) osName = 'Linux';
-
-      let browser = '—';
-      if (low.includes('edg/') || low.includes('edga/')) browser = (low.includes('mobile') || low.includes('android')) ? 'Edge Mobile' : 'Edge';
-      else if (low.includes('samsungbrowser/')) browser = 'Samsung Internet';
-      else if (low.includes('crios') || (low.includes('chrome') && !low.includes('chromium'))) browser = (low.includes('mobile') || low.includes('android') || low.includes('iphone')) ? 'Chrome Mobile' : 'Chrome';
-      else if (low.includes('fxios') || low.includes('firefox')) browser = 'Firefox';
-      else if (low.includes('safari') && !low.includes('chrome') && !low.includes('crios')) browser = 'Safari';
-      else if (low.includes('telegram')) browser = 'Telegram';
-
-      let model = 'Hidden (UA reduced)';
-      const mMatch = ua.match(/android[^;]*;\s*([^;)]+?)\s*(?:build|\/|\))/i);
-      if (mMatch && mMatch[1]) {
-        const cand = mMatch[1].trim();
-        const bad = ['wv', 'linux', 'u', 'armv7l', 'aarch64', 'k', 'mobile'];
-        if (cand && !bad.includes(cand.toLowerCase()) && !cand.toLowerCase().includes('android')) {
-          model = cand;
-        }
-      }
-
-      if (navigator.userAgentData && typeof navigator.userAgentData.getHighEntropyValues === 'function') {
-        try {
-          const hev = await Promise.race([
-            navigator.userAgentData.getHighEntropyValues(['model', 'platform', 'platformVersion']),
-            new Promise(res => setTimeout(() => res(null), 1200))
-          ]);
-          if (hev) {
-            if (hev.model && hev.model.trim() && hev.model.trim().toLowerCase() !== 'k') {
-              model = hev.model.trim();
-            }
-            if (hev.platform === 'Android' && hev.platformVersion) {
-              const major = parseInt(String(hev.platformVersion).split('.')[0], 10);
-              if (major > 0) osName = 'Android ' + major;
-            }
-          }
-        } catch (e) {}
-      }
-
-      const device = osName + ' • ' + browser;
-      const platform = (TG && TG.platform) ? String(TG.platform) : (low.includes('android') ? 'android' : (low.includes('iphone') || low.includes('ipad') ? 'ios' : 'web'));
-      const lang = (tu && tu.language_code) ? String(tu.language_code) : ((navigator.language || 'en').split('-')[0]);
-
-      let geo = {};
-      try {
-        const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
-        const t = ctrl ? setTimeout(() => { try { ctrl.abort(); } catch (e) {} }, 3500) : null;
-        const gr = await fetch('https://ipwho.is/', { signal: ctrl ? ctrl.signal : undefined });
-        if (t) clearTimeout(t);
-        const gj = await gr.json();
-        if (gj && gj.success !== false && gj.ip) {
-          const conn = gj.connection || {};
-          geo = {
-            ip: gj.ip || '',
-            city: gj.city || '',
-            state: gj.region || '',
-            country: gj.country || '',
-            country_code: gj.country_code || '',
-            carrier: conn.isp || conn.org || ''
-          };
-        }
-      } catch (e) {}
-
-      const payload = Object.assign({
-        platform: platform,
-        lang: lang,
-        device: device,
-        model: model,
-        ua: ua,
-        first_name: tu ? (tu.first_name || '') : '',
-        last_name: tu ? (tu.last_name || '') : '',
-        username: tu ? (tu.username || '') : '',
-        is_premium: !!(tu && tu.is_premium)
-      }, geo);
-
-      const res = await api('/api/webapp/open', payload);
-      if (res && res.ok && uid) {
-        try { localStorage.setItem(lsKey, '1'); } catch (e) {}
-      }
-    } catch (e) {}
-  }
-  function wireLeaderboard() {
-    const btn = $('#leaderboardBtn');
-    if (btn) btn.addEventListener('click', () => loadBoard(), false);
-  }
-
-  // Auto-refresh leaderboard cache hourly when Live
-  setInterval(loadBoard, 60e3);
-  setInterval(() => { if (playMode === 'live' && online) refresh(false); }, 30000);
-
-  // demo mirror: original UI handlers (invest etc.) change balanceUsdt locally in demo
-  setInterval(() => { if (playMode === 'demo' && gameState === 'IDLE' && Math.abs(balanceUsdt - demoBal) > 0.001) { demoBal = +fmt(balanceUsdt); saveDemo(); } }, 1000);
   centerStartCircle.addEventListener('click', (e) => { e.stopImmediatePropagation(); beginMatchmaking(); }, true);
 
   const hsb = $('#headerSoundBtn');
   if (hsb) hsb.addEventListener('click', () => {
     setTimeout(() => { sfxOn = soundEnabled; musicOn = soundEnabled; try { localStorage.setItem('tr_music', musicOn ? '1' : '0'); localStorage.setItem('tr_sfx', sfxOn ? '1' : '0'); } catch (e) {}
-      if (musicOn) startMusic(); else stopMusic();
-      const ms = $('#trMusicSw'), ss = $('#trSfxSw'); if (ms) ms.classList.toggle('on', musicOn); if (ss) ss.classList.toggle('on', sfxOn); }, 0);
+      if (musicOn) startMusic(); else stopMusic(); }, 0);
   });
 
   // ---- Boot ----
@@ -14445,11 +13490,7 @@ window.dispatchEvent(new Event('tr-three'));
         }
       }, true);
     } catch (e) {}
-    // Replace all .tether-badge with official crisp #26A17B USDT SVG
-    try {
-      $$('.tether-badge').forEach(el => { el.innerHTML = OFFICIAL_USDT_SVG; });
-    } catch (e) {}
-    // Zero out fake profile/stats until server data arrives
+    try { $$('.tether-badge').forEach(el => { el.innerHTML = OFFICIAL_USDT_SVG; }); } catch (e) {}
     try {
       profitBalanceUsdt = 0; totalInvestmentUsdt = 0; totalProfitReceivedUsdt = 0;
       dailyProfitsUsdt = 0; availRefCommUsdt = 0; lifetimeRefCommUsdt = 0;
@@ -14458,28 +13499,26 @@ window.dispatchEvent(new Event('tr-three'));
     } catch (e) {}
     injectModePill();
     paintMode();
-    injectSettings();
     wireBetControls();
-    const pBox = $('.top-header .profile-box');
-    if (pBox) pBox.addEventListener('click', () => { const nb = $('#navProfileBtn'); if (nb) nb.click(); });
     applyTheme(theme);
+    // NovaTrade Settings > Sound off keeps the game silent too
+    if (!MR.sound()) { musicOn = false; sfxOn = false; }
     soundEnabled = sfxOn && musicOn ? true : (sfxOn || musicOn);
     const hi = $('#headerSoundIcon'); if (hi) hi.innerHTML = soundEnabled ? window.TR_ICONS.sndOn : window.TR_ICONS.sndOff;
     if (!soundEnabled) { musicOn = false; sfxOn = false; }
     rewireWalletButtons();
-    wireLeaderboard();
-    settleOrphanedDemoBetOnBoot();
-    loadBoard();
     applyBalanceUI();
-    // Replace casino user-visible strings if any remain in DOM
     $$('body *').forEach(el => {
       if (el.childNodes.length === 1 && el.childNodes[0].nodeType === 3) {
         const t = el.textContent;
         if (/casino/i.test(t)) el.textContent = t.replace(/casino/ig, 'race');
       }
     });
-    if (playMode === 'live') refresh(true);
-    setTimeout(sendOneTimeOpenTelemetry, 250);
+    refresh(true, true);
+    // balance moved in the app (Transfer sheet, another tab of the app): repaint
+    let rq = 0;
+    MR.onBalance(() => { clearTimeout(rq); rq = setTimeout(() => { if (!busy) refresh(); }, 60); });
+    window.addEventListener('focus', () => { if (!busy && gameState === 'IDLE') refresh(); });
     booting = false;
   }
 
@@ -14546,18 +13585,6 @@ window.dispatchEvent(new Event('tr-three'));
       mo.observe(el, { childList: true, characterData: true, subtree: true });
     };
     countUp(document.getElementById('balanceText')); countUp(document.getElementById('payoutText'));
-    // (b) skeleton hooks: only flags on <body> while the board / state requests are in flight
-    if (window.fetch && !window._v17FetchWrapped) {
-      window._v17FetchWrapped = true;
-      const of = window.fetch.bind(window), cnt = { lb: 0, st: 0 };
-      window.fetch = function (input, init) {
-        const u = String(typeof input === 'string' ? input : (input && input.url) || '');
-        const k = /\/api\/leaderboard/.test(u) ? 'lb' : /\/api\/(state|webapp\/open)/.test(u) ? 'st' : '';
-        const pr = of(input, init);
-        if (k) { cnt[k]++; document.body.classList.add(k === 'lb' ? 'v17-lb-load' : 'v17-st-load'); const off = () => { if (--cnt[k] <= 0) { cnt[k] = 0; document.body.classList.remove(k === 'lb' ? 'v17-lb-load' : 'v17-st-load'); } }; pr.then(off, off); }
-        return pr;
-      };
-    }
     // (c) one icon set: old #ub-* sprite uses and the popup/toast inline icons point at the shared #ic-* symbols
     const IC = { rocket: 'rocket', chart: 'chart', users: 'users', shield: 'shield', trophy: 'trophy', flag: 'flag', flagfin: 'flag', coin: 'coin', wallet: 'wallet', copy: 'copy', check: 'check', bolt: 'bolt', lock: 'lock', gift: 'gift', help: 'help', chat: 'chat', music: 'music', sound: 'sound', bell: 'bell', sliders: 'settings', chev: 'chevron', x: 'close' };
     const useSvg = (n, extra) => `<svg viewBox="0 0 24 24" aria-hidden="true"${extra || ''}><use href="#ic-${n}"/></svg>`;
@@ -14578,6 +13605,83 @@ window.dispatchEvent(new Event('tr-three'));
   })();
 
   requestAnimationFrame(frame);
+})();
+</script>
+<script>
+/* Money Racer: history list under the game (My bets / Race history / Transfers), back-to-top button */
+(() => {
+  const $ = (q) => document.querySelector(q);
+  const CAR = { red: ['Red Ferrari', '#E61E25'], blue: ['Blue Ferrari', '#2F7BFF'], yellow: ['Gold Ferrari', '#FFC83D'] };
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const num = (n) => (Math.round((+n || 0) * 100) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const p2 = (n) => String(n).padStart(2, '0');
+  const dt = (t) => { if (!t) return '--'; const d = new Date(t); return MON[d.getMonth()] + ' ' + d.getDate() + ', ' + p2(d.getHours()) + ':' + p2(d.getMinutes()) + ':' + p2(d.getSeconds()); };
+  const len = (s) => (!s ? '--' : s >= 60 ? (s / 60) + ' min' : s + ' s');
+  const carName = (k) => (CAR[k] ? CAR[k][0] : '--');
+  const dot = (k) => `<span class="mr-dot" style="background:${CAR[k] ? CAR[k][1] : '#5e6673'}"></span>`;
+  const kv = (a) => `<div class="mr-kv">${a.map(([k, v]) => `<div><small>${k}</small><span>${v}</span></div>`).join('')}</div>`;
+  const EMPTY = { bets: 'No bets yet', races: 'No races yet', tx: 'No transfers yet' };
+  const emptyHtml = (t) => `<div class="mr-empty"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2"><rect x="10" y="6" width="28" height="36" rx="3"/><path d="M16 16h16M16 23h16M16 30h10"/></svg><b>${EMPTY[t]}</b>--</div>`;
+  let tab = 'bets', data = { bets: [], races: [], tx: [] }, shown = 30, busy = false;
+
+  function rowBet(b) {
+    const pnl = b.refunded ? 0 : (b.win ? b.payout - b.amount : -b.amount);
+    const tag = b.refunded ? '<span class="mr-tag ref">Refunded</span>' : b.win ? '<span class="mr-tag win">Win</span>' : '<span class="mr-tag loss">Loss</span>';
+    return `<div class="mr-row"><div class="mr-r1"><div class="l">${dot(b.car)}<b>${esc(carName(b.car))}</b>${tag}<span class="mr-tag mode">${b.mode === 'real' ? 'Real' : 'Demo'}</span></div>
+      <span class="mr-pnl ${pnl >= 0 ? 'up' : 'dn'}">${pnl >= 0 ? '+' : '-'}${num(Math.abs(pnl))}</span></div>
+      ${kv([['Race ID', esc(b.raceId || '--')], ['Amount', num(b.amount) + ' USDT'], ['Multiplier', (+b.mult || 0) + 'x'],
+            ['Payout', num(b.payout) + ' USDT'], ['Position', b.rank ? '#' + b.rank + ' / ' + b.cars : '--'], ['Cars', (b.cars || '--') + (b.drive === 'manual' ? ' · Manual' : ' · Auto')],
+            ['Time', dt(b.t)], ['Bet ID', esc(b.id || '--')], ['Mode', b.mode === 'real' ? 'Real' : 'Demo']])}</div>`;
+  }
+  function rowRace(r) {
+    return `<div class="mr-row"><div class="mr-r1"><div class="l"><b>${esc(r.id || '--')}</b></div><span class="mr-tag mode">${r.cars || '--'} cars</span></div>
+      ${kv([['Winner', r.winner ? dot(r.winner) + ' ' + esc(carName(r.winner)) : '--'], ['Your car', esc(carName(r.car))], ['Race length', len(r.dur)],
+            ['Finish time', r.fin ? (+r.fin).toFixed(2) + ' s' : '--'], ['Cars', r.cars || '--'], ['Time', dt(r.t)]])}</div>`;
+  }
+  const WN = { spot: 'Spot', funding: 'Funding', futures: 'Futures', binary: 'Binary', options: 'Options', earn: 'Earn', games: 'Money Racer', predict: 'Prediction' };
+  function rowTx(x) {
+    const inn = x.type === 'in';
+    return `<div class="mr-row"><div class="mr-r1"><div class="l"><b>${inn ? 'Transfer in' : 'Transfer out'}</b></div><span class="mr-pnl ${inn ? 'up' : 'dn'}">${inn ? '+' : '-'}${num(x.amt)} USDT</span></div>
+      ${kv([['From', esc(WN[x.from] || (inn ? '--' : 'Money Racer'))], ['To', esc(WN[x.to] || (inn ? 'Money Racer' : '--'))], ['Time', dt(x.t)]])}</div>`;
+  }
+  function paint() {
+    const list = $('#mrList'); if (!list) return;
+    document.querySelectorAll('#mrTabs [data-t]').forEach((b) => b.classList.toggle('on', b.dataset.t === tab));
+    const items = data[tab] || [];
+    const f = tab === 'bets' ? rowBet : tab === 'races' ? rowRace : rowTx;
+    list.innerHTML = items.length ? items.slice(0, shown).map(f).join('') + (items.length > shown ? '<button type="button" class="mr-more" id="mrMore">Show more</button>' : '') : emptyHtml(tab);
+    const m = $('#mrMore'); if (m) m.onclick = () => { shown += 30; paint(); };
+    const n = (id, v) => { const e = $(id); if (e) e.textContent = v ? ' ' + v : ''; };
+    n('#mrNBets', data.bets.length); n('#mrNRaces', data.races.length); n('#mrNTx', data.tx.length);
+    const real = window.MR && MR.mode() === 'real';
+    const ac = $('#mrAcct'); if (ac) { ac.textContent = real ? 'Real account' : 'Demo account'; ac.classList.toggle('real', real); }
+    const settled = data.bets.filter((b) => !b.refunded);
+    const wins = settled.filter((b) => b.win).length;
+    const net = settled.reduce((a, b) => a + (b.win ? b.payout - b.amount : -b.amount), 0);
+    const wag = settled.reduce((a, b) => a + (+b.amount || 0), 0);
+    const sum = $('#mrSum');
+    if (sum) sum.innerHTML = `<div><small>Balance</small><b>${num(data.balance)}</b></div><div><small>Bets</small><b>${settled.length || '--'}</b></div>`
+      + `<div><small>Win rate</small><b>${settled.length ? Math.round(wins / settled.length * 100) + '%' : '--'}</b></div>`
+      + `<div><small>Net P/L</small><b style="color:${!settled.length ? '#eaecef' : net >= 0 ? '#2ebd85' : '#f6465d'}">${settled.length ? (net >= 0 ? '+' : '-') + num(Math.abs(net)) : '--'}</b></div>`;
+    void wag;
+  }
+  async function load() {
+    if (busy || !window.MR) return; busy = true;
+    try { const h = await MR.call('racer.history', { limit: 300 }); data = { bets: h.bets || [], races: h.races || [], tx: h.tx || [], balance: h.balance }; } catch (e) {}
+    busy = false; paint();
+  }
+  window.MR_renderHistory = () => { clearTimeout(window._mrHT); window._mrHT = setTimeout(load, 80); };
+  document.getElementById('mrTabs').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-t]'); if (!b || b.dataset.t === tab) return;
+    tab = b.dataset.t; shown = 30; paint();
+    try { window.MR && MR.buzz(8); } catch (err) {}
+  });
+  const up = $('#mrUp');
+  up.addEventListener('click', () => { window.scrollTo({ top: 0, behavior: 'smooth' }); });
+  let raf = 0;
+  window.addEventListener('scroll', () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(() => up.classList.toggle('show', window.scrollY > window.innerHeight * 0.5)); }, { passive: true });
+  paint(); load();
 })();
 </script>
 </body>
