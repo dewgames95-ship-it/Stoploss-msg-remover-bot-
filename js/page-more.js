@@ -18,7 +18,7 @@ function txList(kind){
 /* ---------- Deposit (instant top-up of virtual USDT) ---------- */
 Pages.deposit = () => {
   const html = wrap("Deposit", `<div class="two-col"><div class="stack">
-    <div class="hero">${UI.usdt(36)}<div class="label" style="margin-top:10px">Spot wallet balance</div><div class="bal num" id="db"></div><div class="sub" style="font-size:12px">Virtual USDT is credited instantly — no payment, card or wallet needed.</div></div>
+    <div class="hero">${UI.usdt(36)}<div class="label" style="margin-top:10px">Spot wallet balance</div><div class="bal num" id="db"></div><div class="sub" style="font-size:12px">USDT is credited to your Spot wallet instantly — no payment, card or wallet needed.</div></div>
     <section class="card">
       <form id="df" novalidate>
         <div class="form-row"><label>Coin</label><div class="field" style="justify-content:space-between">${UI.usdt(22)}<b class="grow">USDT</b><span class="label">Tether USD</span></div></div>
@@ -76,98 +76,162 @@ if (mq){
 }
 setTimeout(() => { if (S().settings.theme === "system") applyTheme("system"); }, 0);
 
-/* ---------- Earn (Simple Earn: Flexible vault + locked products) ---------- */
-const LOCKED = [{days:7, apr:.065}, {days:30, apr:.082}, {days:60, apr:.098}, {days:90, apr:.12}];
+/* ---------- Earn (Simple Earn: Flexible + Locked, BTC / ETH / SOL / USDT) ----------
+   Rates: Binance Simple Earn reference APRs x3 (base table below, in % per year). */
+const EARN_MULT = 3, EARN_COINS = ["BTC","ETH","SOL","USDT"], TERMS = [30, 60, 90, 120];
+const EARN_BASE = {
+  BTC:{f:.45, l:{30:.80, 60:.90, 90:1.00, 120:1.10}},
+  ETH:{f:1.40, l:{30:2.00, 60:2.20, 90:2.40, 120:2.60}},
+  SOL:{f:3.00, l:{30:4.60, 60:5.00, 90:5.40, 120:5.80}},
+  USDT:{f:4.00, l:{30:5.20, 60:5.60, 90:6.00, 120:6.40}}
+};
+const eApr = (c, d) => (d ? EARN_BASE[c].l[d] : EARN_BASE[c].f) * EARN_MULT / 100;
+const ePrice = c => { if (c === "USDT") return 1; const p = M.get(c + "USDT"); return p && p.price > 0 ? p.price : 0; };
+const eDp = c => c === "BTC" ? 6 : c === "ETH" ? 5 : c === "SOL" ? 3 : 2;
+const eFmt = (v, c) => (+v || 0).toLocaleString("en-US", {minimumFractionDigits:0, maximumFractionDigits:eDp(c)});
+const eFloor = (v, c) => { const k = Math.pow(10, eDp(c)); return Math.floor(v * k + 1e-9) / k; };
 const earnS = () => { const s = S(); s.earn = Object.assign({locked:[], flexInt:0, lockedInt:0}, s.earn || {}); if (!Array.isArray(s.earn.locked)) s.earn.locked = []; return s.earn; };
 const lockedAcc = (p, now=Date.now()) => p.amount * p.apr * Math.min(Math.max(0, now - p.start), p.days * DAY) / (365 * DAY);
 const flexAcc = () => E.vaultValue() - S().vault.bal;
 function flexMove(a, dir){ const acc = flexAcc(), err = E.vaultMove(a, dir); if (!err){ earnS().flexInt += acc; store.save(); } return err; }
 function settleMatured(){
-  const e = earnS(), now = Date.now(), done = e.locked.filter(p => now >= p.start + p.days * DAY);
+  const e = earnS(), now = Date.now(), done = e.locked.filter(p => !p.flex && now >= p.start + p.days * DAY);
   if (!done.length) return false;
   done.forEach(p => {
-    const int = Math.round(p.amount * p.apr * p.days / 365 * 100) / 100;
+    const int = Math.round(p.amount * p.apr * p.days / 365 * 100) / 100, c = p.coin || "USDT";
     e.lockedInt += int; e.locked = e.locked.filter(x => x.id !== p.id);
     store.addWallet("earn", p.amount + int, "earn");
-    store.notify("Earn position matured", `${p.days}D Locked: ${money(p.amount)} USDT + ${money(int)} USDT interest credited`, "ok");
+    store.notify("Earn position matured", `${p.days}D Locked ${c}: ${money(p.amount)} USDT + ${money(int)} USDT interest credited`, "ok");
     S().tx.unshift({id:U.uid(), kind:"deposit", amount:p.amount + int, method:"Earn maturity", t:now});
   });
   store.save(); return true;
 }
 const earnTotals = () => {
   const e = earnS(), vv = E.vaultValue();
-  let lp = 0, la = 0, ld = 0; e.locked.forEach(p => { lp += p.amount; la += lockedAcc(p); ld += p.amount * p.apr / 365; });
+  let lp = 0, la = 0, ld = 0;   /* flexible coin positions live in e.locked with flex:true so E.earnValue() counts them */
+  e.locked.forEach(p => { lp += p.amount; la += lockedAcc(p); ld += p.amount * p.apr / 365; });
   return {total: vv + lp + la, interest: e.flexInt + flexAcc() + e.lockedInt + la, today: vv * E.APR / 365 + ld, vv};
 };
+/* comma-formatted decimal input; returns parsed number */
+function commaInput(q, dp){
+  const pos = q.selectionStart, digs = q.value.slice(0, pos).replace(/[^\d.]/g, "").length;
+  let raw = q.value.replace(/[^\d.]/g, ""); const dot = raw.indexOf(".");
+  if (dot >= 0) raw = raw.slice(0, dot + 1) + raw.slice(dot + 1).replace(/\./g, "").slice(0, dp);
+  const [ip, dpart] = raw.split("."), f = (ip ? (+ip).toLocaleString("en-US") : (dpart != null ? "0" : "")) + (dpart != null ? "." + dpart : "");
+  q.value = f; let n = 0, i = 0; for (; i < f.length && n < digs; i++) if (/[\d.]/.test(f[i])) n++; try { q.setSelectionRange(i, i); } catch {}
+  return parseFloat(raw) || 0;
+}
+function earnYieldHelp(){
+  const ex = 1000 * eApr("USDT", 30) * 30 / 365;
+  const box = (x, y, w, h, t1, t2, cls) => `<rect class="ey-b ${cls || ""}" x="${x}" y="${y}" width="${w}" height="${h}" rx="9"/><text class="ey-t ey-h" x="${x + w/2}" y="${y + (t2 ? h/2 - 2 : h/2 + 4)}" text-anchor="middle">${t1}</text>${t2 ? `<text class="ey-t" x="${x + w/2}" y="${y + h/2 + 11}" text-anchor="middle">${t2}</text>` : ""}`;
+  const svg = `<svg class="ey-svg" viewBox="0 0 320 190" role="img" aria-label="How lending turns into yield: you lend into the pool, borrowers pay interest, you receive a share">
+    ${box(6, 56, 74, 64, "You", "Lenders", "ey-me")}${box(118, 56, 80, 64, "Earn pool", "Pooled funds", "ey-pool")}
+    ${box(236, 6, 80, 44, "Margin & P2P", "borrowers")}${box(236, 66, 80, 44, "Crypto-backed", "loans")}${box(236, 126, 80, 44, "Other", "lending")}
+    <path class="ey-a" d="M80 76H112"/><path class="ey-ah" d="M118 76l-7-4v8z"/><text class="ey-t ey-s" x="99" y="68" text-anchor="middle">Lend</text>
+    <path class="ey-a ey-i" d="M118 100H86"/><path class="ey-ah ey-i" d="M80 100l7-4v8z"/><text class="ey-t ey-s ey-g" x="99" y="116" text-anchor="middle">Interest</text>
+    <path class="ey-a" d="M198 80C216 80 218 28 230 28M198 88H230M198 96C216 96 218 148 230 148"/><path class="ey-ah" d="M236 28l-7-4v8zM236 88l-7-4v8zM236 148l-7-4v8z"/>
+    <text class="ey-t ey-s" x="217" y="186" text-anchor="middle">Borrowers pay interest</text></svg>`;
+  UI.help("Where does the yield come from?", `${svg}
+    <p>Earn is a <b>lending</b> product. Your coins are pooled with other users' coins and lent out. Borrowers pay interest, and that interest is shared back with you.</p>
+    <ul class="ey-l"><li><b>Lending side.</b> You are the lender. The more you lend and the longer you stay, the more interest you collect.</li>
+    <li><b>P2P and margin lending.</b> Traders borrow coins to trade with leverage. They pay an interest rate that changes with demand.</li>
+    <li><b>Collateral-based crypto loans.</b> Borrowers lock other crypto as collateral and borrow against it. If the collateral value falls too far it is sold automatically, which protects the lenders.</li></ul>
+    <p><b>Interest %.</b> APR is the yearly rate before compounding. Interest per period = amount x APR x days / 365. Example: 1,000 USDT locked for 30 days at ${(eApr("USDT", 30) * 100).toFixed(2)}% APR earns about <b>${ex.toFixed(2)} USDT</b>.</p>
+    <p><b>Flexible</b> pays a lower rate and you can redeem at any time. <b>Locked</b> pays a higher rate in return for keeping the funds in for the full term. Rates are variable and may change.</p>`);
+}
 
-Pages.withdraw = () => {
+Pages.earn = () => {
+  let tab = "flex", term = 30;
   const apr = v => fmt(v * 100, 2) + "%";
   const html = pwrap("Earn", `
     <div class="pm-strip"><div class="lbl">Total Earn balance (USDT)</div><div class="big num" data-tot>0.00</div>
       <div class="pm-cols c2"><div><span>Cumulative interest</span><b class="num up" data-int>0.00</b></div><div><span>Today's estimated earnings</span><b class="num up" data-today>0.00</b></div></div>
       <div class="pm-acts"><button class="btn btn-primary" data-sub>Subscribe</button><button class="btn btn-ghost" data-red>Redeem</button></div></div>
-    <section class="pm-sec"><h3 class="pm-st">Simple Earn products</h3>
-      <div class="pm-prod" data-p="flex" style="cursor:pointer">${UI.coinImg("USDT", 28)}<div class="grow"><div class="pm-nm">USDT Flexible</div><div class="pm-s">Redeem any time</div></div>
-        <div class="pm-apr"><b class="num">${apr(E.APR)}</b><span>APR</span></div><button class="pm-btn" data-p="flex">Subscribe</button></div>
-      ${LOCKED.map(p => `<div class="pm-prod" data-p="${p.days}" style="cursor:pointer">${UI.coinImg("USDT", 28)}<div class="grow"><div class="pm-nm">USDT Locked <span class="pm-pill b">${p.days} Days</span></div><div class="pm-s">Interest paid at maturity</div></div>
-        <div class="pm-apr"><b class="num">${apr(p.apr)}</b><span>APR</span></div><button class="pm-btn" data-p="${p.days}">Subscribe</button></div>`).join("")}</section>
+    <section class="pm-sec"><h3 class="pm-st">Simple Earn <button class="hq" data-yh aria-label="Where does the yield come from?" type="button">?</button></h3>
+      <nav class="pm-tabs" id="ePt" aria-label="Product type"><a href="javascript:void 0" data-t="flex" class="on">Flexible</a><a href="javascript:void 0" data-t="lock">Locked</a></nav>
+      <div class="ea-terms" id="eTerms" hidden>${TERMS.map(d => `<button data-term="${d}" class="${d === 30 ? "on" : ""}">${d} Days</button>`).join("")}</div>
+      <div id="eList"></div></section>
     <section class="pm-sec" id="pmPos"></section>
-    <p class="pm-risk">Interest is simulated on a demo balance. Early redemption of a locked product forfeits all accrued interest.</p>`, {right:`<button class="icon-btn" data-txh aria-label="History">${ic("history",22)}</button>`});
+    <p class="pm-risk">Rates are variable and may change. Early redemption of a locked product forfeits all accrued interest.</p>`, {right:`<button class="icon-btn" data-txh aria-label="History">${ic("history",22)}</button>`});
   return {html, title:"Earn", mount(r){
     const $ = q => r.querySelector(q);
+    const drawList = () => {
+      $("#eTerms").hidden = tab !== "lock";
+      $("#eList").innerHTML = EARN_COINS.map(c => { const d = tab === "lock" ? term : 0, a = eApr(c, d);
+        return `<div class="pm-prod" data-p="${c}:${d}" style="cursor:pointer">${UI.coinImg(c, 28)}<div class="grow"><div class="pm-nm">${c} ${d ? `<span class="pm-pill b">${d} Days</span>` : `<span class="pm-pill">Flexible</span>`}</div><div class="pm-s">${d ? "Interest paid at maturity" : "Redeem any time"}</div></div>
+          <div class="pm-apr"><b class="num">${apr(a)}</b><span>APR</span></div><button class="pm-btn" data-p="${c}:${d}">Subscribe</button></div>`; }).join("");
+    };
     const upd = () => { const t = earnTotals(); $("[data-tot]").textContent = money(t.total); $("[data-int]").textContent = fmt(t.interest, 2); $("[data-today]").textContent = fmt(t.today, 2);
-      r.querySelectorAll("[data-acc]").forEach(el => { const id = el.dataset.acc; if (id === "flex") el.textContent = "+" + fmt(flexAcc(), 2); else { const p = earnS().locked.find(x => x.id === id); if (p) el.textContent = "+" + fmt(lockedAcc(p), 2); } });
-      r.querySelectorAll("[data-pg]").forEach(el => { const p = earnS().locked.find(x => x.id === el.dataset.pg); if (p) el.style.width = Math.min(100, (Date.now() - p.start) / (p.days * DAY) * 100).toFixed(2) + "%"; }); };
+      const e = earnS();
+      r.querySelectorAll("[data-acc]").forEach(el => { const id = el.dataset.acc; if (id === "flex") el.textContent = "+" + fmt(flexAcc(), 2); else { const p = e.locked.find(x => x.id === id); if (p) el.textContent = "+" + fmt(lockedAcc(p), 2); } });
+      r.querySelectorAll("[data-pg]").forEach(el => { const p = e.locked.find(x => x.id === el.dataset.pg); if (p) el.style.width = Math.min(100, (Date.now() - p.start) / (p.days * DAY) * 100).toFixed(2) + "%"; }); };
     const renderPos = () => {
       const e = earnS(), t = earnTotals(); let h = "";
       if (t.vv > 0.0001) h += `<div class="pm-pos"><div class="pm-pos-h">${UI.coinImg("USDT", 28)}<div class="grow"><div class="pm-nm">USDT Flexible <span class="pm-pill g">${apr(E.APR)} APR</span></div></div><button class="pm-btn line" data-rf>Redeem</button></div>
         <div class="pm-pos-g"><div><span>Amount</span><b class="num">${fmt(t.vv, 2)}</b></div><div><span>Accrued interest</span><b class="num up" data-acc="flex">+0.00</b></div><div><span>Est. daily</span><b class="num">${fmt(t.vv * E.APR / 365, 2)}</b></div></div></div>`;
-      e.locked.slice().sort((a, b) => a.start + a.days * DAY - b.start - b.days * DAY).forEach(p => {
-        const mat = p.start + p.days * DAY, left = Math.max(0, Math.ceil((mat - Date.now()) / DAY));
-        h += `<div class="pm-pos"><div class="pm-pos-h">${UI.coinImg("USDT", 28)}<div class="grow"><div class="pm-nm">USDT Locked <span class="pm-pill b">${p.days} Days</span></div></div><button class="pm-btn line" data-rl="${p.id}">Redeem</button></div>
-          <div class="pm-pos-g"><div><span>Amount</span><b class="num">${money(p.amount)}</b></div><div><span>APR</span><b class="num up">${apr(p.apr)}</b></div><div><span>Accrued interest</span><b class="num up" data-acc="${p.id}">+0.00</b></div></div>
+      e.locked.filter(p => p.flex).forEach(p => {
+        h += `<div class="pm-pos"><div class="pm-pos-h">${UI.coinImg(p.coin, 28)}<div class="grow"><div class="pm-nm">${p.coin} Flexible <span class="pm-pill g">${apr(p.apr)} APR</span></div></div><button class="pm-btn line" data-rfn="${p.id}">Redeem</button></div>
+          <div class="pm-pos-g"><div><span>Amount</span><b class="num">${eFmt(p.qty, p.coin)} ${p.coin}</b></div><div><span>Accrued (USDT)</span><b class="num up" data-acc="${p.id}">+0.00</b></div><div><span>Est. daily (USDT)</span><b class="num">${fmt(p.amount * p.apr / 365, 2)}</b></div></div></div>`;
+      });
+      e.locked.filter(p => !p.flex).sort((a, b) => a.start + a.days * DAY - b.start - b.days * DAY).forEach(p => {
+        const mat = p.start + p.days * DAY, left = Math.max(0, Math.ceil((mat - Date.now()) / DAY)), c = p.coin || "USDT";
+        h += `<div class="pm-pos"><div class="pm-pos-h">${UI.coinImg(c, 28)}<div class="grow"><div class="pm-nm">${c} Locked <span class="pm-pill b">${p.days} Days</span></div></div><button class="pm-btn line" data-rl="${p.id}">Redeem</button></div>
+          <div class="pm-pos-g"><div><span>Amount</span><b class="num">${eFmt(p.qty != null ? p.qty : p.amount, c)} ${c}</b></div><div><span>APR</span><b class="num up">${apr(p.apr)}</b></div><div><span>Accrued (USDT)</span><b class="num up" data-acc="${p.id}">+0.00</b></div></div>
           <div class="pm-bar"><i data-pg="${p.id}" style="width:0"></i></div><div class="pm-pos-f"><span>Matures ${fdate(mat)}</span><span>${left} day${left === 1 ? "" : "s"} left</span></div></div>`;
       });
       $("#pmPos").innerHTML = `<h3 class="pm-st">My positions</h3>` + (h || pemp("No active positions", "Subscribe to a product above to start earning."));
       upd();
     };
-    function openSub(initial){
-      let cur = initial;
-      const prods = [["flex", "Flexible", E.APR, 0], ...LOCKED.map(p => [String(p.days), p.days + "D", p.apr, p.days])];
-      const body = () => {
-        const pr = prods.find(x => x[0] === String(cur)), days = pr[3];
-        return `<div class="pm-kv" style="padding-top:2px"><span>Product</span><b>USDT ${days ? days + "-day Locked" : "Flexible"}</b></div>
-          <div class="pm-kv"><span>APR</span><b class="num up">${apr(pr[2])}</b></div>
-          <span class="pm-lbl">Amount</span><div class="pm-fld" id="pmAf"><input id="pmAmt" type="number" inputmode="decimal" min="1" placeholder="Min ${days ? 10 : 1}" aria-label="Amount"><span class="u">USDT</span><button type="button" class="mx" data-max>Max</button></div>
-          <div class="pm-kv" style="margin-top:8px"><span>Avbl (Earn)</span><b class="num">${money(store.wb("earn"))} USDT <button class="wl-plus" data-wlto="earn" aria-label="Transfer in">${ic("plus",13,3)}</button></b></div>
-          <div class="pm-kv"><span>${days ? "Est. interest at maturity" : "Est. daily interest"}</span><b class="num up" id="pmEi">0.00 USDT</b></div>
-          <div class="pm-kv"><span>Redemption date</span><b>${days ? fdate(Date.now() + days * DAY) : "Any time"}</b></div>
-          <label class="pm-chk"><input type="checkbox" id="pmAg"><span>I have read and agree to the Simple Earn terms</span></label>
-          <div class="pm-err" id="pmEr"></div><button class="btn btn-primary pm-cta" data-ok>Confirm subscription</button>`;
-      };
-      U.sheet("Subscribe", `<div class="pm-seg w" id="pmPs">${prods.map(p => `<button data-k="${p[0]}" class="${String(cur) === p[0] ? "on" : ""}">${p[1]}</button>`).join("")}</div><div id="pmSb" style="margin-top:8px"></div>`, el => {
+    function openSub(coin, days){
+      let c = coin, d = days;
+      const sheetBody = () => `<div class="pm-seg w" id="pmCs">${EARN_COINS.map(x => `<button data-c="${x}" class="${x === c ? "on" : ""}">${x}</button>`).join("")}</div>
+        <div class="pm-seg w" id="pmPs" style="margin-top:8px">${[0, ...TERMS].map(x => `<button data-d="${x}" class="${x === d ? "on" : ""}">${x ? x + "D" : "Flexible"}</button>`).join("")}</div><div id="pmSb" style="margin-top:8px"></div>`;
+      U.sheet("Subscribe", sheetBody(), el => {
         const mount = () => {
-          const pr = prods.find(x => x[0] === String(cur)), days = pr[3], b = el.querySelector("#pmSb"); b.innerHTML = body();
-          const inp = b.querySelector("#pmAmt"), ei = () => { const a = parseFloat(inp.value) || 0; b.querySelector("#pmEi").textContent = fmt(days ? a * pr[2] * days / 365 : a * pr[2] / 365, 2) + " USDT"; };
-          inp.oninput = ei; b.querySelector("[data-max]").onclick = () => { inp.value = Math.floor(store.wb("earn") * 100) / 100; ei(); };
+          const a = eApr(c, d), b = el.querySelector("#pmSb"), min = d ? 10 : 1, price = ePrice(c), dp = eDp(c);
+          const avbl = () => store.wb("earn"), maxQ = () => price ? eFloor(avbl() / price, c) : 0;
+          b.innerHTML = `<div class="pm-kv" style="padding-top:2px"><span>Product</span><b>${c} ${d ? d + "-day Locked" : "Flexible"}</b></div>
+            <div class="pm-kv"><span>APR <button class="hq" data-yh type="button" aria-label="Where does the yield come from?">?</button></span><b class="num up">${apr(a)}</b></div>
+            <span class="pm-lbl">Amount</span><div class="pm-fld" id="pmAf"><input id="pmAmt" type="text" inputmode="decimal" autocomplete="off" placeholder="Min ${eFmt(min / (price || 1), c)}" aria-label="Amount"><span class="u">${c}</span><button type="button" class="mx" data-max>Max</button></div>
+            <div class="ea-sl"><input type="range" id="pmRng" min="0" max="100" step="1" value="0" aria-label="Share of available balance"><b class="num" id="pmPc">0%</b></div>
+            <div class="pm-kv" style="margin-top:4px"><span>Avbl (Earn)</span><b class="num">${eFmt(maxQ(), c)} ${c} <button class="wl-plus" data-wlto="earn" aria-label="Transfer in">${ic("plus",13,3)}</button></b></div>
+            <div class="pm-kv"><span>Value</span><b class="num" id="pmUsd">0.00 USDT</b></div>
+            <div class="pm-kv"><span>${d ? "Est. interest at maturity" : "Est. daily interest"}</span><b class="num up" id="pmEi">0.00 USDT</b></div>
+            <div class="pm-kv"><span>Redemption date</span><b>${d ? fdate(Date.now() + d * DAY) : "Any time"}</b></div>
+            <label class="pm-chk"><input type="checkbox" id="pmAg"><span>I have read and agree to the Simple Earn terms</span></label>
+            <div class="pm-err" id="pmEr"></div><button class="btn btn-primary pm-cta" data-ok>Confirm subscription</button>`;
+          const inp = b.querySelector("#pmAmt"), rng = b.querySelector("#pmRng"); let qty = 0;
+          const setQ = (v, fromInput) => { qty = v; const usd = v * price;
+            if (!fromInput) inp.value = v > 0 ? v.toLocaleString("en-US", {maximumFractionDigits:dp}) : "";
+            const mq = maxQ(), p = mq > 0 ? Math.min(100, v / mq * 100) : 0; rng.value = p; rng.style.setProperty("--p", p + "%"); b.querySelector("#pmPc").textContent = Math.round(p) + "%";
+            b.querySelector("#pmUsd").textContent = fmt(usd, 2) + " USDT";
+            b.querySelector("#pmEi").textContent = fmt(d ? usd * a * d / 365 : usd * a / 365, 2) + " USDT"; };
+          inp.oninput = () => setQ(commaInput(inp, dp), true);
+          rng.oninput = () => { const p = +rng.value; setQ(p >= 100 ? maxQ() : eFloor(maxQ() * p / 100, c)); };
+          b.querySelector("[data-max]").onclick = () => setQ(maxQ());
+          b.querySelector("[data-yh]").onclick = earnYieldHelp;
           b.querySelector("[data-ok]").onclick = () => {
-            const a = Math.round(parseFloat(inp.value) * 100) / 100, min = days ? 10 : 1;
-            const err = !(a > 0) ? "Enter a valid amount." : a < min ? `Minimum subscription is ${min} USDT.` : a > store.wb("earn") + 1e-9 ? "Insufficient Earn balance" : !b.querySelector("#pmAg").checked ? "Please accept the Simple Earn terms." : "";
-            b.querySelector("#pmEr").textContent = err; b.querySelector("#pmAf").classList.toggle("err", !!err && !(a > 0 && a >= min && a <= store.wb("earn")));
+            const usd = Math.round(qty * price * 100) / 100;
+            const err = !price ? "Price unavailable. Try again shortly." : !(qty > 0) ? "Enter a valid amount." : usd < min ? `Minimum subscription is ${min} USDT (about ${eFmt(min / price, c)} ${c}).` : usd > avbl() + 1e-6 ? "Insufficient Earn balance" : !b.querySelector("#pmAg").checked ? "Please accept the Simple Earn terms." : "";
+            b.querySelector("#pmEr").textContent = err; b.querySelector("#pmAf").classList.toggle("err", !!err && !(qty > 0 && usd >= min && usd <= avbl()));
             if (err){ UI.walletErr(err); return; }
-            if (days){ store.addWallet("earn", -a, "earn"); earnS().locked.push({id:U.uid(), days, apr:pr[2], amount:a, start:Date.now()}); store.save(); }
-            else { const e2 = flexMove(a, "in"); if (e2) return toast(e2, "bad"); }
-            S().tx.unshift({id:U.uid(), kind:"withdraw", amount:a, method:"Earn · " + (days ? days + "D Locked" : "Flexible"), t:Date.now()}); store.save();
-            U.fx("claim"); toast(`Subscribed ${money(a)} USDT`, "ok"); U.closeLayer(); renderPos();
+            store.addWallet("earn", -usd, "earn"); const e = earnS();
+            e.locked.push(d ? {id:U.uid(), coin:c, days:d, apr:a, amount:usd, qty, start:Date.now()} : {id:U.uid(), coin:c, flex:true, days:36500, apr:a, amount:usd, qty, start:Date.now()});
+            store.save();
+            S().tx.unshift({id:U.uid(), kind:"withdraw", amount:usd, method:"Earn · " + c + " " + (d ? d + "D Locked" : "Flexible"), t:Date.now()}); store.save();
+            U.fx("claim"); toast(`Subscribed ${eFmt(qty, c)} ${c}`, "ok"); U.closeLayer(); renderPos();
           };
         };
-        el.querySelectorAll("#pmPs [data-k]").forEach(btn => btn.onclick = () => { cur = btn.dataset.k; el.querySelectorAll("#pmPs [data-k]").forEach(x => x.classList.toggle("on", x === btn)); mount(); });
+        el.querySelectorAll("#pmCs [data-c]").forEach(btn => btn.onclick = () => { c = btn.dataset.c; el.querySelectorAll("#pmCs [data-c]").forEach(x => x.classList.toggle("on", x === btn)); mount(); });
+        el.querySelectorAll("#pmPs [data-d]").forEach(btn => btn.onclick = () => { d = +btn.dataset.d; el.querySelectorAll("#pmPs [data-d]").forEach(x => x.classList.toggle("on", x === btn)); mount(); });
         mount();
       });
     }
-    function openRedeemFlex(){
-      const vv = E.vaultValue();
-      if (vv < 0.01) return toast("No flexible balance to redeem.", "info");
+    function openRedeem(){
+      const e = earnS(), vv = E.vaultValue();
+      const fl = e.locked.filter(x => x.flex);
+      if (vv < 0.01 && !fl.length) return toast("No flexible balance to redeem.", "info");
+      if (vv < 0.01){ if (fl.length === 1) return redeemFlexN(fl[0].id); return toast("Tap Redeem on the position you want to close.", "info"); }
       U.sheet("Redeem Flexible", `<div class="pm-kv" style="padding-top:2px"><span>Redeemable</span><b class="num">${fmt(vv, 2)} USDT</b></div>
         <span class="pm-lbl">Amount</span><div class="pm-fld" id="pmRf"><input id="pmRa" type="number" inputmode="decimal" min="0.01" aria-label="Amount"><span class="u">USDT</span><button type="button" class="mx" data-max>Max</button></div>
         <div class="pm-kv" style="margin-top:8px"><span>Arrives</span><b>Instantly in your Earn wallet</b></div><div class="pm-err" id="pmRe"></div><button class="btn btn-primary pm-cta" data-ok>Confirm redemption</button>`, el => {
@@ -182,10 +246,21 @@ Pages.withdraw = () => {
         };
       });
     }
-    settleMatured(); renderPos();
+    async function redeemFlexN(id){
+      const e = earnS(), p = e.locked.find(x => x.id === id && x.flex); if (!p) return;
+      const acc = Math.round(lockedAcc(p) * 100) / 100;
+      if (!await U.confirmBox("Redeem " + p.coin + " Flexible?", `${eFmt(p.qty, p.coin)} ${p.coin} (${money(p.amount)} USDT) plus ${fmt(acc, 2)} USDT interest returns to your Earn wallet now.`, "Redeem")) return;
+      e.locked = e.locked.filter(x => x.id !== id); e.flexInt += acc; store.addWallet("earn", p.amount + acc, "earn"); store.save();
+      S().tx.unshift({id:U.uid(), kind:"deposit", amount:p.amount + acc, method:"Earn redemption", t:Date.now()}); store.save();
+      U.fx("claim"); toast(`Redeemed ${eFmt(p.qty, p.coin)} ${p.coin} + ${fmt(acc, 2)} USDT interest`, "ok"); renderPos();
+    }
+    drawList(); settleMatured(); renderPos();
     $("[data-txh]").onclick = () => U.sheet("Earn history", txList());
-    $("[data-sub]").onclick = () => openSub("flex");
-    $("[data-red]").onclick = openRedeemFlex;
+    $("[data-sub]").onclick = () => openSub("BTC", 0);
+    $("[data-red]").onclick = openRedeem;
+    $("[data-yh]").onclick = earnYieldHelp;
+    $("#ePt").onclick = e => { const a = e.target.closest("[data-t]"); if (!a) return; e.preventDefault(); tab = a.dataset.t; r.querySelectorAll("#ePt [data-t]").forEach(x => x.classList.toggle("on", x === a)); drawList(); };
+    $("#eTerms").onclick = e => { const b = e.target.closest("[data-term]"); if (!b) return; term = +b.dataset.term; r.querySelectorAll("#eTerms [data-term]").forEach(x => x.classList.toggle("on", x === b)); drawList(); };
     r.addEventListener("click", async e => {
       const rl = e.target.closest("[data-rl]");
       if (rl){
@@ -195,14 +270,15 @@ Pages.withdraw = () => {
         S().tx.unshift({id:U.uid(), kind:"deposit", amount:p.amount, method:"Earn early redemption", t:Date.now()}); store.save();
         U.fx("claim"); toast(`Redeemed ${money(p.amount)} USDT, interest forfeited`, "ok"); return renderPos();
       }
-      if (e.target.closest("[data-rf]")) return openRedeemFlex();
-      const pr = e.target.closest("[data-p]"); if (pr) openSub(pr.dataset.p);
+      const rn = e.target.closest("[data-rfn]"); if (rn) return redeemFlexN(rn.dataset.rfn);
+      if (e.target.closest("[data-rf]")) return openRedeem();
+      const pr = e.target.closest("[data-p]"); if (pr){ const [c, d] = pr.dataset.p.split(":"); openSub(c, +d); }
     });
     const iv = setInterval(() => { if (settleMatured()) renderPos(); else upd(); }, 1000);
     const offs = [bus.on("vault", renderPos)]; this.unmount = () => { clearInterval(iv); offs.forEach(f => f()); };
   }};
 };
-Pages.earn = Pages.withdraw;
+
 
 /* ---------- Bots (BingX style) ---------- */
 const BOT_TAG = {grid:"Spot Grid", combo:"Futures Martingale", gold:"Futures Grid", fx:"Futures Grid", dca:"DCA Perp"};
@@ -210,9 +286,13 @@ const STRATS = [
   {k:"fgrid", g:"perp", name:"Futures Grid", def:"gold", hot:true, desc:"Profit from price swings inside a range, with leverage"},
   {k:"fmart", g:"perp", name:"Futures Martingale", def:"combo", hot:true, desc:"Scale into dips to lower your average entry price"},
   {k:"dcap", g:"perp", name:"DCA Perp", def:"dca", hot:false, desc:"Average into a perpetual position at regular intervals with safety orders"},
-  {k:"auto", g:"binary", name:"Auto Trade", href:"#/auto", hot:true, desc:"Let signals place binary trades for you automatically"},
-  {k:"bmart", g:"binary", name:"Binary Martingale", href:"#/auto", preset:{strategy:"reversal", expiry:60}, hot:false, desc:"Counter-trend entries on 60s expiries, sized to recover after a loss"},
-  {k:"trend", g:"binary", name:"Trend Follower", href:"#/auto", preset:{strategy:"trend", expiry:30}, hot:false, desc:"Follows momentum and opens trades in the direction of the trend"}
+  {k:"auto", g:"binary", bin:true, name:"Auto Trade", hot:true, desc:"Signal bot: places binary Up / Down trades for you automatically, one at a time"},
+  {k:"bmart", g:"binary", bin:true, name:"Binary Martingale", hot:false, desc:"Counter-trend entries on 60s expiries, stake doubles after a loss to recover it"},
+  {k:"trend", g:"binary", bin:true, name:"Trend Follower", hot:false, desc:"Follows momentum and opens trades in the direction of the trend"},
+  {k:"sgrid", g:"spot", name:"Spot Grid", def:"grid", hot:true, desc:"Buys low and sells high inside a price range, 24/7"},
+  {k:"sdca", g:"spot", name:"Smart DCA", def:"dca", hot:false, desc:"Dollar-cost averages into dips with safety orders"},
+  {k:"rebal", g:"spot", name:"Rebalancing", soon:true, desc:"Keeps your coins at target weights by trading the difference automatically"},
+  {k:"twap", g:"spot", name:"TWAP / Smart Order", soon:true, desc:"Splits one big order into small slices over time to get a better average price"}
 ];
 const demoInv = k => { const h = HM.hash(k); return fmt2(420000 + (h % 8600000) + (h % 100) / 100); };
 const fmt2 = v => v.toLocaleString("en-US", {minimumFractionDigits:2, maximumFractionDigits:2});
@@ -220,7 +300,7 @@ const demoUsers = k => (640 + HM.hash(k + "u") % 8900).toLocaleString("en-US");
 const avs = k => `<span class="bt-avs">${[0,1,2].map(i => `<span>${HM.avatar(k + i, 22)}</span>`).join("")}</span>`;
 
 Pages.bots = (params) => {
-  let view = "bots", tab = "perp";
+  let view = "bots", tab = /[?&]t=(binary|spot|perp)/.test(location.hash) ? RegExp.$1 : (sessionStorage.getItem("btTab") || "perp");
   const html = `<div class="bt-page"><header class="bt-head"><button class="icon-btn" data-back aria-label="Go back">${ic("back",22)}</button><h1>Bots</h1><button class="icon-btn" data-dots aria-label="More">${ic("dots",22)}</button></header>
     <section class="bt-sum"><button class="bt-lbl" data-eye>Total Assets (USDT) <span data-ey>${ic(S().settings.hideBal ? "eyeoff" : "eye",15)}</span></button><div class="bt-big num" data-ta></div><div class="bt-pn"><u>Today's PnL</u> <b class="num" data-tp></b></div></section>
     <div id="btBody"></div>
@@ -235,22 +315,29 @@ Pages.bots = (params) => {
       $("[data-ta]").textContent = hide ? "******" : money(S().balance + inv + tot);
       const tp = $("[data-tp]"); tp.textContent = hide ? "****" : signed(tot) + " USDT"; tp.className = "num " + (tot > 0 ? "up" : tot < 0 ? "down" : "");
     };
-    const card = s => { const d = s.def && defOf(s.def), on = d && S().bots[d.id]?.running;
+    const card = s => { const d = s.def && defOf(s.def), on = s.bin ? !!E.binCfg(s.k)?.on : d && S().bots[d.id]?.running;
       return `<div class="bt-card"><div class="bt-ch"><b>${esc(s.name)}</b>${s.hot ? `<span class="bt-hot">Hot</span>` : ""}</div><p>${esc(s.desc)}</p>
         <div class="bt-ti"><span>Total Investment</span><b class="num">${demoInv(s.k)} USDT</b></div>${s.g === "perp" ? `<div class="bt-roi" data-roi="${s.k}"></div>` : ""}
-        <div class="bt-cf"><div><span>Users</span><div class="bt-us">${avs(s.k)}<b class="num">${demoUsers(s.k)}</b></div></div>${on ? `<span class="bt-run">Running</span>` : `<button class="bt-cb" data-create="${s.k}">Create</button>`}</div></div>`; };
+        <div class="bt-cf"><div><span>Users</span><div class="bt-us">${avs(s.k)}<b class="num">${demoUsers(s.k)}</b></div></div>${s.soon ? `<button class="bt-cb" disabled aria-disabled="true">Coming soon</button>` : on ? `<span class="bt-run">Running</span>` : `<button class="bt-cb" data-create="${s.k}">${s.bin && E.binCfg(s.k)?.created ? "Edit" : "Create"}</button>`}</div></div>`; };
     const drawBots = () => {
-      $("#btBody").innerHTML = `<div class="bt-tabs"><button data-t="perp" class="${tab === "perp" ? "on" : ""}">Perp</button><button data-t="binary" class="${tab === "binary" ? "on" : ""}">Binary</button></div>
+      $("#btBody").innerHTML = `<div class="bt-tabs"><button data-t="spot" class="${tab === "spot" ? "on" : ""}">Spot</button><button data-t="perp" class="${tab === "perp" ? "on" : ""}">Perp</button><button data-t="binary" class="${tab === "binary" ? "on" : ""}">Binary</button></div>
         <div class="bt-list">${STRATS.filter(s => s.g === tab).map(card).join("")}</div>
-        <p class="pm-risk" style="margin-top:12px">Bots are simulated on live prices with demo funds. Past performance does not guarantee future results.</p>`;
+        <p class="pm-risk" style="margin-top:12px">Bots trade on live prices. Past performance does not guarantee future results.</p>`;
       if (window.BOTX) setTimeout(() => $("#btBody") && BOTX.fill($("#btBody")), 60);
     };
     const drawInv = () => {
       const run = E.BOTS.filter(d => S().bots[d.id]?.running), hist = E.BOTS.filter(d => { const b = S().bots[d.id]; return b && !b.running && b.stopped; }).sort((a,b) => S().bots[b.id].stopped - S().bots[a.id].stopped);
-      $("#btBody").innerHTML = `<h3 class="bt-h">Running (${run.length})</h3>` + (run.length ? run.map(d => { const b = S().bots[d.id], p = M.get(d.pair);
+      const bins = E.binBots(), binRun = bins.filter(x => x.cfg.on);
+      const binCard = x => { const a = x.cfg, p = M.get(a.pair), wr = (a.wins || 0) + (a.losses || 0) ? Math.round((a.wins || 0) / ((a.wins || 0) + (a.losses || 0)) * 100) + "%" : "--";
+        return `<div class="bt-card" data-binbot="${x.id}"><div class="bt-ch">${UI.pairIcon(p, 26)}<b>${esc(a.name || x.kind.name)}</b><span class="bt-pill">Binary</span><span class="bt-sp"><span class="bt-st ${a.on ? "on" : ""}">${a.on ? "Running" : "Stopped"}</span></span></div>
+          <div class="bt-g"><div><span>Trades</span><b class="num">${a.count || 0}</b></div><div><span>PnL (USDT)</span><b class="num ${pnlCls(a.pnl || 0)}">${signed(a.pnl || 0)}</b></div><div><span>Win rate</span><b class="num">${wr}</b></div></div>
+          <div class="bt-sub">${esc(p ? M.label(p) : a.pair)} · ${money(a.amount)} USDT · ${UI.expLabel(a.expiry)} · wait ${a.interval}s</div>
+          <div class="bt-btns"><button class="bt-edit" data-binedit="${x.id}">Edit</button>${a.on ? `<button class="bt-stop" data-binstop="${x.id}">Stop</button>` : `<button class="bt-start" data-binstart="${x.id}">Start</button>`}</div></div>`; };
+      $("#btBody").innerHTML = `<h3 class="bt-h">Running (${run.length + binRun.length})</h3>` + (run.length + binRun.length ? binRun.map(binCard).join("") + run.map(d => { const b = S().bots[d.id], p = M.get(d.pair);
         return `<div class="bt-card" data-bot="${d.id}"><div class="bt-ch">${UI.pairIcon(p, 26)}<b>${esc(d.name)}</b><span class="bt-pill">${BOT_TAG[d.id] || d.tag || "Bot"}</span><span class="bt-sp" data-sp></span></div>
           <div class="bt-g"><div><span>PnL (USDT)</span><b class="num" data-pnl>--</b></div><div><span>Invested</span><b class="num">${money(b.invest)}</b></div><div><span>Runtime</span><b data-rt>--</b></div></div>
-          <button class="bt-stop" data-stop>Stop</button></div>`; }).join("") : pemp("No running bots", "Create a bot from the Bots tab."))
+          <div class="bt-btns"><button class="bt-stop" data-stop>Stop</button></div></div>`; }).join("") : pemp("No running bots", "Create a bot from the Bots tab."))
+        + (bins.filter(x => !x.cfg.on).length ? `<h3 class="bt-h">Stopped binary bots</h3>` + bins.filter(x => !x.cfg.on).map(binCard).join("") : "")
         + `<h3 class="bt-h">History</h3>` + (hist.length ? hist.map(d => { const b = S().bots[d.id];
         return `<div class="bt-card"><div class="bt-ch">${UI.pairIcon(M.get(d.pair), 26)}<b>${esc(d.name)}</b><span class="bt-pill">${BOT_TAG[d.id] || d.tag || "Bot"}</span></div>
           <div class="bt-g"><div><span>PnL (USDT)</span><b class="num ${pnlCls(b.pnl)}">${signed(b.pnl)}</b></div><div><span>Invested</span><b class="num">${money(b.invest)}</b></div><div><span>Stopped</span><b>${fdate(b.stopped)}</b></div></div></div>`; }).join("") : pemp("No history yet", "Stopped bots show up here."));
@@ -264,16 +351,19 @@ Pages.bots = (params) => {
     };
     const draw = () => { r.querySelectorAll("[data-v]").forEach(b => b.classList.toggle("on", b.dataset.v === view)); view === "bots" ? drawBots() : drawInv(); sum(); };
     draw();
-    $("[data-dots]").onclick = () => U.sheet("About Bots", `<p class="pm-s" style="font-size:13px;line-height:1.6;margin:0 0 12px">Trading bots follow a fixed strategy on live prices. Funds are returned to your Trading account with PnL when you stop a bot. All results here are simulated.</p><a class="btn btn-primary pm-cta" href="#/academy" data-x>Learn more</a>`, el => el.querySelector("[data-x]").addEventListener("click", () => U.closeLayer()));
+    $("[data-dots]").onclick = () => U.sheet("About Bots", `<p class="pm-s" style="font-size:13px;line-height:1.6;margin:0 0 12px">Trading bots follow a fixed strategy on live prices. Funds are returned to your Trading account with PnL when you stop a bot. Results depend on market conditions.</p><a class="btn btn-primary pm-cta" href="#/academy" data-x>Learn more</a>`, el => el.querySelector("[data-x]").addEventListener("click", () => U.closeLayer()));
     $("[data-eye]").onclick = () => { S().settings.hideBal = !S().settings.hideBal; store.save(); $("[data-ey]").innerHTML = ic(S().settings.hideBal ? "eyeoff" : "eye", 15); sum(); };
     r.addEventListener("click", async e => {
       const vb = e.target.closest("[data-v]"); if (vb){ view = vb.dataset.v; return draw(); }
-      const tb = e.target.closest("[data-t]"); if (tb){ tab = tb.dataset.t; return draw(); }
+      const tb = e.target.closest("[data-t]"); if (tb){ tab = tb.dataset.t; try { sessionStorage.setItem("btTab", tab); } catch {} return draw(); }
+      const be = e.target.closest("[data-binedit]"); if (be) return UI.binBotEdit(be.dataset.binedit, () => draw());
+      const bs = e.target.closest("[data-binstart]"); if (bs){ const id = bs.dataset.binstart, a = E.binCfg(id), err = UI.binBotCheck(a); if (err){ toast(err, "bad"); UI.walletErr && UI.walletErr(err); return; } E.startAuto({pair:a.pair, amount:a.amount, expiry:a.expiry, strategy:a.strategy, interval:a.interval, max:a.max}, id); toast("Bot started", "ok"); return draw(); }
+      const bp = e.target.closest("[data-binstop]"); if (bp){ if (await U.confirmBox("Stop bot?", "It will not open new trades. Trades that are already open finish normally.", "Stop bot", true)){ E.stopAuto("Stopped by you.", bp.dataset.binstop); toast("Bot stopped", "info"); draw(); } return; }
       const cr = e.target.closest("[data-create]");
       if (cr){
         const s = STRATS.find(x => x.k === cr.dataset.create);
-        if (s.href){ if (s.preset && !S().auto.on){ Object.assign(S().auto, s.preset); store.save(); } location.hash = s.href; return; }
-        if (window.BOTX) return BOTX.open(s, () => { view = "inv"; draw(); });
+        if (s.bin) return UI.binBotEdit(s.k, () => { view = "inv"; draw(); });
+        if (window.BOTX && s.g === "perp") return BOTX.open(s, () => { view = "inv"; draw(); });
         const d = defOf(s.def), p = M.get(d.pair);
         return U.sheet("Create " + s.name, `<div class="pm-kv" style="padding-top:2px"><span>Strategy</span><b>${esc(s.name)}</b></div><div class="pm-kv"><span>Pair</span><b>${esc(M.label(p || {type:"crypto", base:d.pair}))}</b></div><div class="pm-kv"><span>Risk</span><b>${d.risk}</b></div><div class="pm-kv"><span>Est. APY</span><b class="num up">${esc(d.apy)}</b></div>
           <p class="pm-s" style="margin:6px 0 0">${esc(s.desc)}</p>
@@ -289,79 +379,47 @@ Pages.bots = (params) => {
       const st = e.target.closest("[data-stop]"), c = st && st.closest("[data-bot]");
       if (c && await U.confirmBox("Stop bot?", "Your investment plus PnL will be returned to your Trading account.", "Stop bot", true)){ const v = E.stopBot(c.dataset.bot); toast(`Bot stopped: ${signed(v)} USDT`, v >= 0 ? "ok" : "info"); draw(); }
     });
-    const iv = setInterval(tick, 2000), off = bus.on("bots", tick), off2 = bus.on("balance", sum);
-    this.unmount = () => { clearInterval(iv); off(); off2(); };
+    const iv = setInterval(tick, 2000), off = bus.on("bots", tick), off2 = bus.on("balance", sum), off3 = bus.on("auto", () => { if (view === "inv" && document.body.contains(r)) drawInv(); });
+    this.unmount = () => { clearInterval(iv); off(); off2(); off3(); };
   }};
 };
 
-/* ---------- Auto trading ---------- */
-Pages.auto = () => {
-  const a = S().auto;
-  const tradables = [...M.pairs.values()].filter(p => p.tradable);
-  const html = pwrap("Auto Trade", `<div class="tabs" style="gap:20px;margin:0 0 8px"><a class="tab" href="#/bots">Bots</a><button class="tab on">Auto Trade</button></div>` + `
-    <div class="pm-strip"><div class="row between"><div><div class="lbl">Status</div><div class="big" id="as" style="font-size:20px"></div></div></div>
-      <div class="pm-cols c3"><div><span>Trades placed</span><b class="num" id="ac">0</b></div><div><span>Auto PnL (USDT)</span><b class="num" id="ap">0.00</b></div><div><span>Win rate</span><b class="num" id="aw">0%</b></div></div></div>
-    <section class="pm-sec"><h3 class="pm-st">Strategy settings</h3><form id="af" novalidate style="padding:6px 0 14px">
-      <div class="form-row"><label for="ap2">Pair</label><div class="field"><select id="ap2">${tradables.map(p => `<option value="${p.sym}" ${p.sym === a.pair ? "selected" : ""}>${esc(M.label(p))}</option>`).join("")}</select></div></div>
-      <div class="form-row"><label for="aa">Amount per trade (USDT)</label><div class="field" id="aaf">${UI.usdt(20)}<input id="aa" type="number" min="1" inputmode="decimal" value="${a.amount}"></div></div>
-      <div class="form-row"><label>Expiry</label><div class="seg" data-g="expiry">${C.EXPIRIES.map(x => `<button type="button" data-v="${x}" class="${a.expiry === x ? "on" : ""}">${x < 60 ? x + "s" : x / 60 + "m"}</button>`).join("")}</div></div>
-      <div class="form-row"><label>Strategy</label><div class="seg" data-g="strategy">${[["trend", "Trend follow"], ["reversal", "Reversal"], ["random", "Random"]].map(([k, n]) => `<button type="button" data-v="${k}" class="${a.strategy === k ? "on" : ""}">${n}</button>`).join("")}</div></div>
-      <div class="form-row"><label>Trade every</label><div class="seg" data-g="interval">${[10, 20, 30, 60].map(x => `<button type="button" data-v="${x}" class="${a.interval === x ? "on" : ""}">${x}s</button>`).join("")}</div></div>
-      <div class="form-row"><label for="amx">Stop after (trades)</label><div class="field"><input id="amx" type="number" min="1" max="500" value="${a.max}"></div></div>
-      <div class="err-msg" id="ae"></div><button class="btn btn-block btn-lg" id="ab" type="submit" style="border-radius:10px"></button></form></section>
-    <section class="pm-sec"><div class="row between" style="padding-top:2px"><h3 class="pm-st">Activity log</h3><a href="#/trade/${a.pair}" class="pm-s" style="color:var(--brand);padding-top:10px">Open chart</a></div><div id="al"></div></section>`);
-  return {html, title:"Auto Trade", mount(r){
-    const $ = q => r.querySelector(q); const sel = {expiry:a.expiry, strategy:a.strategy, interval:a.interval};
-    r.querySelectorAll("[data-g]").forEach(g => g.querySelectorAll("button").forEach(b => b.onclick = () => { sel[g.dataset.g] = isNaN(b.dataset.v) ? b.dataset.v : +b.dataset.v; g.querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b)); }));
-    const render = () => {
-      const on = S().auto.on, h = S().history.filter(x => x.source === "auto"), w = h.filter(x => x.result === "win").length;
-      $("#as").innerHTML = `<span class="pm-dot ${on ? "" : "off"}"></span>${on ? "Running" : "Stopped"}`;
-      $("#ac").textContent = S().auto.count; const pnl = h.reduce((s, x) => s + x.profit, 0); const ap = $("#ap"); ap.textContent = signed(pnl); ap.className = "num " + (pnl > 0 ? "up" : pnl < 0 ? "down" : "");
-      $("#aw").textContent = (h.length ? Math.round(w / h.length * 100) : 0) + "%";
-      const b = $("#ab"); b.className = "btn btn-block btn-lg " + (on ? "btn-down" : "btn-primary"); b.innerHTML = on ? ic("stop", 16) + " Stop auto trading" : ic("play", 16) + " Start auto trading";
-      r.querySelectorAll("#af input, #af select, #af [data-g] button").forEach(x => x.disabled = on);
-      $("#al").innerHTML = S().auto.log.length ? S().auto.log.map(l => `<div class="pm-row" style="min-height:44px"><span class="pm-s mono" style="width:62px;flex-shrink:0">${U.timeStr(l.t)}</span><span class="pm-t grow" style="font-size:13px;font-weight:400">${esc(l.msg)}</span></div>`).join("") : pemp("No activity yet", "Configure the strategy and start auto trading.");
-    };
-    render();
-    $("#af").onsubmit = e => {
-      e.preventDefault();
-      if (S().auto.on){ E.stopAuto(); toast("Auto trading stopped", "info"); return render(); }
-      const amount = parseFloat($("#aa").value), max = parseInt($("#amx").value), pair = $("#ap2").value;
-      const err = !(amount >= 1) ? "Minimum amount is 1 USDT." : amount > store.wb("binary") + 1e-9 ? "Insufficient Binary balance" : !(max >= 1 && max <= 500) ? "Stop after must be between 1 and 500." : M.get(pair).closed ? "Market closed for this pair. Choose a crypto pair." : M.isStale(M.get(pair)) ? "Market data offline for this pair. Try again shortly." : "";
-      $("#ae").textContent = err; $("#aaf").classList.toggle("err", !!err);
-      if (err){ toast(err, "bad"); UI.walletErr(err); return; }
-      E.startAuto({pair, amount, max, ...sel}); toast("Auto trading started", "ok"); render();
-    };
-    const offs = [bus.on("auto", render), bus.on("history", render)];
-    this.unmount = () => offs.forEach(f => f());
-  }};
+/* ---------- Binary bots (Auto Trade lives inside Trading Bots now; #/auto redirects there) ---------- */
+Pages.auto = () => ({html: `<div style="padding:40px 16px;text-align:center" class="sub">Opening Trading Bots…</div>`, title: "Trading Bots", mount(){ location.replace("#/bots?t=binary"); }});
+const BCOOL = [5, 10, 30, 60, 120, 300], cdLabel = x => x < 60 ? x + "s" : x / 60 + "m";
+/* validation shared by the Start buttons (Bots page and the Bots tab of the Binary page) */
+UI.binBotCheck = a => { const p = M.get(a.pair);
+  return !(a.amount >= 1) ? "Minimum amount is 1 USDT." : a.amount > store.wb("binary") + 1e-9 ? "Insufficient Binary balance" : !(a.max >= 1 && a.max <= 500) ? "Stop after must be between 1 and 500." : !p ? "Choose a pair." : p.closed ? "Market closed for this pair. Choose a crypto pair." : M.isStale(p) ? "Market data offline for this pair. Try again shortly." : ""; };
+/* create / edit sheet for a binary bot. Editing a running bot applies the new values from its next trade. */
+UI.binBotEdit = (id, done) => {
+  const kind = E.BIN_KINDS[id] || E.BIN_KINDS.auto, a0 = E.binCfg(id) || {}, running = !!a0.on;
+  const cfg = {pair: a0.pair || S().auto.pair || "BTCUSDT", amount: a0.amount || 10, expiry: a0.expiry || kind.expiry, strategy: a0.strategy || kind.strategy, interval: a0.interval || 20, max: a0.max || 20};
+  if (!M.get(cfg.pair) || !M.get(cfg.pair).tradable) cfg.pair = "BTCUSDT";
+  const exps = UI.binExps || C.EXPIRIES, seg = (g, items, cur) => `<div class="seg" data-g="${g}">${items.map(([v, n]) => `<button type="button" data-v="${v}" class="${cur === v ? "on" : ""}">${n}</button>`).join("")}</div>`;
+  U.sheet((running ? "Edit " : a0.created ? "Edit " : "Create ") + kind.name, `<div class="bb-sheet"><p class="pm-s" style="margin:0 0 10px">${esc(kind.desc)} <button type="button" class="bx-q" data-info="bbot" aria-label="How bots trade">?</button></p>
+    <span class="pm-lbl">Pair</span>${UI.pairField("bbPair", cfg.pair, "Pair")}
+    <span class="pm-lbl">Amount per trade</span><div class="pm-fld" id="bbAf"><input id="bbAmt" type="number" inputmode="decimal" min="1" value="${cfg.amount}" aria-label="Amount per trade in USDT"><span class="u">USDT</span></div>
+    <span class="pm-lbl">Expiry <button type="button" class="bx-q" data-info="bexp" aria-label="What is expiry?">?</button></span>${seg("expiry", exps.map(x => [x, UI.expLabel(x)]), cfg.expiry)}
+    <span class="pm-lbl">Strategy</span>${seg("strategy", [["trend", "Trend follow"], ["reversal", "Reversal"], ["random", "Random"]], cfg.strategy)}
+    <span class="pm-lbl">Wait after each trade <button type="button" class="bx-q" data-info="bwait" aria-label="Why wait?">?</button></span>${seg("interval", BCOOL.map(x => [x, cdLabel(x)]), cfg.interval)}
+    <span class="pm-lbl">Stop after (trades)</span><div class="pm-fld"><input id="bbMax" type="number" inputmode="numeric" min="1" max="500" value="${cfg.max}" aria-label="Stop after trades"></div>
+    <div class="pm-kv" style="margin-top:8px"><span>Avbl (Binary)</span><b class="num">${money(store.wb("binary"))} USDT <button class="wl-plus" data-wlto="binary" aria-label="Transfer in">${ic("plus", 13, 3)}</button></b></div>
+    <div class="pm-err" id="bbErr"></div>
+    <button class="btn btn-primary pm-cta" data-ok>${running ? "Save changes" : "Start bot"}</button>${running ? `<button class="btn btn-block bb-stop" data-stop style="margin-top:8px">Stop bot</button>` : a0.created ? `<button class="btn btn-block" data-save style="margin-top:8px">Save without starting</button>` : ""}</div>`, el => {
+    const $ = q => el.querySelector(q);
+    el.querySelectorAll("[data-g]").forEach(g => g.querySelectorAll("button").forEach(b => b.onclick = () => { cfg[g.dataset.g] = isNaN(b.dataset.v) ? b.dataset.v : +b.dataset.v; g.querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b)); }));
+    $("#bbPair").onclick = () => UI.pairPopup({cur: cfg.pair, payout: true, title: "Select pair", list: [...M.pairs.values()].filter(p => p.tradable).sort((x, y) => (x.type === "crypto" ? x.rank || 999 : 500) - (y.type === "crypto" ? y.rank || 999 : 500)).slice(0, 120), onPick: sym => { cfg.pair = sym; UI.pairFieldSet($("#bbPair"), sym); }});
+    const read = () => Object.assign(cfg, {amount: parseFloat($("#bbAmt").value), max: parseInt($("#bbMax").value)});
+    const fail = err => { $("#bbErr").textContent = err; $("#bbAf").classList.toggle("err", !!err); if (err){ toast(err, "bad"); UI.walletErr && UI.walletErr(err); } return !!err; };
+    $("[data-ok]").onclick = () => { read();
+      if (running){ if (fail(!(cfg.amount >= 1) ? "Minimum amount is 1 USDT." : !(cfg.max >= 1 && cfg.max <= 500) ? "Stop after must be between 1 and 500." : "")) return; E.updateBinBot(id, cfg); U.closeLayer(); toast("Bot updated", "ok"); return done && done(); }
+      if (fail(UI.binBotCheck(cfg))) return; E.startAuto(cfg, id); U.closeLayer(); toast("Bot started", "ok"); done && done(); };
+    const sv = $("[data-save]"); if (sv) sv.onclick = () => { read(); if (fail(!(cfg.amount >= 1) ? "Minimum amount is 1 USDT." : "")) return; E.updateBinBot(id, cfg); U.closeLayer(); toast("Bot saved", "ok"); done && done(); };
+    const st = $("[data-stop]"); if (st) st.onclick = () => { E.stopAuto("Stopped by you.", id); U.closeLayer(); toast("Bot stopped", "info"); done && done(); };
+  });
 };
-/* ---------- VIP signals ---------- */
-Pages.vip = () => {
-  let filt = "all";
-  const html = pwrap("VIP Signals", `
-    <div class="pm-strip" style="padding:14px 16px"><div class="pm-t">Momentum signals</div><div class="pm-s">Generated every 5 seconds from live tick momentum. Included with your account.</div></div>
-    <nav class="pm-tabs" id="vf" aria-label="Market type">${[["all", "All"], ["crypto", "Crypto"], ["forex", "Forex"], ["metal", "Metals"]].map(([k, n]) => `<a href="javascript:void 0" data-f="${k}" class="${k === "all" ? "on" : ""}">${n}</a>`).join("")}</nav>
-    <section class="pm-sec" id="vl"></section>
-    <p class="pm-risk">Signals are educational and are not financial advice.</p>`);
-  return {html, title:"VIP Signals", mount(r){
-    const render = () => {
-      const list = [...M.pairs.values()].filter(p => p.tradable && (filt === "all" || p.type === filt));
-      r.querySelector("#vl").innerHTML = list.map(p => {
-        const m = M.momentum(p.sym, 90000), chg = p.chg || 0;
-        const score = U.clamp(m * 0.7 + U.clamp(chg / 5, -1, 1) * 0.3, -1, 1);
-        const dir = score >= 0 ? "up" : "down", conf = Math.round(55 + Math.abs(score) * 40);
-        const expTxt = Math.abs(score) > .5 ? "30s" : Math.abs(score) > .25 ? "1m" : "5m";
-        return `<div class="pm-prod">${UI.pairIcon(p, 32)}<div class="grow"><div class="pm-nm">${esc(M.label(p))} ${p.closed ? `<span class="pm-pill">Closed</span>` : `<span class="pm-pill ${dir === "up" ? "g" : "r"}">${dir === "up" ? "Up" : "Down"}</span>`}</div>
-          <div class="pm-s num">${M.fmtPx(p)} · Expiry ${expTxt} · Confidence ${conf}%</div><div class="pm-prog"><i style="width:${conf}%"></i></div></div>
-          <a class="pm-btn ${p.closed ? "line" : ""}" href="#/trade/${p.sym}">${p.closed ? "View" : "Trade"}</a></div>`;
-      }).join("") || pemp("No signals");
-    };
-    render();
-    r.querySelectorAll("[data-f]").forEach(b => b.onclick = e => { e.preventDefault(); filt = b.dataset.f; r.querySelectorAll("[data-f]").forEach(x => x.classList.toggle("on", x === b)); render(); });
-    const iv = setInterval(render, 5000); this.unmount = () => clearInterval(iv);
-  }};
-};
+/* ---------- VIP signals: feature removed; old links go home ---------- */
+Pages.vip = () => ({html:`<div class="pm-page"></div>`, title:"Home", mount(){ location.replace("#/home"); }});
 
 /* ---------- User avatar helper ---------- */
 const initialsAv = (name, size) => `<span style="display:grid;place-items:center;width:${size}px;height:${size}px;border-radius:50%;background:var(--card-2);color:var(--text);font-weight:700;font-size:${Math.round(size * .42)}px">${esc((name || "T")[0].toUpperCase())}</span>`;
@@ -385,7 +443,7 @@ Pages.profileedit = () => {
   const html = pwrap("Personal Information", `<input type="file" accept="image/*" id="peFile" hidden>
     <section class="pm-sec pe-sec">${row("Avatar", "avatar", v0.avatar)}${row("Nickname", "name", v0.name)}${row("Gender", "gender", v0.gender)}${row("Bio / Homepage", "bio", v0.bio)}${row("Location", "country", v0.country)}</section>
     <section class="pm-sec pe-sec">${row("Link Email", "email", v0.email)}${row("My Referrer", "ref", v0.ref)}</section>
-    <p class="pm-note">Your profile is stored on this device only. Demo account.</p>`, {right:`<span class="icon-btn" aria-hidden="true"></span>`});
+    <p class="pm-note">Your profile is stored on this device only.</p>`, {right:`<span class="icon-btn" aria-hidden="true"></span>`});
   return {html, title:"Personal Information", mount(r){
     const $ = q => r.querySelector(q), P = () => S().profile;
     const refresh = () => { const v = vals(); Object.keys(v).forEach(k => { const el = $(`[data-v="${k}"]`); if (el) el.innerHTML = v[k]; }); };
@@ -426,7 +484,7 @@ Pages.security = () => {
     ${psec("Security", ITEMS.map(i => trow(i[1], i[0], st(s[i[0]], i[0] === "password" ? "Set" : "Enabled")) ).join(""))}
     ${psec("Advanced", trow("Trusted Device", "trusted", st(s.trusted, "1 device"), "Devices that skip extra verification") + trow("Anti-Phishing Code", "phish", st(!!s.phish, "Set"), "Shown in every email from us") + srow("Facial recognition", "face", s.face, "Unlock sensitive actions with Face ID") + srow("App Lock", "applock", s.applock, "Require unlock when opening the app"))}
     ${psec("Account Management", trow("Account activities", "acts", "", "Last login " + U.dateStr(Date.now())) + trow("Lock account", "lock", "") + trow('<span class="pm-danger">Delete account</span>', "del", ""))}`; };
-  return {html: pwrap("Security Center", `<div id="scBody">${draw()}</div><p class="pm-note">Demo only. No real credentials are stored in NovaTrade.</p>`, {right:`<span class="icon-btn" aria-hidden="true"></span>`}), title:"Security Center", mount(r){
+  return {html: pwrap("Security Center", `<div id="scBody">${draw()}</div><p class="pm-note">No credentials leave this device.</p>`, {right:`<span class="icon-btn" aria-hidden="true"></span>`}), title:"Security Center", mount(r){
     const body = r.querySelector("#scBody"), redraw = () => { body.innerHTML = draw(); };
     const setupSheet = k => { const it = ITEMS.find(i => i[0] === k), s = sec(), on = s[k], pw = k === "fund" || k === "password";
       U.sheet(it[1], `<p class="pm-s" style="font-size:13px;line-height:1.6;margin:0 0 12px">${it[3]}</p>${pw ? `<input class="pm-in" id="scP" type="password" placeholder="${on ? "New " : ""}${k === "fund" ? "fund password" : "password"} (min 6 characters)" autocomplete="off" aria-label="${it[1]}"><div class="pm-err" id="scE"></div>` : ""}
@@ -456,7 +514,7 @@ Pages.referral = () => {
   const sv = d => `<svg width="40" height="40" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
   const steps = [
     [sv('<circle cx="12" cy="20" r="4"/><circle cx="29" cy="11" r="4"/><circle cx="29" cy="29" r="4"/><path d="M15.5 18l10-5M15.5 22l10 5"/>'), "Share your link", "Send your invite link or code to friends."],
-    [sv('<circle cx="20" cy="14" r="6"/><path d="M8 33c1-7 6-10 12-10s11 3 12 10"/><path d="M30 6v6M27 9h6"/>'), "Friend signs up", "They join NovaTrade with your invite code and get a 100 USDT demo bonus."],
+    [sv('<circle cx="20" cy="14" r="6"/><path d="M8 33c1-7 6-10 12-10s11 3 12 10"/><path d="M30 6v6M27 9h6"/>'), "Friend signs up", "They join NovaTrade with your invite code and get a 100 USDT welcome bonus."],
     [sv('<circle cx="20" cy="20" r="13"/><path d="M20 12v16M24 15.5c-1-1.2-2.600-1.700-4-1.700-2.500 0-4 1.200-4 2.900 0 4.200 8.200 2 8.200 6.400 0 1.700-1.700 3-4.200 3-1.700 0-3.400-.6-4.400-1.800"/>'), "Earn commission", "Receive a share of their trading fees, credited instantly."]];
   const art = `<svg class="rf-art" viewBox="0 0 150 150" aria-hidden="true"><defs>
     <radialGradient id="rs1" cx=".32" cy=".28" r=".8"><stop offset="0" stop-color="#f4f7fb"/><stop offset=".5" stop-color="#a9b7cc"/><stop offset="1" stop-color="#4b5a73"/></radialGradient>
@@ -517,12 +575,12 @@ Pages.profile = () => {
   const G = items => `<div class="pf-grid">${items.map(([i, n, h]) => `<a class="pf-gi" href="${h}">${ic(i, 24, 1.6)}<span>${n}</span></a>`).join("")}</div>`;
   const html = `<div class="pf-page"><header class="pf-top"><button class="pf-circ" data-back aria-label="Go back">${ic("back",20)}</button><span class="grow"></span><button class="pf-ib" data-scan aria-label="Scan">${scan}</button><button class="pf-ib" data-th aria-label="Toggle theme"></button><a class="pf-ib" href="#/settings" aria-label="Settings">${ic("gear",22,1.7)}</a></header>
     <section class="pf-id"><a class="pf-av" id="pa" href="#/profileedit" aria-label="Edit profile"></a><div class="grow" style="min-width:0"><div class="row" style="gap:8px;flex-wrap:nowrap"><button class="pf-nm ellipsis" id="pn" data-edit></button><button class="pf-lv" data-lv>Regular user ${ic("chev",12)}</button></div>
-      <div class="row" style="gap:8px;margin-top:6px"><button class="pf-uid" data-uid>UID:<span id="pu"></span> ${ic("copy",13)}</button><span class="pf-main">Main Account</span></div></div><a class="pf-go" href="#/profileedit" aria-label="Open profile">${ic("chev",22,2)}</a></section>
+      <div class="row pf-r2" style="gap:8px;margin-top:6px;flex-wrap:nowrap"><button class="pf-uid" data-uid>UID:<span id="pu"></span> ${ic("copy",13)}</button><span class="pf-main">Main Account</span></div></div><a class="pf-go" href="#/profileedit" aria-label="Open profile">${ic("chev",22,2)}</a></section>
     <div class="pf-tiles">${tile("share","Refer",'href="#/referral"')}${tile("gift","Vouchers",'data-vou')}${tile("cal","Events",'href="#/rewards"')}</div>
     <h3 class="pf-h">Trade</h3>
-    ${G([["chart","Markets","#/markets"],["swap","Spot","#/spot"],["candle","Futures","#/futures"],["clock","Binary","#/trade"],["layers","Options","#/options"],["users","Copy Trading","#/copy"],["bot","Trading Bots","#/bots"],["auto","Auto Trading","#/auto"]])}
+    ${G([["chart","Markets","#/markets"],["swap","Spot","#/spot"],["candle","Futures","#/futures"],["clock","Binary","#/trade"],["layers","Options","#/options"],["users","Copy Trading","#/copy"],["bot","Trading Bots","#/bots"]])}
     <h3 class="pf-h">Earn &amp; Rewards</h3>
-    ${G([["earn","Earn","#/earn"],["wallet","Assets","#/assets"],["pie","PnL Analysis","#/pnl"],["trophy","Rewards Hub","#/rewards"],["share","Referral","#/referral"],["crown","VIP Signals","#/vip"],["ring","Price Alerts","#/alerts"],["book","Academy","#/academy"]])}
+    ${G([["earn","Earn","#/earn"],["wallet","Assets","#/assets"],["pie","PnL Analysis","#/pnl"],["trophy","Rewards Hub","#/rewards"],["share","Referral","#/referral"],["ring","Price Alerts","#/alerts"],["book","Academy","#/academy"]])}
     <h3 class="pf-h">Account</h3>
     <section class="pf-list">${L("shield","Verification",'<span class="pf-ok">Verified</span>',"data-ver")}${L("lock","Security Center","",'href="#/security"')}${L("history","Trade History","",'href="#/history"')}${L("gear","Settings & Preferences","",'href="#/settings"')}${L("grid","Practical Functions","","data-prac")}</section>
     <h3 class="pf-h">Help</h3>
@@ -534,7 +592,7 @@ Pages.profile = () => {
     const syncTh = () => { $("[data-th]").innerHTML = ic(dark() ? "sun" : "moon", 22, 1.7); };
     render(); syncTh();
     $("[data-th]").onclick = () => { App.setTheme(dark() ? "light" : "dark"); syncTh(); };
-    $("[data-scan]").onclick = () => toast("Scanner is not available in the demo", "info");
+    $("[data-scan]").onclick = () => window.WDSCAN ? WDSCAN.open() : toast("Scanner is loading, try again", "info");
     $("[data-uid]").onclick = () => U.copyText(S().profile.uid, "UID copied");
     $("[data-switch]").onclick = () => toast("Demo account", "info");
     $("[data-lv]").onclick = () => { if (window.VIPX) return VIPX.open(); const lv = E.level(); U.sheet("Account level", `<div class="pm-kv"><span>Level</span><b>Lv.${lv.lvl}</b></div><div class="pm-kv"><span>XP to next level</span><b class="num">${Math.max(0, lv.need - lv.cur)}</b></div><div class="pm-bar"><i style="width:${Math.min(100, lv.cur / lv.need * 100)}%"></i></div><p class="pm-s" style="margin-top:12px">Trade, complete tasks and check in daily to level up.</p>`); };
@@ -626,10 +684,11 @@ Pages.settings = () => {
 Pages.about = () => {
   const html = pwrap("About Us", `
     <section class="pm-sec"><div class="pm-pad"><div class="row" style="gap:10px"><img src="favicon.svg" alt="" width="32" height="32"><div><div class="pm-t" style="font-size:16px;font-weight:600">${esc(C.APP_NAME)}</div><div class="pm-s">Version ${esc(C.APP_VERSION)}</div></div></div>
-      <p class="sub" style="margin-top:12px;font-size:14px;line-height:1.55">A mobile-first demo trading platform for binary options and USDT futures. Practice with virtual USDT on real-time Binance and biquote.io prices, with pro charts, indicators, bots and risk tools in one app.</p></div></section>
+      <p class="sub" style="margin-top:12px;font-size:14px;line-height:1.55">A mobile-first trading platform for binary options, futures, spot, options and prediction markets, with real-time prices, pro charts, indicators, bots and risk tools in one app.</p></div></section>
     <div class="pm-stats">${pstat("Markets", "120+")}${pstat("Tradable pairs", "20")}${pstat("Max leverage", "125x")}${pstat("Binary payout", "+92%")}</div>
-    ${psec("What you can do", [["chart", "Live charts", "Tick line and candles from 5s to 4h on real Binance and biquote.io data."], ["zap", "Binary trades", "Predict Up or Down over 30s, 1m or 5m and earn +92% on a win."], ["bot", "Bots and auto trading", "Run simulated strategy bots and an automatic trade engine."], ["crown", "VIP signals", "Momentum-based signals for every tradable pair."], ["shield", "Demo account", "Virtual USDT stored on your device. No real funds."]].map(([i, a, b]) => `<div class="pm-row" style="align-items:flex-start;padding:12px 0"><span class="pm-ico" style="margin-top:1px">${ic(i, 18)}</span><div class="pm-main"><div class="pm-t">${a}</div><div class="pm-s" style="font-size:13px">${b}</div></div></div>`).join(""))}
-    ${psec("FAQ", faq([["Is my balance real money?", "No. Your account runs on virtual USDT, so you can practice binary and futures trading on live prices without financial risk."], ["Where do prices come from?", "Crypto prices stream from Binance public market data. Forex, gold and silver stream from biquote.io."], ["Why is a forex pair closed?", "Forex and metals markets close on weekends. Those pairs show Market closed until they reopen."], ["How is a trade settled?", "At expiry the live price is compared with your entry. Up wins if the price is higher, Down wins if it is lower. Equal price is a refund."], ["Can I reset my balance?", "Yes. Go to Settings, Data, Reset demo account to restore " + money(C.START_BALANCE) + " USDT."]]))}
+    ${psec("What you can do", [["chart", "Live charts", "Tick line and candles from 5s to 4h on real Binance and biquote.io data."], ["zap", "Binary trades", "Predict Up or Down over 30s, 1m or 5m and earn +92% on a win."], ["bot", "Bots and auto trading", "Run strategy bots and an automatic trade engine."], ["shield", "Secure account", "Your data is stored on your device and protected by your security settings."]].map(([i, a, b]) => `<div class="pm-row" style="align-items:flex-start;padding:12px 0"><span class="pm-ico" style="margin-top:1px">${ic(i, 18)}</span><div class="pm-main"><div class="pm-t">${a}</div><div class="pm-s" style="font-size:13px">${b}</div></div></div>`).join(""))}
+    ${psec("Market data sources", [["chart", "Crypto spot and perpetuals", "Live prices, order flow and candles come from the Binance public market data API (REST and WebSocket)."], ["layers", "TradFi 24/7 perpetuals", "Round-the-clock perpetual contracts on traditional assets use Binance Futures TradFi market data."], ["globe", "Stocks, forex, metals, indices and commodities", "Quotes and charts for these markets are provided by biquote.io."], ["target", "Prediction markets", "Event markets, odds and order books come from Polymarket (Gamma and CLOB APIs)."], ["clock", "Update and fallback", "Prices refresh in real time. If a feed is unavailable the app shows the last known quote and marks the market as offline instead of guessing."]].map(([i, a, b]) => `<div class="pm-row" style="align-items:flex-start;padding:12px 0"><span class="pm-ico" style="margin-top:1px">${ic(i, 18)}</span><div class="pm-main"><div class="pm-t">${a}</div><div class="pm-s" style="font-size:13px">${b}</div></div></div>`).join(""))}
+    ${psec("FAQ", faq([["How does my balance work?", "Your balance is held in USDT across separate wallets for Funding, Spot, Futures, Binary, Options and Earn. Move funds between them any time with Transfer."], ["Where do prices come from?", "Crypto prices stream from Binance public market data. Forex, gold and silver stream from biquote.io."], ["Why is a forex pair closed?", "Forex and metals markets close on weekends. Those pairs show Market closed until they reopen."], ["How is a trade settled?", "At expiry the live price is compared with your entry. Up wins if the price is higher, Down wins if it is lower. Equal price is a refund."], ["Can I reset my balance?", "Yes. Go to Settings, Data, Reset demo account to restore " + money(C.START_BALANCE) + " USDT."]]))}
     <p class="pm-risk">Trading involves risk. Binary options can lose 100% of the stake. This app is educational and is not financial advice.</p>`);
   return {html, title:"About Us"};
 };
@@ -669,10 +728,10 @@ Pages.support = () => {
 Pages.community = () => {
   const CH = [["announce", "Announcements", "Product news and updates", "12.4k"], ["crypto", "Crypto traders", "BTC, ETH, SOL setups", "48.1k"], ["forex", "Forex desk", "Majors and sessions", "21.7k"], ["strategy", "Strategy lab", "Share and test ideas", "9.8k"]];
   const SEED = {
-    announce:[["NovaTrade Team", "New: 4h candles and VIP signals for gold & silver are live."], ["NovaTrade Team", "Tip: use the Tick chart for 30s trades and 1m candles for 5m trades."]],
+    announce:[["NovaTrade Team", "New: 4h candles for gold & silver are live."], ["NovaTrade Team", "Tip: use the Tick chart for 30s trades and 1m candles for 5m trades."]],
     crypto:[["Arjun", "BTC holding the range. Waiting for a breakout before going Up."], ["Mia", "SOL momentum looks strong on 15s candles."], ["Leo", "Don't over-trade. 2% of balance per trade max."]],
     forex:[["Sara", "EUR/USD quiet in the Asian session, better moves at London open."], ["Kenji", "USD/JPY respecting the high of the day."]],
-    strategy:[["Priya", "Trend follow on 1m + 5m expiry has been my best combo so far."], ["Omar", "Testing reversal strategy in Auto Trading with 5 USDT size."]]
+    strategy:[["Priya", "Trend follow on 1m + 5m expiry has been my best combo so far."], ["Omar", "Testing reversal strategy with a binary bot with 5 USDT size."]]
   };
   const LEAD = [["CryptoQueen", 18420], ["PipHunter", 12960], ["Satoshi_Jr", 9875], ["GoldBug", 7340], ["TrendRider", 6210]];
   const html = pwrap("Community", `

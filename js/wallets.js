@@ -1,8 +1,8 @@
 /* ===== Wallets: Binance-style Transfer sheet + insufficient-balance helper (v6.3) ===== */
 (function(){
 const {esc, ic, store, money, toast} = U;
-const NAMES = {spot:"Spot", funding:"Funding", futures:"Futures", binary:"Binary", options:"Options", earn:"Earn", games:"Money Racer", predict:"Prediction"};
-const LONG = {spot:"Spot Wallet", funding:"Funding Wallet", futures:"Futures", binary:"Binary", options:"Options", earn:"Earn", games:"Money Racer", predict:"Prediction"};
+const NAMES = {spot:"Spot", funding:"Funding", futures:"Futures", binary:"Binary", options:"Options", earn:"Earn", games:"Money Game", predict:"Prediction"};
+const LONG = {spot:"Spot Wallet", funding:"Funding Wallet", futures:"Futures", binary:"Binary", options:"Options", earn:"Earn", games:"Money Game", predict:"Prediction"};
 const ORDER = ["spot","funding","futures","binary","options","earn","games","predict"];
 const nm = k => NAMES[k] || k;
 const floor2 = v => Math.floor((v + 1e-9) * 100) / 100;
@@ -55,7 +55,7 @@ function transferSheet(o = {}){
       $("#wfb").onclick = () => walletPicker("Transfer from", st.from, st.to, k => { st.from = k; if (st.to === k) st.to = ORDER.find(x => x !== k && x === o.to) || ORDER.find(x => x !== k); open(); }, null);
       $("#wtb").onclick = () => walletPicker("Transfer to", st.to, st.from, k => { st.to = k; if (st.from === k) st.from = pickFrom(k); open(); }, null);
       $("#ws").onclick = () => { [st.from, st.to] = [st.to, st.from]; upd(); };
-      $("#wc").onclick = () => toast("Only USDT can be transferred in this demo", "info");
+      $("#wc").onclick = () => toast("Only USDT can be transferred between wallets", "info");
       $("#wm").onclick = () => { A.value = st.amount = av() || ""; };
       $("#wok").onclick = () => {
         const v = Math.round((+A.value) * 100) / 100;

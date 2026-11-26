@@ -191,16 +191,16 @@ V.trading = () => {
   }};
 };
 
-const gtabs = on => `<div class="a2-seg"><a href="#/admin/games" class="${on === "r" ? "on" : ""}">Money Racer</a><a href="#/admin/predict" class="${on === "p" ? "on" : ""}">Prediction</a></div>`;
+const gtabs = on => `<div class="a2-seg"><a href="#/admin/games" class="${on === "r" ? "on" : ""}">Money Game</a><a href="#/admin/predict" class="${on === "p" ? "on" : ""}">Prediction</a></div>`;
 V.games = () => {
   const a = A.adminSettings().racer, st = racerStats(), d = racerD();
   const html = gtabs("r") + `<div class="a2-kpis">${kpi("Bets", n0(st.bets), "game")}${kpi("Races", n0(st.races), "flag")}${kpi("Wagered (real)", n2(st.wagered), "fin")}${kpi("House PnL", n2(st.house), "bolt", st.house >= 0 ? "up" : "down")}</div>
-    ${card("Money Racer settings", tog("a2re", a.enabled, "Game enabled", "Players can open Money Racer") + `<div class="a2-g2">${field("Min bet", "a2mn", a.minBet, {min:0, step:"any"})}${field("Max bet", "a2mx", a.maxBet, {min:1, step:"any"})}${field("Odds, 2 cars (x)", "a2o2", a.odds2, {min:1, step:"any"})}${field("Odds, 3 cars (x)", "a2o3", a.odds3, {min:1, step:"any"})}</div>
+    ${card("Money Game settings", tog("a2re", a.enabled, "Game enabled", "Players can open Money Game") + `<div class="a2-g2">${field("Min bet", "a2mn", a.minBet, {min:0, step:"any"})}${field("Max bet", "a2mx", a.maxBet, {min:1, step:"any"})}${field("Odds, 2 cars (x)", "a2o2", a.odds2, {min:1, step:"any"})}${field("Odds, 3 cars (x)", "a2o3", a.odds3, {min:1, step:"any"})}</div>
       <label class="a2-f"><span>Player win chance</span><select id="a2pw"><option value="">Fair random</option>${[10, 20, 30, 40, 50, 60, 70, 80].map(v => `<option value="${v}">${v}% player wins</option>`).join("")}<option value="custom">Custom %</option></select></label><div id="a2pcw" class="hide">${field("Custom win % (0-100)", "a2pc", a.playerWinPct ?? "", {min:0, step:1})}</div>
-      <button class="a2-b pri" id="a2sv">Save Money Racer settings</button>`)}
+      <button class="a2-b pri" id="a2sv">Save Money Game settings</button>`)}
     ${card("Recent bets", d.bets.length ? d.bets.slice(-12).reverse().map(b => `<div class="a2-ac"><span class="a2-ai">${I("game", 16)}</span><div><b>${n2(b.amount)} USDT, car ${esc(b.car)}/${esc(b.cars)}</b><small>${esc(b.mode || "")} x${esc(b.mult ?? "")}</small></div><em class="${b.win ? "up" : "down"}">${b.win ? "+" + n2((+b.payout || 0) - (+b.amount || 0)) : "-" + n2(b.amount)}</em></div>`).join("") : empty("No bets yet. Data appears once players race."))}
     ${card("Recent races", d.races.length ? d.races.slice(-8).reverse().map(x => `<div class="a2-ac"><span class="a2-ai">${I("flag", 16)}</span><div><b>Race ${esc(String(x.id).slice(-5))}</b><small>${esc(x.cars)} cars, winner ${esc(x.winner)}</small></div><em>${tstr(x.t)}</em></div>`).join("") : empty("No races yet."))}`;
-  return {title:"Money Racer", html, mount(r){
+  return {title:"Money Game", html, mount(r){
     const q = x => r.querySelector(x), sel = q("#a2pw"), pcw = q("#a2pcw");
     const v = a.playerWinPct; if (v == null) sel.value = ""; else if ([10, 20, 30, 40, 50, 60, 70, 80].includes(+v)) sel.value = String(v); else { sel.value = "custom"; pcw.classList.remove("hide"); }
     sel.onchange = () => pcw.classList.toggle("hide", sel.value !== "custom");
@@ -209,7 +209,7 @@ V.games = () => {
       if (!(mn >= 0) || !(mx >= 1) || mn > mx) return toast("Check min and max bet", "bad");
       if (!(o2 >= 1) || !(o3 >= 1)) return toast("Odds must be at least 1", "bad");
       let pw = null; if (sel.value === "custom"){ pw = parseFloat(q("#a2pc").value); if (!(pw >= 0 && pw <= 100)) return toast("Win % must be 0-100", "bad"); } else if (sel.value !== "") pw = +sel.value;
-      const cur = A.adminSettings(); A.saveAdmin({...cur, racer:{enabled:q("#a2re").checked, minBet:mn, maxBet:mx, odds2:o2, odds3:o3, playerWinPct:pw}}); toast("Money Racer settings saved", "ok");
+      const cur = A.adminSettings(); A.saveAdmin({...cur, racer:{enabled:q("#a2re").checked, minBet:mn, maxBet:mx, odds2:o2, odds3:o3, playerWinPct:pw}}); toast("Money Game settings saved", "ok");
     };
   }};
 };

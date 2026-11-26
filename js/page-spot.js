@@ -143,7 +143,7 @@ Pages.spot = (params) => {
   const $ = q => root.querySelector(q);
   const side0 = () => unit;
   const html = `<div class="sp">
-  <div class="tabs" style="gap:20px;margin:0 -16px;padding:4px 16px 0;border:0"><a class="tab" href="#/futures/${sym}" style="font-size:17px">USDⓈ-M</a><button class="tab on" style="font-size:17px">Spot</button><a class="tab" href="#/trade/${sym}" style="font-size:17px">Binary</a><a class="tab tab-hot" href="#/predict" style="font-size:17px">Prediction</a><a class="tab tab-hot" href="#/racer" style="font-size:17px">Money Racer</a><a class="tab" href="#/options" style="font-size:17px">Options</a><a class="tab" href="#/copy" style="font-size:17px">Copy</a></div>
+  <div class="tabs" style="gap:20px;margin:0 -16px;padding:4px 16px 0;border:0"><a class="tab" href="#/futures/${sym}" style="font-size:17px">USDⓈ-M</a><button class="tab on" style="font-size:17px">Spot</button><a class="tab" href="#/trade/${sym}" style="font-size:17px">Binary</a><a class="tab tab-hot" href="#/predict" style="font-size:17px">Prediction</a><a class="tab tab-hot" href="#/racer" style="font-size:17px">Money Game</a><a class="tab" href="#/options" style="font-size:17px">Options</a><a class="tab" href="#/copy" style="font-size:17px">Copy</a></div>
   <header class="sp-head"><div class="grow"><button class="sp-nm" data-pick>${esc(label0)}${ic("chevd",16)}</button><div class="num" id="spchg" style="font-size:13px"></div></div>
     <a class="icon-btn" href="#/chart/${sym}" aria-label="Chart">${ic("candle",22,1.6)}</a></header>
   <div class="sp-grid">
@@ -154,12 +154,12 @@ Pages.spot = (params) => {
       <div class="sp-in hide" id="spm"><input id="spmk" disabled value="Market price"></div>
       <div class="sp-in" id="spa"><input id="spq" type="number" inputmode="decimal" placeholder="Amount"><button class="sp-un" data-unit type="button"><span id="spun">${esc(unit)}</span>${ic("chevd",11)}</button></div>
       <div class="sp-sl"><div class="tr"></div><div class="fl" id="spfl"></div>${[0,25,50,75,100].map(v => `<i class="nd" style="left:${v}%" data-nd="${v}"></i>`).join("")}<div class="th" id="spth"></div><div class="bub" id="spbub"></div><input type="range" min="0" max="100" step="1" value="0" id="spsl" aria-label="Amount percent"></div>
-      <div class="sp-kv"><span id="sptl">Total</span><b id="sptot">-- ${Q}</b></div>
+      <div class="sp-kv"><span><span id="sptl">Total</span>${TX.hq("total")}</span><b id="sptot">-- ${Q}</b></div>
       <div id="sptprow" class="sp-tprow"><label class="fchk" style="margin:0"><input type="checkbox" id="sptpc"> <u data-info="tpsl">TP/SL</u></label><button class="tsm hide" id="sptsm" type="button">⇄ <span>ROI %</span></button></div>
       <div id="sptpsl" class="hide"><div class="tsh" id="sptsh"></div>
         <div class="sp-in"><input id="sptp" type="number" inputmode="decimal" placeholder="Take Profit"><em class="gh" id="sptpg"></em><span class="tpu">${Q}</span></div>
         <div class="sp-in"><input id="spsl2" type="number" inputmode="decimal" placeholder="Stop Loss"><em class="gh" id="spslg"></em><span class="tpu">${Q}</span></div></div>
-      <div class="sp-kv"><span>Avbl</span><b><span id="spav"></span> <button class="wl-plus" data-wlto="spot" aria-label="Transfer in">${ic("plus",13,3)}</button></b></div>
+      <div class="sp-kv"><span>Avbl${TX.hq("avbl")}</span><b><span id="spav"></span> <button class="wl-plus" data-wlto="spot" aria-label="Transfer in">${ic("plus",13,3)}</button></b></div>
       <div class="sp-kv"><span data-info="fee"><u>Est. Fee</u></span><b id="spef">-- ${side0()}</b></div>
       <button class="sp-go b" id="spgo"></button>
       ${TX.feeNote("0.02%", "0.10%")}
@@ -185,7 +185,7 @@ Pages.spot = (params) => {
       const raw = Math.abs(parseFloat($(id).value)); if (!(raw > 0)) return;
       const c = TX.tpCalc({k, mode: roiM ? "roi" : "price", val: raw, ep, lev: 1, notional, side:"long"});
       gh[k] = roiM ? fp(c.price) : TX.sgn(c.roi) + "%";
-      out.push(`<div>${k.toUpperCase()} ${roiM ? `<b class="${c.roi >= 0 ? "up" : "down"}">${TX.sgn(c.roi)}%</b> ROI` : fp(raw)}${notional ? ` = <b class="num ${c.pnl >= 0 ? "up" : "down"}">${signed(c.pnl)} ${Q}</b>` : ""}</div>`);
+      out.push(`<div class="tsl">ROI <b class="${c.roi >= 0 ? "up" : "down"}">${TX.sgn(c.roi)}%</b> PnL${notional ? ` = <b class="num ${c.pnl >= 0 ? "up" : "down"}">${signed(c.pnl)}</b> ${Q}` : ""}</div>`);
     });
     $("#sptsh").innerHTML = out.join(""); $("#sptpg").textContent = gh.tp; $("#spslg").textContent = gh.sl;
   }
@@ -312,7 +312,7 @@ Pages.spot = (params) => {
         <div class="bt-roi"><div><span>Backtest · last 30 days · $1,000</span><b class="num up">${signed(bt.profit)} USDT</b></div><div style="text-align:right"><span>Monthly ROI</span><b class="num up">${signed(bt.roi)}%</b></div></div>
         ${lineSvg(bt.curve)}<div class="bt-ax"><span>30d ago · $1,000</span><span>${bt.trades} grid trades</span><span>Now · $${money(1000 + bt.profit)}</span></div>
         <button class="btn btn-primary btn-block btn-lg" data-botnew>Create Auto Trade Bot</button>
-        <p class="bt-n">Simulated on the last 720 real hourly Binance candles with ${Q === "USDC" ? "USDT" : "USDT"} virtual capital and the 0.02% fee per side. Shows realised grid profit only (price change of held coins is excluded). Past performance does not guarantee future results.</p>`;
+        <p class="bt-n">Backtested on the last 720 hourly Binance candles with ${Q === "USDC" ? "USDT" : "USDT"} capital and the 0.02% fee per side. Shows realised grid profit only (price change of held coins is excluded). Past performance does not guarantee future results.</p>`;
       box.querySelector("[data-botnew]").onclick = () => botSheet(plan, bt);
     }).catch(() => { if (botBusy === token && list.querySelector(".bt-wrap")) list.querySelector(".bt-wrap").innerHTML = UI.emptyState("info", "Backtest data is unavailable right now. Check your connection and try again."); });
   }
@@ -331,7 +331,7 @@ Pages.spot = (params) => {
   }
   function toggleChart(){
     chartOpen = !chartOpen; $("#spch").classList.toggle("open", chartOpen);
-    if (chartOpen && !unChart) unChart = UI.bindChart(root, sym, "tf_spot", "15m", UI.candleDetail(sym), {mini:true, tfs:UI.MINI_TFS});
+    if (chartOpen && !unChart) unChart = UI.bindChart(root, sym, "tf_spot", "1m", UI.candleDetail(sym), {mini:true, tfs:UI.MINI_TFS});
     else setTimeout(() => window.CH && CH.resize && CH.resize(), 60);
   }
 

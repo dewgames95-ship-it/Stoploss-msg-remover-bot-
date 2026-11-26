@@ -74,7 +74,7 @@ const NETS = [
   {k:"ARB", n:"Arbitrum One", fee:0.5, min:0.5, eta:2, re:EVM, ex:"0x…"},
   {k:"OP", n:"Optimism", fee:0.5, min:1, eta:2, re:EVM, ex:"0x…"}
 ];
-const fnum = v => fmt(v, 2).replace(/\.?0+$/, m => m.includes(".") ? "" : m);
+const fnum = v => fmt(v, v > 0 && v < 1 ? 6 : 2).replace(/\.?0+$/, m => m.includes(".") ? "" : m);
 const head = (title, right) => `<header class="page-head"><button class="icon-btn" data-back aria-label="Go back">${ic("back",22)}</button><h1 class="h1 ellipsis" style="text-align:center">${esc(title)}</h1>${right || `<span style="width:40px"></span>`}</header>`;
 const histBtn = `<button class="icon-btn" data-wh aria-label="Withdrawal history">${ic("history",22)}</button>`;
 const wdList = () => (S().tx || []).filter(x => x.kind === "withdrawal");
@@ -91,6 +91,116 @@ function settle(){
 setInterval(settle, 2000); setTimeout(settle, 500);
 const fundBal = () => store.wb("funding"), spotBal = () => store.wb("spot");
 
+/* ---------- Other coins (network lists) + QR scanner for deposit addresses ---------- */
+const mk = (k, n, fam, fee, min, eta, re, ex) => ({k, n, fam, fee, min, eta, re, ex});
+const RE = {evm:EVM, trx:/^T[1-9A-HJ-NP-Za-km-z]{33}$/, sol:B58, ton:/^[UE]Q[A-Za-z0-9_-]{46}$/, btc:/^(bc1[a-z0-9]{25,87}|[13][a-km-zA-HJ-NP-Z1-9]{25,34})$/, ltc:/^(ltc1[a-z0-9]{25,60}|[LM][a-km-zA-HJ-NP-Z1-9]{26,33})$/, doge:/^D[5-9A-HJ-NP-U][1-9A-HJ-NP-Za-km-z]{32}$/, xrp:/^r[1-9A-HJ-NP-Za-km-z]{24,34}$/};
+const FAM = {BSC:"evm", TRX:"trx", ETH:"evm", APT:"apt", TON:"ton", POL:"evm", SOL:"sol", ARB:"evm", OP:"evm"};
+NETS.forEach(n => { n.fam = FAM[n.k]; });
+const COIN_NETS = {
+  BTC:[mk("BTC", "Bitcoin", "btc", .0002, .001, 20, RE.btc, "bc1…")],
+  ETH:[mk("ETH", "Ethereum (ERC20)", "evm", .002, .01, 3, EVM, "0x…"), mk("ARB", "Arbitrum One", "evm", .0001, .005, 2, EVM, "0x…"), mk("OP", "Optimism", "evm", .0001, .005, 2, EVM, "0x…"), mk("BSC", "BNB Smart Chain (BEP20)", "evm", .0005, .005, 1, EVM, "0x…")],
+  BNB:[mk("BSC", "BNB Smart Chain (BEP20)", "evm", .0005, .01, 1, EVM, "0x…")],
+  SOL:[mk("SOL", "Solana", "sol", .01, .05, 1, B58, "base58")],
+  XRP:[mk("XRP", "XRP Ledger", "xrp", .25, 1, 1, RE.xrp, "r…")],
+  TRX:[mk("TRX", "Tron (TRC20)", "trx", 1, 5, 1, RE.trx, "T…")],
+  DOGE:[mk("DOGE", "Dogecoin", "doge", 4, 20, 10, RE.doge, "D…")],
+  LTC:[mk("LTC", "Litecoin", "ltc", .001, .01, 10, RE.ltc, "ltc1…")],
+  TON:[mk("TON", "TON", "ton", .05, .5, 1, RE.ton, "UQ…")]
+};
+const netsOf = c => c === "USDT" ? NETS : (COIN_NETS[c] || []);
+const WD_COINS = ["USDT", ...Object.keys(COIN_NETS)];
+const dpOf = c => c === "USDT" ? 2 : c === "BTC" ? 6 : c === "ETH" ? 5 : c === "DOGE" || c === "XRP" || c === "TRX" ? 2 : 4;
+const coinAvail = c => { try { const h = (window.SPOT && SPOT.holdings() || []).find(x => x.coin === c); return h ? (+h.avail || 0) : 0; } catch { return 0; } };
+const FAM_DEFAULT = {btc:"BTC", ltc:"LTC", doge:"DOGE", xrp:"XRP", trx:"TRX", evm:"ETH", sol:"SOL", ton:"TON"};
+const SCHEMES = {bitcoin:["BTC","btc"], litecoin:["LTC","ltc"], dogecoin:["DOGE","doge"], ripple:["XRP","xrp"], xrp:["XRP","xrp"], solana:["SOL","sol"], tron:["TRX","trx"], ton:["TON","ton"], ethereum:[null,"evm"], binancesmartchain:["BNB","evm"], bnb:["BNB","evm"]};
+const CHAIN_ID = {1:"ETH", 56:"BSC", 137:"POL", 42161:"ARB", 10:"OP"};
+/* text -> {fam, coin?, net?, addr} or null (only crypto deposit addresses are accepted) */
+function detectAddr(raw){
+  let t = String(raw || "").trim(); if (!t || t.length > 600) return null;
+  let coin = null, net = null, fam = null, addr = t;
+  const m = t.match(/^([a-z]{3,20}):(?:\/\/)?([^?]*)(?:\?(.*))?$/i);
+  if (m && SCHEMES[m[1].toLowerCase()]){
+    const sc = SCHEMES[m[1].toLowerCase()]; coin = sc[0]; fam = sc[1]; addr = m[2]; const q = new URLSearchParams(m[3] || "");
+    const at = addr.match(/^(.+?)@(\d+)(?:\/.*)?$/); if (at){ addr = at[1]; net = CHAIN_ID[at[2]] || null; }
+    addr = addr.replace(/\/.*$/, "");
+    if (q.get("address") && /^0x/i.test(q.get("address"))) addr = q.get("address");
+  } else if (/^[a-z]+:/i.test(t)) return null;
+  addr = addr.trim();
+  if (!fam){ fam = RE.ton.test(addr) ? "ton" : RE.trx.test(addr) ? "trx" : RE.btc.test(addr) ? "btc" : RE.ltc.test(addr) ? "ltc" : RE.doge.test(addr) ? "doge" : RE.xrp.test(addr) ? "xrp" : EVM.test(addr) ? "evm" : B58.test(addr) ? "sol" : null; }
+  if (!fam || !RE[fam] || !RE[fam].test(addr)) return null;
+  return {fam, coin, net, addr};
+}
+let qrLib = null;
+function loadQR(){
+  if (window.jsQR) return Promise.resolve(window.jsQR);
+  if (qrLib) return qrLib;
+  const urls = ["https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js", "https://unpkg.com/jsqr@1.4.0/dist/jsQR.js"];
+  const tryUrl = i => new Promise((res, rej) => { if (i >= urls.length) return rej(new Error("qr lib")); const s = document.createElement("script"); s.src = urls[i]; s.async = true; s.onload = () => window.jsQR ? res(window.jsQR) : tryUrl(i + 1).then(res, rej); s.onerror = () => { s.remove(); tryUrl(i + 1).then(res, rej); }; document.head.appendChild(s); });
+  qrLib = tryUrl(0).catch(e => { qrLib = null; throw e; });
+  return qrLib;
+}
+function scanHelp(title, lead){
+  U.sheet(title || "This QR code cannot be used", `<div class="sc-help"><p>${esc(lead || "The scanner only reads crypto deposit addresses.")}</p>
+    <ul><li><b>Bitcoin</b> address or <code>bitcoin:</code> link</li><li><b>Ethereum / EVM</b> (ERC20, BEP20, Arbitrum, Optimism, Polygon) <code>0x…</code> address or <code>ethereum:</code> link</li><li><b>Tron</b> (TRC20) address starting with <code>T</code></li><li><b>Solana</b>, <b>XRP</b>, <b>TON</b>, <b>Litecoin</b>, <b>Dogecoin</b> addresses</li></ul>
+    <p>Websites, payment requests, contacts and other QR codes are not supported.</p><button class="btn btn-primary sc-ok" data-ok type="button">Got it</button></div>`, el => { el.querySelector("[data-ok]").onclick = () => U.closeLayer(); });
+}
+function openScanner(onAddr){
+  let stream = null, raf = 0, alive = true, busy = false, qr = null;
+  const stop = () => { alive = false; cancelAnimationFrame(raf); if (stream){ stream.getTracks().forEach(t => t.stop()); stream = null; } };
+  const done = txt => { const d = detectAddr(txt); stop(); U.closeLayer(); if (!d) return setTimeout(() => scanHelp(), 260); U.buzz && U.buzz(); setTimeout(() => onAddr(d), 120); };
+  U.sheet("Scan QR code", `<div class="sc"><div class="sc-v"><video id="scV" playsinline muted></video><div class="sc-fr"><i></i><i></i><i></i><i></i></div><div class="sc-ph" id="scP">${ic("qr", 40, 1.4)}<span>Camera is off</span></div></div>
+    <p class="sc-m" id="scM">Point the camera at a crypto deposit address QR code.</p>
+    <div class="sc-a"><button class="btn btn-primary" data-cam type="button">Open camera</button><button class="btn btn-ghost" data-gal type="button">Upload from gallery</button></div>
+    <input type="file" id="scF" accept="image/*" hidden><p class="sc-n">Only crypto deposit addresses can be scanned: BTC, ETH and EVM networks, TRON, SOL, XRP, TON, LTC, DOGE.</p></div>`, el => {
+    const msg = (t, bad) => { const m = el.querySelector("#scM"); m.textContent = t; m.classList.toggle("bad", !!bad); };
+    const decode = (img, w, h, both) => { const r = qr(img, w, h, {inversionAttempts: both ? "attemptBoth" : "dontInvert"}); return r && r.data; };
+    async function startCam(){
+      msg("Opening camera…");
+      try {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw Object.assign(new Error("nocam"), {name:"NotSupportedError"});
+        qr = await loadQR();
+        stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"}}, audio:false});
+        if (!alive){ stop(); return; }
+        const v = el.querySelector("#scV"); v.srcObject = stream; await v.play().catch(() => {});
+        el.querySelector("#scP").hidden = true; el.querySelector("[data-cam]").hidden = true; msg("Scanning… hold the code inside the frame.");
+        const c = document.createElement("canvas"), x = c.getContext("2d", {willReadFrequently:true}); let last = 0;
+        const loop = ts => { if (!alive) return; raf = requestAnimationFrame(loop);
+          if (ts - last < 130 || !v.videoWidth || busy) return; last = ts;
+          const sc = Math.min(1, 640 / Math.max(v.videoWidth, v.videoHeight)); c.width = Math.round(v.videoWidth * sc); c.height = Math.round(v.videoHeight * sc);
+          x.drawImage(v, 0, 0, c.width, c.height); const t = decode(x.getImageData(0, 0, c.width, c.height).data, c.width, c.height, false); if (t){ busy = true; done(t); } };
+        raf = requestAnimationFrame(loop);
+      } catch (e) {
+        stop(); alive = true;
+        const n = e && e.name;
+        msg(n === "NotAllowedError" || n === "SecurityError" ? "Camera permission was denied. Allow camera access in your device settings, or upload a QR image from your gallery." : n === "NotFoundError" || n === "NotSupportedError" ? "No camera is available. Upload a QR image from your gallery instead." : /qr lib/.test(String(e && e.message)) ? "The scanner could not load. Check your connection and try again." : "Could not open the camera. Upload a QR image from your gallery instead.", true);
+      }
+    }
+    el.querySelector("[data-cam]").onclick = startCam;
+    el.querySelector("[data-gal]").onclick = () => el.querySelector("#scF").click();
+    el.querySelector("#scF").onchange = async e => {
+      const f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f) return;
+      msg("Reading image…");
+      try {
+        qr = await loadQR();
+        const bm = await (window.createImageBitmap ? createImageBitmap(f) : new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = URL.createObjectURL(f); }));
+        const W = bm.width || bm.naturalWidth, H = bm.height || bm.naturalHeight, sc = Math.min(1, 1400 / Math.max(W, H)), c = document.createElement("canvas"); c.width = Math.round(W * sc); c.height = Math.round(H * sc);
+        const x = c.getContext("2d", {willReadFrequently:true}); x.drawImage(bm, 0, 0, c.width, c.height);
+        const t = decode(x.getImageData(0, 0, c.width, c.height).data, c.width, c.height, true);
+        if (!t) return msg("No QR code was found in this image. Try a sharper, closer picture.", true);
+        done(t);
+      } catch (err) { msg("Could not read this image. Try a different one.", true); }
+    };
+    setTimeout(() => { if (alive) startCam(); }, 150);
+  }, stop);
+}
+
+function scanToWithdraw(d){
+  const c = d.coin && WD_COINS.includes(d.coin) ? d.coin : (["trx","evm","sol","ton"].includes(d.fam) ? "USDT" : FAM_DEFAULT[d.fam]);
+  const list = netsOf(c).filter(n => n.fam === d.fam), hint = d.net && list.find(n => n.k === d.net), pick = hint || (list.length === 1 ? list[0] : null);
+  try { sessionStorage.setItem("wd_scan", JSON.stringify({addr:d.addr, net:pick ? pick.k : "", coin:c, fam:d.fam, t:Date.now()})); } catch {}
+  location.hash = "#/withdraw/" + c;
+}
+window.WDSCAN = {open: cb => openScanner(cb || scanToWithdraw), detect: detectAddr};
 function pickPage(){
   let q = "", hide0 = false;
   const list = () => {
@@ -108,13 +218,14 @@ function pickPage(){
     r.querySelector("#wq").oninput = e => { q = e.target.value.trim(); draw(); };
     r.querySelector("#wz").onchange = e => { hide0 = e.target.checked; draw(); };
     r.querySelector("[data-wh]").onclick = wdHistory;
-    r.addEventListener("click", e => { const b = e.target.closest("[data-c]"); if (!b) return; if (b.dataset.c !== "USDT") return toast("Only USDT withdrawals are available in this demo", "info"); location.hash = "#/withdraw/USDT"; });
+    r.addEventListener("click", e => { const b = e.target.closest("[data-c]"); if (!b) return; if (!WD_COINS.includes(b.dataset.c)) return toast(b.dataset.c + " withdrawals are not available yet", "info"); location.hash = "#/withdraw/" + b.dataset.c; });
   }};
 }
 
 function chainPage(coin){
-  const st = {net:null, from:{funding:true, spot:true}};
-  const avail = () => (st.from.funding ? fundBal() : 0) + (st.from.spot ? spotBal() : 0);
+  const isU = coin === "USDT", nets = netsOf(coin), DP = dpOf(coin), K = Math.pow(10, DP), st = {net:null, from:{funding:isU, spot:true}};
+  const fundB = () => isU ? fundBal() : 0, spotB = () => isU ? spotBal() : coinAvail(coin);
+  const avail = () => (st.from.funding ? fundB() : 0) + (st.from.spot ? spotB() : 0);
   const html = head(coin + " On-chain", histBtn) + `<div class="wd-pg wd-ch">
     <label class="wd-l" for="wad">${coin} address</label>
     <div class="wd-f"><input id="wad" placeholder="Enter Address" autocomplete="off" autocapitalize="off" spellcheck="false"><button type="button" data-paste aria-label="Paste">${ic("copy",20,1.7)}</button><button type="button" data-scan aria-label="Scan QR">${ic("qr",20,1.7)}</button></div>
@@ -126,37 +237,50 @@ function chainPage(coin){
     <div class="wd-f"><input id="wam" type="number" inputmode="decimal" placeholder="Min. --" autocomplete="off"><span class="u">${coin}</span><i class="v"></i><button type="button" class="all" data-all>All</button></div>
     <div class="wd-er" id="e3"></div>
     <div class="wd-av"><span>Available</span><b class="num" id="wav">0.00 ${coin}</b></div>
-    <label class="wd-ac"><input type="checkbox" data-a="funding" checked><i></i><span>Funding Account</span><b class="num" id="wfb">${fmt(fundBal(), 2)} ${coin}</b></label>
-    <label class="wd-ac"><input type="checkbox" data-a="spot" checked><i></i><span>Spot Account</span><b class="num" id="wsb">${fmt(spotBal(), 2)} ${coin}</b></label>
+    <label class="wd-ac" ${isU ? "" : "hidden"}><input type="checkbox" data-a="funding" checked><i></i><span>Funding Account</span><b class="num" id="wfb">${fmt(fundB(), DP)} ${coin}</b></label>
+    <label class="wd-ac"><input type="checkbox" data-a="spot" checked><i></i><span>Spot Account</span><b class="num" id="wsb">${fmt(spotB(), DP)} ${coin}</b></label>
     <button class="wd-rm" type="button" data-rm>Remarks ${ic("chevd",16,2)}</button><textarea id="wrm" class="wd-rt" hidden rows="2" maxlength="60" placeholder="Optional note"></textarea>
-    <p class="wd-note">Demo only. No real funds are moved and nothing is sent on-chain.</p></div>
+    <p class="wd-note">Always check the address and network before you confirm. Withdrawals to a wrong network cannot be recovered.</p></div>
     <div class="wd-bar"><div><b class="num" id="wrc">-- ${coin}</b><span id="wfe">Fee: -- ${coin}</span></div><button class="btn btn-primary wd-go" id="wgo">Withdraw</button></div>`;
   return {html, title:coin + " On-chain", mount(r){
     document.body.classList.add("no-nav");
     const $ = q => r.querySelector(q), A = $("#wam"), AD = $("#wad");
     const upd = () => {
       const n = st.net, v = +A.value || 0;
-      $("#wav").textContent = fmt(avail(), 2) + " " + coin; A.placeholder = "Min. " + (n ? fnum(n.min) : "--");
+      $("#wav").textContent = fmt(avail(), DP) + " " + coin; A.placeholder = "Min. " + (n ? fnum(n.min) : "--");
       $("#wnn").textContent = n ? n.n : "Select Network"; $("#wnn").classList.toggle("ph", !n);
-      $("#wrc").textContent = n && v > 0 ? fmt(Math.max(0, v - n.fee), 2) + " " + coin : "-- " + coin;
+      $("#wrc").textContent = n && v > 0 ? fmt(Math.max(0, v - n.fee), DP) + " " + coin : "-- " + coin;
       $("#wfe").textContent = "Fee: " + (n ? fnum(n.fee) : "--") + " " + coin;
     };
     const setErr = (id, m) => { $(id).textContent = m || ""; };
     function netSheet(){
-      U.sheet("Select withdrawal network", `<div class="wd-warn">${ic("info",16,2)}<span>Please ensure you select the same network on ${esc(window.CONFIG.APP_NAME)} and the receiving platform to avoid loss of assets.</span></div>${NETS.map(n => `<button class="wd-net ${st.net && st.net.k === n.k ? "on" : ""}" data-k="${n.k}"><b>${esc(n.n)}</b><span>Fee: ${fnum(n.fee)} ${coin} (&lt; $${Math.max(1, n.fee).toFixed(2)})</span><span>Minimum withdrawal: ${fnum(n.min)} ${coin}</span><span>Est. arrival time ≈ ${n.eta} min</span></button>`).join("")}`, el => {
-        el.querySelectorAll("[data-k]").forEach(b => b.onclick = () => { st.net = NETS.find(x => x.k === b.dataset.k); U.closeLayer(); setErr("#e2"); upd(); });
+      U.sheet("Select withdrawal network", `<div class="wd-warn">${ic("info",16,2)}<span>Please ensure you select the same network on ${esc(window.CONFIG.APP_NAME)} and the receiving platform to avoid loss of assets.</span></div>${nets.map(n => `<button class="wd-net ${st.net && st.net.k === n.k ? "on" : ""}" data-k="${n.k}"><b>${esc(n.n)}</b><span>Fee: ${fnum(n.fee)} ${coin} (&lt; $${Math.max(1, n.fee).toFixed(2)})</span><span>Minimum withdrawal: ${fnum(n.min)} ${coin}</span><span>Est. arrival time ≈ ${n.eta} min</span></button>`).join("")}`, el => {
+        el.querySelectorAll("[data-k]").forEach(b => b.onclick = () => { st.net = nets.find(x => x.k === b.dataset.k); U.closeLayer(); setErr("#e2"); upd(); });
       });
     }
     $("#wnet").onclick = netSheet;
     $("[data-wh]").onclick = wdHistory;
     $("[data-rm]").onclick = () => { const t = $("#wrm"); t.hidden = !t.hidden; if (!t.hidden) t.focus(); };
-    $("[data-all]").onclick = () => { A.value = Math.floor(avail() * 100) / 100 || ""; setErr("#e3"); upd(); };
+    $("[data-all]").onclick = () => { A.value = Math.floor(avail() * K) / K || ""; setErr("#e3"); upd(); };
     $("[data-paste]").onclick = async () => { try { AD.value = (await navigator.clipboard.readText()).trim(); setErr("#e1"); } catch { toast("Clipboard unavailable. Paste into the field manually.", "info"); } };
-    $("[data-scan]").onclick = () => toast("QR scanning is not available in this demo", "info");
+    const chooseNet = (list, cb) => U.sheet("Select network", `<div class="wd-warn">${ic("info",16,2)}<span>This address format works on several networks. Select the network the sender uses.</span></div>${list.map(n => `<button class="wd-net" data-k="${n.k}"><b>${esc(n.n)}</b><span>Fee: ${fnum(n.fee)} ${coin}</span></button>`).join("")}`, el => el.querySelectorAll("[data-k]").forEach(b => b.onclick = () => { U.closeLayer(); cb(list.find(x => x.k === b.dataset.k)); }));
+    const applyScan = d => {
+      let c = d.coin && WD_COINS.includes(d.coin) ? d.coin : null;
+      const fits = cc => netsOf(cc).filter(n => n.fam === d.fam);
+      if (!c) c = fits(coin).length ? coin : (fits("USDT").length && coin === "USDT" ? "USDT" : (FAM_DEFAULT[d.fam] || "USDT"));
+      let list = fits(c); if (!list.length){ c = FAM_DEFAULT[d.fam]; list = c ? fits(c) : []; }
+      if (!list.length) return scanHelp();
+      const hint = d.net && list.find(n => n.k === d.net), pick = hint || (list.length === 1 ? list[0] : null);
+      if (c !== coin){ try { sessionStorage.setItem("wd_scan", JSON.stringify({addr:d.addr, net:pick ? pick.k : "", coin:c, fam:d.fam, t:Date.now()})); } catch {} toast("Switched to " + c + " from the scanned address", "ok"); location.hash = "#/withdraw/" + c; return; }
+      AD.value = d.addr; setErr("#e1"); toast("Address scanned", "ok");
+      if (pick){ st.net = pick; setErr("#e2"); upd(); } else chooseNet(list, n => { st.net = n; setErr("#e2"); upd(); });
+    };
+    $("[data-scan]").onclick = () => openScanner(applyScan);
+    try { const pd = JSON.parse(sessionStorage.getItem("wd_scan") || "null"); sessionStorage.removeItem("wd_scan"); if (pd && pd.coin === coin && Date.now() - pd.t < 15000) setTimeout(() => applyScan({addr:pd.addr, fam:pd.fam, coin:pd.coin, net:pd.net || null}), 60); } catch {}
     r.querySelectorAll("[data-a]").forEach(c => c.onchange = () => { st.from[c.dataset.a] = c.checked; upd(); });
     A.oninput = () => { setErr("#e3"); upd(); }; AD.oninput = () => setErr("#e1");
     $("#wgo").onclick = () => {
-      const n = st.net, v = Math.round((+A.value) * 100) / 100, ad = AD.value.trim(); let bad = false;
+      const n = st.net, v = Math.round((+A.value) * K) / K, ad = AD.value.trim(); let bad = false;
       if (!ad){ setErr("#e1", "Enter a withdrawal address"); bad = true; }
       if (!n){ setErr("#e2", "Select a network"); bad = true; }
       else if (ad && !n.re.test(ad)){ setErr("#e1", `Invalid ${n.n} address format`); bad = true; }
@@ -165,27 +289,28 @@ function chainPage(coin){
       else if (n && v <= n.fee){ setErr("#e3", "Amount must be greater than the fee"); bad = true; }
       else if (v > avail() + 1e-9){ setErr("#e3", "Insufficient balance in the selected accounts"); bad = true; }
       if (bad) return U.fx("err");
-      const rcv = Math.round((v - n.fee) * 100) / 100;
-      U.sheet("Confirm withdrawal", `<div class="wd-cf"><div><span>Network</span><b>${esc(n.n)}</b></div><div><span>Address</span><b class="mono">${esc(ad)}</b></div><div><span>Amount</span><b class="num">${fmt(v, 2)} ${coin}</b></div><div><span>Fee</span><b class="num">${fnum(n.fee)} ${coin}</b></div><div><span>Receive amount</span><b class="num">${fmt(rcv, 2)} ${coin}</b></div><div><span>Est. arrival</span><b>≈ ${n.eta} min</b></div></div>
+      const rcv = Math.round((v - n.fee) * K) / K;
+      U.sheet("Confirm withdrawal", `<div class="wd-cf"><div><span>Network</span><b>${esc(n.n)}</b></div><div><span>Address</span><b class="mono">${esc(ad)}</b></div><div><span>Amount</span><b class="num">${fmt(v, DP)} ${coin}</b></div><div><span>Fee</span><b class="num">${fnum(n.fee)} ${coin}</b></div><div><span>Receive amount</span><b class="num">${fmt(rcv, DP)} ${coin}</b></div><div><span>Est. arrival</span><b>≈ ${n.eta} min</b></div></div>
         <button class="btn btn-primary wd-cfm" data-ok>Confirm withdrawal</button>`, el => {
         el.querySelector("[data-ok]").onclick = () => {
           if (v > avail() + 1e-9) return toast("Insufficient balance", "bad");
-          let rem = v; ["funding","spot"].forEach(w => { if (!st.from[w] || rem <= 0) return; const take = Math.min(store.wb(w), rem); if (take > 0){ store.addWallet(w, -take, "withdraw"); rem = Math.round((rem - take) * 100) / 100; } });
+          if (!isU){ const hs = S().spot && S().spot.hold && S().spot.hold[coin]; if (hs){ const fr = Math.min(1, v / (hs.qty || 1)); hs.cost = (hs.cost || 0) * (1 - fr); hs.qty = Math.max(0, hs.qty - v); if (hs.qty < 1e-9) delete S().spot.hold[coin]; store.save(); bus.emit("balance"); } }
+          let rem = isU ? v : 0; ["funding","spot"].forEach(w => { if (!st.from[w] || rem <= 0) return; const take = Math.min(store.wb(w), rem); if (take > 0){ store.addWallet(w, -take, "withdraw"); rem = Math.round((rem - take) * K) / K; } });
           const id = U.uid();
           (S().tx ||= []).unshift({id, kind:"withdrawal", coin, amount:v, fee:n.fee, receive:rcv, method:n.n, addr:ad, note:$("#wrm").value.trim(), status:"Processing", t:Date.now(), done:Date.now() + 10000});
           store.save(); U.fx("claim"); U.closeLayer();
-          toast(`Withdrawal submitted: ${fmt(v, 2)} ${coin}`, "ok");
+          toast(`Withdrawal submitted: ${fmt(v, DP)} ${coin}`, "ok");
           setTimeout(() => { if (settle() && r.isConnected) toast("Withdrawal completed", "ok"); }, 10200);
           location.hash = "#/assets/fund";
         };
       });
     };
     upd();
-    const off = bus.on("balance", () => { $("#wfb").textContent = fmt(fundBal(), 2) + " " + coin; $("#wsb").textContent = fmt(spotBal(), 2) + " " + coin; upd(); });
+    const off = bus.on("balance", () => { $("#wfb").textContent = fmt(fundB(), DP) + " " + coin; $("#wsb").textContent = fmt(spotB(), DP) + " " + coin; upd(); });
     this.unmount = () => { off(); document.body.classList.remove("no-nav"); };
   }};
 }
-Pages.withdraw = (params) => { const c = String((params && params[0]) || "").toUpperCase(); return c ? chainPage(c === "USDT" ? c : "USDT") : pickPage(); };
+Pages.withdraw = (params) => { const c = String((params && params[0]) || "").toUpperCase(); return c ? chainPage(WD_COINS.includes(c) ? c : "USDT") : pickPage(); };
 
 /* ---------- PnL Analysis: joined date, volume per product, fees, exchange comparison ---------- */
 const RATES = {Binance:{fut:0.0005, spot:0.001}, Bybit:{fut:0.00055, spot:0.001}, OKX:{fut:0.0005, spot:0.001}};

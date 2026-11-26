@@ -30,6 +30,18 @@ window.CONFIG = {
   FEE: 0.0001, MMR: 0.004,
   BINANCE_REST: ["https://api.binance.com","https://data-api.binance.vision"],
   BINANCE_WS: ["wss://data-stream.binance.vision","wss://stream.binance.com:9443"],
+  // v6.9: Binance USD-M futures (TradFi perpetuals: stocks, ETFs, gold/oil/copper, FX) - tried in order, first reachable host is remembered
+  BINANCE_FAPI: ["https://fapi.binance.com","https://www.binance.com","https://fapi1.binance.com","https://fapi2.binance.com"],
+  BINANCE_FWS: ["wss://fstream.binance.com"],
+  // v6.9: fixed top indices (biquote.io feed): s=symbol, n=name, f=flag, k=search keywords
+  INDICES: [
+    {s:"US500", n:"S&P 500 (SPX)", f:"us"},
+    {s:"USTEC", n:"Nasdaq 100 (NAS100)", f:"us"},
+    {s:"US30", n:"Dow Jones 30", f:"us"},
+    {s:"DE30", n:"DAX 40 (GER40)", f:"de"},
+    {s:"UK100", n:"FTSE 100", f:"gb"},
+    {s:"JP225", n:"Nikkei 225", f:"jp"}
+  ],
   get APP_VERSION(){ return (() => { try { const m = ((document.querySelector('script[src*="update.js"],script[src*="app.min.js"]') || {}).src || "").match(/[?&]v=([\d.]+)/); return m ? m[1] : "6.7"; } catch (e) { return "6.7"; } })(); },
   BIQUOTE: "https://biquote.io"
 };

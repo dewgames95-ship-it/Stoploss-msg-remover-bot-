@@ -6,6 +6,9 @@ const S = () => store.s;
 /* make sure the stylesheet is present even if index.html was not updated */
 if (!document.querySelector('link[href*="css/home.css"]')){ const l = document.createElement("link"); l.rel = "stylesheet"; l.href = "css/home.css?v=5.3"; document.head.appendChild(l); }
 
+/* v6.9 shared icon gradient (CSS: stroke:url(#ntIg)); userSpaceOnUse so straight lines keep their stroke */
+if (!document.getElementById("ntIgDefs") && document.body) document.body.insertAdjacentHTML("afterbegin", '<svg id="ntIgDefs" width="0" height="0" aria-hidden="true" focusable="false" style="position:absolute;width:0;height:0;overflow:hidden;pointer-events:none"><defs><linearGradient id="ntIg" gradientUnits="userSpaceOnUse" x1="3" y1="2" x2="21" y2="22"><stop offset="0" class="ig-a"/><stop offset="1" class="ig-b"/></linearGradient></defs></svg>');
+
 /* ---------- Inline art (prefix-local, no dependencies) ---------- */
 let gid = 0;
 function hash(s){ let h = 2166136261; for (const c of String(s)) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return h >>> 0; }
@@ -70,14 +73,15 @@ function marketList(box, o = {}){
     else if (chip === "new") l = all.filter(p => p.listed).sort((a,b) => b.listed - a.listed || (a.rank||999) - (b.rank||999)).slice(0, 40);
     else if (chip === "forex") l = all.filter(p => p.type === "forex");
     else if (chip === "metals") l = all.filter(p => p.type === "metal");
-    else if (chip === "stocks") l = all.filter(p => p.type === "stock").sort((a,b) => (a.closed - b.closed) || Math.abs(b.chg||0) - Math.abs(a.chg||0));
+    else if (chip === "stocks") l = all.filter(p => p.type === "stock").sort((a,b) => (a.closed - b.closed) || ((b.qv||0) - (a.qv||0)) || Math.abs(b.chg||0) - Math.abs(a.chg||0));
     else if (chip === "indices") l = all.filter(p => p.type === "index");
     else if (chip === "commod") l = all.filter(p => p.type === "commodity");
     else { const top = crypto(); l = [...top.slice(0,5), M.get("XAUUSD"), M.get("EURUSD"), ...top.slice(5), M.get("GBPUSD"), M.get("XAGUSD")].filter(Boolean); }
-    return l;
+    /* v6.9: one entry per instrument - perp tab prefers the Binance 24/7 contract, spot tab hides perp-only twins */
+    return chip === "fav" ? l : l.filter(p => sub === "perp" ? !p.fdup : !p.perpOnly);
   }
   const vol = p => p.qv ? CH.fmtVol(p.qv) : ({forex:"Forex", metal:"Spot metal", stock:"Stock", index:"Index", commodity:"Commodity"})[p.type] || "";
-  const tag = p => p.pre ? `<em class="t">Pre-market</em>` : p.type === "crypto" ? (sub === "spot" ? "" : `<em>Perp</em>`) : (sub === "spot" ? (p.type === "stock" ? `<em class="t">Stock</em>` : "") : p.type === "stock" ? `<em class="t">Stock</em>` : `<em class="t">24/5</em>`);
+  const tag = p => UI.mktTag(p, sub);
   const chgHtml = p => p.closed ? `<span class="hm-chg cl">Closed</span>` : p.chg == null ? `<span class="hm-chg cl">--</span>` : `<span class="hm-chg ${p.chg < 0 ? "neg" : ""}">${p.chg >= 0 ? "+" : ""}${p.chg.toFixed(2)}%</span>`;
   const usd = p => "$" + M.fmtPx(p, p.quote === "JPY" ? p.price / (M.get("USDJPY")?.price || 1) : p.quote === "USDT" ? p.price * M.usdtUsd() : p.price);
   let lazyIO = null;
@@ -134,17 +138,17 @@ function bindChips(root, ml){
 /* ---------- Home ---------- */
 const SHORT = [
   ["Copy Trading","users","#/copy"],["Rewards Hub","gift","#/rewards"],["Futures","layers","#/futures"],["Spot","chart","#/spot"],["Options","target","#/options"],
-  ["Trading Bots","bot","#/bots"],["Earn","earn","#/earn"],["Money Racer","car","#/racer"],["Prediction","predict","#/predict"]
+  ["Trading Bots","bot","#/bots"],["Earn","earn","#/earn"],["Money Game","car","#/racer"],["Prediction","predict","#/predict"]
 ];
 /* "More" sheet: every shortcut, grouped (Binance style) */
 const ALLSC = [
-  ["Trade", [["Markets","chart","#/markets"],["Futures","layers","#/futures"],["Spot","swap","#/spot"],["Binary","clock","#/trade"],["Prediction","predict","#/predict"],["Money Racer","car","#/racer"],["Options","target","#/options"],["Copy Trading","users","#/copy"],["Trading Bots","bot","#/bots"],["Auto Trading","auto","#/auto"]]],
+  ["Trade", [["Markets","chart","#/markets"],["Futures","layers","#/futures"],["Spot","swap","#/spot"],["Binary","clock","#/trade"],["Prediction","predict","#/predict"],["Money Game","car","#/racer"],["Options","target","#/options"],["Copy Trading","users","#/copy"],["Trading Bots","bot","#/bots"]]],
   ["Funds", [["Assets","wallet","#/assets"],["Deposit","down","#/deposit"],["Withdraw","up","#/withdraw"],["Earn","earn","#/earn"],["PnL Analysis","pie","#/pnl"],["Trade History","history","#/history"]]],
-  ["Rewards & Tools", [["Rewards Hub","trophy","#/rewards"],["Referral","share","#/referral"],["VIP Signals","crown","#/vip"],["Price Alerts","ring","#/alerts"],["Academy","book","#/academy"],["Vouchers","gift","#/rewards"]]],
+  ["Rewards & Tools", [["Rewards Hub","trophy","#/rewards"],["Referral","share","#/referral"],["Price Alerts","ring","#/alerts"],["Academy","book","#/academy"],["Vouchers","gift","#/rewards"]]],
   ["Account", [["Profile","users","#/profile"],["Security","shield","#/security"],["Settings","gear","#/settings"],["Support","headset","#/support"],["Community","chat","#/community"],["About","info","#/about"]]]
 ];
 function moreSheet(){
-  const ico = (n, i, h) => `<a class="hm-mi" href="${h}" data-x><span>${ic(i,22,1.7)}</span><b>${esc(n)}</b></a>`;
+  const ico = (n, i, h) => `<a class="hm-mi${/racer|predict/.test(h) ? " hm-hot" : ""}" href="${h}" data-x><span>${ic(i,22,1.7)}</span><b>${esc(n)}</b></a>`;
   U.sheet("All shortcuts", ALLSC.map(([g, l]) => `<h4 class="hm-mh">${g}</h4><div class="hm-mg">${l.map(x => ico(...x)).join("")}</div>`).join(""), el => {
     el.querySelectorAll("[data-x]").forEach(a => a.addEventListener("click", () => U.closeLayer()));
   });

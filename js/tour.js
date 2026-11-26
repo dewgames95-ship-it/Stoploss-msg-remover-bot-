@@ -4,7 +4,7 @@ const TOURS = {
   home: [
     {sel:".hm-search", title:"Search markets", text:"Find any crypto, forex or gold pair by name and jump straight to its chart."},
     {sel:".hm-assets", title:"Your balance", text:"Total assets and today's PnL at a glance. Tap the eye to hide the amount."},
-    {sel:".hm-dep", title:"Deposit", text:"Add demo USDT to your account in one tap before you start trading."},
+    {sel:".hm-dep", title:"Deposit", text:"Add USDT to your account in one tap before you start trading."},
     {sel:".hm-sc", title:"Shortcuts", text:"Copy trading, rewards, earn and more are one swipe away."},
     {sel:".hm-chips", title:"Market lists", text:"Switch between Favorites, Hot, Gainers and more. Tap a row to open its chart."},
     {sel:"#strip", title:"News & Feed", text:"Headlines, announcements, events and Academy lessons live in this strip."}

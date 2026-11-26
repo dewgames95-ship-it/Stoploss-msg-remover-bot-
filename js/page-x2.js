@@ -208,7 +208,7 @@ Pages.assets = (params) => {
     const promo = `<a class="px-promo" href="#/earn"><div class="tx"><b>Earn up to 12% APR on USDT</b><span>Flexible and locked plans, redeem anytime</span></div>${ART.coins(84)}<i class="arr">${ic("chev",14,2)}</i></a>`;
     let body = "";
     if (tab === "overview" && view === "account"){
-      const wb = store.wb, parts = [["Funding","fund",wb("funding"),"#2E6BFF"],["Spot","spot",wb("spot") + t.hv,"#7FA6FF"],["Futures","futures",Math.max(0,t.fut) + wb("futures"),"#5B6575"],["Binary / Options","spot",wb("binary") + wb("options") + t.bin,"#8A94A6"],["Copy Trading","copy",t.cv,"#A8B3C4"],["Earn","earn",t.vault + wb("earn"),"#D3D9E2"],["Money Racer","games",wb("games"),"#6E7B93"],["Prediction","predict",wb("predict"),"#B9C2D3"]], sum = parts.reduce((a,p) => a + p[2], 0) || 1;
+      const wb = store.wb, parts = [["Funding","fund",wb("funding"),"#2E6BFF"],["Spot","spot",wb("spot") + t.hv,"#7FA6FF"],["Futures","futures",Math.max(0,t.fut) + wb("futures"),"#5B6575"],["Binary / Options","spot",wb("binary") + wb("options") + t.bin,"#8A94A6"],["Copy Trading","copy",t.cv,"#A8B3C4"],["Earn","earn",t.vault + wb("earn"),"#D3D9E2"],["Money Game","games",wb("games"),"#6E7B93"],["Prediction","predict",wb("predict"),"#B9C2D3"]], sum = parts.reduce((a,p) => a + p[2], 0) || 1;
       body = CHIPS() + `<div class="px-alloc">${parts.filter(p => p[2] > 0).map(p => `<i style="flex:${p[2]/sum};background:${p[3]}"></i>`).join("")}</div>
         ${parts.map(([n,k,v,c]) => `<button class="px-acc" data-go="${k}"><i style="background:${c}"></i><div class="grow"><b>${n}</b><span class="px-mut">${hide ? "**" : (v/sum*100).toFixed(1) + "% of total"}</span></div><div class="r"><b class="num">${H(money(v))}</b><span class="px-mut">USDT</span></div><span class="ch">${ic("chev",14)}</span></button>`).join("")}`;
     } else {
@@ -307,7 +307,7 @@ function depositPage(coin, net){
       <div class="px-kv"><span>Minimum deposit</span><b class="num">${nd[3]} ${esc(coin)}</b></div>
       <div class="px-kv"><span>Credited after</span><b>1 confirmation</b></div>
       <div class="px-kv"><span>Estimated arrival</span><b>~${nd[4]} min</b></div></div>
-    <div class="px-notice" style="margin-top:14px">${ic("info",14)}<span>This is a paper-trading address. Use the Deposit button below to add demo funds instantly. Do not send real crypto to it.</span></div>
+    <div class="px-notice" style="margin-top:14px">${ic("info",14)}<span>This address cannot receive real crypto. Use the Deposit button below to add funds instantly. Do not send crypto to it.</span></div>
     <div id="pend"></div>
     <button class="px-btn pri blk lg" data-dep style="margin-top:16px">Deposit</button></div>`;
   return {html, title:"Deposit " + coin, mount(r){
@@ -651,7 +651,7 @@ Pages.copy = (params) => {
       if (f){ e.stopPropagation(); const id = f.dataset.fav, a = favs(), i = a.indexOf(id); i < 0 ? a.push(id) : a.splice(i, 1); store.save(); if (ltab === "follow") renderList(); else { f.classList.toggle("on", i < 0); } toast(i < 0 ? "Added to Following" : "Removed from Following", "info", 1500); return; }
       if (sv){ view = sv.dataset.sv; show(); window.scrollTo(0, 0); return; }
       if (e.target.closest("[data-sq]")){ view = "plaza"; showQ = !showQ; if (!showQ) q = ""; show(); if (showQ) $("#tq")?.focus(); return; }
-      if (e.target.closest("[data-menu]")){ U.sheet("Copy Trading", `<button class="px-opt" data-m="my">My data${ic("chev",16)}</button><button class="px-opt" data-m="say">Traders say${ic("chev",16)}</button><button class="px-opt" data-m="follow">Following${ic("chev",16)}</button><div class="px-notice" style="margin-top:12px">${ic("info",14)}<span>Past performance does not guarantee future results. Copy trading is simulated with paper funds.</span></div>`, el => el.querySelectorAll("[data-m]").forEach(b => b.onclick = () => { U.closeLayer(); if (b.dataset.m === "follow"){ view = "plaza"; ltab = "follow"; } else view = b.dataset.m; show(); })); return; }
+      if (e.target.closest("[data-menu]")){ U.sheet("Copy Trading", `<button class="px-opt" data-m="my">My data${ic("chev",16)}</button><button class="px-opt" data-m="say">Traders say${ic("chev",16)}</button><button class="px-opt" data-m="follow">Following${ic("chev",16)}</button><div class="px-notice" style="margin-top:12px">${ic("info",14)}<span>Past performance does not guarantee future results. Trader stats are illustrative.</span></div>`, el => el.querySelectorAll("[data-m]").forEach(b => b.onclick = () => { U.closeLayer(); if (b.dataset.m === "follow"){ view = "plaza"; ltab = "follow"; } else view = b.dataset.m; show(); })); return; }
       if (c || d){ const l = LEADS.find(x => x.id === (c || d).dataset[c ? "cp" : "ld"]); if (l) detail(l, mkOf(), !!c); }
     });
     show();

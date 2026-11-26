@@ -51,9 +51,42 @@ function openVip(){
     <div class="vp-g"><div><span>Spot</span><b class="num">${feeP(BASE.spot, t.off)}</b></div><div><span>Futures M/T</span><b class="num">${feeP(BASE.fm, t.off)}/${feeP(BASE.ft, t.off)}</b></div><div><span>Options</span><b class="num">${feeP(BASE.opt, t.off)}</b></div><div><span>Binary</span><b class="up">No fee</b></div></div></div>`).join("");
   U.sheet("Account level", hero + now + `<h4 class="vp-h">All levels</h4><div class="vp-list">${list}</div>` +
     (lv ? `<div class="pm-kv" style="margin-top:6px"><span>Activity level</span><b>Lv.${lv.lvl} · ${Math.max(0, lv.need - lv.cur)} XP to next</b></div>` : "") +
-    `<p class="pm-s" style="margin:10px 0 0">Demo account. Volume counts closed binary, futures and spot trades of the last 30 days. Fee rates shown per level; binary trades never carry a fee.</p>`);
+    `<p class="pm-s" style="margin:10px 0 0">Volume counts closed binary, futures and spot trades of the last 30 days. Fee rates shown per level; binary trades never carry a fee.</p>`);
 }
 window.VIPX = {open: openVip, tier, stats, TIERS};
+
+/* ================= Pair popup (same rows as the app's pair picker, but a small window on top of any sheet; used instead of native <select> lists) ================= */
+function pairRows(list, cur, q, opt){
+  const qq = (q || "").trim().toUpperCase(), vol = p => p.qv && window.CH ? CH.fmtVol(p.qv) : "";
+  const rows = list.filter(p => !qq || p.sym.includes(qq) || (UI.fullName(p) || "").toUpperCase().includes(qq) || M.label(p).toUpperCase().includes(qq));
+  return rows.map(p => `<button type="button" class="pk-row pp-row${p.sym === cur ? " on" : ""}" data-s="${esc(p.sym)}">${UI.pairIcon(p, 30)}<div class="pk-n"><b>${esc(M.label(p))}</b><small><span class="pk-fn">${esc(UI.fullName(p))}</span> ${vol(p) ? `<span class="num">${vol(p)}</span>` : ""}${opt.payout ? `<span class="pk-pp">${Math.round(E.payoutOf(p.sym) * 100)}%</span>` : ""}</small></div>
+    <div class="pk-p"><b class="num">${M.fmtPx(p)}</b></div><span class="pk-c ${p.closed ? "cl" : (p.chg || 0) < 0 ? "dn" : ""}">${p.closed ? "Closed" : p.chg == null ? "--" : U.pct(p.chg)}</span></button>`).join("") || `<div class="pp-empty">No pairs found</div>`;
+}
+function pairPopup(opt){
+  const old = document.getElementById("ppWin"); if (old) old.remove();
+  const list = opt.list || [...M.pairs.values()].filter(p => p.type === "crypto" && p.tradable && /USDT$/.test(p.sym)).sort((a, b) => (a.rank || 999) - (b.rank || 999)).slice(0, 80);
+  const box = document.createElement("div"); box.id = "ppWin"; box.className = "pp-back";
+  box.innerHTML = `<div class="pp-win" role="dialog" aria-modal="true" aria-label="${esc(opt.title || "Select pair")}"><div class="pp-h"><b>${esc(opt.title || "Select pair")}</b><button type="button" class="icon-btn" data-ppx aria-label="Close">${ic("close", 18)}</button></div>
+    <label class="search pp-s">${ic("search", 16)}<input placeholder="Search" autocomplete="off" aria-label="Search pairs"></label><div class="pp-hd"><span>Name / Vol</span><span>Last Price</span><span>24h Chg%</span></div><div class="pp-l">${pairRows(list, opt.cur, "", opt)}</div></div>`;
+  document.body.appendChild(box); requestAnimationFrame(() => box.classList.add("show"));
+  const close = () => { box.classList.remove("show"); document.removeEventListener("keydown", esc2); setTimeout(() => box.remove(), 180); };
+  const esc2 = e => { if (e.key === "Escape") close(); };
+  document.addEventListener("keydown", esc2);
+  box.addEventListener("click", e => {
+    if (e.target === box || e.target.closest("[data-ppx]")) return close();
+    const b = e.target.closest("[data-s]"); if (b){ close(); if (b.dataset.s !== opt.cur) opt.onPick && opt.onPick(b.dataset.s); }
+  });
+  const inp = box.querySelector("input"); inp.addEventListener("input", () => { box.querySelector(".pp-l").innerHTML = pairRows(list, opt.cur, inp.value, opt); });
+  const cur = box.querySelector(".pp-row.on"); if (cur) setTimeout(() => cur.scrollIntoView({block: "center"}), 30);
+  return close;
+}
+/* field button that opens the popup: <button id=...>icon NAME chevron</button> */
+function pairField(id, sym, label){
+  const p = M.get(sym);
+  return `<button type="button" class="pm-pair" id="${id}" data-sym="${esc(sym)}" aria-label="${esc(label || "Select pair")}">${p ? UI.pairIcon(p, 24) : ""}<b>${esc(p ? M.label(p) : sym)}</b><span class="grow"></span>${ic("chevd", 16)}</button>`;
+}
+function pairFieldSet(btn, sym){ const p = M.get(sym); btn.dataset.sym = sym; btn.innerHTML = `${p ? UI.pairIcon(p, 24) : ""}<b>${esc(p ? M.label(p) : sym)}</b><span class="grow"></span>${ic("chevd", 16)}`; }
+Object.assign(window.UI, {pairPopup, pairField, pairFieldSet});
 
 /* ================= Bot builder + backtest ================= */
 const kcache = new Map();
@@ -177,7 +210,7 @@ function openBot(s, onStart){
   const manual = {dir: 1, lev: 3, grids: 40, lo: 0, hi: 0, step: 2, safety: 5, tp: 1.5, days: 1};
   const px = () => { const p = M.get(st.sym); return p && p.price || 1; };
   const body = `<div class="fm-bot"><div class="seg fm-tabs" role="tablist"><button data-md="ai" class="on" role="tab">AI</button><button data-md="manual" role="tab">Manual</button></div>
-    <span class="pm-lbl">Asset</span><select class="pm-sel" id="fmSym" aria-label="Asset">${pairs.map(p => `<option value="${p.sym}" ${p.sym === st.sym ? "selected" : ""}>${esc(M.label(p))}</option>`).join("")}</select>
+    <span class="pm-lbl">Asset</span>${pairField("fmSym", st.sym, "Asset")}
     <div id="fmAi"><span class="pm-lbl">Risk profile</span><div class="seg fm-risk">${["Low", "Medium", "High"].map(r => `<button data-rk="${r}" class="${r === st.risk ? "on" : ""}">${r}</button>`).join("")}</div></div>
     <div id="fmPar" class="fm-par"></div>
     <span class="pm-lbl">Investment</span><div class="pm-fld" id="fmInvF"><input id="fmInv" type="number" inputmode="decimal" min="10" value="100" aria-label="Investment amount"><span class="u">USDT</span><button type="button" class="mx" data-max>Max</button></div>
@@ -239,7 +272,7 @@ function openBot(s, onStart){
       const md = e.target.closest("[data-md]"); if (md){ if (md.dataset.md === "manual" && st.ai){ Object.assign(manual, {dir: st.ai.P.dir, lev: st.ai.P.lev, grids: st.ai.P.grids || manual.grids, lo: st.ai.P.lo || 0, hi: st.ai.P.hi || 0, step: st.ai.P.step || manual.step, safety: st.ai.P.safety || manual.safety, tp: st.ai.P.tp || manual.tp, days: st.ai.P.days || manual.days}); } st.mode = md.dataset.md; el.querySelectorAll("[data-md]").forEach(b => b.classList.toggle("on", b === md)); renderPar(); sched(); return; }
       const rk = e.target.closest("[data-rk]"); if (rk){ st.risk = rk.dataset.rk; st.ai = null; el.querySelectorAll("[data-rk]").forEach(b => b.classList.toggle("on", b === rk)); renderPar(); sched(); }
     });
-    $("#fmSym").addEventListener("change", e => { st.sym = e.target.value; manual.lo = 0; st.ai = null; renderPar(); sched(); });
+    $("#fmSym").addEventListener("click", () => pairPopup({cur: st.sym, list: pairs, title: "Select pair", onPick: sym => { st.sym = sym; pairFieldSet($("#fmSym"), sym); manual.lo = 0; st.ai = null; renderPar(); sched(); }}));
     $("[data-max]").onclick = () => { $("#fmInv").value = Math.floor(store.wb("futures") * 100) / 100; };
     $("[data-ok]").onclick = () => {
       const inv = parseFloat($("#fmInv").value), err0 = validate(), P = params(), p = M.get(st.sym), id = kind + "~" + st.sym, E_ = window.E, e = $("#fmErr");

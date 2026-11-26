@@ -38,7 +38,7 @@ input,select,textarea{font:inherit;color:var(--text)}
 img{max-width:100%;display:block}
 svg{flex-shrink:0}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
-:focus-visible{outline:2px solid var(--brand-2);outline-offset:2px;border-radius:6px}
+:focus-visible{outline:none}
 .num,.mono{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
 
 /* ===== Layout ===== */
@@ -644,7 +644,7 @@ body{font-family:var(--font);background:var(--bg);font-feature-settings:"tnum","
 html[data-theme="light"] body{background:radial-gradient(1200px 420px at 50% -180px,#E4EDFF 0%,rgba(228,237,255,0) 70%) no-repeat,var(--bg)}
 html[data-theme="dark"] body{background:radial-gradient(1200px 420px at 50% -180px,rgba(61,107,255,.18) 0%,rgba(61,107,255,0) 70%) no-repeat,var(--bg)}
 ::selection{background:var(--brand-soft-2)}
-:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+:focus-visible{outline:none}
 .brand-c{color:var(--brand)!important}
 .sec-h a,.link,.more-btn{color:var(--brand)}
 .title{font-weight:700;letter-spacing:-.015em}

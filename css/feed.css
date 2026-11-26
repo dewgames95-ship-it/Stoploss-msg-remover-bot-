@@ -1,0 +1,20 @@
+/* v6.9 Live withdrawals card */
+.wf-card{margin:16px 0 4px;padding:14px 14px 4px;border:1px solid var(--line);border-radius:var(--r-card,12px);background:linear-gradient(180deg,var(--card-g1,var(--card)),var(--card-g2,var(--card)));min-width:0}
+.wf-h{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px}
+.wf-h h2{margin:0;font-size:16px;font-weight:700;color:var(--text)}
+.wf-live{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:600;color:var(--up);background:var(--up-bg);padding:3px 9px 3px 8px;border-radius:999px}
+.wf-live i{width:6px;height:6px;border-radius:50%;background:var(--up);animation:wfp 1.8s ease-in-out infinite}
+@keyframes wfp{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.7)}}
+.wf-row{display:flex;align-items:center;gap:11px;padding:11px 0;border-bottom:1px solid var(--line);min-width:0;overflow:hidden;max-height:70px;transition:max-height .38s ease,opacity .38s ease,padding .38s ease}
+.wf-row:last-child{border-bottom:0}
+.wf-ic{flex:none;width:34px;height:34px;display:grid;place-items:center}
+.wf-ic .coin,.wf-ic svg{width:34px;height:34px;border-radius:50%}
+.wf-tx{flex:1;min-width:0}
+.wf-tx b{display:block;font-size:14px;font-weight:700;color:var(--text);white-space:nowrap}
+.wf-tx b span{font-weight:500;color:var(--text-2,var(--muted))}
+.wf-tx small{display:block;margin-top:2px;font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wf-t{flex:none;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.wf-in{animation:wfin .45s ease both}
+@keyframes wfin{from{max-height:0;opacity:0;transform:translateY(-10px);padding-top:0;padding-bottom:0}to{max-height:70px;opacity:1;transform:none}}
+.wf-out{max-height:0;opacity:0;padding-top:0;padding-bottom:0;border-bottom-width:0}
+@media (prefers-reduced-motion:reduce){.wf-in{animation:none}.wf-live i{animation:none}}
