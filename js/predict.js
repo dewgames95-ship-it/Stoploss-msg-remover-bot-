@@ -225,7 +225,7 @@ function addPos(r, shares, cost){
 function reducePos(p, shares){
   const d = data(), basis = p.avg * shares;
   p.shares = r4(p.shares - shares); p.cost = r4(Math.max(0, p.cost - basis));
-  if (p.shares <= 1e-4){ d.positions = d.positions.filter(x => x !== p); }
+  if (p.shares < .005){ d.positions = d.positions.filter(x => x !== p); }
   return basis;
 }
 
@@ -267,7 +267,8 @@ async function order(r){
   }
   /* sell */
   const pos = d.positions.find(x => x.token === r.token); if (!pos) throw new Error("You have no shares to sell");
-  const free = r4(pos.shares - (pos.locked || 0)), sh = r4(Math.min(+r.shares || 0, free));
+  const free = r4(pos.shares - (pos.locked || 0)); let sh = r4(Math.min(+r.shares || 0, free));
+  if (free - sh < .01) sh = free;   // never leave dust shares behind
   if (!(sh > 0)) throw new Error(free > 0 ? "Enter shares to sell" : "Shares are locked in open sell orders");
   if (r.type === "market"){
     const w = walkSell(r.levels, sh, r.price), gross = r2(w.proceeds), f = r2(gross * fee), net = r2(gross - f);
@@ -444,7 +445,7 @@ function stats(){
     trades: d.history.filter(h => /buy|sell|fill|perp/.test(h.kind)).length, marketsTraded: new Set(d.history.filter(h => h.mid).map(h => h.mid)).size,
     biggestWin: wins.length ? Math.max(...wins) : 0, won: d.history.filter(h => h.kind === "won").length, lost: d.history.filter(h => h.kind === "lost").length, enabled: cfg().enabled};
 }
-window.PRED = {data: () => JSON.parse(JSON.stringify(data())), stats, cfg, settle: checkSettle, _data: data, _internal: {PX, BOOK, EV, levels, loadBooks}};
+window.PRED = {data: () => JSON.parse(JSON.stringify(data())), stats, cfg, settle: checkSettle, _data: data, _internal: {PX, BOOK, EV, levels, loadBooks, handleWS}};
 let curScreen = null;
 
 /* =====================================================================================================
@@ -461,7 +462,7 @@ function bindCommon(root, offs){
   root.querySelectorAll("[data-acct]").forEach(b => b.onclick = e => { e.stopPropagation(); if (window.ACCT) ACCT.sheet(); else toast("Demo account", "info"); });
   root.addEventListener("click", e => { if (e.target.closest("[data-pd-xf]")){ hap(10); UI.transferSheet({to: W}); } });
   const upd = () => root.querySelectorAll("[data-pd-bal]").forEach(b => b.textContent = usd(bal()));
-  offs.push(bus.on("balance", upd));
+  offs.push(bus.on("balance", upd)); upd();
 }
 function seed(){
   const d = data(); if (d.seeded) return; d.seeded = true;
@@ -495,7 +496,7 @@ function drawChart(box, series, o = {}){
   const X = t => (t - t0) / (t1 - t0 || 1) * (W0 - pr), Y = v => pt + (v1 - v) / (v1 - v0 || 1) * (H - pt - pb);
   const fmtV = o.fmt || (v => Math.round(v * 100) + "%");
   let g = ""; for (let i = 0; i <= 3; i++){ const v = v0 + (v1 - v0) * i / 3, y = Y(v).toFixed(1); g += `<line x1="0" x2="${W0 - pr + 4}" y1="${y}" y2="${y}" class="pd-ch-g"/><text x="${W0 - 2}" y="${(+y + 4).toFixed(1)}" text-anchor="end" class="pd-ch-t">${esc(fmtV(v))}</text>`; }
-  const span = (t1 - t0) / 1000, tf = t => { const d = new Date(t); return span < 2 * 86400 ? d.toLocaleTimeString("en-US", {hour: "numeric", minute: "2-digit"}) : span < 400 * 86400 ? d.toLocaleDateString("en-US", {month: "short", day: "numeric"}) : d.toLocaleDateString("en-US", {month: "short", year: "2-digit"}); };
+  const span = (t1 - t0) / 1000, tf = t => { const d = new Date(t); return span < 600 ? d.toLocaleTimeString("en-US", {hour: "numeric", minute: "2-digit", second: "2-digit"}) : span < 2 * 86400 ? d.toLocaleTimeString("en-US", {hour: "numeric", minute: "2-digit"}) : span < 400 * 86400 ? d.toLocaleDateString("en-US", {month: "short", day: "numeric"}) : d.toLocaleDateString("en-US", {month: "short", year: "2-digit"}); };
   for (let i = 0; i < 3; i++){ const t = t0 + (t1 - t0) * (i * 2 + 1) / 6; g += `<text x="${X(t).toFixed(1)}" y="${H - 5}" text-anchor="middle" class="pd-ch-t">${esc(tf(t))}</text>`; }
   let paths = "", dots = "", defs = "";
   series.forEach((s, i) => {
@@ -679,7 +680,7 @@ function listScreen(){
     <div class="pd-search">${ic("search", 18)}<input type="search" id="pdQ" placeholder="Search markets" autocomplete="off" enterkeyhint="search" aria-label="Search markets"><button type="button" class="pd-qx" data-qx aria-label="Clear search" hidden>${ic("close", 16)}</button></div>
     <div class="pd-chips-row" id="pdCats" role="tablist">${CATS.map(([k, l]) => `<button type="button" role="tab" data-cat="${k}" class="${k === cat ? "on" : ""}">${k === "trending" ? ic("trend", 14, 2.2) : ""}${l}</button>`).join("")}</div>
     <div id="pdNote"></div><div class="pd-list" id="pdList"></div><div class="pd-foot" id="pdMore"></div></div>`;
-  const $ = s => root.querySelector(s);
+  const $ = s => root ? root.querySelector(s) : null;
   const tokMap = new Map();
   function indexTokens(){ tokMap.clear(); events.forEach(e => e.markets.slice(0, 3).forEach(m => tokMap.set(m.tokens[0], m))); }
   function subscribe(){ closeWS && closeWS(); indexTokens(); closeWS = openWS([...tokMap.keys()].slice(0, 100)); }
@@ -766,6 +767,7 @@ async function history(tk, tf){
   const v = (d.history || []).map(p => [p.t * 1000, +p.p]).filter(p => p[1] >= 0);
   HI[k] = {t: now(), v}; return v;
 }
+const nm = s => /^0x[0-9a-f]{12,}$/i.test(s || "") ? s.slice(0, 6) + "…" + s.slice(-4) : (s || "Trader");
 const nameAv = (seed, size = 30) => { let h = 0; for (const ch of String(seed)) h = (h * 31 + ch.charCodeAt(0)) >>> 0; const hue = h % 360; return `<span class="pd-av" style="width:${size}px;height:${size}px;background:linear-gradient(135deg,hsl(${hue} 70% 58%),hsl(${(hue + 50) % 360} 75% 48%))">${esc(String(seed || "?").replace(/^0x/, "")[0] || "?").toUpperCase()}</span>`; };
 const SIMN = ["Theo4","Fredi9999","PrincessCaro","zxgngl","Domer","50pence","JustKen","CigarettesAfterSex","WindWalk3","kch123","gopfan2","RepTrump","sargallot","bobe2","HyperLiquid0xb","Erasmus","Car","BrokenStrategy"];
 function simTrades(m, n = 14){ const out = [], c = chance(m); for (let i = 0; i < n; i++){ const yes = Math.random() < c + .1, p = Math.max(.01, Math.min(.99, (yes ? c : 1 - c) + (Math.random() - .5) * .02)); out.push({name: SIMN[(i * 7 + m.id.length) % SIMN.length], side: Math.random() < .78 ? "BUY" : "SELL", outcome: m.outs[yes ? 0 : 1], size: Math.round(5 + Math.random() ** 2 * 3000), price: p, t: now() - i * (40e3 + Math.random() * 200e3), sim: true}); } return out; }
@@ -775,7 +777,7 @@ function detailScreen(key, mid){
   let root, ev = EV.get(key) || null, sel = 0, tf = sessionStorage.getItem("pd_tf") || "1d", tab = "book", panel = null, closeWS = null, offs = [], timers = [], loadErr = null;
   let trades = [], holders = null, related = null, chartTok = "", series = [];
   const st = {ev, m: null, oi: 0, side: "buy", type: "market", amt: "", lp: null};
-  const $ = s => root.querySelector(s);
+  const $ = s => root ? root.querySelector(s) : null;
   const html = `<div class="pd-page pd-det">${backHead("Market", `<button class="pd-ib" data-share aria-label="Share market">${ic("share", 20)}</button>`)}<div id="pdDet">${skelDet()}</div></div>`;
   function skelDet(){ return `<div class="pd-skel"><div class="pd-dh"><span class="pd-img lg sk"></span><span class="sk sk-t" style="height:44px"></span></div><span class="sk" style="display:block;height:34px;width:40%;margin:14px 0"></span><span class="sk" style="display:block;height:190px"></span></div>`; }
   function selM(){ return ev.markets[sel] || ev.markets[0]; }
@@ -786,7 +788,7 @@ function detailScreen(key, mid){
   }
   function render(){
     const box = $("#pdDet"); if (!box) return;
-    if (!ev){ box.innerHTML = loadErr ? `<div class="pd-err">${ic("info", 34, 1.4)}<b>Couldn't load this market</b><span>${esc(loadErr.message || "Network error")}</span><button type="button" class="btn btn-primary" data-retry>Retry</button></div>` : skelDet(); return; }
+    if (!ev){ box.innerHTML = loadErr ? `<div class="pd-err">${ic("info", 34, 1.4)}<b>Couldn't load this market</b><span>${esc(/fetch|network|abort/i.test(loadErr.message || "") ? "Network error. Check your connection and try again." : loadErr.message || "Network error")}</span><button type="button" class="btn btn-primary" data-retry>Retry</button></div>` : skelDet(); return; }
     const m = selM(), multi = ev.markets.length > 1, c = chance(m);
     box.innerHTML = `<div class="pd-dh">${img(ev.img, "pd-img lg")}<div><h2 class="pd-dt">${esc(ev.title)}</h2><div class="pd-dmeta"><span class="num">$${cmp(ev.vol)} Vol.</span><span>${ic("clock", 12)}${esc(dShort(m.end || ev.end))}</span>${ev.closed || m.closed ? '<span class="pd-tag">Closed</span>' : '<span class="pd-tag live"><i class="pd-live"></i>Live</span>'}</div></div></div>
       <div class="pd-chance">${multi ? `<span class="pd-chname">${esc(m.gt || m.q)}</span>` : ""}<b class="num" data-dch>${chancePct(c)}</b><span>chance</span><em class="num ${m.chg >= 0 ? "up" : "down"}" data-dchg>${m.chg ? (m.chg >= 0 ? "▲" : "▼") + " " + Math.abs(Math.round(m.chg * 100)) + "%" : ""}</em></div>
@@ -878,9 +880,9 @@ function detailScreen(key, mid){
   const tickBook = raf(() => { if (tab === "book"){ const b = $("#pdBk"); if (b) b.innerHTML = bookHtml(selM(), st.oi, 6); } });
   async function loadTabData(){
     const m = selM(); if (!m || !m.cid) return;
-    if (!trades.length) getJ(`${DAPI}/trades?condition=${m.cid}&limit=30`).then(d => { if (selM() !== m) return; trades = (d.data || []).map(t => ({name: t.name || t.pseudonym || (t.proxy_wallet || "").slice(0, 8), img: t.profile_image_optimized || t.profile_image || "", side: t.side, outcome: t.outcome, size: +t.size, price: +t.price, t: t.timestamp * 1000})); if (!trades.length) trades = simTrades(m); if (tab === "activity") renderTab(); })
+    if (!trades.length) getJ(`${DAPI}/trades?condition=${m.cid}&limit=30`).then(d => { if (selM() !== m) return; trades = (d.data || []).map(t => ({name: nm(t.name || t.pseudonym || t.proxy_wallet), img: t.profile_image_optimized || t.profile_image || "", side: t.side, outcome: t.outcome, size: +t.size, price: +t.price, t: t.timestamp * 1000})); if (!trades.length) trades = simTrades(m); if (tab === "activity") renderTab(); })
       .catch(() => { trades = simTrades(m); if (tab === "activity") renderTab(); });
-    if (!holders) getJ(`${DAPI}/holders?condition=${m.cid}&limit=10`).then(d => { if (selM() !== m) return; const rows = d.data || []; holders = [0, 1].map(oi => { const g = rows.find(r => r.token_id === m.tokens[oi]); return ((g && g.holders) || []).map(h => ({name: h.name || h.pseudonym || (h.proxy_wallet || "").slice(0, 8), img: h.profile_image_optimized || h.profile_image || "", amount: +h.amount})); }); if (!holders[0].length && !holders[1].length){ holders = simHolders(m); holders.sim = true; } if (tab === "holders") renderTab(); })
+    if (!holders) getJ(`${DAPI}/holders?condition=${m.cid}&limit=10`).then(d => { if (selM() !== m) return; const rows = d.data || []; holders = [0, 1].map(oi => { const g = rows.find(r => r.token_id === m.tokens[oi]); return ((g && g.holders) || []).map(h => ({name: nm(h.name || h.pseudonym || h.proxy_wallet), img: h.profile_image_optimized || h.profile_image || "", amount: +h.amount})); }); if (!holders[0].length && !holders[1].length){ holders = simHolders(m); holders.sim = true; } if (tab === "holders") renderTab(); })
       .catch(() => { holders = simHolders(m); holders.sim = true; if (tab === "holders") renderTab(); });
   }
   async function renderRel(){
@@ -945,7 +947,7 @@ async function cancelOrder(id){
    ===================================================================================================== */
 function bookScreen(key, mid){
   let root, ev = EV.get(key) || null, m = null, oi = 0, closeWS = null, offs = [], err = null;
-  const $ = s => root.querySelector(s);
+  const $ = s => root ? root.querySelector(s) : null;
   const html = `<div class="pd-page">${backHead("Order Book")}<div id="pdOB"><div class="pd-ch-empty" style="height:240px"><span class="pd-spin"></span></div></div></div>`;
   function frame(){
     const box = $("#pdOB"); if (!box) return;
@@ -965,7 +967,7 @@ function bookScreen(key, mid){
     if (!asks.length && !bids.length){ b.innerHTML = `<div class="pd-ch-empty" style="height:160px">No orders in the book</div>`; return; }
     const cum = L => { let a = 0; return L.map(([p, q]) => (a += p * q, [p, q, a])); }, A = cum(asks), B = cum(bids), mx = Math.max(A.length ? A[A.length - 1][2] : 0, B.length ? B[B.length - 1][2] : 0) || 1;
     const row = (cls, [p, q, a]) => `<div class="pd-bk-r ${cls}" data-bkp="${p}"><i style="width:${(a / mx * 100).toFixed(1)}%"></i><span class="num">${cents(p)}</span><span class="num">${fmt(q, 2)}</span><span class="num">${usd(a, 2)}</span></div>`;
-    const last = (PX[m.tokens[oi]] || {}).last;
+    const l0 = (PX[m.tokens[oi]] || {}).last, l1 = (PX[m.tokens[1 - oi]] || {}).last, last = l0 != null ? l0 : l1 != null ? r4(1 - l1) : m.last ? (oi ? r4(1 - m.last) : m.last) : null;
     b.innerHTML = `<div class="pd-bk big"><div class="pd-bk-h"><span>Price</span><span>Shares</span><span>Total</span></div><div class="pd-bk-lbl down">Asks</div>${A.slice().reverse().map(x => row("ask", x)).join("")}
       <div class="pd-bk-mid"><span>Last <b class="num">${last != null ? cents(last) : "--"}</b></span><span>Spread <b class="num">${sp != null ? cents(Math.max(0, sp)) : "--"}</b></span></div><div class="pd-bk-lbl up">Bids</div>${B.map(x => row("bid", x)).join("")}</div>`;
   });
@@ -1013,7 +1015,7 @@ function histRow(h){
 }
 function portfolioScreen(){
   let root, tab = sessionStorage.getItem("pd_ptab") || "pos", closeWS = null, offs = [], timers = [];
-  const $ = s => root.querySelector(s);
+  const $ = s => root ? root.querySelector(s) : null;
   const html = `${STRIP}${subnav("portfolio")}<div class="pd-page">${balBar()}<div class="pd-sum-card" id="pdPS"></div>
     <div class="pd-tabs" role="tablist" id="pdPT"></div><div id="pdPL"></div></div>`;
   function totals(){ const d = data(), pv = d.positions.reduce((a, p) => a + posValue(p), 0), cost = d.positions.reduce((a, p) => a + p.cost, 0), res = d.orders.reduce((a, o) => a + (o.reserved || 0), 0);
@@ -1066,7 +1068,7 @@ function portfolioScreen(){
    ===================================================================================================== */
 function profileScreen(){
   let root, tf = "all", offs = [], timers = [];
-  const $ = s => root.querySelector(s), p = store.s.profile || {};
+  const $ = s => root ? root.querySelector(s) : null, p = store.s.profile || {};
   const html = `${STRIP}${subnav("profile")}<div class="pd-page"><div class="pd-prof" id="pdPrH"></div><div class="pd-stats" id="pdPrS"></div>
     <section class="pd-sec pd-pnl"><div class="pd-pnl-h"><div><span>Profit/Loss</span><b class="num" id="pdPnlV">--</b><small id="pdPnlT"></small></div><div class="pd-tfs sm">${[["1d", "1D"], ["1w", "1W"], ["1m", "1M"], ["all", "ALL"]].map(([k, l]) => `<button type="button" data-ptf="${k}" class="${k === tf ? "on" : ""}">${l}</button>`).join("")}</div></div><div class="pd-chart" id="pdPnlC"></div></section>
     <section class="pd-sec"><h3 class="pd-h3">Activity</h3><div id="pdPrA"></div></section></div>`;
@@ -1108,7 +1110,7 @@ function profileScreen(){
 function perpsScreen(){
   let root, sym = sessionStorage.getItem("pd_perp") || "BTCUSDT", side = "long", margin = "", lev = Math.min(5, cfg().perpMaxLev), tpOn = false, tp = "", sl = "", ptab = "pos", ctf = "15m";
   let offs = [], timers = [], pts = [], chartReq = 0;
-  const $ = s => root.querySelector(s), maxLev = cfg().perpMaxLev;
+  const $ = s => root ? root.querySelector(s) : null, maxLev = cfg().perpMaxLev;
   const avail = () => PERPS.filter(p => { const x = window.M && M.get(p[0]); return x && x.price > 0; });
   if (!PERPS.some(p => p[0] === sym)) sym = "BTCUSDT";
   const pxf = (s, v) => { const p = window.M && M.get(s); return p ? M.fmtPx(p, v) : fmt(v, 2); };
@@ -1268,11 +1270,9 @@ function perpsScreen(){
 window.Pages = window.Pages || {};
 Pages.predict = (params = []) => {
   const [a, b, c] = params, dec = s => { try { return decodeURIComponent(s); } catch { return s; } };
-  if (a === "m" && b) return detailScreen(dec(b), c);
-  if (a === "book" && b) return bookScreen(dec(b), c);
-  if (a === "portfolio") return portfolioScreen();
-  if (a === "profile") return profileScreen();
-  if (a === "perps") return perpsScreen();
-  return listScreen();
+  const scr = a === "m" && b ? detailScreen(dec(b), c) : a === "book" && b ? bookScreen(dec(b), c) : a === "portfolio" ? portfolioScreen()
+    : a === "profile" ? profileScreen() : a === "perps" ? perpsScreen() : listScreen();
+  /* the router reuses #view, so every screen gets its own root element (listeners die with it on navigation) */
+  return {html: `<div class="pd-root">${scr.html}</div>`, title: scr.title, mount(view){ const r = view.querySelector(".pd-root") || view; return scr.mount(r); }, unmount(){ return scr.unmount && scr.unmount(); }};
 };
 })();
