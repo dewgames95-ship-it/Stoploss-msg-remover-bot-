@@ -1,6 +1,6 @@
 /* ===== v6.8 Prediction market (Polymarket-style) — live Polymarket data, trading against the NovaTrade `predict` wallet =====
    Routes: #/predict (markets) · #/predict/m/<event slug|id>[/<market id>] (detail) · #/predict/book/<slug>/<market id> (order book)
-           #/predict/portfolio · #/predict/profile · #/predict/perps
+           #/predict/portfolio · #/predict/profile   (#/predict/perps was removed in v6.8 → redirects to #/predict)
    Market data: Gamma (events/markets), CLOB (/book, /books, /prices-history), Data API v2 (trades, holders) and the CLOB market
    websocket — all public, CORS *, no key. Money moves only through API.call(...) (js/acct.js), so a server can take over later.
 
@@ -13,21 +13,17 @@
    predict.cancel     {id}                             → {ok:true, refund, balance}
    predict.sell       {token, shares, levels?}         market-sell (close) a position → same as predict.order sell
    predict.settle     {mid, prices:[p0,p1]}            market resolved (pays 1 per winning share) → {payout, settled, balance}
-   predict.perp.open  {sym, side:"long"|"short", margin, lev, mark, tp?, sl?} → {perp, balance}
-   predict.perp.close {id, mark, reason:"user"|"tp"|"sl"|"liq"} → {pnl, payout, balance}
-   predict.perp.tpsl  {id, tp, sl}                     → {perp}
-   predict.portfolio  {}                               → {positions, orders, history, perps, balance}
+   predict.portfolio  {}                               → {positions, orders, history, balance}
    Shapes: Position {id, token, tokens, mid, eid, slug, q, title, img, end, outcome, oi, shares, locked, cost, avg, t, last}
            Order    {id, token, tokens, mid, slug, q, title, img, outcome, oi, side, price, shares, reserved, t}
-           History  {id, kind:"buy"|"sell"|"limit"|"cancel"|"fill"|"won"|"lost"|"perp-open"|"perp-close"|"liq", q, title, outcome,
+           History  {id, kind:"buy"|"sell"|"limit"|"cancel"|"fill"|"won"|"lost"|"refund", q, title, outcome,
                      shares, price, amount, fee, pnl, slug, img, t}
-           Perp     {id, sym, name, side, lev, margin, notional, qty, entry, liq, tp, sl, fund, fee, t}
-   Data: localStorage ACCT.key("nt_predict") = {orders, positions, history, perps, pnl:[{t,v}], realized, vol, seeded, joined}
-   Admin: U.store.s.admin.predict = {enabled, maxBet, feePct, perpMaxLev}. Admin panel reads window.PRED.data() / .stats(). */
+   Data: localStorage ACCT.key("nt_predict") = {orders, positions, history, perps:[] (always empty, kept for the contract), pnl:[{t,v}], realized, vol, seeded, joined}
+   Admin: U.store.s.admin.predict = {enabled, maxBet, feePct} (perpMaxLev is ignored: Perps removed). Admin panel reads window.PRED.data() / .stats(). */
 (function(){
 const {esc, ic, store, fmt, toast, bus} = U;
 const GAMMA = "https://gamma-api.polymarket.com", CLOB = "https://clob.polymarket.com", DAPI = "https://data-api.polymarket.com/v2", WSS = "wss://ws-subscriptions-clob.polymarket.com/ws/market";
-const W = "predict", PERP_FEE = 0.0005, MMR = 0.005, PAGE = 12;
+const W = "predict", PAGE = 12;
 const KEY = () => window.ACCT ? ACCT.key("nt_predict") : "nt_predict";
 const CKEY = "nt_predict_cache";
 const cfg = () => { const a = Object.assign({enabled:true, maxBet:5000, feePct:0, perpMaxLev:10}, (store.s.admin || {}).predict || {}); a.maxBet = +a.maxBet || 5000; a.feePct = Math.max(0, +a.feePct || 0); a.perpMaxLev = Math.max(1, Math.min(100, +a.perpMaxLev || 10)); return a; };
@@ -321,45 +317,26 @@ reg("predict.settle", async ({mid, prices}) => {
   }
   save(); emit(); return {payout, settled: n, balance: bal()};
 });
-reg("predict.portfolio", () => { const d = data(); return {positions: d.positions, orders: d.orders, history: d.history, perps: d.perps, balance: bal()}; });
+reg("predict.portfolio", () => { const d = data(); return {positions: d.positions, orders: d.orders, history: d.history, perps: [], balance: bal()}; });
 
-/* ---------- perps (Polymarket Perps idea: leveraged long/short, mark price, funding, liquidation) ---------- */
-const PERPS = [["BTCUSDT","Bitcoin","BTC","Crypto"],["ETHUSDT","Ethereum","ETH","Crypto"],["SOLUSDT","Solana","SOL","Crypto"],["XRPUSDT","XRP","XRP","Crypto"],["BNBUSDT","BNB","BNB","Crypto"],["DOGEUSDT","Dogecoin","DOGE","Crypto"],
-  ["XAUUSD","Gold","XAU","Commodities"],["XAGUSD","Silver","XAG","Commodities"],["NVDAUSDT","NVIDIA","NVDA","Stocks"],["TSLAUSDT","Tesla","TSLA","Stocks"],["AAPLUSDT","Apple","AAPL","Stocks"],["EURUSD","EUR/USD","EUR","FX"]];
-const perpInfo = sym => PERPS.find(p => p[0] === sym) || [sym, sym, sym, ""];
-const mark = sym => { const p = window.M && M.get(sym); return p && p.price > 0 ? p.price : null; };
-const fundRate = sym => { const p = window.M && M.get(sym), c = p && p.chg || 0; return Math.max(-.0005, Math.min(.0005, .0000125 + c * .00002)); };   // per hour
-const nextFund = () => 3600e3 - now() % 3600e3;
-const liqPx = (side, entry, lev) => side === "long" ? entry * (1 - 1/lev + MMR) : entry * (1 + 1/lev - MMR);
-const perpPnl = (x, m) => (x.side === "long" ? 1 : -1) * (m - x.entry) * x.qty - (x.fund || 0);
-reg("predict.perp.open", async ({sym, side, margin, lev, mark: m, tp, sl}) => {
-  const c = cfg(), d = data(); if (!c.enabled) throw new Error("Prediction market is under maintenance");
-  margin = r2(+margin); lev = Math.round(+lev); m = +m;
-  if (!(margin >= 1)) throw new Error("Minimum margin is $1");
-  if (!(lev >= 1 && lev <= c.perpMaxLev)) throw new Error(`Leverage must be 1x–${c.perpMaxLev}x`);
-  if (margin > c.maxBet) throw new Error(`Max per order is $${fmt(c.maxBet, 0)}`);
-  if (!(m > 0)) throw new Error("No live price yet");
-  const notional = margin * lev, fee = r2(notional * PERP_FEE);
-  if (margin + fee > bal() + 1e-9) throw new Error("Insufficient balance");
-  await debit(margin + fee, "predict-perp");
-  const entry = m * (side === "long" ? 1.0001 : .9999), info = perpInfo(sym);
-  const x = {id: U.uid(), sym, name: info[1], tk: info[2], side: side === "short" ? "short" : "long", lev, margin, notional, qty: notional / entry, entry, liq: liqPx(side, entry, lev), tp: +tp || null, sl: +sl || null, fund: 0, fee, t: now(), ft: now()};
-  d.perps.unshift(x); d.vol = r2((d.vol || 0) + notional);
-  hist({kind: "perp-open", q: `${info[1]} perp`, title: `${x.side === "long" ? "Long" : "Short"} ${lev}x`, outcome: x.side, sym, shares: x.qty, price: entry, amount: margin, fee});
-  save(); emit(); return {perp: x, balance: bal()};
-});
-reg("predict.perp.close", async ({id, mark: m, reason}) => {
-  const d = data(), x = d.perps.find(p => p.id === id); if (!x) throw new Error("Position not found");
-  m = reason === "liq" ? x.liq : +m; if (!(m > 0)) throw new Error("No live price yet");
-  const fee = r2(x.qty * m * PERP_FEE); let pnl = r2(perpPnl(x, m) - fee), payout = r2(Math.max(0, x.margin + pnl));
-  if (reason === "liq"){ payout = 0; pnl = -x.margin; }
-  d.perps = d.perps.filter(p => p !== x); if (payout > 0) await credit(payout, "predict-perp"); realize(pnl);
-  hist({kind: reason === "liq" ? "liq" : "perp-close", q: `${x.name} perp`, title: `${x.side === "long" ? "Long" : "Short"} ${x.lev}x`, outcome: x.side, sym: x.sym, shares: x.qty, price: m, entry: x.entry, amount: payout, fee, pnl, reason});
-  save(); emit(); return {pnl, payout, balance: bal()};
-});
-reg("predict.perp.tpsl", ({id, tp, sl}) => { const x = data().perps.find(p => p.id === id); if (!x) throw new Error("Position not found"); x.tp = +tp || null; x.sl = +sl || null; save(); emit(); return {perp: x}; });
+/* ---------- legacy perps (feature removed in v6.8): refund margin + unrealized PnL once, then drop them ---------- */
+async function refundPerps(tries = 0){
+  const d = data(); if (!d.perps.length) return;
+  const markOf = sym => { const p = window.M && M.get(sym); return p && p.price > 0 ? p.price : null; };
+  if (tries < 6 && d.perps.some(x => markOf(x.sym) == null)) return void setTimeout(() => refundPerps(tries + 1), 5000);   // wait for live prices (max ~30s)
+  const list = d.perps.slice(); d.perps = []; let total = 0;
+  for (const x of list){
+    const m = markOf(x.sym), pnl = m ? (x.side === "long" ? 1 : -1) * (m - x.entry) * (x.qty || 0) - (x.fund || 0) : 0, pay = r2(Math.max(0, (+x.margin || 0) + pnl));
+    total += pay; realize(r2(pay - (+x.margin || 0)));
+    hist({kind: "refund", q: `${x.name || x.sym} perp (closed)`, title: "Margin + PnL returned", outcome: x.side, shares: x.qty || 0, price: m || x.entry || 0, amount: pay, pnl: r2(pay - (+x.margin || 0))});
+  }
+  saveNow();
+  try { if (total > 0) await credit(total, "predict-perp-refund"); } catch {}
+  emit(); if (total > 0) toast(`Perps closed: ${usd(total)} returned to your Prediction wallet`, "info", 3600);
+}
+setTimeout(() => { try { refundPerps(); } catch {} }, 4000);
 
-/* ---------- background engine: limit fills, perp funding/liq/TP/SL, settlement ---------- */
+/* ---------- background engine: limit fills, settlement ---------- */
 const busy = new Set();
 function checkOrders(tk){
   const d = D; if (!d || !d.orders.length) return;
@@ -377,27 +354,6 @@ function checkOrders(tk){
     }).catch(() => {}).finally(() => busy.delete(o.id));
   });
 }
-function perpTick(){
-  const d = data(); if (!d.perps.length) return;
-  let ch = false;
-  d.perps.slice().forEach(x => {
-    const m = mark(x.sym); if (m == null || busy.has(x.id)) return;
-    const dt = Math.min(5, (now() - (x.ft || now())) / 1000); x.ft = now();
-    if (dt > 0){ x.fund = (x.fund || 0) + (x.side === "long" ? 1 : -1) * x.qty * m * fundRate(x.sym) * dt / 3600; ch = true; }
-    let reason = null;
-    if (x.side === "long" ? m <= x.liq : m >= x.liq) reason = "liq";
-    else if (x.tp && (x.side === "long" ? m >= x.tp : m <= x.tp)) reason = "tp";
-    else if (x.sl && (x.side === "long" ? m <= x.sl : m >= x.sl)) reason = "sl";
-    if (!reason) return;
-    busy.add(x.id);
-    API.call("predict.perp.close", {id: x.id, mark: m, reason}).then(r => {
-      U.fx(reason === "tp" ? "win" : "loss");
-      toast(`${x.tk} perp ${reason === "liq" ? "liquidated" : reason === "tp" ? "take profit hit" : "stop loss hit"}: ${usdS(r.pnl)}`, r.pnl >= 0 ? "ok" : "bad", 3400);
-    }).catch(() => {}).finally(() => busy.delete(x.id));
-  });
-  if (ch) save();
-}
-bus.on("sec", perpTick);
 let settling = false;
 async function checkSettle(){
   const d = data(); if (settling) return; const mids = [...new Set(d.positions.map(p => p.mid).concat(d.orders.map(o => o.mid)))].filter(Boolean);
@@ -438,11 +394,10 @@ function outPxTok(p){
 }
 function stats(){
   const d = data(), pv = d.positions.reduce((a, p) => a + posValue(p), 0), cost = d.positions.reduce((a, p) => a + p.cost, 0);
-  const perpEq = d.perps.reduce((a, x) => { const m = mark(x.sym); return a + x.margin + (m ? perpPnl(x, m) : 0); }, 0);
   const wins = d.history.filter(h => h.pnl > 0).map(h => h.pnl);
   return {mode: modeLabel().toLowerCase(), balance: bal(), positions: d.positions.length, positionsValue: r2(pv), unrealized: r2(pv - cost), openOrders: d.orders.length,
-    orderReserved: r2(d.orders.reduce((a, o) => a + (o.reserved || 0), 0)), perps: d.perps.length, perpEquity: r2(perpEq), volume: r2(d.vol || 0), realized: r2(d.realized || 0),
-    trades: d.history.filter(h => /buy|sell|fill|perp/.test(h.kind)).length, marketsTraded: new Set(d.history.filter(h => h.mid).map(h => h.mid)).size,
+    orderReserved: r2(d.orders.reduce((a, o) => a + (o.reserved || 0), 0)), perps: 0, perpEquity: 0, volume: r2(d.vol || 0), realized: r2(d.realized || 0),
+    trades: d.history.filter(h => /^(buy|sell|fill)$/.test(h.kind)).length, marketsTraded: new Set(d.history.filter(h => h.mid).map(h => h.mid)).size,
     biggestWin: wins.length ? Math.max(...wins) : 0, won: d.history.filter(h => h.kind === "won").length, lost: d.history.filter(h => h.kind === "lost").length, enabled: cfg().enabled};
 }
 window.PRED = {data: () => JSON.parse(JSON.stringify(data())), stats, cfg, settle: checkSettle, _data: data, _internal: {PX, BOOK, EV, levels, loadBooks, handleWS}};
@@ -452,7 +407,7 @@ let curScreen = null;
    UI building blocks
    ===================================================================================================== */
 const STRIP = `<div class="tabs pd-strip" style="gap:20px;margin:0 -16px;padding:4px 16px 0;border:0"><a class="tab" href="#/futures/BTCUSDT" style="font-size:17px">USDⓈ-M</a><a class="tab" href="#/spot/BTCUSDT" style="font-size:17px">Spot</a><a class="tab" href="#/trade/BTCUSDT" style="font-size:17px">Binary</a><button class="tab tab-hot on" style="font-size:17px">Prediction</button><a class="tab tab-hot" href="#/racer" style="font-size:17px">Money Racer</a><a class="tab" href="#/options" style="font-size:17px">Options</a><a class="tab" href="#/copy" style="font-size:17px">Copy</a><a class="tab" href="#/bots" style="font-size:17px">Bots</a></div>`;
-const SUB = [["", "Markets"], ["perps", "Perps"], ["portfolio", "Portfolio"], ["profile", "Profile"]];
+const SUB = [["", "Markets"], ["portfolio", "Portfolio"], ["profile", "Profile"]];
 const subnav = on => `<nav class="pd-sub" aria-label="Prediction sections">${SUB.map(([k, l]) => `<a href="#/predict${k ? "/" + k : ""}" class="${on === k ? "on" : ""}" ${on === k ? 'aria-current="page"' : ""}>${l}</a>`).join("")}</nav>`;
 const balBar = () => `<div class="pd-bal"><div class="pd-bal-l"><span class="pd-bal-k">Prediction balance</span><b class="num" data-pd-bal>${usd(bal())}</b></div>
   <button class="pd-mode ${isDemo() ? "demo" : "real"}" data-acct type="button" aria-label="Account: ${modeLabel()}. Tap to switch">${modeLabel()}${ic("chevd", 12, 2.4)}</button>
@@ -791,10 +746,10 @@ function detailScreen(key, mid){
     if (!ev){ box.innerHTML = loadErr ? `<div class="pd-err">${ic("info", 34, 1.4)}<b>Couldn't load this market</b><span>${esc(/fetch|network|abort/i.test(loadErr.message || "") ? "Network error. Check your connection and try again." : loadErr.message || "Network error")}</span><button type="button" class="btn btn-primary" data-retry>Retry</button></div>` : skelDet(); return; }
     const m = selM(), multi = ev.markets.length > 1, c = chance(m);
     box.innerHTML = `<div class="pd-dh">${img(ev.img, "pd-img lg")}<div><h2 class="pd-dt">${esc(ev.title)}</h2><div class="pd-dmeta"><span class="num">$${cmp(ev.vol)} Vol.</span><span>${ic("clock", 12)}${esc(dShort(m.end || ev.end))}</span>${ev.closed || m.closed ? '<span class="pd-tag">Closed</span>' : '<span class="pd-tag live"><i class="pd-live"></i>Live</span>'}</div></div></div>
-      <div class="pd-chance">${multi ? `<span class="pd-chname">${esc(m.gt || m.q)}</span>` : ""}<b class="num" data-dch>${chancePct(c)}</b><span>chance</span><em class="num ${m.chg >= 0 ? "up" : "down"}" data-dchg>${m.chg ? (m.chg >= 0 ? "▲" : "▼") + " " + Math.abs(Math.round(m.chg * 100)) + "%" : ""}</em></div>
+      <section class="pd-sec pd-hero"><div class="pd-chance">${multi ? `<span class="pd-chname">${esc(m.gt || m.q)}</span>` : ""}<b class="num" data-dch>${chancePct(c)}</b><span>chance</span><em class="num ${m.chg >= 0 ? "up" : "down"}" data-dchg>${m.chg ? (m.chg >= 0 ? "▲" : "▼") + " " + Math.abs(Math.round(m.chg * 100)) + "%" : ""}</em></div>
       <div class="pd-chart" id="pdChart"><div class="pd-ch-empty" style="height:190px"><span class="pd-spin"></span></div></div>
       ${multi ? `<div class="pd-legend" id="pdLeg"></div>` : ""}
-      <div class="pd-tfs" role="tablist">${TFS.map(([k, l]) => `<button type="button" role="tab" data-tf="${k}" class="${k === tf ? "on" : ""}">${l}</button>`).join("")}</div>
+      <div class="pd-tfs" role="tablist">${TFS.map(([k, l]) => `<button type="button" role="tab" data-tf="${k}" class="${k === tf ? "on" : ""}">${l}</button>`).join("")}</div></section>
       ${multi ? `<section class="pd-sec"><h3 class="pd-h3">Outcomes <small>${ev.markets.length}</small></h3><div class="pd-outs" id="pdOuts">${outsHtml()}</div></section>` : ""}
       <section class="pd-sec pd-trade" id="pdTrade"></section>
       <div id="pdMine"></div>
@@ -952,9 +907,9 @@ function bookScreen(key, mid){
   function frame(){
     const box = $("#pdOB"); if (!box) return;
     if (!m){ box.innerHTML = err ? `<div class="pd-err">${ic("info", 34, 1.4)}<b>Couldn't load the order book</b><button type="button" class="btn btn-primary" data-retry>Retry</button></div>` : `<div class="pd-ch-empty" style="height:240px"><span class="pd-spin"></span></div>`; return; }
-    box.innerHTML = `<a class="pd-obq" href="#/predict/m/${encodeURIComponent(ev.slug)}/${m.id}">${img(m.img || ev.img, "pd-img sm")}<span><b>${esc(ev.markets.length > 1 ? (m.gt || m.q) : ev.title)}</b>${ev.markets.length > 1 ? `<small>${esc(ev.title)}</small>` : ""}</span>${ic("chev", 16)}</a>
+    box.innerHTML = `<section class="pd-sec pd-obtop"><a class="pd-obq" href="#/predict/m/${encodeURIComponent(ev.slug)}/${m.id}">${img(m.img || ev.img, "pd-img sm")}<span><b>${esc(ev.markets.length > 1 ? (m.gt || m.q) : ev.title)}</b>${ev.markets.length > 1 ? `<small>${esc(ev.title)}</small>` : ""}</span>${ic("chev", 16)}</a>
       <div class="pd-bk-oc">${[0, 1].map(i => `<button type="button" data-oi="${i}" class="${oi === i ? "on" : ""}">Trade ${esc(short(m.outs[i]))}</button>`).join("")}</div>
-      <div class="pd-obs" id="pdObs"></div><div id="pdObB"></div>
+      <div class="pd-obs" id="pdObs"></div></section><section class="pd-sec" id="pdObB"></section>
       <section class="pd-sec"><h3 class="pd-h3">Recent trades <span class="pd-tag live"><i class="pd-live"></i>Live</span></h3><div id="pdObT"></div></section>
       <p class="pd-fine">Tap a price to place a limit order at that level.</p>`;
     tick(); trades();
@@ -1006,18 +961,18 @@ function posMarket(p){
   const live = EV.get(p.slug); const lm = live && live.markets.find(x => x.id === p.mid);
   return lm ? {ev: live, m: lm} : {ev: {id: p.eid, slug: p.slug, title: p.q, img: p.img, end: p.end, markets: [m]}, m};
 }
-const KIND = {buy: "Bought", sell: "Sold", limit: "Limit order", fill: "Limit filled", cancel: "Cancelled", won: "Won", lost: "Lost", "perp-open": "Opened perp", "perp-close": "Closed perp", liq: "Liquidated"};
+const KIND = {buy: "Bought", sell: "Sold", limit: "Limit order", fill: "Limit filled", cancel: "Cancelled", won: "Won", lost: "Lost", "perp-open": "Opened perp", "perp-close": "Closed perp", liq: "Liquidated", refund: "Perp refund"};
 function histRow(h){
   const pnl = h.pnl != null && h.kind !== "buy" ? `<small class="num ${h.pnl >= 0 ? "up" : "down"}">${usdS(h.pnl)}</small>` : "";
-  const what = /perp|liq/.test(h.kind) ? `${esc(h.title || "")} · ${fmt(h.shares || 0, 4)} @ ${fmt(h.price || 0, 2)}` : `${h.side ? (h.side === "buy" ? "Buy " : "Sell ") : ""}<span class="${h.oi ? "down" : "up"}">${esc(short(h.outcome || ""))}</span> · ${shr(h.shares || 0)} @ ${cents(h.price || 0)}`;
-  const href = h.slug ? `href="#/predict/m/${encodeURIComponent(h.slug)}"` : /perp|liq/.test(h.kind) ? `href="#/predict/perps"` : "";
+  const what = /perp|liq|refund/.test(h.kind) ? `${esc(h.title || "")} · ${fmt(h.shares || 0, 4)} @ ${fmt(h.price || 0, 2)}` : `${h.side ? (h.side === "buy" ? "Buy " : "Sell ") : ""}<span class="${h.oi ? "down" : "up"}">${esc(short(h.outcome || ""))}</span> · ${shr(h.shares || 0)} @ ${cents(h.price || 0)}`;
+  const href = h.slug ? `href="#/predict/m/${encodeURIComponent(h.slug)}"` : "";
   return `<a class="pd-hrow" ${href}><span class="pd-hk ${h.kind}">${esc(KIND[h.kind] || h.kind)}</span><div class="pd-hrow-m"><b>${esc(h.q || "")}${h.title && !/perp|liq/.test(h.kind) ? " · " + esc(h.title) : ""}</b><span class="num">${what}</span></div><div class="pd-hrow-r"><b class="num">${usd(h.amount || 0)}</b>${pnl}<small>${ago(h.t)}</small></div></a>`;
 }
 function portfolioScreen(){
   let root, tab = sessionStorage.getItem("pd_ptab") || "pos", closeWS = null, offs = [], timers = [];
   const $ = s => root ? root.querySelector(s) : null;
   const html = `${STRIP}${subnav("portfolio")}<div class="pd-page">${balBar()}<div class="pd-sum-card" id="pdPS"></div>
-    <div class="pd-tabs" role="tablist" id="pdPT"></div><div id="pdPL"></div></div>`;
+    <section class="pd-sec"><div class="pd-tabs" role="tablist" id="pdPT"></div><div id="pdPL"></div></section></div>`;
   function totals(){ const d = data(), pv = d.positions.reduce((a, p) => a + posValue(p), 0), cost = d.positions.reduce((a, p) => a + p.cost, 0), res = d.orders.reduce((a, o) => a + (o.reserved || 0), 0);
     return {pv, cost, res, un: pv - cost, total: bal() + pv + res, real: d.realized || 0}; }
   function renderSum(){
@@ -1069,7 +1024,7 @@ function portfolioScreen(){
 function profileScreen(){
   let root, tf = "all", offs = [], timers = [];
   const $ = s => root ? root.querySelector(s) : null, p = store.s.profile || {};
-  const html = `${STRIP}${subnav("profile")}<div class="pd-page"><div class="pd-prof" id="pdPrH"></div><div class="pd-stats" id="pdPrS"></div>
+  const html = `${STRIP}${subnav("profile")}<div class="pd-page"><section class="pd-sec pd-prof-card"><div class="pd-prof" id="pdPrH"></div><div class="pd-stats" id="pdPrS"></div></section>
     <section class="pd-sec pd-pnl"><div class="pd-pnl-h"><div><span>Profit/Loss</span><b class="num" id="pdPnlV">--</b><small id="pdPnlT"></small></div><div class="pd-tfs sm">${[["1d", "1D"], ["1w", "1W"], ["1m", "1M"], ["all", "ALL"]].map(([k, l]) => `<button type="button" data-ptf="${k}" class="${k === tf ? "on" : ""}">${l}</button>`).join("")}</div></div><div class="pd-chart" id="pdPnlC"></div></section>
     <section class="pd-sec"><h3 class="pd-h3">Activity</h3><div id="pdPrA"></div></section></div>`;
   function head(){
@@ -1105,173 +1060,14 @@ function profileScreen(){
 }
 
 /* =====================================================================================================
-   Screen 5: Perps  (#/predict/perps) — leveraged long/short with margin, funding, liquidation, TP/SL
-   ===================================================================================================== */
-function perpsScreen(){
-  let root, sym = sessionStorage.getItem("pd_perp") || "BTCUSDT", side = "long", margin = "", lev = Math.min(5, cfg().perpMaxLev), tpOn = false, tp = "", sl = "", ptab = "pos", ctf = "15m";
-  let offs = [], timers = [], pts = [], chartReq = 0;
-  const $ = s => root ? root.querySelector(s) : null, maxLev = cfg().perpMaxLev;
-  const avail = () => PERPS.filter(p => { const x = window.M && M.get(p[0]); return x && x.price > 0; });
-  if (!PERPS.some(p => p[0] === sym)) sym = "BTCUSDT";
-  const pxf = (s, v) => { const p = window.M && M.get(s); return p ? M.fmtPx(p, v) : fmt(v, 2); };
-  const html = `${STRIP}${subnav("perps")}<div class="pd-page">${balBar()}
-    ${isDemo() ? "" : `<div class="pd-note warn">${ic("info", 14)}<span>Perps run on the Demo account only for now.</span><button type="button" data-todemo>Switch to Demo</button></div>`}
-    <div class="pd-pchips" id="pdPC"></div>
-    <div class="pd-phead" id="pdPH"></div>
-    <div class="pd-pstats" id="pdPSt"></div>
-    <div class="pd-chart" id="pdPCh"></div>
-    <div class="pd-tfs sm">${[["5m", "5m"], ["15m", "15m"], ["1h", "1H"], ["4h", "4H"], ["1d", "1D"]].map(([k, l]) => `<button type="button" data-ctf="${k}" class="${k === ctf ? "on" : ""}">${l}</button>`).join("")}</div>
-    ${isDemo() ? `<section class="pd-sec pd-pform" id="pdPF"></section>` : ""}
-    <section class="pd-sec"><div class="pd-tabs" role="tablist"><button type="button" data-ptab="pos" class="${ptab === "pos" ? "on" : ""}">Positions (<span id="pdPN">0</span>)</button><button type="button" data-ptab="hist">History</button></div><div id="pdPP"></div></section>
-    <p class="pd-fine">Perpetual contracts never expire. Funding is exchanged every hour between longs and shorts to keep the price close to the index. Positions are liquidated when the mark price reaches the liquidation price.</p></div>`;
-  function chips(){ $("#pdPC").innerHTML = avail().map(([s, n, tk]) => { const p = M.get(s); return `<button type="button" data-sym="${s}" class="${s === sym ? "on" : ""}"><b>${tk}</b><span class="num" data-cp="${s}">${pxf(s)}</span><small class="num ${(p.chg || 0) >= 0 ? "up" : "down"}">${(p.chg || 0) >= 0 ? "+" : ""}${fmt(p.chg || 0, 2)}%</small></button>`; }).join("") || `<div class="pd-fine">Connecting to live prices…</div>`; }
-  function head(){
-    const p = window.M && M.get(sym), info = perpInfo(sym), m = mark(sym);
-    $("#pdPH").innerHTML = `<div class="pd-ph-l">${p && UI.pairIcon ? UI.pairIcon(p, 32) : ""}<div><b>${esc(info[2])}-PERP</b><small>${esc(info[1])} · ${esc(info[3])} · up to ${maxLev}x</small></div></div><div class="pd-ph-r"><b class="num" data-mk>${m ? pxf(sym, m) : "--"}</b><small class="num ${p && p.chg >= 0 ? "up" : "down"}" data-mc>${p && p.chg != null ? (p.chg >= 0 ? "+" : "") + fmt(p.chg, 2) + "%" : ""}</small></div>`;
-    statsRow();
-  }
-  function statsRow(){
-    const m = mark(sym), fr = fundRate(sym), s = Math.floor(nextFund() / 1000);
-    const oi = m ? (Math.abs(Math.sin(sym.length * 97.3)) * 40 + 8) * 1e6 : 0;
-    $("#pdPSt").innerHTML = `<div><span>Mark</span><b class="num">${m ? pxf(sym, m) : "--"}</b></div><div><span>Index</span><b class="num">${m ? pxf(sym, m * (1 - fr)) : "--"}</b></div><div><span>Funding / 1h</span><b class="num ${fr >= 0 ? "up" : "down"}">${(fr * 100).toFixed(4)}%</b></div><div><span>Next funding</span><b class="num">${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}</b></div><div><span>Open interest</span><b class="num">$${cmp(oi)}</b></div>`;
-  }
-  async function loadChart(){
-    const my = ++chartReq, box = $("#pdPCh"); pts = [];
-    box.innerHTML = `<div class="pd-ch-empty" style="height:170px"><span class="pd-spin"></span></div>`;
-    try { const c = await M.candles(sym, ctf); if (my !== chartReq || !root) return; pts = (c || []).slice(-160).map(k => [k.time * 1000, k.close]); } catch {}
-    if (my !== chartReq || !root) return;
-    const m = mark(sym); if (m) pts.push([now(), m]);
-    draw();
-  }
-  function draw(){ const up = pts.length > 1 && pts[pts.length - 1][1] >= pts[0][1]; drawChart($("#pdPCh"), [{pts, color: up ? "var(--up)" : "var(--down)", name: sym}], {h: 170, fmt: v => pxf(sym, v), padR: 64, label: "Mark price", empty: "Waiting for live price…"}); }
-  function form(){
-    const box = $("#pdPF"); if (!box) return; const info = perpInfo(sym);
-    box.innerHTML = `<div class="pd-ls"><button type="button" data-ps="long" class="long ${side === "long" ? "on" : ""}">Long</button><button type="button" data-ps="short" class="short ${side === "short" ? "on" : ""}">Short</button></div>
-      <div class="pd-field"><label for="pdMg">Margin</label><div class="pd-amt"><span>$</span><input id="pdMg" data-mg inputmode="decimal" placeholder="0" value="${esc(margin)}" autocomplete="off"></div></div>
-      <div class="pd-chips"><button type="button" data-ma="10">$10</button><button type="button" data-ma="50">$50</button><button type="button" data-ma="100">$100</button><button type="button" data-mmax>Max</button></div>
-      <div class="pd-field"><div class="pd-lev-h"><label for="pdLev">Leverage</label><div class="pd-step sm"><button type="button" data-lv="-1" aria-label="Less leverage">${ic("minus", 14, 2.4)}</button><b class="num" data-lvv>${lev}x</b><button type="button" data-lv="1" aria-label="More leverage">${ic("plus", 14, 2.4)}</button></div></div>
-        <input type="range" id="pdLev" class="pd-range" min="1" max="${maxLev}" step="1" value="${lev}" style="--p:${maxLev > 1 ? (lev - 1) / (maxLev - 1) * 100 : 100}%"><div class="pd-lev-t">${[1, Math.round(maxLev / 4), Math.round(maxLev / 2), Math.round(maxLev * 3 / 4), maxLev].filter((v, i, a) => v >= 1 && a.indexOf(v) === i).map(v => `<span>${v}x</span>`).join("")}</div></div>
-      <label class="pd-tgl"><input type="checkbox" data-tpon ${tpOn ? "checked" : ""}><span>TP / SL</span></label>
-      ${tpOn ? `<div class="pd-tpsl"><div class="pd-field"><label for="pdTp">Take profit</label><div class="pd-amt"><input id="pdTp" data-tp inputmode="decimal" placeholder="Price" value="${esc(tp)}"><span data-tph></span></div></div><div class="pd-field"><label for="pdSl">Stop loss</label><div class="pd-amt"><input id="pdSl" data-sl inputmode="decimal" placeholder="Price" value="${esc(sl)}"><span data-slh></span></div></div></div>` : ""}
-      <div class="pd-sum" data-psum></div>
-      <button type="button" class="pd-go ${side === "long" ? "yes" : "no"}" data-popen>${side === "long" ? "Long" : "Short"} ${esc(info[2])}</button>
-      <div class="pd-tp-bal"><span>Available <b class="num" data-pd-bal>${usd(bal())}</b> · <span class="pd-modetag">${modeLabel()}</span></span><button type="button" data-pd-xf>${ic("plus", 14, 2.4)}Add funds</button></div>`;
-    bindForm(); calc();
-  }
-  function bindForm(){
-    const box = $("#pdPF"), q = s => box.querySelector(s);
-    box.querySelectorAll("[data-ps]").forEach(b => b.onclick = () => { side = b.dataset.ps; hap(8); form(); });
-    const mg = q("[data-mg]"); mg.oninput = () => { mg.value = mg.value.replace(/[^\d.]/g, ""); margin = mg.value; calc(); };
-    box.querySelectorAll("[data-ma]").forEach(b => b.onclick = () => { margin = b.dataset.ma; mg.value = margin; hap(6); calc(); });
-    q("[data-mmax]").onclick = () => { margin = String(Math.floor(Math.min(bal() / (1 + lev * PERP_FEE), cfg().maxBet) * 100) / 100); mg.value = margin; hap(10); calc(); };
-    const R = q("#pdLev"), setLev = v => { v = Math.max(1, Math.min(maxLev, Math.round(v))); if (v !== lev){ lev = v; hap(v === maxLev || v === 1 ? 18 : 6); } R.value = lev; R.style.setProperty("--p", (maxLev > 1 ? (lev - 1) / (maxLev - 1) * 100 : 100) + "%"); q("[data-lvv]").textContent = lev + "x"; calc(); };
-    R.oninput = () => setLev(+R.value);
-    box.querySelectorAll("[data-lv]").forEach(b => b.onclick = () => setLev(lev + +b.dataset.lv));
-    q("[data-tpon]").onchange = e => { tpOn = e.target.checked; hap(8); form(); };
-    const T = q("[data-tp]"), S = q("[data-sl]"); if (T) T.oninput = () => { tp = T.value.replace(/[^\d.]/g, ""); T.value = tp; calc(); }; if (S) S.oninput = () => { sl = S.value.replace(/[^\d.]/g, ""); S.value = sl; calc(); };
-    q("[data-popen]").onclick = open;
-  }
-  function calc(){
-    const box = root && root.querySelector("[data-psum]"); if (!box) return; const m = mark(sym), mg = +margin || 0, n = mg * lev, fee = n * PERP_FEE, entry = m ? m * (side === "long" ? 1.0001 : .9999) : 0;
-    const roe = v => { if (!(v > 0) || !entry) return ""; const r = (side === "long" ? v - entry : entry - v) / entry * lev * 100; return `<em class="${r >= 0 ? "up" : "down"}">${r >= 0 ? "+" : ""}${fmt(r, 1)}%</em>`; };
-    const th = root.querySelector("[data-tph]"), sh = root.querySelector("[data-slh]"); if (th) th.innerHTML = roe(+tp); if (sh) sh.innerHTML = roe(+sl);
-    box.innerHTML = [["Position size", n ? `${usd(n)} <small>(${fmt(m ? n / m : 0, 4)} ${perpInfo(sym)[2]})</small>` : "--"], ["Entry price (est.)", m ? pxf(sym, entry) : "--"], ["Liq. price", m ? `<span class="down">${pxf(sym, liqPx(side, entry, lev))}</span>` : "--"], ["Fee (0.05%)", usd(fee)], ["Funding / 1h (est.)", usd(n * Math.abs(fundRate(sym)))]]
-      .map(([k, v]) => `<div><span>${k}</span><b class="num">${v}</b></div>`).join("");
-  }
-  async function open(){
-    const m = mark(sym), btn = root.querySelector("[data-popen]"), mg = +margin || 0;
-    const bad = msg => { U.fx("err"); toast(msg, "bad"); btn.classList.remove("pd-shake"); void btn.offsetWidth; btn.classList.add("pd-shake"); };
-    if (!(mg > 0)) return bad("Enter margin");
-    if (!m) return bad("Waiting for live price");
-    const entry = m * (side === "long" ? 1.0001 : .9999), T = tpOn ? +tp || null : null, S = tpOn ? +sl || null : null;
-    if (T && (side === "long" ? T <= entry : T >= entry)) return bad(`Take profit must be ${side === "long" ? "above" : "below"} entry`);
-    if (S && (side === "long" ? S >= entry : S <= entry)) return bad(`Stop loss must be ${side === "long" ? "below" : "above"} entry`);
-    if (S && (side === "long" ? S <= liqPx(side, entry, lev) : S >= liqPx(side, entry, lev))) return bad("Stop loss is beyond the liquidation price");
-    btn.classList.add("loading");
-    try {
-      const r = await API.call("predict.perp.open", {sym, side, margin: mg, lev, mark: m, tp: T, sl: S});
-      U.fx("open"); toast(`Position opened: ${side === "long" ? "Long" : "Short"} ${perpInfo(sym)[2]} ${lev}x · ${usd(r.perp.notional)}`, "ok");
-      margin = ""; tp = ""; sl = ""; btn.classList.remove("loading"); btn.classList.add("done"); btn.innerHTML = ic("check", 18, 3) + " Opened"; setTimeout(() => root && form(), 700);
-      ptab = "pos"; list();
-    } catch (e){ btn.classList.remove("loading"); bad(e.message || "Could not open"); if (/insufficient/i.test(e.message || "")) setTimeout(() => UI.transferSheet({to: W}), 400); }
-  }
-  function list(){
-    const d = data(), box = $("#pdPP"); if (!box) return; $("#pdPN").textContent = d.perps.length;
-    root.querySelectorAll("[data-ptab]").forEach(b => b.classList.toggle("on", b.dataset.ptab === ptab));
-    if (ptab === "pos"){
-      box.innerHTML = d.perps.length ? d.perps.map(x => `<div class="pd-perp" data-pid="${x.id}"><div class="pd-perp-h"><b>${esc(x.tk || perpInfo(x.sym)[2])}-PERP</b><span class="pd-pill ${x.side === "long" ? "yes" : "no"}">${x.side === "long" ? "Long" : "Short"} ${x.lev}x</span><span class="grow"></span><button type="button" class="pd-ib sm" aria-label="Edit TP/SL" data-tpsl="${x.id}">${ic("edit", 16)}</button></div>
-        <div class="pd-perp-p"><div><span>Unrealized PnL</span><b class="num" data-xp>--</b></div><div class="r"><span>ROE</span><b class="num" data-xr>--</b></div></div>
-        <div class="pd-perp-g"><div><span>Size</span><b class="num">${usd(x.notional)}</b></div><div><span>Margin</span><b class="num">${usd(x.margin)}</b></div><div><span>Entry</span><b class="num">${pxf(x.sym, x.entry)}</b></div><div><span>Mark</span><b class="num" data-xm>--</b></div><div><span>Liq. price</span><b class="num down">${pxf(x.sym, x.liq)}</b></div><div><span>Funding</span><b class="num" data-xf>--</b></div></div>
-        <div class="pd-perp-f"><span>TP <b class="num">${x.tp ? pxf(x.sym, x.tp) : "--"}</b> · SL <b class="num">${x.sl ? pxf(x.sym, x.sl) : "--"}</b></span><button type="button" class="pd-cancel" data-pclose="${x.id}">Close</button></div></div>`).join("")
-        : `<div class="pd-err">${ic("trend", 34, 1.4)}<b>No open perps</b><span>Go long or short with up to ${maxLev}x leverage.</span></div>`;
-      tickList();
-    } else {
-      const h = d.history.filter(x => /perp|liq/.test(x.kind)).slice(0, 50);
-      box.innerHTML = h.length ? `<div class="pd-hlist">${h.map(histRow).join("")}</div>` : `<div class="pd-err">${ic("history", 34, 1.4)}<b>No perp history</b></div>`;
-    }
-  }
-  function tickList(){
-    if (!root || ptab !== "pos") return;
-    data().perps.forEach(x => { const r = root.querySelector(`[data-pid="${x.id}"]`), m = mark(x.sym); if (!r || !m) return; const pnl = perpPnl(x, m), roe = pnl / x.margin * 100, c = pnl >= 0 ? "up" : "down";
-      const a = r.querySelector("[data-xp]"), b = r.querySelector("[data-xr]"); a.textContent = usdS(pnl); b.textContent = (roe >= 0 ? "+" : "") + fmt(roe, 2) + "%"; a.className = b.className = "num " + c;
-      r.querySelector("[data-xm]").textContent = pxf(x.sym, m); const f = r.querySelector("[data-xf]"); f.textContent = usdS(-(x.fund || 0)); f.className = "num " + ((x.fund || 0) <= 0 ? "up" : "down"); });
-  }
-  async function closePerp(id){
-    const x = data().perps.find(p => p.id === id); if (!x) return; const m = mark(x.sym); if (!m) return toast("Waiting for live price", "info");
-    const pnl = perpPnl(x, m);
-    const ok = await U.confirmTrade({kind: "close", title: `Close ${x.tk}-PERP`, rows: [["Side", `${x.side === "long" ? "Long" : "Short"} ${x.lev}x`], ["Mark price", pxf(x.sym, m)], ["Est. PnL", `<span class="${pnl >= 0 ? "up" : "down"}">${usdS(pnl)}</span>`]], okText: "Close position", tone: pnl >= 0 ? "up" : "down"});
-    if (!ok) return;
-    try { const r = await API.call("predict.perp.close", {id, mark: mark(x.sym) || m, reason: "user"}); U.fx(r.pnl >= 0 ? "win" : "close"); toast(`Position closed: ${x.tk} ${usdS(r.pnl)} · ${usd(r.payout)} returned`, r.pnl >= 0 ? "ok" : "info"); }
-    catch (e){ U.fx("err"); toast(e.message || "Could not close", "bad"); }
-  }
-  function tpslSheet(id){
-    const x = data().perps.find(p => p.id === id); if (!x) return;
-    U.sheet(`TP/SL · ${x.tk}-PERP`, `<div class="pd-tpsl"><div class="pd-field"><label for="pdETp">Take profit</label><div class="pd-amt"><input id="pdETp" inputmode="decimal" placeholder="Price" value="${x.tp || ""}"></div></div><div class="pd-field"><label for="pdESl">Stop loss</label><div class="pd-amt"><input id="pdESl" inputmode="decimal" placeholder="Price" value="${x.sl || ""}"></div></div></div>
-      <div class="pd-fine">Entry ${pxf(x.sym, x.entry)} · Liq. ${pxf(x.sym, x.liq)}. Leave empty to remove.</div><button type="button" class="pd-go yes" data-save>Save</button>`, el => {
-      el.querySelector("[data-save]").onclick = async () => {
-        const T = +el.querySelector("#pdETp").value || null, S = +el.querySelector("#pdESl").value || null, L = x.side === "long";
-        if (T && (L ? T <= x.entry : T >= x.entry)) return toast(`Take profit must be ${L ? "above" : "below"} entry`, "bad");
-        if (S && (L ? S >= x.entry || S <= x.liq : S <= x.entry || S >= x.liq)) return toast("Stop loss must be between entry and liquidation", "bad");
-        await API.call("predict.perp.tpsl", {id, tp: T, sl: S}); U.fx("notify"); toast("TP/SL saved", "ok"); U.closeLayer();
-      };
-    });
-  }
-  let lastDraw = 0;
-  const onSec = () => {
-    if (!root || document.hidden) return; const m = mark(sym);
-    const mk = $("[data-mk]"); if (mk && m) setTxt(mk, pxf(sym, m));
-    root.querySelectorAll("[data-cp]").forEach(e => setTxt(e, pxf(e.dataset.cp)));
-    statsRow(); tickList(); calc();
-    if (m && pts.length && now() - lastDraw > 2000){ lastDraw = now(); const l = pts[pts.length - 1]; if (now() - l[0] > 60e3) pts.push([now(), m]); else { l[0] = now(); l[1] = m; } const tip = $("#pdPCh .pd-ch-tip"); if (!tip || tip.style.display === "none") draw(); }
-  };
-  function mount(r){
-    root = r; curScreen = "perps"; seed(); bindCommon(root, offs);
-    chips(); head(); form(); list(); loadChart();
-    offs.push(bus.on("sec", onSec)); offs.push(bus.on("predict", () => { list(); }));
-    root.addEventListener("click", e => {
-      const t = e.target;
-      if (t.closest("[data-todemo]")){ window.ACCT && ACCT.setMode("demo"); return; }
-      const s = t.closest("[data-sym]"); if (s){ sym = s.dataset.sym; try { sessionStorage.setItem("pd_perp", sym); } catch {} hap(8); root.querySelectorAll("[data-sym]").forEach(x => x.classList.toggle("on", x === s)); head(); form(); loadChart(); return; }
-      const c = t.closest("[data-ctf]"); if (c){ ctf = c.dataset.ctf; root.querySelectorAll("[data-ctf]").forEach(x => x.classList.toggle("on", x === c)); hap(6); loadChart(); return; }
-      const pt = t.closest("[data-ptab]"); if (pt){ ptab = pt.dataset.ptab; hap(6); list(); return; }
-      const pc = t.closest("[data-pclose]"); if (pc){ closePerp(pc.dataset.pclose); return; }
-      const ts = t.closest("[data-tpsl]"); if (ts){ tpslSheet(ts.dataset.tpsl); return; }
-    });
-    timers.push(setTimeout(() => { if (root && !$("#pdPC button")){ chips(); head(); } }, 2500));
-    let rz = 0; const onRz = () => { clearTimeout(rz); rz = setTimeout(() => root && pts.length && draw(), 200); }; addEventListener("resize", onRz); offs.push(() => removeEventListener("resize", onRz));
-  }
-  function unmount(){ curScreen = null; root = null; timers.forEach(clearTimeout); offs.forEach(f => f()); chartReq++; }
-  return {html: cfg().enabled ? html : STRIP + subnav("perps") + maint(), title: "Prediction perps", mount: cfg().enabled ? mount : () => {}, unmount};
-}
-
-/* =====================================================================================================
    Router
    ===================================================================================================== */
 window.Pages = window.Pages || {};
 Pages.predict = (params = []) => {
   const [a, b, c] = params, dec = s => { try { return decodeURIComponent(s); } catch { return s; } };
   const scr = a === "m" && b ? detailScreen(dec(b), c) : a === "book" && b ? bookScreen(dec(b), c) : a === "portfolio" ? portfolioScreen()
-    : a === "profile" ? profileScreen() : a === "perps" ? perpsScreen() : listScreen();
+    : a === "profile" ? profileScreen() : listScreen();
+  if (a === "perps") try { history.replaceState(null, "", "#/predict"); } catch {}   // Perps removed (duplicated USDⓈ-M futures)
   /* the router reuses #view, so every screen gets its own root element (listeners die with it on navigation) */
   return {html: `<div class="pd-root">${scr.html}</div>`, title: scr.title, mount(view){ const r = view.querySelector(".pd-root") || view; return scr.mount(r); }, unmount(){ return scr.unmount && scr.unmount(); }};
 };

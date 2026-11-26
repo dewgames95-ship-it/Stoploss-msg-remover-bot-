@@ -343,14 +343,9 @@ Pages.futures = (params) => {
     const ghost = {tp:"", sl:""};
     [["tp", "#tp"], ["sl", "#sl2"]].forEach(([k, id]) => {
       const raw = Math.abs(parseFloat($(id).value)); if (!(raw > 0)) return;
-      if (roiM){
-        const cl = TX.tpCalc({k, mode:"roi", val:raw, ep, lev, notional:amt, side:"long"}), cs = TX.tpCalc({k, mode:"roi", val:raw, ep, lev, notional:amt, side:"short"});
-        ghost[k] = fp(cl.price);
-        out.push(`<div>${k.toUpperCase()} <b class="${cl.roi >= 0 ? "up" : "down"}">${TX.sgn(cl.roi)}%</b> ROI${amt ? ` = <b class="num ${cl.pnl >= 0 ? "up" : "down"}">${signed(cl.pnl)} USDT</b>` : ""} · Long ${fp(cl.price)} / Short ${fp(cs.price)}</div>`);
-      } else {
-        const c = TX.tpCalc({k, mode:"price", val:raw, ep, lev, notional:amt}); ghost[k] = TX.sgn(c.roi) + "%";
-        out.push(`<div>${k.toUpperCase()} ${fp(raw)} (${c.side === "long" ? "Long" : "Short"}): <b class="num ${c.roi >= 0 ? "up" : "down"}">${TX.sgn(c.roi)}%</b>${amt ? ` · PnL <b class="num ${c.pnl >= 0 ? "up" : "down"}">${signed(c.pnl)} USDT</b>` : ""}</div>`);
-      }
+      const c = TX.tpCalc({k, mode: roiM ? "roi" : "price", val: raw, ep, lev, notional: amt, side: roiM ? "long" : undefined});
+      ghost[k] = roiM ? fp(c.price) : TX.sgn(c.roi) + "%";
+      out.push(`<div>${k.toUpperCase()} ${roiM ? `<b class="${c.roi >= 0 ? "up" : "down"}">${TX.sgn(c.roi)}%</b> ROI` : fp(raw)}${amt ? ` = <b class="num ${c.pnl >= 0 ? "up" : "down"}">${signed(c.pnl)} USDT</b>` : ""}</div>`);
     });
     $("#tsh").innerHTML = out.join(""); $("#tpg").textContent = ghost.tp; $("#slg").textContent = ghost.sl;
   }

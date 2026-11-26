@@ -185,8 +185,7 @@ Pages.spot = (params) => {
       const raw = Math.abs(parseFloat($(id).value)); if (!(raw > 0)) return;
       const c = TX.tpCalc({k, mode: roiM ? "roi" : "price", val: raw, ep, lev: 1, notional, side:"long"});
       gh[k] = roiM ? fp(c.price) : TX.sgn(c.roi) + "%";
-      out.push(roiM ? `<div>${k.toUpperCase()} <b class="${c.roi >= 0 ? "up" : "down"}">${TX.sgn(c.roi)}%</b>${notional ? ` = <b class="num ${c.pnl >= 0 ? "up" : "down"}">${signed(c.pnl)} ${Q}</b>` : ""} · price ${fp(c.price)}</div>`
-        : `<div>${k.toUpperCase()} ${fp(raw)}: <b class="num ${c.roi >= 0 ? "up" : "down"}">${TX.sgn(c.roi)}%</b>${notional ? ` · PnL <b class="num ${c.pnl >= 0 ? "up" : "down"}">${signed(c.pnl)} ${Q}</b>` : ""}</div>`);
+      out.push(`<div>${k.toUpperCase()} ${roiM ? `<b class="${c.roi >= 0 ? "up" : "down"}">${TX.sgn(c.roi)}%</b> ROI` : fp(raw)}${notional ? ` = <b class="num ${c.pnl >= 0 ? "up" : "down"}">${signed(c.pnl)} ${Q}</b>` : ""}</div>`);
     });
     $("#sptsh").innerHTML = out.join(""); $("#sptpg").textContent = gh.tp; $("#spslg").textContent = gh.sl;
   }
