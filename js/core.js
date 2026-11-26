@@ -196,7 +196,7 @@ function scrim(show, onClick){
   if (show){ s.classList.remove("hide"); requestAnimationFrame(() => s.classList.add("show")); s.onclick = onClick; }
   else { s.classList.remove("show"); setTimeout(() => s.classList.add("hide"), 250); }
 }
-function closeLayer(){ if (!openLayer) return; const l = openLayer; openLayer = null; l.el.classList.remove("show"); scrim(false); setTimeout(() => { l.el.innerHTML=""; l.onClose?.(); }, 300); document.body.style.overflow=""; }
+function closeLayer(){ if (!openLayer) return; const l = openLayer; openLayer = null; l.el.classList.remove("show"); scrim(false); setTimeout(() => { if (!openLayer || openLayer.el !== l.el) l.el.innerHTML=""; l.onClose?.(); }, 300);   // v6.8: never wipe a layer that was reopened meanwhile (left an empty #modal bar) document.body.style.overflow=""; }
 function sheet(title, html, onMount, onClose){
   closeLayerNow();
   const el = $("#sheet");
