@@ -6,6 +6,7 @@
    racer.state   {boot?:bool}                         -> {balance, mode, config, seeded, pending, seq}
                    boot:true settles a bet left open by a race that never finished (app closed mid-race).
                    Demo only: the first open moves 1,000 USDT Spot -> Money Game once if that wallet is empty.
+   (v6.9: betId / raceId are "#001", "#002" ... from two separate per-user counters: seq = bets, raceSeq = races)
    racer.bet     {amount, cars:2|3, car, field:[car..], drive:"auto"|"manual", len}
                                                       -> {betId, raceId, no, car, cars, amount, mult, target, balance}
                    Debits the stake from the Money Game wallet (wallet.debit). target = the car the race is set
@@ -34,7 +35,8 @@
     function load() {
       let o = {};
       try { o = JSON.parse(localStorage.getItem(KEY()) || '{}') || {}; } catch (e) {}
-      return { bets: o.bets || [], races: o.races || [], tx: o.tx || [], seq: o.seq || 0, pending: o.pending || null, seeded: !!o.seeded };
+      // v6.9: bet numbers and race numbers are two separate per-user counters, both starting at #001 (older data restarts once)
+      return { bets: o.bets || [], races: o.races || [], tx: o.tx || [], seq: o.v69 ? (o.seq || 0) : 0, raceSeq: o.v69 ? (o.raceSeq || 0) : 0, v69: 1, pending: o.pending || null, seeded: !!o.seeded };
     }
     function save(d) {
       ['bets', 'races', 'tx'].forEach((k) => { if (d[k].length > CAP) d[k].length = CAP; });
@@ -84,7 +86,7 @@
           d.seeded = true; save(d);            // saved first: the seed transfer is logged into nt_racer.tx by the app
           try { await host.seed(); } catch (e) {}
         }
-        return { balance: await balance(), mode: host.mode(), config: c, seeded: d.seeded, pending: d.pending, seq: d.seq };
+        return { balance: await balance(), mode: host.mode(), config: c, seeded: d.seeded, pending: d.pending, seq: d.seq, raceSeq: d.raceSeq };
       },
       'racer.bet': async (q) => {
         const c = config();
@@ -97,8 +99,8 @@
         let field = Array.isArray(q.field) ? q.field.filter((k) => CARS.includes(k)) : [];
         if (field.length !== cars || !field.includes(car)) field = [car].concat(CARS.filter((k) => k !== car)).slice(0, cars);
         await host.call('wallet.debit', { wallet: 'games', amount, reason: 'Money Game bet' }); // throws "Insufficient balance"
-        d.seq += 1;
-        const no = d.seq, t = now();
+        d.seq += 1; d.raceSeq = (d.raceSeq || 0) + 1;
+        const no = d.seq, raceNo = d.raceSeq, t = now(), pad3 = (n) => '#' + String(n).padStart(3, '0');
         const drive = q.drive === 'manual' ? 'manual' : 'auto';
         let target = null;
         if (drive === 'auto') {
@@ -106,10 +108,10 @@
           if (c.playerWinPct != null) target = rnd() * 100 < c.playerWinPct ? car : others[Math.floor(rnd() * others.length)];
           else target = field[Math.floor(rnd() * field.length)];
         }
-        const p = { betId: 'B' + String(100000 + no), raceId: 'R' + String(100000 + no), no, car, cars, field, amount, mult: c.odds[cars], drive, target, mode: host.mode(), len: +q.len || 60, t };
+        const p = { betId: pad3(no), raceId: pad3(raceNo), no, raceNo, car, cars, field, amount, mult: c.odds[cars], drive, target, mode: host.mode(), len: +q.len || 60, t };
         d.pending = p;
         save(d);
-        return { betId: p.betId, raceId: p.raceId, no, car, cars, amount, mult: p.mult, target, balance: await balance() };
+        return { betId: p.betId, raceId: p.raceId, no, raceNo, car, cars, amount, mult: p.mult, target, balance: await balance() };
       },
       'racer.settle': async (q) => {
         const d = load();

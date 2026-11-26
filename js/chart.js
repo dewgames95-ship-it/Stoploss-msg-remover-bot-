@@ -81,7 +81,7 @@ function mount(container, parts, detailCb){
   el = container; ui = parts || {}; onDetail = detailCb;
   inds = ui.noInd ? [] : (store.s.settings.inds || []).slice(); { let n = 0; inds = inds.filter(k => k === "VOL" || ++n <= MAXI); } type = store.s.settings.chartType || "candle";
   offs.push(bus.on("tick", onTick), bus.on("trade", onTrade), bus.on("theme", () => { if (chart){ build(); } }), bus.on("positions", syncLines), bus.on("history", syncLines), bus.on("settled", binFx));
-  ro = new ResizeObserver(() => chart && chart.applyOptions({width: el.clientWidth, height: el.clientHeight}));
+  ro = new ResizeObserver(() => { if (chart) chart.applyOptions({width: el.clientWidth, height: el.clientHeight}); ui.liqTip?.classList.add("hide"); });
   ro.observe(el);
   // overlay layers
   el.insertAdjacentHTML("afterend", `<svg class="draw-svg" id="drawSvg"></svg><canvas class="liq-cv" id="liqCv"></canvas><div class="liq-tip hide" id="liqTip"></div><div class="lqbox hide" id="lqBox"></div><div class="lqpop hide" id="lqPop"></div><div class="ovl2" id="ovl2"></div><div class="cbox hide" id="cbox"></div><button class="auto-btn hide" id="autoBtn" aria-label="Auto scale">A</button>`);
@@ -374,12 +374,14 @@ function liqBoxSync(){
   const d = liqData; if (!d || d.none){ bx.classList.add("hide"); return; }
   const top = ui.legend && ui.legend.offsetHeight ? ui.legend.offsetTop + ui.legend.offsetHeight + 4 : 6;
   const cls = d.bias === "Long" ? "up" : d.bias === "Short" ? "down" : "";
-  const h = `<div class="lqb-h"><b>Liquidation map</b><button class="lqb-i" data-lqi aria-label="Data source">${ICN_I}</button></div>
+  let small = false; try { small = chart.panes()[0].getHeight() < 230; } catch {}
+  const h = small ? `<div class="lqb-r"><i style="background:${LQ_DN}"></i><b class="num">${fmtUsd(d.totL)}</b><i style="background:${LQ_UP};margin-left:4px"></i><b class="num">${fmtUsd(d.totS)}</b></div>
+    <div class="lqb-s"><b class="${cls}">${d.bias}</b><span></span><button class="lqb-q" data-lqq aria-label="How the suggestion works">?</button><button class="lqb-i" data-lqi aria-label="Data source">${ICN_I}</button></div>` : `<div class="lqb-h"><b>Liquidation map</b><button class="lqb-i" data-lqi aria-label="Data source">${ICN_I}</button></div>
     <div class="lqb-r"><i style="background:${LQ_DN}"></i><span>Long liq.</span><b class="num">${fmtUsd(d.totL)}</b></div>
     <div class="lqb-r"><i style="background:${LQ_UP}"></i><span>Short liq.</span><b class="num">${fmtUsd(d.totS)}</b></div>
     <div class="lqb-s"><span>Suggestion</span><b class="${cls}">${d.bias}</b><button class="lqb-q" data-lqq aria-label="How the suggestion works">?</button></div>`;
   if (bx._h !== h){ bx._h = h; bx.innerHTML = h; }
-  if (bx._t !== top){ bx._t = top; bx.style.top = top + "px"; }
+  if (bx._t !== top){ bx._t = top; bx.style.top = top + "px"; } bx.classList.toggle("sm", small);
   bx.classList.remove("hide");
 }
 function liqPop(title, html){

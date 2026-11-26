@@ -249,7 +249,7 @@
       const box = document.createElement('div');
       box.id = 'r3dNoWebgl';
       box.style.cssText = 'position:absolute;inset:0;z-index:41;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:18px;text-align:center;background:radial-gradient(circle at 50% 40%,#12305a 0%,#0b1528 70%);color:#e2f3ff;font:600 13px/1.45 system-ui,sans-serif;';
-      box.innerHTML = '<div style="font-size:19px;font-weight:900;font-style:italic;letter-spacing:.06em">MONEY RACER</div>'
+      box.innerHTML = '<div style="font-size:19px;font-weight:900;font-style:italic;letter-spacing:.06em">MONEY GAME</div>'
         + '<div style="font-size:15px;font-weight:800">3D graphics are not available on this device</div>'
         + '<div style="opacity:.8;max-width:300px">The race needs WebGL. Please update Telegram or your browser, turn on hardware acceleration, and open the game again.</div>'
         + '<button type="button" style="margin-top:6px;padding:9px 22px;border:0;border-radius:10px;background:#22c55e;color:#06210f;font:900 13px system-ui,sans-serif;letter-spacing:.06em">RELOAD</button>';
@@ -285,9 +285,11 @@
     }
     // Full loading screen over the race view: the game cannot be started until every asset is in.
     const loadPill = document.createElement('div');
+    let _fastLoad = false; try { _fastLoad = localStorage.getItem('nt_racer_ready') === ASSET_V; } catch (e) {} // v6.9: shown in full on the very first load only
     loadPill.style.cssText = 'position:absolute;inset:0;z-index:40;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:radial-gradient(ellipse at 50% 34%,#1b3f78 0%,#0f2347 42%,#070d1c 100%);color:#e2f3ff;font:800 13px/1 system-ui,sans-serif;overflow:hidden;';
-    loadPill.innerHTML = '<style>.r3dl-trio{position:relative;width:min(92vw,380px);height:min(33vw,130px);margin-bottom:6px}.r3dl-trio img{position:absolute;bottom:0;width:50%;height:auto;filter:drop-shadow(0 10px 10px rgba(0,0,0,.55))}.r3dl-trio .l{left:-3%;transform:scale(.9);filter:drop-shadow(0 8px 8px rgba(0,0,0,.5)) brightness(.8)}.r3dl-trio .r{right:-3%;transform:scale(.9);filter:drop-shadow(0 8px 8px rgba(0,0,0,.5)) brightness(.8)}.r3dl-trio .c{left:24%;width:52%;z-index:2;animation:r3dlf 2.4s ease-in-out infinite}.r3dl-glow{position:absolute;left:50%;top:60%;width:90%;height:70%;transform:translate(-50%,-50%);background:radial-gradient(closest-side,rgba(47,123,255,.45),rgba(47,123,255,0) 70%);animation:r3dlg 2.4s ease-in-out infinite}.r3dl-shine{position:absolute;inset:0;z-index:3;overflow:hidden;pointer-events:none}.r3dl-shine:after{content:\'\';position:absolute;top:0;bottom:0;width:30%;left:-40%;background:linear-gradient(100deg,rgba(255,255,255,0),rgba(255,255,255,.28),rgba(255,255,255,0));transform:skewX(-18deg);animation:r3dls 2.6s ease-in-out infinite}@keyframes r3dlf{50%{transform:translateY(-3px)}}@keyframes r3dlg{50%{opacity:.55}}@keyframes r3dls{0%{left:-40%}60%,100%{left:120%}}#r3dLoadBar i{box-shadow:0 0 10px rgba(34,224,122,.8)}</style><div class="r3dl-trio"><div class="r3dl-glow"></div><img class="l" alt="" src="./assets/ui/car_f8_red.webp"><img class="r" alt="" src="./assets/ui/car_f8_yellow.webp"><img class="c" alt="" src="./assets/ui/car_f8_blue.webp"><div class="r3dl-shine"></div></div><div style="font-size:26px;font-style:italic;font-weight:900;letter-spacing:.08em;text-shadow:0 2px 14px rgba(47,123,255,.6)">MONEY <span style="color:#FFC83D">RACER</span></div><span id="r3dLoadBar" style="display:block;width:68%;max-width:280px;height:10px;border-radius:6px;background:rgba(255,255,255,0.12);overflow:hidden;box-shadow:0 0 0 1px rgba(34,224,122,.35),inset 0 1px 2px rgba(0,0,0,.5);margin-top:8px"><i style="display:block;height:100%;width:2%;background:linear-gradient(90deg,#16a34a,#22E07A,#a7f3c8);border-radius:6px;transition:width .2s linear"></i></span><div id="r3dLoadTxt" style="font-size:14px;letter-spacing:.04em;font-variant-numeric:tabular-nums">Loading…</div><div style="opacity:.6;font-size:11px;font-weight:600;letter-spacing:.08em">Loading track…</div><div id="r3dLoadPct" style="opacity:.7;font-size:10px">0%</div>';
+    loadPill.innerHTML = '<style>.r3dl-trio{position:relative;width:min(92vw,380px);height:min(33vw,130px);margin-bottom:6px}.r3dl-trio img{position:absolute;bottom:0;width:50%;height:auto;filter:drop-shadow(0 10px 10px rgba(0,0,0,.55))}.r3dl-trio .l{left:-3%;transform:scale(.9);filter:drop-shadow(0 8px 8px rgba(0,0,0,.5)) brightness(.8)}.r3dl-trio .r{right:-3%;transform:scale(.9);filter:drop-shadow(0 8px 8px rgba(0,0,0,.5)) brightness(.8)}.r3dl-trio .c{left:24%;width:52%;z-index:2;animation:r3dlf 2.4s ease-in-out infinite}.r3dl-glow{position:absolute;left:50%;top:60%;width:90%;height:70%;transform:translate(-50%,-50%);background:radial-gradient(closest-side,rgba(47,123,255,.45),rgba(47,123,255,0) 70%);animation:r3dlg 2.4s ease-in-out infinite}.r3dl-shine{position:absolute;inset:0;z-index:3;overflow:hidden;pointer-events:none}.r3dl-shine:after{content:\'\';position:absolute;top:0;bottom:0;width:30%;left:-40%;background:linear-gradient(100deg,rgba(255,255,255,0),rgba(255,255,255,.28),rgba(255,255,255,0));transform:skewX(-18deg);animation:r3dls 2.6s ease-in-out infinite}@keyframes r3dlf{50%{transform:translateY(-3px)}}@keyframes r3dlg{50%{opacity:.55}}@keyframes r3dls{0%{left:-40%}60%,100%{left:120%}}#r3dLoadBar i{box-shadow:0 0 10px rgba(34,224,122,.8)}</style><div class="r3dl-trio"><div class="r3dl-glow"></div><img class="l" alt="" src="./assets/ui/car_f8_red.webp"><img class="r" alt="" src="./assets/ui/car_f8_yellow.webp"><img class="c" alt="" src="./assets/ui/car_f8_blue.webp"><div class="r3dl-shine"></div></div><div style="font-size:26px;font-style:italic;font-weight:900;letter-spacing:.08em;text-shadow:0 2px 14px rgba(47,123,255,.6)">MONEY <span style="color:#FFC83D">GAME</span></div><span id="r3dLoadBar" style="display:block;width:68%;max-width:280px;height:10px;border-radius:6px;background:rgba(255,255,255,0.12);overflow:hidden;box-shadow:0 0 0 1px rgba(34,224,122,.35),inset 0 1px 2px rgba(0,0,0,.5);margin-top:8px"><i style="display:block;height:100%;width:2%;background:linear-gradient(90deg,#16a34a,#22E07A,#a7f3c8);border-radius:6px;transition:width .2s linear"></i></span><div id="r3dLoadTxt" style="font-size:14px;letter-spacing:.04em;font-variant-numeric:tabular-nums">Loading…</div><div style="opacity:.6;font-size:11px;font-weight:600;letter-spacing:.08em">Loading track…</div><div id="r3dLoadPct" style="opacity:.7;font-size:10px">0%</div>';
     canvas.parentNode.appendChild(loadPill);
+    if (_fastLoad) { loadPill.style.background = '#060a12'; loadPill.style.transition = 'opacity .25s ease'; Array.from(loadPill.children).forEach((c) => { c.style.visibility = 'hidden'; }); } // assets are cached: a plain dark frame, no splash
     // Assets are fetched once, stored with the Cache API under a versioned key and served from there on
     // later opens. Bump ASSET_V whenever a file in assets/game3d changes: the cache key follows it and
     // older caches are deleted.
@@ -352,7 +354,7 @@
     const treePacks = Promise.all([within(loadGlb('trees_maple.glb'), 30000), within(loadGlb('trees_pine.glb'), 30000), within(loadGlb('city_a.glb'), 40000), within(loadGlb('city_b.glb'), 40000), within(loadGlb('tower.glb'), 30000), within(loadGlb('grass.glb'), 30000)]);
     const [carModel, carAoTex, floraTex, skyEq, skyFront] = await Promise.all([within(loadCar(), 15000), within(loadTex('car_ao.png'), 15000), within(loadTex('flora.webp'), 15000), within(loadTex('sky.jpg'), 15000), within(loadTex('sky_front.jpg'), 15000)]);
     const [mapleScene, pineScene, cityAScene, cityBScene, towerScene, grassScene] = await treePacks;
-    clearInterval(loadUi); loadPill.remove();
+    clearInterval(loadUi); try { localStorage.setItem('nt_racer_ready', ASSET_V); } catch (e) {} if (_fastLoad) { loadPill.style.opacity = '0'; setTimeout(() => loadPill.remove(), 260); } else loadPill.remove();
     if (R3D.status !== 'pending') return;
 
     const scene = new T.Scene();
@@ -2257,7 +2259,7 @@
     // manual chat (Manual Drive button): shows over MY car for 2 s, 3 s cooldown; in first person nothing is drawn but it still counts
     window.trSay = (text) => {
       const nowS = performance.now() / 1000;
-      if (gameState !== 'RACING' || nowS - bub.say < 3) return false;
+      if (gameState !== 'RACING' || nowS - bub.say < 3 || RACE_DURATION_SEC <= 30) return false; // (no quick chat in the 30 s mode)
       text = String(text || '').trim().slice(0, 48); if (!text) return false;
       const i = cars.findIndex((c) => c.isPlayer); if (i < 0) return false;
       bub.say = nowS; bub.nextAt = Math.max(bub.nextAt, nowS + 3);
@@ -2266,7 +2268,7 @@
     };
     const bubEligible = (i, camZ) => {
       const car = cars[i], rig = rigs[i];
-      if (!car || !rig || (car.isPlayer && bub.fpp) || bub.count[i] >= BUB_MAXCAR || !rig.group.visible || !rig.tag.visible) return false;
+      if (!car || !rig || car.isPlayer || bub.count[i] >= BUB_MAXCAR || !rig.group.visible || !rig.tag.visible) return false;
       const ahead = camZ - rig.group.position.z; // metres in front of the camera
       if (!(ahead > (car.isPlayer ? 1 : 4) && ahead < 90)) return false;
       bubV.copy(rig.tag.position).project(camera); // keep clear of the HUD (top) and the screen edges

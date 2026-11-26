@@ -46,7 +46,11 @@
       if (locked) { try { window.scrollTo(0, 0); } catch (e) {} }
       if (H) { try { H.lock(locked); } catch (e) {} }
     },
-    isLocked: () => locked
+    isLocked: () => locked,
+    uid: () => { try { if (H && H.uid) { const u = String(H.uid() || ''); if (u) return u; } } catch (e) {} try { let g = localStorage.getItem('nt_racer_uid'); if (!g || g.length !== 10) { g = String(1000000000 + Math.floor(Math.random() * 8999999999)); localStorage.setItem('nt_racer_uid', g); } return g; } catch (e) { return '1000006577'; } },
+    avatar: (n) => { try { return (H && H.avatar) ? (H.avatar(n) || '') : ''; } catch (e) { return ''; } },
+    notify: (title, body, tone) => { try { if (H && H.notify) H.notify(title, body, tone); } catch (e) {} },
+    appBg: () => { try { return !!(window.parent && window.parent !== window && window.parent.__appBg); } catch (e) { return false; } }
   };
   window.addEventListener('pagehide', () => { if (locked && H) { try { H.lock(false); } catch (e) {} } });
 })();
@@ -4742,6 +4746,7 @@ body.v17-racing #weatherCycleBtn, body.v17-racing #weatherChip > .chip-q { opaci
 html, body { height: auto !important; min-height: 100%; overflow-x: hidden !important; overflow-y: auto !important; display: block !important; background: #060a12 !important; }
 body { overscroll-behavior-y: contain; }
 html.mr-lock, html.mr-lock body { overflow: hidden !important; overscroll-behavior: none; }
+body { overflow: visible !important; } /* v6.9: html is the one scroller (a second scroll container on <body> swallowed every wheel / touch scroll) */
 .app-shell { margin: 0 auto; height: var(--tg-vh, 100dvh) !important; max-height: none !important; box-shadow: none !important; }
 /* removed: lobby tabs (Invest / Invite / Profile / Login), bottom tab bar, Telegram banner, server-offline card */
 .bottom-nav, #tgNotifBanner, .cr-screen, #trOffline, #trModeMenu { display: none !important; }
@@ -4796,6 +4801,31 @@ body.mr-maint #centerStartCircle { filter: grayscale(1); opacity: .5; pointer-ev
 .mr-more { display: block; width: 100%; margin-top: 10px; padding: 10px; border: 1px solid #2b3139; border-radius: 8px; background: none; color: #eaecef; font: 500 13px inherit; font-family: inherit; cursor: pointer; }
 .mr-up { position: fixed; right: 12px; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); z-index: 70; width: 38px; height: 38px; border-radius: 50%; border: 1px solid #2b3139; background: #1e2329; color: #eaecef; display: none; align-items: center; justify-content: center; box-shadow: 0 6px 16px rgba(0,0,0,.45); cursor: pointer; }
 .mr-up.show { display: flex; }
+/* ===== v6.9 ===== */
+html.mr-lock .mr-hist, html.mr-lock .mr-up { display: none !important; }   /* once PLAY is pressed nothing below the game shows */
+.top-header .avatar-ring.has-photo { background: #0b1220; overflow: hidden; padding: 0; border-color: rgba(255,255,255,.85); }
+.top-header .avatar-ring.has-photo > * { width: 100% !important; height: 100% !important; border-radius: 50%; object-fit: cover; display: block; }
+.top-header .avatar-ring.has-photo svg { display: none; }
+.hud-pill { position: relative; }
+.g69-online { position: absolute; top: -7px; left: 50%; transform: translateX(-50%); display: inline-flex; align-items: center; gap: 3px; padding: 1px 6px 1px 5px; border-radius: 999px; background: rgba(6,12,22,.94); border: 1px solid rgba(40,224,102,.6); font: 800 8.5px/1.25 'Segoe UI', sans-serif; color: #eafff2; font-variant-numeric: tabular-nums; pointer-events: none; white-space: nowrap; z-index: 2; }
+.g69-online i { width: 5px; height: 5px; border-radius: 50%; background: #28e066; flex: none; }
+.g69-set { position: absolute; inset: 0; z-index: 90; display: flex; align-items: flex-start; justify-content: center; padding: 58px 14px 0; background: rgba(3,6,12,.55); }
+.g69-set[hidden] { display: none; }
+.g69-card { width: min(320px, 100%); background: linear-gradient(180deg, #14213a, #0c1527); border: 1px solid rgba(132,163,196,.28); border-radius: 12px; padding: 12px 14px 8px; color: #f1f6ff; }
+.g69-hd { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+.g69-hd b { font-size: 15px; font-weight: 800; }
+.g69-x { appearance: none; border: 0; background: rgba(255,255,255,.08); color: #e2ecff; width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; cursor: pointer; }
+.g69-row { display: flex; align-items: center; gap: 10px; min-height: 44px; font-size: 13px; border-top: 1px solid rgba(255,255,255,.07); }
+.g69-row:first-of-type { border-top: 0; }
+.g69-row > span { flex: 1 1 auto; font-weight: 600; color: #cfe0f7; }
+.g69-row em { font-style: normal; width: 38px; text-align: right; color: #8fb3de; font-variant-numeric: tabular-nums; font-size: 12px; }
+.g69-row input[type=range] { -webkit-appearance: none; appearance: none; width: 112px; height: 4px; border-radius: 4px; background: linear-gradient(90deg, #2e6bff var(--p, 100%), rgba(255,255,255,.18) var(--p, 100%)); outline: none; touch-action: pan-y; }
+.g69-row input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: #fff; border: 2px solid #2e6bff; }
+.g69-row input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: #fff; border: 2px solid #2e6bff; }
+.g69-sw { appearance: none; border: 0; width: 42px; height: 24px; border-radius: 14px; background: rgba(255,255,255,.18); position: relative; cursor: pointer; transition: background .15s; }
+.g69-sw i { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: transform .15s; }
+.g69-sw.on { background: #2e6bff; } .g69-sw.on i { transform: translateX(18px); }
+.g69-uid { font-variant-numeric: tabular-nums; letter-spacing: .04em; color: #fff; font-size: 13px; user-select: text; -webkit-user-select: text; }
 .mr-hint { display: flex; align-items: center; justify-content: center; gap: 4px; padding: 2px 0 10px; font-size: 11px; color: #5e6673; }
 </style>
 </head>
@@ -5903,19 +5933,31 @@ body.mr-maint #centerStartCircle { filter: grayscale(1); opacity: .5; pointer-ev
   // =========================================================================
   let soundEnabled = true;
   let hapticEnabled = true;
+  try { if (localStorage.getItem('tr_haptic') === '0') hapticEnabled = false; } catch (e) {}
   let audioCtx = null;
   let engineOsc1 = null, engineOsc2 = null, engineSub = null, engineFilter = null, engineGain = null;
   let lastGear = 1;
   let engineOsc3 = null, engineLfo = null, engineLfoDepth = null, engineNoiseFilter = null, engineNoiseGain = null;
 
+  // v6.9: app in the background (tab hidden / app minimised / native-pause): no music, no sound effects, no vibration.
+  // The race itself keeps running (it follows the wall clock); only audio and haptics stop.
+  let _extBg = false;
+  function isBgNow() { return _extBg || document.hidden || (window.MR && MR.appBg && MR.appBg()); }
+  let sfxMaster = null, sfxVol = 1, musicVol = 1;
+  try { const a = parseFloat(localStorage.getItem('tr_vol_sfx')), b = parseFloat(localStorage.getItem('tr_vol_music')); if (isFinite(a)) sfxVol = Math.max(0, Math.min(1, a)); if (isFinite(b)) musicVol = Math.max(0, Math.min(1, b)); } catch (e) {}
   function initAudio() {
     if (audioCtx) {
-      if (audioCtx.state === 'suspended') audioCtx.resume();
+      if (audioCtx.state === 'suspended' && !isBgNow()) audioCtx.resume();
       return;
     }
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
     audioCtx = new AC();
+    try { // every effect connects to audioCtx.destination: route it through one master gain (SFX volume slider)
+      const realDest = audioCtx.destination; sfxMaster = audioCtx.createGain(); sfxMaster.gain.value = sfxVol; sfxMaster.connect(realDest);
+      Object.defineProperty(audioCtx, 'destination', { get: () => sfxMaster });
+    } catch (e) { sfxMaster = null; }
+    if (isBgNow()) { try { audioCtx.suspend(); } catch (e) {} }
 
     engineOsc1 = audioCtx.createOscillator();
     engineOsc2 = audioCtx.createOscillator();
@@ -5990,7 +6032,6 @@ body.mr-maint #centerStartCircle { filter: grayscale(1); opacity: .5; pointer-ev
     const gear = Math.min(6, Math.max(1, Math.floor(speedKmh / 43) + 1));
     if (gear > lastGear) {
       playTone(820, 360, 0.08, 'sine', 0.07);
-      triggerHaptic(22);
     }
     lastGear = gear;
 
@@ -6111,11 +6152,16 @@ body.mr-maint #centerStartCircle { filter: grayscale(1); opacity: .5; pointer-ev
       mo.observe(box, { childList: true, characterData: true, subtree: true });
     }
   });
-  function triggerHaptic(pattern) {
-    if (window._trFastForwarding || !hapticEnabled) return;
+  let _lastHitMs = 0;
+  // v6.9: ONE vibration per deliberate action. src: 'press' = one finger-down on a control (never while it is held),
+  // 'hit' = the player's own car crashed (max once per 0.7 s), 'go' = race start, 'result' = win / loss.
+  // While a race is running anything else (gear changes, steering, other cars, boosts, horns, ticks) stays silent.
+  function triggerHaptic(pattern, src) {
+    if (window._trFastForwarding || !hapticEnabled || isBgNow()) return;
+    if ((gameState === 'MATCHMAKING' || gameState === 'COUNTDOWN' || gameState === 'RACING') && src !== 'press' && src !== 'hit' && src !== 'go' && src !== 'result') return;
     const now = performance.now();
-    if (now - _lastHapticMs < 65) return;
-    _lastHapticMs = now;
+    if (src === 'hit') { if (now - _lastHitMs < 700) return; _lastHitMs = now; }
+    else { if (now - _lastHapticMs < (src === 'press' ? 30 : 80)) return; _lastHapticMs = now; }
     try { if (window.MR && MR.buzz(pattern)) return; } catch (e) {} // NovaTrade: U.buzz (honours the app's haptic setting)
     if (navigator.vibrate) {
       try { navigator.vibrate(pattern); } catch (e) {}
@@ -6127,10 +6173,9 @@ body.mr-maint #centerStartCircle { filter: grayscale(1); opacity: .5; pointer-ev
     const pitch = 520 + (10 - secLeft) * 32;
     playTone(pitch, pitch * 1.18, 0.09, 'triangle', 0.13);
     setTimeout(() => playTone(pitch * 1.5, pitch * 1.2, 0.05, 'sine', 0.06), 45);
-    triggerHaptic([45, 20, 35]);
   }
 
-  function sfxSteer() { playTone(420, 240, 0.08, 'triangle', 0.11); triggerHaptic([30, 15, 40]); }
+  function sfxSteer() { playTone(420, 240, 0.08, 'triangle', 0.11); }
   // Layered impacts: body thump + crunching metal + scatter/tinkle, each a little apart like a real crash.
   function sfxCrash(w, haptic) { // w: 0 (light) .. 1 (heavy)
     playTone(150 - w * 60, 42 - w * 14, 0.2 + w * 0.3, 'sine', 0.3 + w * 0.08);            // low body thump
@@ -6139,12 +6184,12 @@ body.mr-maint #centerStartCircle { filter: grayscale(1); opacity: .5; pointer-ev
     setTimeout(() => playNoiseImpact(0.1 + w * 0.12, 2600 - w * 700, 0.14 + w * 0.06), 28);  // bright scrape
     setTimeout(() => playNoiseImpact(0.16 + w * 0.2, 5200, 0.07 + w * 0.05), 70 + w * 50);   // debris tinkle
     if (w > 0.55) setTimeout(() => playTone(70, 30, 0.34, 'triangle', 0.2), 60);             // heavy after-shake
-    triggerHaptic(haptic);
+    // vibrate only when it is the player's own car that crashed, and then once with a single short pulse
+    try { const me = cars.find(c => c.isPlayer); if (me && (me.hitSlowTimer > 0.25 || me.scrapeTimer > 0.25 || me.bumpCooldown > 0.25)) triggerHaptic(w > 0.5 ? 60 : 40, 'hit'); } catch (e) {}
   }
   function sfxBoost() {
     playTone(360, 1080, 0.28, 'sawtooth', 0.15); playTone(180, 620, 0.34, 'triangle', 0.12);
     playNoiseImpact(0.42, 1900, 0.12); setTimeout(() => playNoiseImpact(0.3, 4200, 0.07), 60);
-    triggerHaptic([50, 20, 90]);
   }
   function sfxHitCone() { sfxCrash(0.1, [100, 30, 130]); }
   function sfxHitBarrel() { sfxCrash(0.4, [140, 35, 175]); }
@@ -6155,19 +6200,19 @@ body.mr-maint #centerStartCircle { filter: grayscale(1); opacity: .5; pointer-ev
     setTimeout(() => playTone(900, 520, 0.16, 'square', 0.035), 20); // tyre chirp
   }
   function sfxCountdown(isGo) {
-    if (isGo) { playTone(880, 1175, 0.32, 'triangle', 0.22); triggerHaptic([150, 40, 200]); }
-    else { playTone(440, 440, 0.15, 'sine', 0.16); triggerHaptic(75); }
+    if (isGo) { playTone(880, 1175, 0.32, 'triangle', 0.22); triggerHaptic(70, 'go'); }
+    else { playTone(440, 440, 0.15, 'sine', 0.16); }
   }
   function sfxWin() {
     playTone(523, 659, 0.15, 'triangle', 0.18);
     setTimeout(() => playTone(659, 784, 0.15, 'triangle', 0.18), 140);
     setTimeout(() => playTone(784, 1046, 0.38, 'triangle', 0.22), 280);
-    triggerHaptic([90, 45, 110, 45, 240]);
+    triggerHaptic(120, 'result');
   }
   function sfxLose() {
     playTone(360, 220, 0.25, 'sawtooth', 0.15);
     setTimeout(() => playTone(220, 135, 0.38, 'sawtooth', 0.15), 230);
-    triggerHaptic([120, 50, 160]);
+    triggerHaptic(80, 'result');
   }
 
   // ---- uiPolishA: inline SVG icons, popup FX (tap sound/haptic, open haptic, confetti) -------------
@@ -6384,7 +6429,7 @@ body.mr-maint #centerStartCircle { filter: grayscale(1); opacity: .5; pointer-ev
   const betSteps = [0.1, 0.5, 1, 2, 5, 10];
   let currentBet = 1.0;
   // v17 ui2: race / bet numbers count up per race / bet on this device (3-digit zero padded)
-  function padNo(n) { return 'R' + String(100000 + Math.max(0, Math.floor(+n) || 0)); } // Money Game: same id as the race history
+  function padNo(n) { return '#' + String(Math.max(0, Math.floor(+n) || 0)).padStart(3, '0'); } // Money Game: same id as the race / bet history (#001, #002 ...)
   function lsNo(k, d) { const v = parseInt(lsGetSafe(k), 10); return v > 0 ? v : d; }
   let raceIdCounter = lsNo('tr_race_no', 1);   // number of the current / next race
   let betNoCounter = lsNo('tr_betid_no', 0);   // Car Bet (auto) bets placed so far; Manual Drive races use raceIdCounter
@@ -6540,7 +6585,7 @@ body.mr-maint #centerStartCircle { filter: grayscale(1); opacity: .5; pointer-ev
     car.speed = Math.max(105, car.speed * (wall ? 0.92 : 0.84)); car.boostTimer = 0; car.hitRoll = -side * 0.14;
     spawnShatterDebris(car.x + side * 0.1, car.z + 6, 'spark');
     if (!wall && typeof R3D_FX !== 'undefined' && R3D_FX.railHits.length < 6) R3D_FX.railHits.push({ side, z: car.z + (car._vz || 0) / 0.29 });
-    if (car.isPlayer || Math.abs(car.z - player0().z) < 25) { cameraShake = Math.max(cameraShake, 8); sfxHitCone(); triggerHaptic && triggerHaptic(35); }
+    if (car.isPlayer || Math.abs(car.z - player0().z) < 25) { cameraShake = Math.max(cameraShake, 8); sfxHitCone(); }
   }
   const player0 = () => cars.find(c => c.isPlayer) || cars[0]; // world-unit arc height; small speed kick on landing
   const WORLD_SPEED_SCALE = 0.375;
@@ -7215,14 +7260,14 @@ body.mr-maint #centerStartCircle { filter: grayscale(1); opacity: .5; pointer-ev
     if (gameState === 'IDLE') {
       showCrToast('Tap the middle green circle to start the race!');
     }
-    triggerHaptic(25);
+    triggerHaptic(25, 'press');
   });
   const stopAccel = () => { btnAccel.classList.remove('pressed'); keys.accel = false; };
   btnAccel.addEventListener('pointerup', stopAccel);
   btnAccel.addEventListener('pointerleave', stopAccel);
   btnAccel.addEventListener('pointercancel', stopAccel);
 
-  btnBrake.addEventListener('pointerdown', (e) => { e.preventDefault(); btnBrake.classList.add('pressed'); keys.brake = true; triggerHaptic(25); });
+  btnBrake.addEventListener('pointerdown', (e) => { e.preventDefault(); btnBrake.classList.add('pressed'); keys.brake = true; triggerHaptic(25, 'press'); });
   const stopBrake = () => { btnBrake.classList.remove('pressed'); keys.brake = false; };
   btnBrake.addEventListener('pointerup', stopBrake);
   btnBrake.addEventListener('pointerleave', stopBrake);
@@ -7248,10 +7293,10 @@ body.mr-maint #centerStartCircle { filter: grayscale(1); opacity: .5; pointer-ev
     const apply = () => {
       const on = new Set(fingers.values());
       const set = (z, el, fn) => { const v = on.has(z); if (el.classList.contains('pressed') !== v) { el.classList.toggle('pressed', v); fn(v); } };
-      set('left', btnLeft, (v) => setSteer(-1, v));
-      set('right', btnRight, (v) => setSteer(1, v));
-      set('accel', btnAccel, (v) => { keys.accel = v; if (v) { triggerHaptic(25); if (gameState === 'IDLE') showCrToast('Tap the middle green circle to start the race!'); } });
-      set('brake', btnBrake, (v) => { keys.brake = v; if (v) triggerHaptic(25); });
+      set('left', btnLeft, (v) => { setSteer(-1, v); if (v) triggerHaptic(25, 'press'); });
+      set('right', btnRight, (v) => { setSteer(1, v); if (v) triggerHaptic(25, 'press'); });
+      set('accel', btnAccel, (v) => { keys.accel = v; if (v) { triggerHaptic(25, 'press'); if (gameState === 'IDLE') showCrToast('Tap the middle green circle to start the race!'); } });
+      set('brake', btnBrake, (v) => { keys.brake = v; if (v) triggerHaptic(25, 'press'); });
     };
     const down = (e) => {
       const z = zoneAt(e.clientX, e.clientY, null); if (!z) return;
@@ -8839,7 +8884,6 @@ body.mr-maint #centerStartCircle { filter: grayscale(1); opacity: .5; pointer-ev
               car.hitSlowTimer = 0;
               car.speed = Math.min(BOOST_TOP_SPEED, car.speed + 38);
               car.hopT = car.hopDur = 0.38; car.kickT = 0.4;
-              if (car.isPlayer) triggerHaptic(12);
               if (window._trBoostLog) window._trBoostLog.push({ id: car.id, t: +(RACE_DURATION_SEC - timeRemaining).toFixed(2), v0: Math.round(car.speed), hopT: car.hopT });
               if (car.isPlayer || Math.abs(car.z - player.z) < 25) sfxBoost();
             }
@@ -9019,7 +9063,6 @@ body.mr-maint #centerStartCircle { filter: grayscale(1); opacity: .5; pointer-ev
   function sfxHorn() {
     playTone(466, 466, 0.3, 'square', 0.08); playTone(370, 370, 0.3, 'square', 0.07);
     setTimeout(() => { playTone(466, 466, 0.45, 'square', 0.08); playTone(370, 370, 0.45, 'square', 0.07); }, 400);
-    triggerHaptic([60, 60, 120]);
   }
   function updateOncoming(dt, player, raceProgress) {
     const el = RACE_DURATION_SEC - timeRemaining;
@@ -9308,8 +9351,8 @@ body.mr-maint #centerStartCircle { filter: grayscale(1); opacity: .5; pointer-ev
     const fin = at(FINISH_LINE_Z), str = at(0), fs = Math.max(8, Math.floor(cw * 0.017));
     ctx.fillStyle = '#f8fafc'; ctx.fillRect(fin[0] - 6, fin[1] - 1.5, 12, 3);
     ctx.font = `900 ${fs}px "Segoe UI", sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-    ctx.fillStyle = '#facc15'; ctx.fillText('FIN', cardX + cardW / 2, mapTop - 9);
-    ctx.fillStyle = '#94a3b8'; ctx.fillText('STR', cardX + cardW / 2, mapBot + 17);
+    ctx.fillStyle = '#facc15'; ctx.fillText('FINISH', cardX + cardW / 2, mapTop - 9);
+    ctx.fillStyle = '#94a3b8'; ctx.fillText('START', cardX + cardW / 2, mapBot + 17);
     ctx.fillStyle = '#94a3b8'; ctx.fillRect(str[0] - 5, str[1] - 1, 10, 2);
 
     const sorted = [...cars].sort((a, b) => b.z - a.z);
@@ -9508,7 +9551,7 @@ body.mr-maint #centerStartCircle { filter: grayscale(1); opacity: .5; pointer-ev
     if (balEl) balEl.textContent = fmtUs(bal);
     const lbl = $('.top-header .balance-label');
     if (lbl) lbl.textContent = playMode === 'live' ? 'REAL BALANCE' : 'DEMO BALANCE';
-    $$('.profile-name').forEach(el => el.textContent = 'MONEY RACER');
+    $$('.profile-name').forEach(el => el.textContent = 'MONEY GAME');
     const idEl = $('.profile-id'); if (idEl) idEl.textContent = (playMode === 'live' ? 'Real' : 'Demo') + ' wallet';
     $$('.vip-badge, .vip-pill-lg').forEach(el => el.style.display = 'none');
     try { window.MR_renderHistory && window.MR_renderHistory(); } catch (e) {}
@@ -9539,6 +9582,7 @@ body.mr-maint #centerStartCircle { filter: grayscale(1); opacity: .5; pointer-ev
   window._trApplyInviteRef = applyInviteRef;
   try { applyInviteRef(); } catch (e) {}
   function getMyUidStr() {
+    try { const mu = window.MR && MR.uid && MR.uid(); if (mu) return String(mu); } catch (e) {}
     const u = (state && state.user && state.user.id) || (TG && TG.initDataUnsafe && TG.initDataUnsafe.user && TG.initDataUnsafe.user.id);
     if (u) return String(u);
     let g = '';
@@ -9825,7 +9869,7 @@ body.mr-maint #centerStartCircle { filter: grayscale(1); opacity: .5; pointer-ev
     try {
       const j = await MR.call('racer.state', boot ? { boot: true } : {});
       state = j; online = true;
-      if (boot && gameState === 'IDLE' && j.seq >= 0) { betNoCounter = j.seq; raceIdCounter = j.seq + 1; try { syncRaceIdText(); } catch (e) {} }
+      if (boot && gameState === 'IDLE' && j.seq >= 0) { betNoCounter = j.seq; raceIdCounter = (j.raceSeq != null ? j.raceSeq : j.seq) + 1; try { syncRaceIdText(); } catch (e) {} }
       applyConfig(j.config);
       applyBalanceUI();
     } catch (e) {
@@ -9889,7 +9933,7 @@ body.mr-maint #centerStartCircle { filter: grayscale(1); opacity: .5; pointer-ev
     if (musicOn) startMusic();
     lastSimWallMs = Date.now();
     rollOppIds();
-    if (bet && bet.no) { betNoCounter = bet.no; lastBetNo = bet.no; raceIdCounter = bet.no; }
+    if (bet && bet.no) { betNoCounter = bet.no; lastBetNo = bet.no; raceIdCounter = bet.raceNo || bet.no; }
     gameState = 'MATCHMAKING'; (window._trSyncRaceId || Function.prototype)();
     const initRem = 10.0;
     matchmakingTimer = initRem;
@@ -9923,6 +9967,12 @@ body.mr-maint #centerStartCircle { filter: grayscale(1); opacity: .5; pointer-ev
       try {
         const r = await MR.call('racer.settle', { betId: pendingBet.betId, winner: sorted[0] && sorted[0].themeKey, rank, fin: Math.max(0, RACE_DURATION_SEC - timeRemaining) });
         state = Object.assign(state || {}, { balance: r.balance });
+        try { // G7: one notification per race (Money Game tab of the app's notification list)
+          if (r && r.bet && !r.bet.refunded) {
+            const nt = r.win ? (+r.payout || 0) - (+r.bet.amount || 0) : -(+r.bet.amount || 0);
+            MR.notify('Race ' + (r.bet.raceId || '') + (r.win ? ' won' : ' lost'), (nt >= 0 ? '+' : '-') + fmtUs(Math.abs(nt)) + ' USDT', r.win ? 'ok' : 'bad');
+          }
+        } catch (e) {}
       } catch (e) { toast(e.message || 'Could not settle the bet', 'error'); }
     }
     if (_showResult) _showResult(rank, sorted);
@@ -9974,7 +10024,7 @@ body.mr-maint #centerStartCircle { filter: grayscale(1); opacity: .5; pointer-ev
       bgAudio = new Audio('bgm.mp3');
       bgAudio.loop = true;
       bgAudio.preload = 'auto';
-      bgAudio.volume = 0.45;
+      bgAudio.volume = 0.45 * musicVol;
       try { bgAudio.preservesPitch = true; bgAudio.playbackRate = _bgmRate; } catch (e) {}
     }
     return bgAudio;
@@ -9984,7 +10034,7 @@ body.mr-maint #centerStartCircle { filter: grayscale(1); opacity: .5; pointer-ev
   window._trMusicRate = function (r) { _bgmRate = r; try { if (bgAudio) { bgAudio.preservesPitch = true; bgAudio.playbackRate = r; } } catch (e) {} };
   let _bgmPlayPending = false;
   function startMusic() {
-    if (!musicOn) return;
+    if (!musicOn || isBgNow() || musicVol <= 0) return;
     try {
       const a = getBgAudio();
       if (a.paused && !_bgmPlayPending) {
@@ -10016,11 +10066,101 @@ body.mr-maint #centerStartCircle { filter: grayscale(1); opacity: .5; pointer-ev
     } catch (e) {}
   }
   ['pointerdown', 'click'].forEach(ev => document.addEventListener(ev, unlockAudio, { capture: true, passive: true }));
-  document.addEventListener('visibilitychange', () => {
-    if (document.hidden) stopMusic(); else if (musicOn) { try { audioCtx && audioCtx.resume(); } catch (e) {} startMusic(); }
-  });
+  let _bgSuspended = false;
+  function applyBg() {
+    if (isBgNow()) {
+      stopMusic();
+      try { if (audioCtx && audioCtx.state === 'running') { audioCtx.suspend(); _bgSuspended = true; } } catch (e) {}
+    } else {
+      try { if (audioCtx && audioCtx.state === 'suspended' && _bgSuspended) audioCtx.resume(); } catch (e) {}
+      _bgSuspended = false;
+      if (musicOn) startMusic();
+    }
+  }
+  document.addEventListener('visibilitychange', applyBg);
+  window.addEventListener('pagehide', () => { _extBg = true; applyBg(); });
+  window.addEventListener('pageshow', () => { _extBg = false; applyBg(); });
+  window.MR_BG = (b) => { _extBg = !!b; applyBg(); }; // called by the app (js/racer.js) on native-pause / native-resume
 
   // Hook existing SFX toggle + add Music
+
+  // ===== v6.9: header avatar (opens settings) and the live "online" badge on MODE / CAR =====
+  (function g69() {
+    const shell = document.querySelector('.app-shell') || document.body;
+    const ring = document.getElementById('topHeaderAvatarRing'), pbox = document.querySelector('.top-header .profile-box');
+    const paintAvatar = () => { try { const h = window.MR && MR.avatar(30); if (ring && h) { ring.innerHTML = h; ring.classList.add('has-photo'); } } catch (e) {} };
+    paintAvatar();
+    window.MR_paintAvatar = paintAvatar;
+    const X_SVG = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+    const box = document.createElement('div');
+    box.id = 'g69Set'; box.className = 'g69-set'; box.setAttribute('role', 'dialog'); box.setAttribute('aria-label', 'Game settings'); box.hidden = true;
+    box.innerHTML = `<div class="g69-card">
+      <div class="g69-hd"><b>Game settings</b><button type="button" class="g69-x" aria-label="Close">${X_SVG}</button></div>
+      <label class="g69-row"><span>Music volume</span><input type="range" min="0" max="100" step="1" id="g69Mus" aria-label="Music volume"><em id="g69MusV"></em></label>
+      <label class="g69-row"><span>Sound effects</span><input type="range" min="0" max="100" step="1" id="g69Sfx" aria-label="Sound effects volume"><em id="g69SfxV"></em></label>
+      <div class="g69-row"><span>Haptic feedback</span><button type="button" class="g69-sw" id="g69Hap" role="switch" aria-label="Haptic feedback"><i></i></button></div>
+      <div class="g69-row"><span>User ID</span><b class="g69-uid" id="g69Uid"></b></div>
+    </div>`;
+    shell.appendChild(box);
+    const mus = box.querySelector('#g69Mus'), sfx = box.querySelector('#g69Sfx'), hap = box.querySelector('#g69Hap');
+    const sync = () => {
+      mus.value = Math.round(musicVol * 100); sfx.value = Math.round(sfxVol * 100);
+      box.querySelector('#g69MusV').textContent = mus.value + '%'; box.querySelector('#g69SfxV').textContent = sfx.value + '%';
+      hap.classList.toggle('on', !!hapticEnabled); hap.setAttribute('aria-checked', hapticEnabled ? 'true' : 'false');
+      box.querySelector('#g69Uid').textContent = (window.MR && MR.uid && MR.uid()) || '';
+      [mus, sfx].forEach((el) => el.style.setProperty('--p', el.value + '%'));
+    };
+    const lsSet = (k, v) => { try { localStorage.setItem(k, String(v)); } catch (e) {} };
+    mus.addEventListener('input', () => {
+      musicVol = mus.value / 100; lsSet('tr_vol_music', musicVol);
+      try { if (bgAudio) bgAudio.volume = 0.45 * musicVol; } catch (e) {}
+      if (musicVol <= 0) stopMusic(); else if (musicOn) startMusic();
+      sync();
+    });
+    sfx.addEventListener('input', () => { sfxVol = sfx.value / 100; lsSet('tr_vol_sfx', sfxVol); try { if (sfxMaster) sfxMaster.gain.value = sfxVol; } catch (e) {} sync(); });
+    sfx.addEventListener('change', () => { try { playTone(660, 880, 0.08, 'sine', 0.12); } catch (e) {} }); // one sample tone when the finger lifts
+    hap.addEventListener('click', () => {
+      hapticEnabled = !hapticEnabled; lsSet('tr_haptic', hapticEnabled ? '1' : '0');
+      try { hapticToggleBtn.classList.toggle('active', hapticEnabled); } catch (e) {}
+      if (hapticEnabled) triggerHaptic(30);
+      sync();
+    });
+    const close = () => { box.hidden = true; };
+    box.addEventListener('click', (e) => { if (e.target === box || e.target.closest('.g69-x')) close(); });
+    window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !box.hidden) close(); });
+    if (pbox) {
+      pbox.setAttribute('role', 'button'); pbox.setAttribute('aria-label', 'Game settings'); pbox.tabIndex = 0;
+      const open = () => { if (gameState === 'COUNTDOWN' || gameState === 'RACING') return; paintAvatar(); sync(); box.hidden = false; };
+      pbox.addEventListener('click', open);
+      pbox.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
+    }
+
+    // ---- players online: a pure function of the wall clock (same number on every device, never jumps) ----
+    // daily curve (peak ~21:00 IST, trough ~05:30 IST) + slow noise: one seeded value per 10 minutes, cosine-blended + a tiny per-minute wiggle
+    const KEYS = [[0, .62], [2, .42], [4, .17], [5.5, .08], [7, .17], [9, .36], [12, .5], [15, .56], [18, .76], [21, 1], [23, .84], [24, .62]];
+    const curveAt = (h) => {
+      for (let i = 0; i < KEYS.length - 1; i++) {
+        if (h <= KEYS[i + 1][0]) { const a = KEYS[i], b = KEYS[i + 1], f = (h - a[0]) / (b[0] - a[0]); return a[1] + (b[1] - a[1]) * (1 - Math.cos(Math.PI * f)) / 2; }
+      }
+      return KEYS[KEYS.length - 1][1];
+    };
+    const h32 = (n) => { n = Math.imul(n ^ 0x9e3779b9, 0x85ebca6b); n ^= n >>> 13; n = Math.imul(n, 0xc2b2ae35); n ^= n >>> 16; return (n >>> 0) / 4294967296; };
+    const smooth = (seedMul, add, size, t, amp) => { const b = Math.floor(t / size), f = (t - b * size) / size, e = (1 - Math.cos(Math.PI * f)) / 2; return ((h32(b * seedMul + add) * 2 - 1) * (1 - e) + (h32((b + 1) * seedMul + add) * 2 - 1) * e) * amp; };
+    const onlineAt = (t) => {
+      const h = ((t + 19800000) % 86400000) / 3600000, c = curveAt(h);
+      return Math.round(Math.max(50, Math.min(979, 55 + c * 800 + smooth(2, 1, 600000, t, 30 + c * 85) + smooth(7, 3, 60000, t, 5))));
+    };
+    window.MR_onlineAt = onlineAt;
+    const pill = document.getElementById('modeSelectHudBtn');
+    if (pill) {
+      const b = document.createElement('span'); b.className = 'g69-online'; b.setAttribute('aria-label', 'Players online');
+      b.innerHTML = '<i></i><b></b>'; pill.appendChild(b);
+      const nEl = b.querySelector('b');
+      const tick = () => { if (document.hidden) return; const v = String(onlineAt(Math.floor(Date.now() / 5000) * 5000)); if (nEl.textContent !== v) nEl.textContent = v; };
+      tick(); setInterval(tick, 5000);
+      document.addEventListener('visibilitychange', tick);
+    }
+  })();
   
   // ---- Safe area / TG viewport ----
   function applySafe() {
@@ -10300,7 +10440,7 @@ body.mr-maint #centerStartCircle { filter: grayscale(1); opacity: .5; pointer-ev
     const feel = () => { try { _lastHapticMs = 0; triggerHaptic(40); } catch (e) {} try { playTone(880, 1180, 0.04, 'sine', 0.07); } catch (e) {} };
     const setOpen = (on) => { tray.classList.toggle('open', !!on); btn.setAttribute('aria-expanded', on ? 'true' : 'false'); };
     const sync = () => {
-      const show = !isAutoBetMode && gameState === 'RACING';
+      const show = !isAutoBetMode && gameState === 'RACING' && RACE_DURATION_SEC > 30;
       wrap.classList.toggle('show', show);
       if (!show) setOpen(false);
       btn.classList.toggle('cd', performance.now() < cdUntil);

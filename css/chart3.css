@@ -277,3 +277,8 @@ html[data-theme="light"] .tfpop button{background:linear-gradient(180deg,#FAFAFA
 .tfpop button.on{color:var(--text);border-color:color-mix(in srgb,var(--brand-2,#2E6BFF) 55%,var(--line-2,#3A424E));box-shadow:0 0 0 2px color-mix(in srgb,var(--brand-2,#2E6BFF) 12%,transparent);font-weight:800}
 .tfpop button:focus-visible{outline:none}
 .tf-more svg{transition:transform .15s}.tf-more.open svg{transform:rotate(180deg)}
+/* indicator chips never get a ring / border (overrides the generic selected-glow in brand.css): active = text colour + bold only */
+html:root[data-theme] body .indbar .il button,html:root[data-theme] body .indbar .il button.on{box-shadow:none;border-color:transparent;outline:none}
+.lqbox.sm{width:auto;min-width:0;padding:3px 6px 4px}
+.lqbox.sm .lqb-r b{margin-right:2px}
+.lqbox.sm .lqb-s{margin-top:1px;padding-top:2px;gap:6px}
