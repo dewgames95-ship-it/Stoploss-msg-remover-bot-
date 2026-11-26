@@ -25,14 +25,15 @@ function validate(sym, amount){
   return null;
 }
 
-/* Expiry lands exactly on the close of the selected period's candle (like real binary platforms) */
-function alignedExpiry(expiry, now=Date.now()){ const per = expiry * 1000; let t = Math.ceil(now / per) * per; if (t - now < Math.min(per * 0.3, 20000)) t += per; return t; }
-function place(sym, dir, amount, expiry, source="manual"){
+/* Expiry = entry time + the selected duration, exactly (a "1 min" trade lasts 60 s even if the 1-minute candle closes sooner) */
+function alignedExpiry(expiry, now=Date.now()){ return now + expiry * 1000; }
+function place(sym, dir, amount, expiry, source="manual", meta=null){
   amount = Math.round(amount * 100) / 100;
   const err = validate(sym, amount);
   if (err) return {err};
   const p = M.get(sym), now = Date.now();
   const pos = {id:uid(), sym, dir, amount, entry:p.price, open:now, exp:alignedExpiry(expiry, now), expiry, payout:payoutOf(sym, expiry), source};
+  if (meta) Object.assign(pos, meta);
   S().positions.push(pos);
   store.addWallet("binary", -amount, "trade");
   bus.emit("positions"); bus.emit("placed", pos);
@@ -159,32 +160,62 @@ setInterval(() => {
   if (any){ store.save(); bus.emit("bots"); }
 }, 5000);
 
-/* ---- Auto trading ---- */
-let autoTimer = null;
+/* ---- Binary bots (Auto Trade, Binary Martingale, Trend Follower) ----
+   One trade at a time per bot: a new trade is only opened after the previous one has closed AND the cooldown ("interval", seconds) has passed. */
+const BIN_KINDS = {
+  auto: {name:"Auto Trade", strategy:"trend", expiry:30, desc:"Places binary trades for you from momentum signals."},
+  bmart: {name:"Binary Martingale", strategy:"reversal", expiry:60, martingale:true, desc:"Counter-trend entries; the stake doubles (up to 3 steps) after a loss to recover it."},
+  trend: {name:"Trend Follower", strategy:"trend", expiry:30, desc:"Follows momentum and trades in the direction of the trend."}
+};
+const binTimers = {};
+const binCfg = id => id === "auto" ? S().auto : (S().binBots || {})[id];
+const botOpen = id => S().positions.some(x => x.botId === id || (id === "auto" && x.source === "auto" && !x.botId));
+function binBots(){ return Object.keys(BIN_KINDS).map(id => ({id, kind:BIN_KINDS[id], cfg:binCfg(id)})).filter(x => x.cfg && (x.cfg.created || x.cfg.on || x.cfg.count > 0)); }
 function autoDecide(sym, strat){
   const m = M.momentum(sym, 45000);
   if (strat === "trend") return m >= 0 ? "up" : "down";
   if (strat === "reversal") return m >= 0 ? "down" : "up";
   return Math.random() < 0.5 ? "up" : "down";
 }
-function autoLog(msg){ const a = S().auto; a.log.unshift({t:Date.now(), msg}); a.log = a.log.slice(0, 40); store.save(); bus.emit("auto"); }
-function autoTick(){
-  const a = S().auto; if (!a.on) return;
-  if (a.count >= a.max){ stopAuto("Reached max trades (" + a.max + ")."); return; }
-  if (S().positions.filter(x => x.source === "auto").length >= 3) return;
-  const dir = autoDecide(a.pair, a.strategy);
-  const r = place(a.pair, dir, a.amount, a.expiry, "auto");
-  if (r.err){ autoLog("Skipped: " + r.err); if (/Insufficient/.test(r.err)) stopAuto("Insufficient balance."); return; }
-  a.count++; autoLog(`#${a.count} ${dir.toUpperCase()} ${M.label(M.get(a.pair))} ${money(a.amount)} USDT @ ${M.fmtPx(M.get(a.pair))}`);
+function autoLog(msg, id="auto"){ const a = binCfg(id); if (!a) return; a.log = a.log || []; a.log.unshift({t:Date.now(), msg}); a.log = a.log.slice(0, 40); store.save(); bus.emit("auto"); }
+function autoTick(id="auto"){
+  const a = binCfg(id);
+  if (!a?.on){ clearInterval(binTimers[id]); delete binTimers[id]; return; }
+  if (a.count >= a.max){ stopAuto("Reached max trades (" + a.max + ").", id); return; }
+  if (botOpen(id)) return;                                                   // never 2 trades at once
+  if (a.lastEnd && Date.now() - a.lastEnd < (a.interval || 10) * 1000) return;  // cooldown after the last trade ended
+  const dir = autoDecide(a.pair, a.strategy), name = a.name || BIN_KINDS[id].name;
+  const stake = Math.round(a.amount * Math.pow(2, BIN_KINDS[id].martingale ? (a.step || 0) : 0) * 100) / 100;
+  const r = place(a.pair, dir, stake, a.expiry, "auto", {botId:id, bot:name, strat:a.strategy});
+  if (r.err){
+    if (!a.lastSkip || a.lastSkip.msg !== r.err || Date.now() - a.lastSkip.t > 30000){ a.lastSkip = {msg:r.err, t:Date.now()}; autoLog("Skipped: " + r.err, id); }
+    if (/Insufficient/.test(r.err)) stopAuto("Insufficient balance.", id); return; }
+  a.count++; autoLog(`#${a.count} ${dir.toUpperCase()} ${M.label(M.get(a.pair))} ${money(stake)} USDT @ ${M.fmtPx(M.get(a.pair))}`, id);
 }
-function startAuto(cfg){
-  Object.assign(S().auto, cfg, {on:true, count:0});
-  autoLog("Auto trading started — " + cfg.strategy + " strategy.");
-  store.notify("Auto trading ON", `${M.label(M.get(cfg.pair))} · ${money(cfg.amount)} USDT · every ${cfg.interval}s`, "ok");
-  runAuto();
+bus.on("settled", rec => {
+  if (!rec.botId) return; const a = binCfg(rec.botId); if (!a) return;
+  a.lastEnd = rec.closed || Date.now(); a.pnl = Math.round(((a.pnl || 0) + (rec.profit || 0)) * 100) / 100;
+  if (rec.result === "win") a.wins = (a.wins || 0) + 1; else if (rec.result === "loss") a.losses = (a.losses || 0) + 1;
+  if (BIN_KINDS[rec.botId]?.martingale) a.step = rec.result === "loss" ? Math.min(3, (a.step || 0) + 1) : 0;
+  store.save(); bus.emit("auto");
+});
+function startAuto(cfg, id="auto"){
+  const kind = BIN_KINDS[id] || BIN_KINDS.auto; S().binBots = S().binBots || {};
+  const a = id === "auto" ? S().auto : (S().binBots[id] = S().binBots[id] || {log:[]});
+  Object.assign(a, {name:kind.name}, cfg, {on:true, count:0, created:true, step:0, lastEnd:0, pnl:0, wins:0, losses:0, started:Date.now(), lastSkip:null});
+  autoLog("Bot started — " + a.strategy + " strategy, " + (a.expiry < 60 ? a.expiry + "s" : a.expiry / 60 + "m") + " expiry.", id);
+  store.notify(kind.name + " started", `${M.label(M.get(a.pair))} · ${money(a.amount)} USDT · ${a.expiry < 60 ? a.expiry + "s" : a.expiry / 60 + "m"} expiry · ${a.interval}s wait between trades`, "ok");
+  runAuto(id);
 }
-function runAuto(){ clearInterval(autoTimer); if (!S().auto.on) return; autoTimer = setInterval(autoTick, S().auto.interval * 1000); setTimeout(autoTick, 1500); bus.emit("auto"); }
-function stopAuto(reason="Stopped by you."){ S().auto.on = false; clearInterval(autoTimer); autoLog("Auto trading stopped. " + reason); bus.emit("auto"); }
+/* edit a bot's settings (works while it is running; the new values apply from its next trade) */
+function updateBinBot(id, cfg){ const a = binCfg(id) || (S().binBots = S().binBots || {}, S().binBots[id] = {log:[], name:BIN_KINDS[id]?.name}); Object.assign(a, cfg, {created:true}); store.save(); bus.emit("auto"); return a; }
+function runAuto(only){
+  const ids = only ? [only] : Object.keys(BIN_KINDS);
+  ids.forEach(id => { clearInterval(binTimers[id]); delete binTimers[id]; const a = binCfg(id); if (!a?.on) return;
+    binTimers[id] = setInterval(() => autoTick(id), 1000); setTimeout(() => autoTick(id), 1500); });
+  bus.emit("auto");
+}
+function stopAuto(reason="Stopped by you.", id="auto"){ const a = binCfg(id); if (!a) return; a.on = false; clearInterval(binTimers[id]); delete binTimers[id]; autoLog("Bot stopped. " + reason, id); bus.emit("auto"); }
 
 
 /* ---- Futures (USDT-M perpetual, cross or isolated) ---- */
@@ -435,5 +466,6 @@ function closeBinaryEarly(id){
   bus.emit("positions"); bus.emit("history"); bus.emit("settled", rec);
   return {rec};
 }
-Object.assign(window.E, {earlyValue, closeBinaryEarly});
+Object.assign(window.E, {earlyValue, closeBinaryEarly, binBots, updateBinBot, BIN_KINDS, binCfg});
+setTimeout(() => { try { runAuto(); } catch {} }, 2500);   // resume every binary bot that was running when the app closed
 })();
