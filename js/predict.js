@@ -1067,7 +1067,7 @@ Pages.predict = (params = []) => {
   const [a, b, c] = params, dec = s => { try { return decodeURIComponent(s); } catch { return s; } };
   const scr = a === "m" && b ? detailScreen(dec(b), c) : a === "book" && b ? bookScreen(dec(b), c) : a === "portfolio" ? portfolioScreen()
     : a === "profile" ? profileScreen() : listScreen();
-  if (a === "perps") try { history.replaceState(null, "", "#/predict"); } catch {}   // Perps removed (duplicated USDⓈ-M futures)
+  if (a === "perps") setTimeout(() => { if (/^#\/predict\/perps/.test(location.hash)) location.replace("#/predict"); }, 0);   // Perps removed (duplicated USDⓈ-M futures)
   /* the router reuses #view, so every screen gets its own root element (listeners die with it on navigation) */
   return {html: `<div class="pd-root">${scr.html}</div>`, title: scr.title, mount(view){ const r = view.querySelector(".pd-root") || view; return scr.mount(r); }, unmount(){ return scr.unmount && scr.unmount(); }};
 };
