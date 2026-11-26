@@ -20,3 +20,14 @@ html[data-theme="dark"]{
   --grad-down:linear-gradient(180deg,#FF5C70 0%,#E23A50 100%);
 }
 html[data-cm="ru"]{--grad-up:linear-gradient(180deg,#FF5A61 0%,#E23B42 100%);--grad-down:linear-gradient(180deg,#2CC47D 0%,#1FA463 100%)}
+
+/* v6.8: hot tabs (Prediction, Money Racer) in the Futures tab strip + home shortcuts */
+.tabs .tab.tab-hot{position:relative;display:inline-flex;align-items:center;gap:3px;white-space:nowrap}
+.tabs .tab.tab-hot::before{content:"";width:13px;height:13px;flex:0 0 13px;background:linear-gradient(180deg,#FFD54A 0%,#FF8A00 45%,#FF3D2E 100%);
+  -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 23c4.4 0 7.6-3 7.6-7.4 0-3.5-2.2-6.1-4-7.9-.3 2-1.3 3.3-2.6 3.9.4-3.6-1.1-7.2-4.4-9.3.2 3.3-1.5 5.4-3.2 7.5C3.9 11.6 4.4 13.2 4.4 15.6 4.4 20 7.6 23 12 23z'/%3E%3C/svg%3E") center/contain no-repeat;
+          mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 23c4.4 0 7.6-3 7.6-7.4 0-3.5-2.2-6.1-4-7.9-.3 2-1.3 3.3-2.6 3.9.4-3.6-1.1-7.2-4.4-9.3.2 3.3-1.5 5.4-3.2 7.5C3.9 11.6 4.4 13.2 4.4 15.6 4.4 20 7.6 23 12 23z'/%3E%3C/svg%3E") center/contain no-repeat;
+  filter:drop-shadow(0 0 3px rgba(255,120,0,.65));animation:ntFlame 1.6s ease-in-out infinite}
+@keyframes ntFlame{0%,100%{transform:scale(1) translateY(0)}50%{transform:scale(1.12) translateY(-1px)}}
+@media (prefers-reduced-motion:reduce){.tabs .tab.tab-hot::before{animation:none}}
+.hm-sc a.hm-hot{position:relative}
+.hm-sc a.hm-hot::after{content:"HOT";position:absolute;top:-4px;right:calc(50% - 26px);font-size:8px;font-weight:800;letter-spacing:.3px;line-height:1;padding:2px 4px;border-radius:6px;color:#fff;background:linear-gradient(90deg,#FF8A00,#FF3D2E);box-shadow:0 0 6px rgba(255,90,0,.55)}

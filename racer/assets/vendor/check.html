@@ -1,0 +1,44 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Vendor check</title>
+<body style="margin:0;background:#111;color:#eee;font:14px system-ui">
+<pre id="out" style="position:fixed;top:8px;left:8px;margin:0">loading…</pre>
+<script type="importmap">
+{ "imports": {
+  "three": "./three/build/three.module.js",
+  "three/addons/": "./three/addons/",
+  "postprocessing": "./postprocessing/postprocessing.js"
+} }
+</script>
+<script src="./gsap/gsap.min.js"></script>
+<script src="./howler/howler.min.js"></script>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { EffectComposer, RenderPass, EffectPass, BloomEffect } from 'postprocessing';
+
+const out = document.getElementById('out');
+try {
+  const renderer = new THREE.WebGLRenderer({ antialias: false });
+  renderer.setSize(innerWidth, innerHeight);
+  document.body.appendChild(renderer.domElement);
+  const scene = new THREE.Scene();
+  scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment()).texture;
+  const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 100);
+  camera.position.z = 3;
+  const box = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshStandardMaterial({ color: 0x26a17b, metalness: 0.6, roughness: 0.3 }));
+  scene.add(box);
+  new GLTFLoader().setDRACOLoader(new DRACOLoader().setDecoderPath('./three/addons/libs/draco/')).setMeshoptDecoder(MeshoptDecoder);
+  const composer = new EffectComposer(renderer);
+  composer.addPass(new RenderPass(scene, camera));
+  composer.addPass(new EffectPass(camera, new BloomEffect()));
+  gsap.to(box.rotation, { y: Math.PI * 2, duration: 4, repeat: -1, ease: 'none' });
+  renderer.setAnimationLoop(() => composer.render());
+  out.textContent = `OK three r${THREE.REVISION} | gsap ${gsap.version} | howler ${typeof Howl === 'function' ? 'ok' : 'missing'} | postprocessing ok`;
+  window.__check = 'ok';
+} catch (e) { out.textContent = 'FAIL ' + e.message; window.__check = 'fail'; }
+</script>

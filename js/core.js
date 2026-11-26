@@ -72,7 +72,10 @@ const P = {
   dots:'<circle cx="5" cy="12" r="1.3" fill="currentColor"/><circle cx="12" cy="12" r="1.3" fill="currentColor"/><circle cx="19" cy="12" r="1.3" fill="currentColor"/>', sort:'<path d="M8 4v16M4 8l4-4 4 4M16 20V4M12 16l4 4 4-4"/>',
   ind:'<path d="M3 3v18h18"/><path d="m6 16 4-6 4 3 5-8"/>', clockh:'<rect x="4" y="3" width="13" height="16" rx="1.5"/><circle cx="17" cy="17" r="4.2" fill="var(--bg)"/><path d="M17 15v2.2l1.4 1"/>',
   qr:'<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM18 18h3v3h-3z"/>', send2:'<path d="M12 19V5M5 12l7-7 7 7"/>', earn:'<path d="M12 3a4 4 0 1 1 0 8 4 4 0 0 1 0-8z"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/><path d="M12 6v2.2"/>',
-  file:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/>'
+  file:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/>',
+  fire:'<path d="M12 22c4 0 7-2.7 7-6.8 0-3.2-2-5.6-3.6-7.3-.3 1.8-1.2 3-2.4 3.6.4-3.3-1-6.6-4-8.5.2 3-1.4 5-3 6.9C4.6 11.6 5 13 5 15.2 5 19.3 8 22 12 22z"/><path d="M12 22c-1.8 0-3-1.3-3-3 0-1.8 1.4-2.8 2.2-4 .8 1 1.3 1.9 1.6 3 .6-.4 1-1 1.2-1.8.7.9 1 1.8 1 2.8 0 1.7-1.2 3-3 3z"/>',
+  car:'<path d="M5 16h14M3 16v-3.2a2 2 0 0 1 .6-1.4L6 9l1.6-3.2A1.5 1.5 0 0 1 9 5h6a1.5 1.5 0 0 1 1.4.8L18 9l2.4 2.4a2 2 0 0 1 .6 1.4V16a1 1 0 0 1-1 1h-1"/><path d="M5 17H4a1 1 0 0 1-1-1"/><circle cx="7.5" cy="16.5" r="2"/><circle cx="16.5" cy="16.5" r="2"/><path d="M6 9h12"/>',
+  predict:'<circle cx="12" cy="12" r="9"/><path d="M12 3v9l6.4 6.4"/><path d="M12 12H3"/>'
 };
 const ic = (n, s=20, sw=2) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[n]||""}</svg>`;
 

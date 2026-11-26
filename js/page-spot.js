@@ -93,7 +93,7 @@ Pages.spot = (params) => {
   let root, offs = [], timers = [], side = "buy", otype = "limit", sliderPct = 0, ptab = "open", curOnly = false, chartOpen = false, unChart = null, prec = 0;
   const $ = q => root.querySelector(q);
   const html = `<div class="sp">
-  <div class="tabs" style="gap:20px;margin:0 -16px;padding:4px 16px 0;border:0"><a class="tab" href="#/futures/${sym}" style="font-size:17px">USDⓈ-M</a><button class="tab on" style="font-size:17px">Spot</button><a class="tab" href="#/trade/${sym}" style="font-size:17px">Binary</a><a class="tab" href="#/options" style="font-size:17px">Options</a><a class="tab" href="#/copy" style="font-size:17px">Copy</a></div>
+  <div class="tabs" style="gap:20px;margin:0 -16px;padding:4px 16px 0;border:0"><a class="tab" href="#/futures/${sym}" style="font-size:17px">USDⓈ-M</a><button class="tab on" style="font-size:17px">Spot</button><a class="tab" href="#/trade/${sym}" style="font-size:17px">Binary</a><a class="tab tab-hot" href="#/predict" style="font-size:17px">Prediction</a><a class="tab tab-hot" href="#/racer" style="font-size:17px">Money Racer</a><a class="tab" href="#/options" style="font-size:17px">Options</a><a class="tab" href="#/copy" style="font-size:17px">Copy</a></div>
   <header class="sp-head"><div class="grow"><button class="sp-nm" data-pick>${esc(label0)}${ic("chevd",16)}</button><div class="num" id="spchg" style="font-size:13px"></div></div>
     <a class="icon-btn" href="#/chart/${sym}" aria-label="Chart">${ic("candle",22,1.6)}</a></header>
   <div class="sp-grid">
