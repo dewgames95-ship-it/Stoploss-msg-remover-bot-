@@ -28,8 +28,8 @@ const SCH = [
   {k:"SAR", n:"SAR", main:1, f:[N("step","Step"), N("max","Max step"), C("c","Colour")]},
   {k:"SUPER", n:"SuperTrend", main:1, f:[N("n","ATR period"), N("m","Multiplier"), N("conf","Confirm (x ATR)")]},
   {k:"VWAP", n:"VWAP", main:1, f:[C("c","Colour")]},
-  {k:"SR", n:"S/R", main:1, f:[N("lv","Levels per side"), N("k","Pivot strength")]},
-  {k:"LIQ", n:"LIQ", main:1, f:[["lev","Leverages (comma list)","t"], N("bins","Resolution (bins)")]},
+  {k:"SR", n:"Support/Resistance", main:1, f:[N("lv","Zones per side (1-3)"), N("k","Pivot strength")]},
+  {k:"LIQ", n:"Liquidation", main:1, f:[["lev","Leverages (comma list)","t"], N("bins","Resolution (bins)")]},
   {k:"VOL", n:"VOL", f:[]},
   {k:"RSI", n:"RSI", f:[N("n","Period"), C("c","Colour")]},
   {k:"MACD", n:"MACD", f:[N("f","Fast"), N("s","Slow"), N("g","Signal"), C("c","MACD colour"), C("cs","Signal colour")]}

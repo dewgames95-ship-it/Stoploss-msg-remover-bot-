@@ -80,7 +80,8 @@ function drawCard(cv, d, ti){
   c.fillStyle = G; c.font = `800 52px ${FONT}`; c.fillText((Number(d.pnl) >= 0 ? "+" : "") + num(d.pnl, 2), 48, y0 + 62);
   // price rows
   const ry = 700; rr(c, 40, ry, W - 80, 150, 22); c.fillStyle = "rgba(6,14,32,.72)"; c.fill(); c.strokeStyle = "rgba(255,255,255,.14)"; c.lineWidth = 1.5; c.stroke();
-  [["Entry price", d.entry], ["Mark price", d.mark]].forEach(([k, v], i) => { const yy = ry + 56 + i * 56; c.font = `600 24px ${FONT}`; c.fillStyle = "rgba(255,255,255,.58)"; c.textAlign = "left"; c.fillText(k, 72, yy); c.font = `800 28px ${FONT}`; c.fillStyle = "#fff"; c.textAlign = "right"; c.fillText(px(v), W - 72, yy); });
+  if (d.stats){ const cw = (W - 80) / d.stats.length; d.stats.forEach(([k, v], i) => { const cx = 40 + cw * i + cw / 2; c.textAlign = "center"; c.font = `600 22px ${FONT}`; c.fillStyle = "rgba(255,255,255,.58)"; c.fillText(k, cx, ry + 62); c.font = `800 38px ${FONT}`; c.fillStyle = "#fff"; c.fillText(String(v), cx, ry + 116); }); }
+  else [["Entry price", d.entry], ["Mark price", d.mark]].forEach(([k, v], i) => { const yy = ry + 56 + i * 56; c.font = `600 24px ${FONT}`; c.fillStyle = "rgba(255,255,255,.58)"; c.textAlign = "left"; c.fillText(k, 72, yy); c.font = `800 28px ${FONT}`; c.fillStyle = "#fff"; c.textAlign = "right"; c.fillText(px(v), W - 72, yy); });
   c.textAlign = "left";
   // footer: invite + QR
   const fy = 890, code = (store.s.profile && store.s.profile.ref) || "NOVA", url = location.origin + location.pathname + "#/referral?ref=" + code;
@@ -93,35 +94,34 @@ function drawCard(cv, d, ti){
   else { rr(c, qx, qy, qs, qs, 10); c.strokeStyle = "#0B0E14"; c.lineWidth = 3; c.stroke(); c.fillStyle = "#0B0E14"; const r = rng(code); for (let i = 0; i < 7; i++) for (let k = 0; k < 7; k++) if (r() > .5) c.fillRect(qx + 12 + k * 9, qy + 12 + i * 9, 8, 8); }
   return url;
 }
-function shareText(d){ const code = (store.s.profile && store.s.profile.ref) || ""; return `${d.label || d.sym} ${({long:"Long", short:"Short", up:"Up", down:"Down"})[d.side] || ""}${d.lev ? " " + d.lev + "x" : ""}: ROI ${Number(d.roi) >= 0 ? "+" : ""}${num(d.roi)}%, PnL ${Number(d.pnl) >= 0 ? "+" : ""}${num(d.pnl)} USDT. Entry ${px(d.entry)}, Mark ${px(d.mark)}. Trade with me on NovaTrade, invite code ${code}: ${location.origin + location.pathname}#/referral?ref=${code}`; }
+function shareText(d){ if (d.summary){ const code = (store.s.profile && store.s.profile.ref) || ""; return `NovaTrade PnL (${d.mode}): ${Number(d.pnl) >= 0 ? "+" : ""}${num(d.pnl)} USDT (${Number(d.roi) >= 0 ? "+" : ""}${num(d.roi)}%) | ${d.stats.map(x => x[0] + " " + x[1]).join(" | ")}. Trade with me on NovaTrade, invite code ${code}: ${location.origin + location.pathname}#/referral?ref=${code}`; }
+   const code = (store.s.profile && store.s.profile.ref) || ""; return `${d.label || d.sym} ${({long:"Long", short:"Short", up:"Up", down:"Down"})[d.side] || ""}${d.lev ? " " + d.lev + "x" : ""}: ROI ${Number(d.roi) >= 0 ? "+" : ""}${num(d.roi)}%, PnL ${Number(d.pnl) >= 0 ? "+" : ""}${num(d.pnl)} USDT. Entry ${px(d.entry)}, Mark ${px(d.mark)}. Trade with me on NovaTrade, invite code ${code}: ${location.origin + location.pathname}#/referral?ref=${code}`; }
 
 UI.sharePnl = function(d){
   d = d || {}; let ti = 0;
   const el = U.modal(`<div class="shr"><div class="shr-top"><b>Share your PnL</b><button class="icon-btn" data-close aria-label="Close">${ic("close",18)}</button></div>
     <div class="shr-cv"><canvas id="shcv" aria-label="PnL share card"></canvas></div>
     <div class="shr-dots" role="radiogroup" aria-label="Card style">${THEMES.map((t, i) => `<button data-th="${i}" role="radio" aria-label="${t.n}" class="${i === 0 ? "on" : ""}" style="--c:${t.acc};background:linear-gradient(135deg,${t.bg[1]},${t.acc})"></button>`).join("")}</div>
-    <div class="shr-act"><button class="shr-b pri" data-save>${ic("down",16)} Save image</button><button class="shr-b" data-copy>${ic("copy",16)} Copy</button><button class="shr-b" data-share>${ic("share",16)} Share</button></div></div>`, el => {
+    <div class="shr-act"><button class="shr-b" data-save>${ic("down",16)} Download image</button><button class="shr-b pri" data-share>${ic("share",16)} Share</button></div><button class="shr-cp" data-copy>${ic("copy",14)} Copy text</button></div>`, el => {
     const cv = el.querySelector("#shcv"), draw = () => drawCard(cv, d, ti);
     draw();
     (document.fonts && document.fonts.ready || Promise.resolve()).then(() => { if (el.isConnected && el.querySelector("#shcv")) draw(); });
     el.querySelector("[data-close]").onclick = () => U.closeLayer();
     el.querySelectorAll("[data-th]").forEach(b => b.onclick = () => { ti = +b.dataset.th; el.querySelectorAll("[data-th]").forEach(x => x.classList.toggle("on", x === b)); draw(); });
     el.querySelector("[data-copy]").onclick = () => U.copyText(shareText(d), "Text copied");
-    el.querySelector("[data-share]").onclick = async () => {
-      const text = shareText(d);
-      try { if (navigator.share){ await navigator.share({title: (window.CONFIG && CONFIG.APP_NAME) || "NovaTrade", text}); return; } } catch (e) { if (e && e.name === "AbortError") return; }
-      U.copyText(text, "Text copied");
+    const blobOf = () => new Promise(res => { draw(); cv.toBlob(b => res(b), "image/png"); });
+    const dl = (blob, name) => { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); };
+    const fname = () => `novatrade-pnl-${(d.sym || "card")}-${Date.now()}.png`;
+    el.querySelector("[data-save]").onclick = async () => {
+      const blob = await blobOf(); if (!blob){ toast("Could not create image", "bad"); return; }
+      const name = fname(); UI._lastShare = {size: blob.size, name}; dl(blob, name); toast("Image downloaded", "ok");
     };
-    el.querySelector("[data-save]").onclick = () => {
-      draw();
-      cv.toBlob(async blob => {
-        if (!blob){ toast("Could not create image", "bad"); return; }
-        const name = `novatrade-pnl-${(d.sym || "card")}-${Date.now()}.png`, file = (typeof File === "function") ? new File([blob], name, {type:"image/png"}) : null;
-        UI._lastShare = {size: blob.size, name};
-        try { if (file && navigator.canShare && navigator.canShare({files:[file]})){ await navigator.share({files:[file], text:shareText(d)}); return; } } catch (e) { if (e && e.name === "AbortError") return; }
-        const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-        toast("Image saved", "ok");
-      }, "image/png");
+    el.querySelector("[data-share]").onclick = async () => {
+      const blob = await blobOf(); if (!blob){ toast("Could not create image", "bad"); return; }
+      const name = fname(), text = shareText(d), file = (typeof File === "function") ? new File([blob], name, {type:"image/png"}) : null; UI._lastShare = {size: blob.size, name};
+      try { if (window.NativeApp && NativeApp.shareImage){ const r = new FileReader(); r.onload = () => { try { NativeApp.shareImage(String(r.result).split(",")[1], name, text); } catch { dl(blob, name); } }; r.readAsDataURL(blob); return; } } catch {}
+      try { if (file && navigator.canShare && navigator.canShare({files:[file]})){ await navigator.share({files:[file], text, title: (window.CONFIG && CONFIG.APP_NAME) || "NovaTrade"}); return; } } catch (e) { if (e && e.name === "AbortError") return; }
+      dl(blob, name); U.copyText(text, "Image downloaded, text copied");
     };
   });
   return el;

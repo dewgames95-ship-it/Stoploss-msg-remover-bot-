@@ -95,7 +95,7 @@ function drawNav(sec){
 }
 function toApp(){ setMode("app"); location.hash = "#/home"; }
 function toAdmin(){ setMode("admin"); location.hash = "#/admin"; }
-const modeBar = () => `<div class="a2-mode"><span>You are in the <b>${curMode() === "real" ? "Real" : "Demo"}</b> account. Viewing data:</span><div class="a2-mseg"><button data-view="demo" class="${VIEW === "demo" ? "on" : ""}">Demo</button><button data-view="real" class="${VIEW === "real" ? "on" : ""}">Real</button></div></div>`;
+const modeBar = () => `<div class="a2-mode"><span>In <b>${curMode() === "real" ? "Real" : "Demo"}</b> account · view:</span><div class="a2-mseg"><button data-view="demo" class="${VIEW === "demo" ? "on" : ""}">Demo</button><button data-view="real" class="${VIEW === "real" ? "on" : ""}">Real</button></div></div>`;
 const head = (title, back) => `<header class="a2-top">${back ? `<a class="a2-bk" href="${back}" aria-label="Back">${I("back", 20)}</a>` : `<span class="a2-logo">${I("shield", 20)}</span>`}<div class="a2-ttl"><b>${esc(title)}</b><small>NovaTrade Admin</small></div><span class="a2-badge">ADMIN</span><button class="a2-sw" data-toapp aria-label="Switch to app">${I("swap", 16)}<span>App</span></button></header>`;
 const kpi = (l, v, ic, tone, href) => `<${href ? "a href=\"" + href + "\"" : "div"} class="a2-k ${tone || ""}"><span class="a2-ki">${I(ic, 18)}</span><b class="num">${v}</b><small>${l}</small></${href ? "a" : "div"}>`;
 const card = (h, body, extra) => `<section class="a2-card"><h2>${h}${extra ? `<span class="a2-x">${extra}</span>` : ""}</h2>${body}</section>`;
@@ -158,7 +158,7 @@ V.user = id => {
   const html = `<div class="a2-card a2-ud"><span class="a2-av big">${esc((u.name || "?")[0].toUpperCase())}</span><div><b>${esc(u.name)}</b><small>${esc(u.email)}</small></div><span class="a2-role ${esc(u.role)}">${esc(u.role)}</span></div>
     ${card("Account", kv("Joined", dstr(u.createdAt)) + kv("Referral used", esc(u.ref || "None")) + kv("Status", `<span class="${u.blocked ? "down" : "up"}">${u.blocked ? "Blocked" : "Active"}</span>`) +
       `<label class="a2-f" style="margin-top:8px"><span>KYC status</span><select id="a2kyc"><option value="verified">Verified</option><option value="pending">Pending</option><option value="rejected">Rejected</option></select></label>`)}
-    ${card("Wallets (${VIEW} account, this device)", Object.keys(w).map(k2 => kv(`<span style="text-transform:capitalize">${esc(k2)}</span>`, `<span class="num">${n2(w[k2])} USDT</span>`)).join("") +
+    ${card(`Wallets (${VIEW === "real" ? "Real" : "Demo"} account, this device)`, Object.keys(w).map(k2 => kv(`<span>${esc(UI.walletName ? UI.walletName(k2) : k2)}</span>`, `<span class="num">${n2(w[k2])} USDT</span>`)).join("") +
       `<div class="a2-adj"><select id="a2w" aria-label="Wallet">${Object.keys(w).map(k2 => `<option value="${k2}">${k2}</option>`).join("")}</select><input id="a2am" type="number" min="0" step="any" inputmode="decimal" placeholder="Amount" aria-label="Amount"></div><div class="a2-btns"><button class="a2-b pri" data-cr>Credit</button><button class="a2-b" data-db>Debit</button></div>
        <p class="a2-hint">Balances are stored per device in this demo; adjustments apply to this device.</p>`)}
     ${card("Login history", lg.length ? lg.map(l => `<div class="a2-ac"><span class="a2-ai">${I("users", 16)}</span><div><b>${esc(l.dev || "Browser")}</b><small>${esc(l.how || "Password")}</small></div><em>${tstr(l.t)}</em></div>`).join("") : empty("No logins recorded."))}

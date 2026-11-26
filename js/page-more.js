@@ -529,7 +529,7 @@ Pages.profile = () => {
     <button class="pf-sw" data-switch>Switch Account</button></div>`;
   return {html, title:"Profile", mount(r){
     const $ = q => r.querySelector(q);
-    const render = () => { const p = S().profile; $("#pa").innerHTML = UserAvatar(64); $("#pn").textContent = p.name; $("#pu").textContent = p.uid; };
+    const render = () => { const p = S().profile; $("#pa").innerHTML = UserAvatar(64); $("#pn").textContent = p.name; $("#pu").textContent = p.uid; if (window.VIPX){ const t = VIPX.tier(); $("[data-lv]").innerHTML = (t.i ? t.name : "Regular user") + " " + ic("chev",12); } };
     const syncTh = () => { $("[data-th]").innerHTML = ic(dark() ? "sun" : "moon", 22, 1.7); };
     render(); syncTh();
     $("[data-th]").onclick = () => { App.setTheme(dark() ? "light" : "dark"); syncTh(); };
@@ -543,11 +543,11 @@ Pages.profile = () => {
     $("[data-fb]").onclick = () => U.sheet("Feedback", `<textarea class="pm-ta" id="fbt" placeholder="Tell us what to improve" aria-label="Feedback"></textarea><div class="pm-err" id="fbe"></div><button class="btn btn-primary pm-cta" data-sv>Submit</button>`, el => {
       el.querySelector("[data-sv]").onclick = () => { if (el.querySelector("#fbt").value.trim().length < 3){ el.querySelector("#fbe").textContent = "Please write a few words."; return; } U.closeLayer(); toast("Thanks for your feedback", "ok"); };
     });
-    $("[data-prac]").onclick = () => { U.sheet("Practical Functions", `<div class="pf-list" style="margin:0">${L("ring","Price alerts","",'href="#/alerts" data-x')}${L("history","Trade history","","data-th2")}${L("wallet","Transactions","","data-tx")}${L("trophy","Rewards Hub","",'href="#/rewards" data-x')}${L("reset","Reset demo account","","data-reset")}</div>`, el => {
+    $("[data-prac]").onclick = () => { U.sheet("Practical Functions", `<div class="pf-list" style="margin:0">${L("ring","Price alerts","",'href="#/alerts" data-x')}${L("history","Trade history","","data-th2")}${L("wallet","Transactions","","data-tx")}${L("trophy","Rewards Hub","",'href="#/rewards" data-x')}${window.ACCT && ACCT.isReal() ? "" : L("reset","Reset demo account","","data-reset")}</div>`, el => {
       el.querySelectorAll("[data-x]").forEach(a => a.addEventListener("click", () => U.closeLayer()));
       el.querySelector("[data-tx]").onclick = () => U.sheet("Transactions", txList());
       el.querySelector("[data-th2]").onclick = () => { const h = S().history.slice(0, 100); U.sheet("Trade history", h.length ? h.map(x => { const p = M.get(x.sym); return `<div class="pm-row">${UI.pairIcon(p, 28)}<div class="pm-main"><div class="pm-t">${esc(p ? M.label(p) : x.sym)} · ${x.dir === "up" ? "Up" : "Down"}</div><div class="pm-s">${U.dateStr(x.closed)} · ${money(x.amount)} USDT</div></div><b class="mono ${x.profit > 0 ? "up" : x.profit < 0 ? "down" : ""}">${signed(x.profit)}</b></div>`; }).join("") : pemp("No trades yet")); };
-      el.querySelector("[data-reset]").onclick = async () => { if (await U.confirmBox("Reset demo account?", `Balance returns to ${money(C.START_BALANCE)} USDT. Open positions, history and bots are cleared. Your settings are kept.`, "Reset", true)){ if (S().auto.on) E.stopAuto("Account reset."); store.reset(); render(); toast(`Balance reset to ${money(C.START_BALANCE)} USDT`, "ok"); } };
+      if (el.querySelector("[data-reset]")) el.querySelector("[data-reset]").onclick = async () => { if (await U.confirmBox("Reset demo account?", `Balance returns to ${money(C.START_BALANCE)} USDT. Open positions, history and bots are cleared. Your settings are kept.`, "Reset", true)){ if (S().auto.on) E.stopAuto("Account reset."); store.reset(); render(); toast(`Balance reset to ${money(C.START_BALANCE)} USDT`, "ok"); } };
     }); };
     const offs = [bus.on("theme", syncTh)]; this.unmount = () => offs.forEach(f => f());
   }};
@@ -585,7 +585,7 @@ Pages.settings = () => {
     ${psec("Chart", CHART.map(([k, n, s]) => prow(n, s, swb("chart." + k, st0.chart[k] !== false), "data-rsw")).join(""))}
     ${psec("Privacy", prow("Hide balances", "Mask balances across the app", swb("hideBal", st0.hideBal), "data-rsw"))}
     ${psec("Data",
-      `<button class="pm-row tap" data-reset><span class="pm-main"><span class="pm-t pm-danger">Reset demo account</span><span class="pm-s" style="display:block">Balance back to ${money(C.START_BALANCE)} USDT, positions and history cleared. Settings are kept.</span></span><span class="chev">${ic("chev", 16)}</span></button>
+      `${window.ACCT && ACCT.isReal() ? "" : `<button class="pm-row tap" data-reset><span class="pm-main"><span class="pm-t pm-danger">Reset demo account</span><span class="pm-s" style="display:block">Balance back to ${money(C.START_BALANCE)} USDT, positions and history cleared. Settings are kept.</span></span><span class="chev">${ic("chev", 16)}</span></button>`}
        <button class="pm-row tap" data-wipe><span class="pm-main"><span class="pm-t pm-danger">Clear all app data</span><span class="pm-s" style="display:block">Delete everything stored on this device, including settings.</span></span><span class="chev">${ic("chev", 16)}</span></button>`)}
     <div class="pm-foot">Version ${esc(C.APP_VERSION)} · ${esc(C.APP_NAME)}</div>`, {right:`<span class="icon-btn" aria-hidden="true"></span>`});
   return {html, title:"Settings", mount(r){

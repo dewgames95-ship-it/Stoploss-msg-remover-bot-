@@ -14,7 +14,7 @@ const IDEF = {
   SAR:{step:0.02, max:0.2, c:"#E6A23C"},
   SUPER:{n:10, m:3, conf:0.15},
   VWAP:{c:"#4FC3F7"},
-  SR:{lv:3, k:5},
+  SR:{lv:2, k:4},
   LIQ:{lev:"10,25,50,100", bins:220},
   RSI:{n:14, c:"#2E6BFF"},
   MACD:{f:12, s:26, g:9, c:"#2E6BFF", cs:"#F59E0B"}
@@ -26,7 +26,7 @@ function syncCols(){
 }
 const MAXI = 4, nonVol = l => l.filter(k => k !== "VOL").length;
 let chart, el, sym, tf = "15m", sec = 900, bars = [], S = {}, inds = [], type = "candle", loadSeq = 0, offs = [], ro, ui = {}, dirty = false, raf, lastRender = 0, onDetail = null, hover = null, hoverPt = null, lines = new Map(), cache = {}, pctMode = false;
-let lineSpec = new Map(), draw = {tool:null, temp:null}, drawEl = null, binExpFn = null, srOn = false, liqOn = false, srLines = [], srKey = "", liqKey = "", liqData = null, stSigs = [], plusUntil = 0, lastHov = null, lastTick = 0;
+let lineSpec = new Map(), draw = {tool:null, temp:null}, drawEl = null, binExpFn = null, srOn = false, liqOn = false, srLines = [], srZones = [], srKey = "", liqKey = "", liqData = null, stSigs = [], plusUntil = 0, lastHov = null, lastTick = 0;
 
 const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 const dark = () => document.documentElement.dataset.theme !== "light";
@@ -178,32 +178,45 @@ function superTrend(bs, n, mult, conf){
   }
   return {val, dir, sig};
 }
-/* S/R: pivot highs / lows (k bars each side), clustered by price proximity, strongest = most touches (recent first) */
+/* Support / Resistance zones — only levels a human would draw: confirmed swing pivots (k bars each side) that price turned at TWICE or more,
+   merged into a cluster (one thin zone); max 2-3 per side, spaced apart, nearest-strongest first. If a side has no repeated pivot, the single
+   most prominent swing high/low on that side is used instead. Returns zones [{p, lo, hi, n, i0}] — drawn as thin translucent rectangles. */
 function calcSR(){
-  const q = IS("SR"), k = Math.round(q.k), lv = Math.round(q.lv), L = bars.length - 1, out = {res:[], sup:[]};
-  if (L < k * 2 + 5) return out;
-  const last = bars[L].close, from = Math.max(0, L - 400); let atr = 0; for (let i = Math.max(1, L - 14); i < L; i++) atr += bars[i].high - bars[i].low; atr /= 14;
-  const tol = Math.max(atr * 0.6, last * 0.0008), piv = [];
-  for (let i = from + k; i <= L - 1 - k; i++){
-    let h = true, l = true; for (let j = 1; j <= k; j++){ if (bars[i-j].high >= bars[i].high || bars[i+j].high > bars[i].high) h = false; if (bars[i-j].low <= bars[i].low || bars[i+j].low < bars[i].low) l = false; if (!h && !l) break; }
-    if (h) piv.push({p:bars[i].high, i}); if (l) piv.push({p:bars[i].low, i});
+  const q = IS("SR"), lv = Math.max(1, Math.min(3, Math.round(q.lv))), k0 = Math.max(2, Math.round(q.k)), L = bars.length - 1, out = {res:[], sup:[]};
+  if (L < 24) return out;
+  const last = bars[L].close, from = Math.max(0, L - 700); let atr = 0, cn = 0; for (let i = Math.max(1, L - 30); i < L; i++){ atr += bars[i].high - bars[i].low; cn++; } atr = atr / (cn || 1);
+  const tol = Math.max(atr * 0.9, last * 0.0012), far = last * 0.2;
+  const pivots = k => { const piv = [];
+    for (let i = from + k; i <= L - 1 - k; i++){
+      let h = true, l = true; for (let j = 1; j <= k; j++){ if (bars[i-j].high >= bars[i].high || bars[i+j].high > bars[i].high) h = false; if (bars[i-j].low <= bars[i].low || bars[i+j].low < bars[i].low) l = false; if (!h && !l) break; }
+      if (h) piv.push({p:bars[i].high, i}); if (l) piv.push({p:bars[i].low, i}); }
+    return piv; };
+  const cluster = piv => { const cl = []; piv.sort((x, y) => x.p - y.p);
+    piv.forEach(v => { const c = cl[cl.length - 1]; if (c && v.p - c.sum / c.n <= tol){ c.sum += v.p; c.n++; c.hi = v.p; c.last = Math.max(c.last, v.i); c.first = Math.min(c.first, v.i); } else cl.push({sum:v.p, n:1, lo:v.p, hi:v.p, last:v.i, first:v.i}); });
+    return cl.map(c => { const m = c.sum / c.n, th = Math.max(c.hi - c.lo, atr * 0.45); return {p:m, lo:m - th / 2, hi:m + th / 2, n:c.n, i0:c.first, sc:c.n * 10 + c.last / L * 6 - Math.abs(m - last) / far * 4}; }); };
+  const pick = (arr, side) => { const o = []; arr.sort((x, y) => y.sc - x.sc).forEach(z => { if (o.length < lv && !o.some(y => Math.abs(y.p - z.p) < tol * 1.6)) o.push(z); }); return o.sort((x, y) => side === "res" ? x.p - y.p : y.p - x.p); };
+  let cand = [];
+  for (const k of [k0, 3, 2]){
+    cand = cluster(pivots(k)).filter(z => z.n >= 2);
+    const r = cand.filter(z => z.p > last + tol * 0.5 && z.p - last < far), sp = cand.filter(z => z.p < last - tol * 0.5 && last - z.p < far);
+    out.res = pick(r, "res"); out.sup = pick(sp, "sup");
+    if (out.res.length && out.sup.length) break;
   }
-  const cl = []; piv.sort((x, y) => x.p - y.p);
-  piv.forEach(v => { const c = cl[cl.length - 1]; if (c && v.p - c.sum / c.n <= tol){ c.sum += v.p; c.n++; c.last = Math.max(c.last, v.i); } else cl.push({sum:v.p, n:1, last:v.i}); });
-  const lvls = cl.map(c => ({p:c.sum / c.n, sc:c.n * 10 + c.last / L * 5}));
-  out.res = lvls.filter(x => x.p > last + tol * 0.3).sort((x, y) => y.sc - x.sc).slice(0, lv).sort((x, y) => x.p - y.p);
-  out.sup = lvls.filter(x => x.p < last - tol * 0.3).sort((x, y) => y.sc - x.sc).slice(0, lv).sort((x, y) => y.p - x.p);
+  // fallback: the most prominent single swing on a side that has no repeated pivot
+  const all = cluster(pivots(Math.max(3, k0)));
+  if (!out.res.length){ const z = all.filter(z => z.p > last + tol * 0.5 && z.p - last < far).sort((x, y) => y.p - x.p)[0]; if (z) out.res = [z]; }
+  if (!out.sup.length){ const z = all.filter(z => z.p < last - tol * 0.5 && last - z.p < far).sort((x, y) => x.p - y.p)[0]; if (z) out.sup = [z]; }
   return out;
 }
 function syncSR(){
   if (!S.main) return;
-  const key = srOn ? bars.length + "|" + bars[bars.length-1]?.time + "|" + JSON.stringify(IS("SR")) + UP + DN : "";
+  const lastC = bars.length ? bars[bars.length-1].close : 0;
+  const key = srOn ? bars.length + "|" + bars[bars.length-1]?.time + "|" + JSON.stringify(IS("SR")) + "|" + Math.round(lastC / (lastC * 0.0015 || 1)) : "";
   if (key === srKey) return; srKey = key;
-  srLines.forEach(l => { try { S.main.removePriceLine(l); } catch {} }); srLines = [];
+  srLines.forEach(l => { try { S.main.removePriceLine(l); } catch {} }); srLines = []; srZones = [];
   if (!srOn || !bars.length) return;
   const r = calcSR();
-  r.res.forEach(x => srLines.push(S.main.createPriceLine({price:x.p, color:DN, lineStyle:2, lineWidth:1, axisLabelVisible:true, title:"", axisLabelColor:"rgba(240,67,90,.85)", axisLabelTextColor:"#fff"})));
-  r.sup.forEach(x => srLines.push(S.main.createPriceLine({price:x.p, color:UP, lineStyle:2, lineWidth:1, axisLabelVisible:true, title:"", axisLabelColor:"rgba(18,184,134,.85)", axisLabelTextColor:"#fff"})));
+  srZones = [...r.res.map(z => Object.assign({k:"r"}, z)), ...r.sup.map(z => Object.assign({k:"s"}, z))];
 }
 /* LIQ: estimated liquidation heatmap. Swing highs/lows × common leverages → liquidation prices (longs below swing lows, shorts above
    swing highs), weighted by candle volume, dropped once price traded through the level; summed into price bins. Estimate only. */
@@ -527,6 +540,14 @@ function overlay(){
     const tleft = lft < 60 ? Math.max(0, Math.ceil(lft)) + "s" : mmss(lft);
     h += `<div class="plab bin-pl ${cls}" style="top:${yy}px;left:${ax}px${onL ? ";transform:translate(-100%,-50%)" : ""}"><span>${pos.dir === "up" ? "▲ Up" : "▼ Down"} ${money(pos.amount)}</span><span>${M.fmtPx(p, pos.entry)}</span><b class="bp-l bp-w">${win == null ? "Even" : win ? "Win" : "Loss"} ${signed(win == null ? 0 : pnl)} USDT</b><b class="bp-l bp-t">⏱ ${tleft}</b></div>`;
   });
+  // Support / Resistance zones: thin translucent rectangles from the first touch to the price axis
+  if (srOn && srZones.length && !(tf === "tick" || type === "line")){
+    const Hh = chart.panes()[0].getHeight();
+    srZones.forEach(z => { const y1 = S.main.priceToCoordinate(z.hi), y2 = S.main.priceToCoordinate(z.lo); if (y1 == null || y2 == null) return;
+      const x0 = Math.max(0, chart.timeScale().logicalToCoordinate(z.i0) ?? 0), hh = Math.max(5, Math.abs(y2 - y1)), top = (y1 + y2) / 2 - hh / 2;
+      if (top > Hh || top + hh < 0 || x0 >= axisX) return;
+      h += `<div class="srz ${z.k}" style="left:${x0}px;width:${axisX - x0}px;top:${top}px;height:${hh}px"><em>${z.k === "r" ? "Resistance" : "Support"}</em></div>`; });
+  }
   // SuperTrend BUY / SELL signals (closed candles only): rounded label + pointer exactly at the candle
   if (S.st && stSigs.length && !(tf === "tick" || type === "line")){
     const v0 = vr ? Math.floor(vr.from) - 1 : 0, v1 = vr ? Math.ceil(vr.to) + 1 : L;
