@@ -339,20 +339,21 @@ function qoFut(sym, p){
     <div class="famt qo-px hide"><input id="qopx" type="number" inputmode="decimal" placeholder="Limit price"><span>USDT</span></div>
     <div class="famt"><input id="qoa" type="number" inputmode="decimal" placeholder="Cost (margin)"><span>USDT</span></div>
     <div class="chips qo-pc">${[10, 25, 50, 75, 100].map(v => `<button data-qp="${v}">${v}%</button>`).join("")}</div>
-    <div class="qo-lab">Leverage</div><div class="chips qo-lv">${levs.map(x => `<button data-lv="${x}" class="${x === lev ? "on" : ""}">${x}x</button>`).join("")}<button data-qm class="qo-mode">${mode === "cross" ? "Cross" : "Isolated"}</button></div>
+    <div class="qo-lab">Leverage</div><div class="chips qo-lv">${levs.map(x => `<button data-lv="${x}" class="${x === lev ? "on" : ""}">${x}x</button>`).join("")}</div>
+    <div class="qo-lab">Margin mode</div>${SEG("data-qm", [["cross", "Cross"], ["isolated", "Isolated"]], mode)}
     <label class="qo-tp"><input type="checkbox" id="qots"> <span>TP / SL</span></label>
     <div class="qo-tpsl hide"><div class="famt"><input id="qotp" type="number" inputmode="decimal" placeholder="Take profit price"></div><div class="famt"><input id="qosl" type="number" inputmode="decimal" placeholder="Stop loss price"></div></div>
     <div class="fkv"><span>Avbl</span><b class="num">${U.money(store.wb("futures"))} USDT <button class="wl-plus" data-wlto="futures" aria-label="Transfer in">${U.ic("plus", 13, 3)}</button></b></div>
-    <div class="fkv"><span>Position size</span><b class="num" id="qosz">--</b></div><div class="fkv"><span>Est. liq. price</span><b class="num" id="qolq">--</b></div>
+    <div class="fkv"><span>Position size</span><b class="num" id="qosz">--</b></div><div class="fkv"><span>Est. liq. price</span><b class="num" id="qolq">--</b></div><div class="fkv"><span>Fee (est.)</span><b class="num" id="qofee">--</b></div>
     <button class="fbtn2 l" id="qogo"><span>Open Long</span></button></div>`, el => {
     const $ = q => el.querySelector(q), px = () => ot === "limit" ? (parseFloat($("#qopx").value) || 0) : p.price;
     const upd = () => { const c = parseFloat($("#qoa").value) || 0, ep = px() || p.price, sz = c * lev, q = sz / ep, lq = c ? E.liqPrice(side, ep, lev, mode, q, c) : 0;
-      $("#qosz").textContent = c ? U.money(sz) + " USDT" : "--"; $("#qolq").textContent = lq > 0 ? M.fmtPx(p, lq) : "--";
+      $("#qosz").textContent = c ? U.money(sz) + " USDT" : "--"; $("#qolq").textContent = lq > 0 ? M.fmtPx(p, lq) : "--"; $("#qofee").textContent = c ? U.money(sz * FEE_F()) + " USDT" : "--";
       const g = $("#qogo"); g.className = "fbtn2 " + (side === "long" ? "l" : "s"); g.querySelector("span").textContent = (ot === "limit" ? "Limit " : "") + (side === "long" ? "Open Long" : "Open Short"); };
     el.querySelectorAll("[data-sd]").forEach(b => b.onclick = () => { side = b.dataset.sd; el.querySelectorAll("[data-sd]").forEach(x => x.classList.toggle("on", x === b)); U.buzz(8); upd(); });
     el.querySelectorAll("[data-ot]").forEach(b => b.onclick = () => { ot = b.dataset.ot; el.querySelectorAll("[data-ot]").forEach(x => x.classList.toggle("on", x === b)); $(".qo-px").classList.toggle("hide", ot !== "limit"); if (ot === "limit" && !$("#qopx").value) $("#qopx").value = M.fmtPx(p, p.price).replace(/,/g, ""); U.buzz(8); upd(); });
     el.querySelectorAll("[data-lv]").forEach(b => b.onclick = () => { lev = +b.dataset.lv; el.querySelectorAll("[data-lv]").forEach(x => x.classList.toggle("on", x === b)); U.buzz(8); upd(); });
-    $("[data-qm]").onclick = () => { mode = mode === "cross" ? "isolated" : "cross"; $("[data-qm]").textContent = mode === "cross" ? "Cross" : "Isolated"; upd(); };
+    el.querySelectorAll("[data-qm]").forEach(b => b.onclick = () => { mode = b.dataset.qm; el.querySelectorAll("[data-qm]").forEach(x => x.classList.toggle("on", x === b)); U.buzz(8); upd(); });
     $("#qots").onchange = e => { ts = e.target.checked; $(".qo-tpsl").classList.toggle("hide", !ts); };
     el.querySelectorAll("[data-qp]").forEach(b => b.onclick = () => { $("#qoa").value = Math.floor(store.wb("futures") / (1 + lev * FEE_F()) * +b.dataset.qp) / 100; upd(); });
     $("#qoa").oninput = upd; $("#qopx").oninput = upd;

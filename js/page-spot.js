@@ -162,7 +162,7 @@ Pages.spot = (params) => {
       <div class="sp-kv"><span>Avbl</span><b><span id="spav"></span> <button class="wl-plus" data-wlto="spot" aria-label="Transfer in">${ic("plus",13,3)}</button></b></div>
       <div class="sp-kv"><span data-info="fee"><u>Est. Fee</u></span><b id="spef">-- ${side0()}</b></div>
       <button class="sp-go b" id="spgo"></button>
-      ${TX.feeNote("Fee (taker)", "0.02%", "0.10%")}
+      ${TX.feeNote([["Fee (taker)", "0.02%"]], "0.10%")}
       <div class="sp-closed hide" id="spclosed">Market closed — reopens with the next session</div>
       <div class="err-msg" id="sperr" role="alert"></div>
     </div>

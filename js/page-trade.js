@@ -317,7 +317,7 @@ Pages.futures = (params) => {
         <button class="fbtn2 l" data-go="long"><span>Open Long</span><small id="cl"></small></button>
         <button class="fbtn2 s" data-go="short" style="margin-top:8px"><span>Open Short</span><small id="cs"></small></button>
         <div class="fkv" style="margin-top:6px"><span>Max</span><b id="mxl" class="num"></b></div><span id="mxs" hidden></span>
-        ${TX.feeNote("Fee (taker / maker)", "0.01% / 0.004%", "0.05% / 0.02%")}
+        ${TX.feeNote([["Fee (taker)", "0.01%"], ["Fee (maker)", "0.004%"]], "0.05% / 0.02%")}
         <div class="fkv hide"><span>Liq. Price (Long / Short)</span><b id="lqp"></b></div>
       </div>
       <div id="closeBox" class="hide">
