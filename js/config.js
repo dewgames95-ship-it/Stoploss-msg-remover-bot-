@@ -4,6 +4,7 @@ window.CONFIG = {
   SUPPORT_PHONE: "+1 555 010 2030",
   SUPPORT_EMAIL: "support@novatrade.app",
   START_BALANCE: 10000,
+  API_URL: "",          // v6.8: backend base URL (e.g. "https://api.example.com"). Empty = local device-only. Real-mode API.call() goes here when set.
   PAYOUT: 0.92,                      // +92% on win → ratio 1.92X
   EXPIRIES: [30, 60, 300, 900],           // seconds
   MAX_OPEN: 10,

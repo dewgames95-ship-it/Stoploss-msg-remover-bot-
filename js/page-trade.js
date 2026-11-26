@@ -46,7 +46,8 @@ const INFO = {
   size: () => ["Size", `<p class="info-p">Position notional value in USDT = quantity × mark price. Size = Margin × Leverage at entry.</p>`],
   margin: () => ["Margin", `<p class="info-p">Collateral locked for this position. Isolated: only this margin can be lost. Cross: your available balance is shared across positions.</p>`],
   tpsl: () => ["TP / SL", `<p class="info-p">Take Profit and Stop Loss are trigger orders. When the Mark Price reaches your trigger, a market order closes the position. Use ROI % mode to set them by return instead of price.</p>`],
-  fee: () => ["Trading Fees", `<div class="cf-rows"><div><span>Futures (open & close)</span><b class="num">${(C.FEE*100).toFixed(2)}%</b></div><div><span>Spot</span><b class="num">0.02%</b></div><div><span>Binary</span><b>No fee</b></div></div>`]
+  fee: () => ["Trading Fees", `<p class="info-p"><b>${esc(C.APP_NAME || "NovaTrade")} charges 5x less than others.</b></p><div class="rz-cmp" style="margin-top:8px"><div class="rz-ch"><span>Product</span><span>${esc(C.APP_NAME || "NovaTrade")}</span><span>Binance</span></div>
+    <div class="rz-cr me"><span>Futures taker</span><span class="num">${(C.FEE*100).toFixed(2)}%</span><b class="num">0.05%</b></div><div class="rz-cr me"><span>Futures maker</span><span class="num">${(C.FEE*40).toFixed(3)}%</span><b class="num">0.02%</b></div><div class="rz-cr me"><span>Spot</span><span class="num">0.02%</span><b class="num">0.10%</b></div><div class="rz-cr me"><span>Binary</span><span>No fee</span><b>--</b></div></div>`]
 };
 function showInfo(k){ const f = INFO[k]; if (!f) return; const [t, h] = f(); U.sheet(t, h + `<button class="btn btn-primary btn-block" style="margin-top:14px" data-x>OK</button>`, el => el.querySelector("[data-x]").onclick = U.closeLayer); }
 document.addEventListener("click", e => { const t = e.target.closest("[data-info]"); if (t){ e.preventDefault(); showInfo(t.dataset.info); } });
@@ -143,8 +144,8 @@ function indGuide(cb){
 }
 function pickSheet(cur, onPick, binaryOnly){
   const spot = !binaryOnly && /^#\/spot/.test(location.hash);
-  const SPT = [["fav","Favorites"],["usdt","USDT"],["stock","Stocks"],["forex","Forex"],["metal","Metals"],["other","Indices"]];
-  const spotOf = (p, k) => k === "usdt" ? p.type === "crypto" : k === "stock" ? p.type === "stock" : k === "forex" ? p.type === "forex" : k === "metal" ? p.type === "metal" : (p.type === "index" || p.type === "commodity");
+  const SPT = [["fav","Favorites"],["usdt","USDT"],["usdc","USDC"],["stock","Stocks"],["forex","Forex"],["metal","Metals"],["other","Indices"]];
+  const spotOf = (p, k) => k === "usdt" || k === "usdc" ? p.type === "crypto" : k === "stock" ? p.type === "stock" : k === "forex" ? p.type === "forex" : k === "metal" ? p.type === "metal" : (p.type === "index" || p.type === "commodity");
   let q = "", m = binaryOnly ? "binary" : spot ? (sessionStorage.getItem("pkTabSpot") || "usdt") : (sessionStorage.getItem("pkTab") || "all"), sk = sessionStorage.getItem("pkSort") || "";
   const body = () => {
     const qq = q.toUpperCase();
@@ -159,7 +160,7 @@ function pickSheet(cur, onPick, binaryOnly){
     if (k === "chg") list.sort((a,b) => f * ((a.chg||0) - (b.chg||0)));
     list = list.slice(0, 200);
     const vol = p => p.qv ? CH.fmtVol(p.qv) : "";
-    return list.map(p => `<button class="pk-row" data-s="${p.sym}">${UI.pairIcon(p,30)}<div class="pk-n"><b>${esc(fsym(p))}</b><small><span class="pk-fn">${esc(UI.fullName(p))}</span> ${vol(p) ? `<span class="num">${vol(p)}</span>` : ""} ${m === "binary" ? `<span class="pk-pp">${Math.round(E.payoutOf(p.sym) * 100)}%</span>` : spot ? (p.type === "crypto" || p.type === "stock" ? "" : `<span class="perp">24/5</span>`) : `<span class="perp">${p.type === "crypto" ? "Perp" : "24/5"}</span>`}</small></div>
+    return list.map(p => `<button class="pk-row" data-s="${m === "usdc" && p.type === "crypto" ? p.base + "USDC" : p.sym}">${UI.pairIcon(p,30)}<div class="pk-n"><b>${esc(m === "usdc" && p.type === "crypto" ? p.base + "USDC" : fsym(p))}</b><small><span class="pk-fn">${esc(UI.fullName(p))}</span> ${vol(p) ? `<span class="num">${vol(p)}</span>` : ""} ${m === "binary" ? `<span class="pk-pp">${Math.round(E.payoutOf(p.sym) * 100)}%</span>` : spot ? (p.type === "crypto" || p.type === "stock" ? "" : `<span class="perp">24/5</span>`) : `<span class="perp">${p.type === "crypto" ? "Perp" : "24/5"}</span>`}</small></div>
       <div class="pk-p"><b class="num">${M.fmtPx(p)}</b><small class="num">$${usdPx(p)}</small></div><span class="pk-c ${p.closed ? "cl" : (p.chg||0) < 0 ? "dn" : ""}">${p.closed ? "Closed" : p.chg == null ? "--" : pct(p.chg)}</span></button>`).join("") || UI.emptyState(m === "fav" ? "star" : "search", m === "fav" ? "No favorites yet" : "No results");
   };
   U.sheet("", `<label class="search" style="margin-bottom:6px">${ic("search",16)}<input id="ps" placeholder="Search" autocomplete="off"></label>
@@ -289,13 +290,14 @@ Pages.futures = (params) => {
   if (!M.get(sym)) return M.cryptoOrder.length ? Pages.notfound() : loadingPage("Futures");
   sessionStorage.setItem("lastSym_futures", sym);
   const s = S(), P = () => M.get(sym);
-  let tsMode = "price", root, offs = [], timers = [], oc = "open", otype = "market", lev = Math.min(s.settings.lev || 20, E.maxLev(P())), mode = s.settings.marginMode || "cross", tpsl = false, ptab = sessionStorage.getItem("fx_ptab") || "pos", hideOther = sessionStorage.getItem("fx_hide") === "1", chartOpen = false, unChart = null, sliderPct = 0, tif = "GTC", bboSide = "bid";
-  const PF = s.settings, LY = PF.layout || {}, FP = PF.futp || {}, kl = LY.kline || "bottom", coinU = FP.unit === "COIN";
+  let tsMode = "price", root, offs = [], timers = [], oc = "open", otype = "market", lev = Math.min(s.settings.lev || 20, E.maxLev(P())), mode = s.settings.marginMode || "cross", tpsl = false, ptab = sessionStorage.getItem("fx_ptab") || "pos", hideOther = sessionStorage.getItem("fx_hide") === "1", chartOpen = false, unChart = null, sliderPct = 0, bboSide = "bid", lastStep = -1;
+  const PF = s.settings, LY = PF.layout || {}, FP = PF.futp || {}, kl = LY.kline || "bottom";
+  let coinU = FP.unit === "COIN";
   let sortCfg = {by:"default", dir:"desc"}; try { Object.assign(sortCfg, JSON.parse(sessionStorage.getItem("fx_sort") || "{}")); } catch {}
   const unitLbl = () => coinU ? (P().base || "COIN") : "USDT";
   const $ = q => root.querySelector(q);
   const html = `<div class="fxr o-${LY.order === "right" ? "r" : "l"} k-${kl}${LY.bstab === false ? " nobs" : ""}">
-  <div class="tabs" style="gap:20px;margin:0 -16px;padding:4px 16px 0;border:0"><button class="tab on" style="font-size:17px">USDⓈ-M</button><a class="tab" href="#/spot/${sym}" style="font-size:17px">Spot</a><a class="tab" href="#/trade/${sym}" style="font-size:17px">Binary</a><a class="tab" href="#/options" style="font-size:17px">Options</a><a class="tab" href="#/copy" style="font-size:17px">Copy</a><a class="tab" href="#/bots" style="font-size:17px">Bots</a></div>
+  <div class="tabs" style="gap:20px;margin:0 -16px;padding:4px 16px 0;border:0"><button class="tab on" style="font-size:17px">USDⓈ-M</button><a class="tab" href="#/spot/${sym}" style="font-size:17px">Spot</a><a class="tab" href="#/trade/${sym}" style="font-size:17px">Binary</a><a class="tab tab-hot" href="#/predict" style="font-size:17px">Prediction</a><a class="tab tab-hot" href="#/racer" style="font-size:17px">Money Racer</a><a class="tab" href="#/options" style="font-size:17px">Options</a><a class="tab" href="#/copy" style="font-size:17px">Copy</a><a class="tab" href="#/bots" style="font-size:17px">Bots</a></div>
   <header class="fx-head"><div class="grow"><button class="nm" data-pick>${esc(fsym(P()))} <span class="perp">Perp</span>${ic("chevd",16)}</button><div class="num" id="fchg" style="font-size:13px"></div></div>
     <a class="icon-btn" href="#/chart/${sym}" aria-label="Chart">${ic("candle",22,1.6)}</a><button class="icon-btn" data-menu aria-label="More">${ic("dots",22)}</button></header>
   ${kl === "top" ? `<section class="fxc-top" id="cch-top">${miniChartBlock(sym)}</section>` : ""}
@@ -305,17 +307,18 @@ Pages.futures = (params) => {
       <div class="fx-row"><button data-mode></button><button data-lev></button><button data-asset aria-label="Asset mode"></button></div>
       <button class="fsel" data-otype><span id="otl">Market</span><span class="fsel-r"><i class="fi" data-info="otype">${ic("info",13)}</i>${ic("chevd",14)}</span></button>
       <div class="famt hide" id="lpf"><input id="lp" type="number" inputmode="decimal" placeholder="Price"><button class="bbo" data-bbo type="button">BBO</button></div>
-      <div class="famt" id="af"><input id="amt" type="number" inputmode="decimal" placeholder="Amount"><span id="unl">USDT</span></div>
+      <div class="famt" id="af"><input id="amt" type="number" inputmode="decimal" placeholder="Amount"><button class="unl" id="unl" data-unit type="button"><span id="unt">USDT</span>${ic("chevd",11)}</button></div>
       <div class="dslider"><div class="tr"></div><div class="fl" id="sfl"></div>${[0,25,50,75,100].map(v => `<i class="nd" style="left:${v}%" data-nd="${v}"></i>`).join("")}<div class="th" id="sth"></div><input type="range" min="0" max="100" step="1" value="0" id="sl" aria-label="Amount percent"></div>
       <div class="fkv"><span>Avbl</span><b><span id="avb"></span> USDT <button class="wl-plus" data-wlto="futures" aria-label="Transfer in">${ic("plus",13,3)}</button></b></div>
       <div id="openBox">
         <div class="row between"><label class="fchk"><input type="checkbox" id="tpc"> <u data-info="tpsl">TP/SL</u></label><button class="tsm hide" id="tsm" type="button">⇄ <span>ROI %</span></button></div>
-        <button class="tifb hide" id="tifb" data-tif type="button"><span id="tifl">GTC</span>${ic("chevd",12)}</button>
-        <div id="tpsl" class="hide"><div class="tsh" id="tsh"></div><div class="famt"><input id="tp" type="number" inputmode="decimal" placeholder="Take Profit"><span>Mark</span></div><div class="famt"><input id="sl2" type="number" inputmode="decimal" placeholder="Stop Loss"><span>Mark</span></div></div>
+        <div id="tpsl" class="hide"><div class="tsh" id="tsh"></div><div class="famt"><input id="tp" type="number" inputmode="decimal" placeholder="Take Profit"><em class="gh" id="tpg"></em><span>Mark</span></div><div class="famt"><input id="sl2" type="number" inputmode="decimal" placeholder="Stop Loss"><em class="gh" id="slg"></em><span>Mark</span></div></div>
         <div class="fkv"><span data-info="liq"><u>Est. Liq.</u></span><b id="lqp2" class="num"></b></div>
+        <div class="fkv"><span data-info="fee"><u>Est. Fee</u></span><b id="efee" class="num">-- USDT</b></div>
         <button class="fbtn2 l" data-go="long"><span>Open Long</span><small id="cl"></small></button>
         <button class="fbtn2 s" data-go="short" style="margin-top:8px"><span>Open Short</span><small id="cs"></small></button>
         <div class="fkv" style="margin-top:6px"><span>Max</span><b id="mxl" class="num"></b></div><span id="mxs" hidden></span>
+        ${TX.feeNote("0.01% / 0.004%", "0.05%")}
         <div class="fkv hide"><span>Liq. Price (Long / Short)</span><b id="lqp"></b></div>
       </div>
       <div id="closeBox" class="hide">
@@ -335,6 +338,17 @@ Pages.futures = (params) => {
   /* --- order form --- */
   const inputs = () => { const p = P(), px = otype === "limit" ? (parseFloat($("#lp").value) || p.price) : p.price, raw = parseFloat($("#amt").value) || 0, amt = coinU && oc === "open" ? raw * px : raw; return {p, amt, px}; };
   const fromU = v => coinU && oc === "open" ? +(v / (otype === "limit" ? (parseFloat($("#lp").value) || P().price) : P().price)).toFixed(5) : v;
+  function tsHint(){
+    const p = P(), ep = parseFloat($("#lp").value) || p.price, amt = inputs().amt, roiM = tsMode === "roi", out = [], fp = v => M.fmtPx(p, v);
+    const ghost = {tp:"", sl:""};
+    [["tp", "#tp"], ["sl", "#sl2"]].forEach(([k, id]) => {
+      const raw = Math.abs(parseFloat($(id).value)); if (!(raw > 0)) return;
+      const c = TX.tpCalc({k, mode: roiM ? "roi" : "price", val: raw, ep, lev, notional: amt, side: roiM ? "long" : undefined});
+      ghost[k] = roiM ? fp(c.price) : TX.sgn(c.roi) + "%";
+      out.push(`<div>${k.toUpperCase()} ${roiM ? `<b class="${c.roi >= 0 ? "up" : "down"}">${TX.sgn(c.roi)}%</b> ROI` : fp(raw)}${amt ? ` = <b class="num ${c.pnl >= 0 ? "up" : "down"}">${signed(c.pnl)} USDT</b>` : ""}</div>`);
+    });
+    $("#tsh").innerHTML = out.join(""); $("#tpg").textContent = ghost.tp; $("#slg").textContent = ghost.sl;
+  }
   function renderForm(){
     const {p, amt, px} = inputs(), avail = store.wb("futures");
     $("[data-mode]").textContent = mode === "cross" ? "Cross" : "Isolated"; $("[data-lev]").textContent = lev + "x"; $("[data-asset]").textContent = (s.settings.futp?.asset || "single") === "multi" ? "M" : "S";
@@ -342,7 +356,7 @@ Pages.futures = (params) => {
     $("#lpf").classList.toggle("hide", otype !== "limit");
     const maxNotional = avail / (1/lev + C.FEE);
     $("#mxl").textContent = CH.fmtVol(maxNotional) + " / " + CH.fmtVol(maxNotional) + " USDT";
-    const cost = amt ? amt / lev + amt * C.FEE : 0; $("#cl").textContent = $("#cs").textContent = cost ? "Cost " + money(cost) + " USDT" : "";
+    const cost = amt ? amt / lev + amt * C.FEE * (otype === "limit" ? 0.4 : 1) : 0; $("#cl").textContent = $("#cs").textContent = cost ? "Cost " + money(cost) + " USDT" : "";
     if (amt && px){ const q = amt / px, m = amt / lev, l1 = E.liqPrice("long", px, lev, mode, q, m), l2 = E.liqPrice("short", px, lev, mode, q, m); $("#lqp2").innerHTML = `<span class="up">${l1 > 0 ? M.fmtPx(p, l1) : "--"}</span> / <span class="down">${l2 > 0 ? M.fmtPx(p, l2) : "--"}</span>`; const ll = E.liqPrice("long", px, lev, mode, q, m), ls = E.liqPrice("short", px, lev, mode, q, m); $("#lqp").textContent = `${ll > 0 ? M.fmtPx(p, ll) : "--"} / ${ls > 0 ? M.fmtPx(p, ls) : "--"}`; } else { $("#lqp").textContent = "-- / --"; $("#lqp2").textContent = "-- / --"; }
     root.querySelectorAll("[data-go]").forEach(b => b.disabled = p.closed);
     const lp = s.fut.positions.find(x => x.sym === sym && x.side === "long"), sp = s.fut.positions.find(x => x.sym === sym && x.side === "short");
@@ -350,7 +364,9 @@ Pages.futures = (params) => {
     root.querySelector('[data-cls="long"]').disabled = !lp; root.querySelector('[data-cls="short"]').disabled = !sp;
     $("#openBox").classList.toggle("hide", oc !== "open"); $("#closeBox").classList.toggle("hide", oc !== "close");
     $("#amt").placeholder = oc === "open" ? "Amount" : "Close %";
-    $("#unl").textContent = oc === "open" ? unitLbl() : "%"; $("#tifb").classList.toggle("hide", otype !== "limit" || oc !== "open"); $("#tifl").textContent = tif;
+    $("#unt").textContent = oc === "open" ? unitLbl() : "%"; $("#unl").classList.toggle("fixed", oc !== "open");
+    { const rate = C.FEE * (otype === "limit" ? 0.4 : 1); $("#efee").textContent = amt ? fmt(amt * rate, amt * rate < 0.01 ? 4 : 2) + " USDT" : "-- USDT"; }
+    if (tpsl) tsHint();
     renderSlider();
   }
   function renderSlider(){ const v = sliderPct; $("#sfl").style.width = v + "%"; $("#sth").style.left = v + "%"; $("#sth").dataset.v = Math.round(v) + "%"; $("#sth").classList.toggle("bub", v > 0); root.querySelectorAll("[data-nd]").forEach(n => n.classList.toggle("on", +n.dataset.nd <= v)); }
@@ -364,10 +380,10 @@ Pages.futures = (params) => {
     if (!(amt > 0)){ err.textContent = "Please enter the amount."; $("#af").classList.add("err"); return toast("Please enter the amount", "bad"); }
     const px = lp || p.price, q = amt / px, liq = E.liqPrice(side, px, lev, mode, q, amt / lev);
     const ok = await U.confirmTrade({kind: otype, title: `${fsym(p)} Perp · ${side === "long" ? "Open Long" : "Open Short"}`, tone: side === "long" ? "up" : "down", okText: side === "long" ? "Confirm Long" : "Confirm Short",
-      sub: `<span class="perp">${mode === "cross" ? "Cross" : "Isolated"} ${lev}x</span> <span class="perp">${otype === "market" ? "Market" : "Limit · " + tif}</span>`,
-      rows: [["Price", otype === "market" ? "Market" : M.fmtPx(p, lp)], ["Amount", money(amt) + " USDT"], ["Quantity", fmt(q, q < 1 ? 5 : 3) + " " + esc(p.base || "")], ["Margin", money(amt / lev) + " USDT"], ["Fee (est.)", money(amt * C.FEE) + " USDT"], ["Est. liq. price", liq > 0 ? M.fmtPx(p, liq) : "--"], ...(tp || sl ? [["TP / SL", `${tp ? M.fmtPx(p, tp) : "--"} / ${sl ? M.fmtPx(p, sl) : "--"}`]] : [])]});
+      sub: `<span class="perp">${mode === "cross" ? "Cross" : "Isolated"} ${lev}x</span> <span class="perp">${otype === "market" ? "Market" : "Limit"}</span>`,
+      rows: [["Price", otype === "market" ? "Market" : M.fmtPx(p, lp)], ["Amount", money(amt) + " USDT"], ["Quantity", fmt(q, q < 1 ? 5 : 3) + " " + esc(p.base || "")], ["Margin", money(amt / lev) + " USDT"], ["Fee (est.)", money(amt * C.FEE * (otype === "limit" ? 0.4 : 1)) + " USDT"], ["Est. liq. price", liq > 0 ? M.fmtPx(p, liq) : "--"], ...(tp || sl ? [["TP / SL", `${tp ? M.fmtPx(p, tp) : "--"} / ${sl ? M.fmtPx(p, sl) : "--"}`]] : [])]});
     if (!ok) return;
-    const r = E.openFut({sym, side, margin: amt / lev, lev, type:otype, price:lp, tp, sl, mode, tif: otype === "limit" ? tif : undefined});
+    const r = E.openFut({sym, side, margin: amt / lev, lev, type:otype, price:lp, tp, sl, mode});
     if (r.err){ err.textContent = r.err; $("#af").classList.toggle("err", /amount|balance|value/i.test(r.err)); toast(r.err, "bad"); UI.walletErr(r.err); return; }
     err.textContent = ""; $("#af").classList.remove("err"); if (tp || sl) E.award("tpsl");
     s.settings.lev = lev; store.save(); U.fx("open");
@@ -393,8 +409,8 @@ Pages.futures = (params) => {
       <div class="err-msg" id="le"></div><button class="btn btn-primary btn-block btn-lg" data-ok>Confirm</button>`, el => {
       const upd = () => { el.querySelector("#lv").textContent = v + "x"; el.querySelector("#lr").value = v; el.querySelector("#lmx").textContent = money(Math.min(5e6, store.wb("futures") * v)) + " USDT"; };
       upd();
-      el.querySelector("#lr").oninput = e => { v = +e.target.value; upd();  };
-      el.querySelector("[data-m]").onclick = () => { v = Math.max(1, v-1); upd(); }; el.querySelector("[data-p]").onclick = () => { v = Math.min(mx, v+1); upd(); };
+      el.querySelector("#lr").oninput = e => { const nv = +e.target.value; if (nv !== v) TX.buzz(6); v = nv; upd(); };
+      el.querySelector("[data-m]").onclick = () => { v = Math.max(1, v-1); TX.buzz(8); upd(); }; el.querySelector("[data-p]").onclick = () => { v = Math.min(mx, v+1); TX.buzz(8); upd(); };
       el.querySelector("[data-ok]").onclick = () => { if (pos){ const e = E.setPosLev(pos.id, v); if (e){ el.querySelector("#le").textContent = e; return; } } lev = v; s.settings.lev = v; store.save(); U.closeLayer(); renderForm(); toast(`Leverage changed to ${v}x`, "ok", 1400); };
     });
   }
@@ -429,21 +445,22 @@ Pages.futures = (params) => {
     const p = P(), box = $("#fbook"); if (!box) return;
     const now = new Date(), h = now.getUTCHours(), next = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), (Math.floor(h/8)+1)*8));
     fundEnd = next.getTime(); const left = Math.max(0, (fundEnd - Date.now())/1000);
-    let bids = aggBook(M.book.bids, prec, true).slice(0, 6), asks = aggBook(M.book.asks, prec, false).slice(0, 6).reverse();
+    const pad = (a, n) => { a = a.slice(0, n); while (a.length < n) a.push(null); return a; };
+    let bids = pad(aggBook(M.book.bids, prec, true), 6), asks = pad(aggBook(M.book.asks, prec, false), 6).reverse();
     if (p.type !== "crypto" && p.price){ const st = Math.pow(10, -p.dp); bids = [...Array(6)].map((_,i) => [p.price - st*(i+1), 0]); asks = [...Array(6)].map((_,i) => [p.price + st*(6-i), 0]).reverse().reverse(); }
-    const val = r => +r[0] * +r[1], mx = Math.max(1, ...bids.map(val), ...asks.map(val)), v = x => x ? CH.fmtVol(x) : "--";
+    const val = r => r ? +r[0] * +r[1] : 0, mx = Math.max(1, ...bids.map(val), ...asks.map(val)), v = x => x ? CH.fmtVol(x) : "--", em = c => `<div class="r em"><span class="${c}">--</span><span>--</span></div>`;
     // mark rows where your own open limit orders sit (bucketed to the nearest visible level)
-    const myO = s.fut.orders.filter(o => o.sym === sym).map(o => o.price), all = [...asks, ...bids].map(r => +r[0]);
+    const myO = s.fut.orders.filter(o => o.sym === sym).map(o => o.price), all = [...asks, ...bids].filter(Boolean).map(r => +r[0]);
     const lo = Math.min(...all), hi = Math.max(...all), half = all.length > 1 ? Math.abs(all[0] - all[1]) / 2 : 0;
     const outside = myO.filter(x => !(x >= lo - half && x <= hi + half)).length;
     const marked = new Set(myO.filter(x => x >= lo - half && x <= hi + half).map(x => all.reduce((b, y) => Math.abs(y - x) < Math.abs(b - x) ? y : b, all[0])));
-    const mine = r => marked.has(+r[0]);
+    const mine = r => r && marked.has(+r[0]);
     const tb = bids.reduce((a,b) => a + val(b), 0), ta = asks.reduce((a,b) => a + val(b), 0), bp = tb + ta ? tb/(tb+ta)*100 : 50;
     box.innerHTML = `<div class="fund" data-info="funding"><u>Funding (8h) / Countdown</u><br><b class="num">0.0100%/${String(Math.floor(left/3600)).padStart(2,"0")}:${String(Math.floor(left%3600/60)).padStart(2,"0")}:${String(Math.floor(left%60)).padStart(2,"0")}</b></div>
       <div class="fh"><span>Price<br>(USDT)</span><span>Amount<br>(USDT)</span></div>
-      ${asks.length ? asks.map((a, i) => `<div class="r${mine(a, asks, i, true) ? " me" : ""}" data-bp="${+a[0]}"><i style="width:${val(a)/mx*100}%;background:var(--down)"></i><span class="down">${M.fmtPx(p,+a[0])}</span><span>${v(val(a))}</span></div>`).join("") : '<div class="skel" style="height:110px"></div>'}
-      <div class="mid"><b class="num ${p.dir>=0?"up":"down"}">${M.fmtPx(p)}</b><small class="num">${M.fmtPx(p)}</small></div>
-      ${bids.map((b, i) => `<div class="r${mine(b, bids, i, false) ? " me" : ""}" data-bp="${+b[0]}"><i style="width:${val(b)/mx*100}%;background:var(--up)"></i><span class="up">${M.fmtPx(p,+b[0])}</span><span>${v(val(b))}</span></div>`).join("")}${outside ? `<div class="ob-out">${ic("info",11)} ${outside} of your orders outside the visible book</div>` : ""}<div class="ob-foot"><button class="ob-prec" data-prec><span class="num">${M.fmtPx(p, prec || Math.pow(10, -(p.dp ?? 2)))}</span>${ic("chevd",13)}</button><span class="ob-src">${p.type === "crypto" ? "Binance" : "Indicative"}</span></div>
+      ${asks.some(Boolean) ? asks.map((a, i) => !a ? em("down") : `<div class="r${mine(a) ? " me" : ""}" data-bp="${+a[0]}"><i style="width:${val(a)/mx*100}%;background:var(--down)"></i><span class="down">${M.fmtPx(p,+a[0])}</span><span>${v(val(a))}</span></div>`).join("") : '<div class="skel" style="height:110px"></div>'}
+      <div class="mid" data-bp="${p.price}"><b class="num ${p.dir>=0?"up":"down"}">${M.fmtPx(p)}</b><small class="num">${M.fmtPx(p)}</small></div>
+      ${bids.map((b, i) => !b ? em("up") : `<div class="r${mine(b) ? " me" : ""}" data-bp="${+b[0]}"><i style="width:${val(b)/mx*100}%;background:var(--up)"></i><span class="up">${M.fmtPx(p,+b[0])}</span><span>${v(val(b))}</span></div>`).join("")}${outside ? `<div class="ob-out">${ic("info",11)} ${outside} of your orders outside the visible book</div>` : ""}<div class="ob-foot"><button class="ob-prec" data-prec><span class="num">${M.fmtPx(p, prec || Math.pow(10, -(p.dp ?? 2)))}</span>${ic("chevd",13)}</button><span class="ob-src">${p.type === "crypto" ? "Binance" : "Indicative"}</span></div>
       <div class="ratio num" style="margin:8px 0 0;font-size:11.5px"><span class="up">${bp.toFixed(2)}%</span><div class="bar" style="height:4px"><i style="width:${bp}%;background:var(--up)"></i><i style="flex:1;background:var(--down)"></i></div><span class="down">${(100-bp).toFixed(2)}%</span></div>`;
     const ch = $("#fchg"); ch.textContent = p.closed ? "Market closed" : p.chg == null ? "" : pct(p.chg); ch.className = "num " + (p.closed ? "brand-c" : (p.chg||0) < 0 ? "down" : "up");
   }
@@ -455,7 +472,7 @@ Pages.futures = (params) => {
       <div class="pc-big"><div><span><u data-info="pnl">PNL (USDT)</u> <button data-share="${pos.id}" aria-label="Share">${ic("share",15)}</button></span><b class="num" data-pnl></b></div><div style="text-align:right"><span style="justify-content:flex-end"><u data-info="roi">ROI</u></span><b class="num" data-roe></b></div></div>
       <div class="pc-g"><div><span data-info="size"><u>Size (USDT)</u></span><b class="num" data-size></b></div><div><span data-info="margin">Margin (USDT)</span><b class="num">${money(pos.margin)}</b></div><div><span data-info="mr"><u>Margin Ratio</u></span><b class="num" data-mr></b></div>
         <div><span data-info="entry"><u>Entry Price (USDT)</u></span><b class="num">${M.fmtPx(p, pos.entry)}</b></div><div><span data-info="mark"><u>Mark Price (USDT)</u></span><b class="num" data-mark></b></div><div><span data-info="liq"><u>Liq. Price (USDT)</u></span><b class="num ${pos.liq > 0 ? "liq" : "down"}">${pos.liq > 0 ? M.fmtPx(p, pos.liq) : "--"}</b></div></div>
-      <div class="pc-tp" data-info="tpsl"><span>TP/SL</span><b class="num"><em class="up">${pos.tp ? M.fmtPx(p,pos.tp) : "--"}</em><i>/</i><em class="down">${pos.sl ? M.fmtPx(p,pos.sl) : "--"}</em></b></div>
+      ${pos.tp || pos.sl ? `<div class="pc-tp" data-info="tpsl"><span>TP/SL</span><b class="num"><em class="up">${pos.tp ? M.fmtPx(p,pos.tp) : "--"}</em><i>/</i><em class="down">${pos.sl ? M.fmtPx(p,pos.sl) : "--"}</em></b></div>` : ""}
       ${FP.showRz === false ? "" : `<button class="rpnl" data-rz="${pos.id}"><span>Realized PNL (USDT)</span><b class="num ${(pos.realized||0)>=0?"up":"down"}">${signed(pos.realized || 0)} ${ic("chev",13)}</b></button>`}
       <div class="pc-btns"><button data-plev="${pos.id}">Leverage</button><button data-tpsl="${pos.id}">TP/SL</button><button data-close="${pos.id}">Close</button></div></div>`;
   }
@@ -477,17 +494,13 @@ Pages.futures = (params) => {
       paint();
     });
   }
-  function tifSheet(){
-    const o = [["GTC","Good Till Cancelled"],["IOC","Immediate or Cancel"],["FOK","Fill or Kill"],["GTD","Good Till Date"]];
-    U.sheet("Time in Force", `<div class="tif-l">${o.map(([k,n]) => `<button class="tif-c${k === tif ? " on" : ""}" data-tf="${k}"><b>${k}</b><small>${n}</small></button>`).join("")}</div>`, el => el.querySelectorAll("[data-tf]").forEach(b => b.onclick = () => { tif = b.dataset.tf; U.closeLayer(); renderForm(); }));
-  }
   function renderPositions(){
     const list = $("#plist"); if (!list) return;
     const pos = s.fut.positions.filter(x => !hideOther || x.sym === sym), ord = s.fut.orders.filter(x => !hideOther || x.sym === sym);
     $("#pc").textContent = s.fut.positions.length; $("#oc").textContent = s.fut.orders.length; { const ca = $("[data-closeall]"); if (ca) ca.textContent = s.fut.positions.length ? `Close All (${s.fut.positions.length})` : "Close All"; }
     if (ptab === "pos"){ list.innerHTML = pos.length ? sortPos(pos).map(posCard).join("") : UI.emptyState("file", "No open positions"); tickPositions(); }
-    else if (ptab === "ord") list.innerHTML = ord.length ? ord.map(o => { const p = M.get(o.sym); return `<div class="pc"><div class="pc-h"><span class="side-b ${o.side==="long"?"l":"s"}">${o.side==="long"?"B":"S"}</span><b class="sym">${esc(fsym(p))}</b><span class="perp">Perp</span><span class="perp">Limit</span><span class="perp">${esc(o.tif || "GTC")}</span><span class="grow"></span><button class="btn btn-ghost btn-sm" data-cancel="${o.id}">Cancel</button></div>
-      <div class="ph-g"><div><span>Price</span><b class="num">${M.fmtPx(p,o.price)}</b></div><div><span>Amount (USDT)</span><b class="num">${money(o.margin*o.lev)}</b></div><div><span>Leverage</span><b>${o.lev}x</b></div><div><span>TP / SL</span><b class="num">${o.tp?M.fmtPx(p,o.tp):"--"} / ${o.sl?M.fmtPx(p,o.sl):"--"}</b></div><div><span>Side</span><b class="${o.side==="long"?"up":"down"}">${o.side==="long"?"Open Long":"Open Short"}</b></div><div><span>Time in Force</span><b>${esc(o.tif || "GTC")}</b></div><div><span>Time</span><b>${U.timeStr(o.t)}</b></div></div></div>`; }).join("") : UI.emptyState("file", "No open orders");
+    else if (ptab === "ord") list.innerHTML = ord.length ? ord.map(o => { const p = M.get(o.sym), q = o.margin * o.lev / o.price; return `<div class="pc oc-card" data-oid="${o.id}"><div class="pc-h"><span class="side-b ${o.side==="long"?"l":"s"}">${o.side==="long"?"B":"S"}</span><b class="sym">${esc(fsym(p))}</b><span class="perp">Perp</span><span class="perp">Limit</span><span class="grow"></span><button class="oc-cancel" data-cancel="${o.id}">Cancel</button></div>
+      <div class="ph-g"><div><span>Price</span><b class="num">${M.fmtPx(p,o.price)}</b></div><div><span>Amount (USDT)</span><b class="num">${money(o.margin*o.lev)}</b></div><div><span>Leverage</span><b>${o.lev}x</b></div><div><span>Size (${esc(p.base || "")})</span><b class="num">${fmt(q, q < 1 ? 5 : 3)}</b></div><div><span>Side</span><b class="${o.side==="long"?"up":"down"}">${o.side==="long"?"Open Long":"Open Short"}</b></div><div><span>Time</span><b>${U.timeStr(o.t)}</b></div><div class="oc-tp"><span>TP / SL</span><button data-otpsl="${o.id}" aria-label="Edit TP/SL"><b class="num"><em class="up">${o.tp?M.fmtPx(p,o.tp):"--"}</em> / <em class="down">${o.sl?M.fmtPx(p,o.sl):"--"}</em></b>${ic("pen",13)}</button></div></div></div>`; }).join("") : UI.emptyState("file", "No open orders");
     else list.innerHTML = historyHtml(s.fut.history.slice(0, 60));
   }
   function tickPositions(){
@@ -501,8 +514,11 @@ Pages.futures = (params) => {
       const mb = r.querySelector("[data-mrb]"); mb.style.color = mr < 50 ? "var(--up)" : mr < 80 ? "var(--warn)" : "var(--down)"; mb.dataset.lv = mr < 25 ? 1 : mr < 50 ? 2 : mr < 80 ? 3 : 4;
     });
   }
-  function tpslSheet(id){
-    const pos = s.fut.positions.find(x => x.id === id); if (!pos) return; const p = M.get(pos.sym), long = pos.side === "long";
+  function tpslSheet(id, isOrder){
+    let pos, ord = null;
+    if (isOrder){ ord = s.fut.orders.find(x => x.id === id); if (!ord) return; pos = {sym:ord.sym, side:ord.side, entry:ord.price, qty:ord.margin * ord.lev / ord.price, margin:ord.margin, lev:ord.lev, mode:ord.mode || "cross", tp:ord.tp, sl:ord.sl, liq:0}; }
+    else pos = s.fut.positions.find(x => x.id === id);
+    if (!pos) return; const p = M.get(pos.sym), long = pos.side === "long";
     const roiOf = px => px ? E.futPnl(pos, px).pnl / pos.margin * 100 : 0;
     const pxOf = roi => { const d = roi / 100 * pos.margin / pos.qty; return pos.entry + (long ? d : -d); };
     const blk = (k, n, max) => `<div class="ts-b" data-k="${k}"><div class="ts-h"><b>${n}</b><button class="icon-btn" data-del="${k}" aria-label="Clear ${n}">${ic("trash",16)}</button></div>
@@ -512,7 +528,7 @@ Pages.futures = (params) => {
       <div class="ts-ticks"><span>0%</span><span style="left:20%">${Math.round(max*.2)}%</span><span>${max}%</span></div>
       <p class="ts-note" data-note="${k}"></p></div>`;
     U.sheet("TP/SL", `<div class="ts-pos"><b>${esc(fsym(p))}</b><span class="ls ${long ? "long" : "short"}">${long ? "Long" : "Short"}</span><span class="perp">${pos.mode === "isolated" ? "Isolated" : "Cross"}</span><span class="perp">${pos.lev}x</span></div>
-      <div class="ts-g"><div><small>Amount (USDT)</small><b class="num">${money(pos.qty * pos.entry)}</b></div><div><small>Entry price</small><b class="num">${M.fmtPx(p, pos.entry)}</b></div><div><small>Last price</small><b class="num">${M.fmtPx(p)}</b></div><div><small>Est. liq. price</small><b class="num" style="color:var(--warn)">${pos.liq > 0 ? M.fmtPx(p, pos.liq) : "--"}</b></div></div>
+      <div class="ts-g"><div><small>Size (USDT)</small><b class="num">${money(pos.qty * pos.entry)}</b></div><div><small>Entry price</small><b class="num">${M.fmtPx(p, pos.entry)}</b></div><div><small>Last price</small><b class="num">${M.fmtPx(p)}</b></div><div><small>Est. liq. price</small><b class="num" style="color:var(--warn)">${pos.liq > 0 ? M.fmtPx(p, pos.liq) : "--"}</b></div></div>
       ${blk("tp", "TP", 150)}${blk("sl", "SL", 75)}
       <div class="err-msg" id="te"></div><button class="btn btn-primary btn-block btn-lg" data-ok>OK</button>`, el => {
       const v = {tp: pos.tp || null, sl: pos.sl || null};
@@ -532,7 +548,11 @@ Pages.futures = (params) => {
         el.querySelector(`[data-del="${k}"]`).onclick = () => { v[k] = null; paint(k); };
         paint(k);
       });
-      el.querySelector("[data-ok]").onclick = () => { const e = E.setTpSl(id, v.tp ? +(+v.tp).toFixed(p.dp) : null, v.sl ? +(+v.sl).toFixed(p.dp) : null); if (e){ el.querySelector("#te").textContent = e; return toast(e, "bad"); } E.award("tpsl"); U.closeLayer(); U.fx("notify"); toast("TP/SL updated", "ok"); };
+      el.querySelector("[data-ok]").onclick = () => { const tpv = v.tp ? +(+v.tp).toFixed(p.dp) : null, slv = v.sl ? +(+v.sl).toFixed(p.dp) : null;
+        let e;
+        if (ord){ e = (tpv && (long ? tpv <= ord.price : tpv >= ord.price)) ? "TP price must be " + (long ? "higher" : "lower") + " than the order price." : (slv && (long ? slv >= ord.price : slv <= ord.price)) ? "SL price must be " + (long ? "lower" : "higher") + " than the order price." : null;
+          if (!e){ ord.tp = tpv; ord.sl = slv; store.save(); bus.emit("positions"); } }
+        else e = E.setTpSl(id, tpv, slv); if (e){ el.querySelector("#te").textContent = e; return toast(e, "bad"); } E.award("tpsl"); U.closeLayer(); U.fx("notify"); toast("TP/SL updated", "ok"); };
     });
   }
   function closeSheet(id){
@@ -599,15 +619,16 @@ Pages.futures = (params) => {
     $("[data-otype]").onclick = () => U.sheet("Order type", [["market","Market","Executes immediately at the best available price."],["limit","Limit","Executes at your price or better."]].map(([k,n,d]) => `<button class="list-item" style="width:100%" data-ot="${k}"><div class="grow"><b>${n}</b><div class="label">${d}</div></div>${otype===k?`<span class="brand-c">${ic("check",18)}</span>`:""}</button>`).join(""), el => el.querySelectorAll("[data-ot]").forEach(b => b.onclick = () => { otype = b.dataset.ot; if (otype === "limit" && !$("#lp").value) $("#lp").value = +P().price.toFixed(P().dp); U.closeLayer(); renderForm(); }));
     const sl = $("#sl"); let lastSnap = 0;
     sl.oninput = () => { const v = +sl.value, snap = [0,25,50,75,100].find(x => Math.abs(x - v) <= 2); sliderPct = snap ?? v; if (snap != null && snap !== v) sl.value = snap;
-      if (snap != null && snap !== lastSnap && LY.slideVib !== false) navigator.vibrate?.(8); lastSnap = snap;
+      const st = Math.round(sliderPct / 5); if (st !== lastStep && LY.slideVib !== false) TX.buzz(sliderPct % 25 === 0 ? 12 : 5); lastStep = st; lastSnap = snap;
       $("#amt").value = sliderPct ? fromU(oc === "open" ? Math.floor(store.wb("futures") / (1/lev + C.FEE) * sliderPct) / 100 : sliderPct) : ""; renderForm(); };
     $("[data-bbo]").onclick = () => { const p = P(), b = bboSide === "bid" ? M.book.bids?.[0] : M.book.asks?.[0], v = b ? +b[0] : p.price; $("#lp").value = +(+v).toFixed(p.dp ?? 2); toast(`BBO · best ${bboSide} ${M.fmtPx(p, v)}`, "info", 1200); bboSide = bboSide === "bid" ? "ask" : "bid"; renderForm(); };
-    $("[data-tif]").onclick = tifSheet; $("[data-sort]").onclick = sortSheet;
+    $("[data-sort]").onclick = sortSheet;
+    $("[data-unit]").onclick = () => { if (oc !== "open") return; const b = P().base || "COIN", {px} = inputs(), raw = parseFloat($("#amt").value), usd = raw ? (coinU ? raw * px : raw) : 0;
+      TX.unitSheet(b, coinU ? "coin" : "usdt", k => { coinU = k === "coin"; s.settings.futp = s.settings.futp || {}; s.settings.futp.unit = coinU ? "COIN" : "USDT"; FP.unit = s.settings.futp.unit; store.save();
+        $("#amt").value = usd ? (coinU ? +(usd / px).toFixed(5) : +usd.toFixed(2)) : ""; renderForm(); }); };
     $("#amt").addEventListener("input", () => { $("#ferr").textContent = ""; $("#af").classList.remove("err"); const v = inputs().amt; sliderPct = oc === "open" ? U.clamp(v / (store.wb("futures") / (1/lev + C.FEE)) * 100, 0, 100) : U.clamp(v, 0, 100); renderForm(); });
     $("#lp").addEventListener("input", renderForm);
-    $("#tpc").onchange = e => { tpsl = e.target.checked; $("#tpsl").classList.toggle("hide", !tpsl); $("#tsm").classList.toggle("hide", !tpsl); };
-    const tsHint = () => { if (tsMode !== "roi"){ $("#tsh").innerHTML = ""; return; } const p = P(), ep = parseFloat($("#lp").value) || p.price, t = parseFloat($("#tp").value), sv = Math.abs(parseFloat($("#sl2").value)), f = (r, up) => r > 0 ? M.fmtPx(p, ep * (1 + (up ? 1 : -1) * r / 100 / lev)) : "--";
-      $("#tsh").innerHTML = `<div>Long: TP <b class="up">${f(t, true)}</b> · SL <b class="down">${f(sv, false)}</b></div><div>Short: TP <b class="up">${f(t, false)}</b> · SL <b class="down">${f(sv, true)}</b></div>`; };
+    $("#tpc").onchange = e => { tpsl = e.target.checked; $("#tpsl").classList.toggle("hide", !tpsl); $("#tsm").classList.toggle("hide", !tpsl); tsHint(); };
     $("#tsm").onclick = () => { tsMode = tsMode === "roi" ? "price" : "roi"; $("#tsm span").textContent = tsMode === "roi" ? "Price" : "ROI %"; $("#tp").placeholder = tsMode === "roi" ? "TP ROI %" : "Take Profit"; $("#sl2").placeholder = tsMode === "roi" ? "SL ROI %" : "Stop Loss"; $("#tpsl").querySelectorAll(".famt span").forEach(x => x.textContent = tsMode === "roi" ? "%" : "Mark"); $("#tp").value = $("#sl2").value = ""; tsHint(); };
     $("#tp").addEventListener("input", tsHint); $("#sl2").addEventListener("input", tsHint);
     root.querySelectorAll("[data-go]").forEach(b => b.onclick = () => submit(b.dataset.go));
@@ -616,12 +637,14 @@ Pages.futures = (params) => {
     $("#hide").onchange = e => { hideOther = e.target.checked; try { sessionStorage.setItem("fx_hide", hideOther ? "1" : "0"); } catch {} renderPositions(); };
     $("[data-closeall]").onclick = async () => { if (!s.fut.positions.length) return toast("No open positions", "info"); if (await U.confirmTrade({kind:"close", title:"Close All Positions", tone:"down", okText:"Close All", rows:[["Positions", String(s.fut.positions.filter(x => !hideOther || x.sym === sym).length)], ["Price", "Market"], ["Total est. PNL", (() => { const v = s.fut.positions.filter(x => !hideOther || x.sym === sym).reduce((a, x) => a + E.futPnl(x).pnl, 0); return `<span class="${v >= 0 ? "up" : "down"}">${signed(v)} USDT</span>`; })()]]})){ [...s.fut.positions].filter(x => !hideOther || x.sym === sym).forEach(x => E.closeFut(x.id)); U.fx("open"); toast("All positions closed", "ok"); } };
 
-    $("#fbook").addEventListener("click", e => { if (e.target.closest("[data-prec]")) return precSheet(); const r = e.target.closest("[data-bp]"); if (!r || !FP.tapFill) return; otype = "limit"; $("#lp").value = r.dataset.bp; renderForm(); toast("Limit price set to " + M.fmtPx(P(), +r.dataset.bp), "info", 1200); });
+    $("#fbook").addEventListener("click", e => { if (e.target.closest("[data-prec]")) precSheet(); });
+    TX.tapPrice($("#fbook"), px => { if (!(px > 0)) return; if (oc === "close") root.querySelector('[data-oc="open"]').click(); otype = "limit"; $("#lp").value = +(+px).toFixed(P().dp ?? 2); renderForm(); TX.buzz(8); toast("Limit price set to " + M.fmtPx(P(), px), "info", 1200); });
     $("#plist").addEventListener("click", e => {
       const g = (k) => e.target.closest(`[data-${k}]`)?.dataset[k];
       if (g("open")) return location.hash = "#/futures/" + g("open");
       if (g("rz")) return rzSheet(g("rz"));
       if (g("close")) return closeSheet(g("close")); if (g("tpsl")) return tpslSheet(g("tpsl")); if (g("plev")) return levSheet(g("plev")); if (g("share")) return shareCard(g("share"));
+      if (g("otpsl")) return tpslSheet(g("otpsl"), true);
       if (g("cancel")){ E.cancelOrder(g("cancel")); toast("Order cancelled", "ok"); }
     });
     let tT = 0, bT = 0;
@@ -666,7 +689,7 @@ Pages.trade = (params) => {
   let root, offs = [], timers = [], unChart, exp = s.settings.defExp || 30, ptab = "pos", cdLast = {};
   const $ = q => root.querySelector(q);
   const html = `<div class="bin-page">
-  <div class="tabs" style="gap:20px;margin:0 -16px;padding:4px 16px 0;border:0"><a class="tab" href="#/futures/${sym}" style="font-size:17px">USDⓈ-M</a><a class="tab" href="#/spot/${sym}" style="font-size:17px">Spot</a><button class="tab on" style="font-size:17px">Binary</button><a class="tab" href="#/options" style="font-size:17px">Options</a><a class="tab" href="#/copy" style="font-size:17px">Copy</a><a class="tab" href="#/bots" style="font-size:17px">Bots</a></div>
+  <div class="tabs" style="gap:20px;margin:0 -16px;padding:4px 16px 0;border:0"><a class="tab" href="#/futures/${sym}" style="font-size:17px">USDⓈ-M</a><a class="tab" href="#/spot/${sym}" style="font-size:17px">Spot</a><button class="tab on" style="font-size:17px">Binary</button><a class="tab tab-hot" href="#/predict" style="font-size:17px">Prediction</a><a class="tab tab-hot" href="#/racer" style="font-size:17px">Money Racer</a><a class="tab" href="#/options" style="font-size:17px">Options</a><a class="tab" href="#/copy" style="font-size:17px">Copy</a><a class="tab" href="#/bots" style="font-size:17px">Bots</a></div>
   <header class="fx-head"><div class="grow"><button class="nm" data-pick>${esc(M.label(P()))} ${P().tradable ? `<span class="perp" style="color:var(--up)" id="hpp">92%</span>` : `<span class="perp">Chart only</span>`}${ic("chevd",16)}</button></div>
     <button class="icon-btn" data-alert aria-label="Price alert">${ic("bell",22)}</button><a class="icon-btn" href="#/chart/${sym}" aria-label="Full chart">${ic("candle",22,1.6)}</a></header>
   <div class="cp-price" style="border:0;padding-top:6px"><div><div class="lp" id="lp">--</div><div class="row num" style="gap:6px;font-size:13px"><b id="lusd"></b><span id="lc"></span></div></div>
@@ -685,6 +708,7 @@ Pages.trade = (params) => {
     <div class="bx-trow"><div class="bx-tl">Time period</div>
     <div class="bx-time" id="exps">${C.EXPIRIES.map(x => `<button class="exp-chip" data-e="${x}"><b>${x<60?x+"s":x/60+"m"}</b></button>`).join("")}</div></div>
     <div class="ud"><button class="btn btn-up" data-dir="up"><span class="row" style="gap:4px">${ic("up",18,3)} ${esc(t("Up"))}</span><small id="upP"></small></button><button class="btn btn-down" data-dir="down"><span class="row" style="gap:4px">${ic("down",18,3)} ${esc(t("Down"))}</span><small id="dnP"></small></button></div>
+    <div class="bx-nofee">No fee</div>
     <div class="bx-meta"><span>Avbl <b class="num" id="ob"></b> USDT <button class="wl-plus" data-wlto="binary" aria-label="Transfer in">${ic("plus",12,3)}</button></span><span class="label">Min 0.1 · Max ${(U.store.s.admin?.maxBet ?? 5000).toLocaleString("en-US")} USDT</span></div>
     <div id="note" style="margin-top:8px"></div><div class="err-msg" id="err" role="alert"></div>
   </section>
@@ -727,8 +751,7 @@ Pages.trade = (params) => {
     const list = $("#plist"); $("#pc").textContent = s.positions.length;
     if (ptab === "pos"){
       list.innerHTML = s.positions.length ? s.positions.slice().reverse().map(pos => { const p = M.get(pos.sym); return `<div class="pc" data-id="${pos.id}"><div class="pc-h"><span class="side-b ${pos.dir==="up"?"l":"s"}">${pos.dir==="up"?"▲":"▼"}</span><button class="sym" data-open="${pos.sym}">${esc(M.label(p))}</button><span class="perp">${pos.dir==="up"?"Up":"Down"}</span><span class="perp">${pos.expiry<60?pos.expiry+"s":pos.expiry/60+"m"}</span>${pos.source==="auto"?'<span class="perp">Auto</span>':""}<span class="grow"></span><b class="num brand-c" data-cd></b></div>
-        <div class="pc-g"><div><span>Amount (USDT)</span><b class="num">${money(pos.amount)}</b></div><div><span>Entry Price</span><b class="num">${M.fmtPx(p,pos.entry)}</b></div><div><span>PNL (USDT)</span><b class="num" data-pnl></b></div><div><span>Payout</span><b class="num">${money(pos.amount*E.RATIO)}</b></div><div><span>Mark Price</span><b class="num" data-now></b></div><div><span>Status</span><b data-st></b></div></div><div class="prog"><i data-pg></i></div>
-        <div class="bin-ec"><div class="ec-i"><span>Early close</span><small data-ecs></small></div><button class="ec-b" data-ec="${pos.id}" type="button" disabled>Close</button></div></div>`; }).join("") : UI.emptyState("file", "No open positions");
+        <div class="pc-g"><div><span>Amount (USDT)</span><b class="num">${money(pos.amount)}</b></div><div><span>Entry Price</span><b class="num">${M.fmtPx(p,pos.entry)}</b></div><div><span>PNL (USDT)</span><b class="num" data-pnl></b></div><div><span>Payout</span><b class="num">${money(pos.amount*E.RATIO)}</b></div><div><span>Mark Price</span><b class="num" data-now></b></div><div><span>Status</span><b data-st></b></div></div><div class="prog"><i data-pg></i></div></div>`; }).join("") : UI.emptyState("file", "No open positions");
       tick();
     } else {
       const h = s.history.slice(0, 60);
@@ -744,10 +767,6 @@ Pages.trade = (params) => {
       const el = r.querySelector("[data-pnl]"); el.textContent = win == null ? "0.00" : win ? "+" + money(pnl) : "-" + money(pos.amount); el.className = "num " + (win == null ? "" : win ? "up" : "down");
       const st = r.querySelector("[data-st]"); st.textContent = win == null ? "Even" : win ? "Winning" : "Losing"; st.className = win == null ? "" : win ? "up" : "down";
       r.querySelector("[data-pg]").style.width = U.clamp((now - pos.open)/(pos.exp - pos.open)*100, 0, 100) + "%";
-      const ev = E.earlyValue(pos, now), eb = r.querySelector("[data-ec]"), es = r.querySelector("[data-ecs]");
-      if (eb){ eb.disabled = !ev.open; eb.classList.toggle("lock", !ev.open); eb.classList.toggle("up", ev.open && ev.profit > 0); eb.classList.toggle("down", ev.open && ev.profit < 0);
-        eb.textContent = !ev.open ? "Closing locked" : ev.profit > 0 ? "Close for +" + money(ev.profit) : "Close for " + money(ev.value);
-        es.textContent = ev.open ? "Closable for " + mmss(ev.lockIn) : "Available in the first half only"; }
       const sc = Math.ceil(left); if (sc <= 5 && sc > 0 && cdLast[pos.id] !== sc && pos.sym === sym){ cdLast[pos.id] = sc; U.beep("tick"); } });
   }
   function showResult(rec){
@@ -768,7 +787,11 @@ Pages.trade = (params) => {
   }
   let rsQ = [], rsBusy = false;
   function nextResult(){ if (rsBusy || !rsQ.length || !root) return; rsBusy = true; showResult(rsQ.shift()); }
-  function result(rec){ rsQ.push(rec); nextResult(); }
+  function result(rec){
+    if (document.hidden){ toast(`Trade ${rec.result === "win" ? "won" : rec.result === "loss" ? "lost" : "settled"}: ${signed(rec.profit)} USDT`, rec.result === "win" ? "ok" : rec.result === "loss" ? "bad" : "info", 2500); return; }
+    rsQ.push(rec); nextResult(); }
+  function resetResults(){ rsQ = []; rsBusy = false; if (root?.isConnected !== false && document.querySelector("[data-rs]")) U.closeLayer(); window.TX?.clearFx?.(); TX.sweep(); }
+  const onVis = () => { if (document.hidden) resetResults(); else TX.sweep(); };
   return {html, title: M.label(P()) + " Binary", mount(r){
     root = r; M.watchTrades(sym);
     $("#amt").value = s.settings.defAmt || 10;
@@ -788,14 +811,15 @@ Pages.trade = (params) => {
     root.querySelectorAll("[data-pt]").forEach(b => b.onclick = () => setPtab(b.dataset.pt));
     $("[data-pick]").onclick = () => pickSheet(sym, x => location.hash = "#/trade/" + x, true);
     $("[data-alert]").onclick = () => alertSheet(sym);
-    $("#plist").addEventListener("click", e => { const ec = e.target.closest("[data-ec]");
-      if (ec && !ec.disabled){ ec.disabled = true; const r = E.closeBinaryEarly(ec.dataset.ec); if (r.err){ toast(r.err, "bad"); } return; }
+    $("#plist").addEventListener("click", e => {
       const o = e.target.closest("[data-open]"); if (o && o.dataset.open !== sym) location.hash = "#/trade/" + o.dataset.open; });
     let tT = 0;
     offs.push(bus.on("tick", x => { if (x === sym && performance.now() - tT > 150){ tT = performance.now(); renderPx(); } }), bus.on("meta", x => { if (x === sym){ renderPx(); renderOrder(); } }),
       bus.on("sec", tick), bus.on("balance", renderOrder), bus.on("positions", renderPositions), bus.on("history", () => ptab === "hist" && renderPositions()), bus.on("settled", result));
     const iv = setInterval(renderOrder, 2000); timers.push(() => clearInterval(iv));
-  }, unmount(){ offs.forEach(f => f()); timers.forEach(f => f()); unChart?.(); M.unwatchTrades(); }};
+    document.addEventListener("visibilitychange", onVis); timers.push(() => document.removeEventListener("visibilitychange", onVis));
+    const sw = setInterval(TX.sweep, 2500); timers.push(() => clearInterval(sw));
+  }, unmount(){ offs.forEach(f => f()); timers.forEach(f => f()); unChart?.(); M.unwatchTrades(); rsQ = []; rsBusy = false; if (document.querySelector("[data-rs]")) U.closeLayer(); window.TX?.clearFx?.(); setTimeout(TX.sweep, 400); }};
 };
 
 /* ---------------- Futures trade history (#/history) ---------------- */

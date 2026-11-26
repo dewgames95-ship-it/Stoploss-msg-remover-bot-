@@ -1,17 +1,17 @@
 /* ===== Wallets: Binance-style Transfer sheet + insufficient-balance helper (v6.3) ===== */
 (function(){
 const {esc, ic, store, money, toast} = U;
-const NAMES = {spot:"Spot", funding:"Funding", futures:"Futures", binary:"Binary", options:"Options", earn:"Earn"};
-const LONG = {spot:"Spot Wallet", funding:"Funding Wallet", futures:"Futures", binary:"Binary", options:"Options", earn:"Earn"};
-const ORDER = ["spot","funding","futures","binary","options","earn"];
+const NAMES = {spot:"Spot", funding:"Funding", futures:"Futures", binary:"Binary", options:"Options", earn:"Earn", games:"Money Racer", predict:"Prediction"};
+const LONG = {spot:"Spot Wallet", funding:"Funding Wallet", futures:"Futures", binary:"Binary", options:"Options", earn:"Earn", games:"Money Racer", predict:"Prediction"};
+const ORDER = ["spot","funding","futures","binary","options","earn","games","predict"];
 const nm = k => NAMES[k] || k;
 const floor2 = v => Math.floor((v + 1e-9) * 100) / 100;
 
 /* v6.6: Funding wallet. store.WALLETS is the same array core.js sums over, so pushing is enough. */
 (function(){
   const S0 = () => store.s;
-  if (!store.WALLETS.includes("funding")) store.WALLETS.push("funding");
-  const fix = () => { const S = S0(); if (S.wallets && !(S.wallets.funding >= 0)) S.wallets.funding = 0; S.balance = Math.round(store.WALLETS.reduce((a, k) => a + (S.wallets[k] || 0), 0) * 100) / 100; };
+  ["funding","games","predict"].forEach(k => { if (!store.WALLETS.includes(k)) store.WALLETS.push(k); });   // v6.8: games = Money Racer, predict = Prediction market
+  const fix = () => { const S = S0(); if (S.wallets) ["funding","games","predict"].forEach(k => { if (!(S.wallets[k] >= 0)) S.wallets[k] = 0; }); S.balance = Math.round(store.WALLETS.reduce((a, k) => a + (S.wallets[k] || 0), 0) * 100) / 100; };
   fix();
   const rs = store.reset; store.reset = function(){ const r = rs.apply(this, arguments); fix(); return r; };
 })();

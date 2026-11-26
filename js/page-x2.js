@@ -59,7 +59,7 @@ const ART = {
 window.ART = ART;
 
 /* ======================= ASSETS ======================= */
-const WL = ["spot","funding","futures","binary","options","earn"];
+const WL = ["spot","funding","futures","binary","options","earn","games","predict"];
 const NAMES = c => c === "USDT" ? "TetherUS" : (window.COIN_NAMES && window.COIN_NAMES[c]) || c;
 function spotHoldings(){
   try { const h = window.SPOT?.holdings?.() || []; return (Array.isArray(h) ? h : []).map(x => {
@@ -77,8 +77,9 @@ Pages.assets = (params) => {
     const up = s.fut.positions.reduce((a,p) => a + E.futPnl(p).pnl, 0), vault = E.earnValue(), hold = spotHoldings(), hv = hold.reduce((a,x) => a + x.val, 0), hp = hold.reduce((a,x) => a + x.pnl, 0);
     const act = cstate().active, cv = act.reduce((a,c) => a + c.amt * (1 + copyPct(c) / 100), 0), cinv = act.reduce((a,c) => a + c.amt, 0);
     const d0 = new Date().setHours(0,0,0,0), usdtPnl = E.stats().todayPnl + s.fut.history.filter(x => x.closed >= d0).reduce((a,x) => a + x.profit, 0) + up;
-    const fut = fm + up, total = s.balance + bin + fut + vault + hv + cv;
-    return {fund:s.balance, bin, fm, up, fut, vault, hold, hv, hp, cv, cinv, cpn: cv - cinv, usdtPnl, tp: usdtPnl + hp, total, spot: bin + hv};
+    const bv = (s.spot?.bots || []).filter(b => b.running).reduce((a, b) => a + b.invest + b.invest * b.roiM / 100 * ((Date.now() - b.since) / (30 * 864e5)), 0);
+    const fut = fm + up, total = s.balance + bin + fut + vault + hv + cv + bv;
+    return {fund:s.balance, bin, fm, up, fut, vault, hold, hv, hp, cv, cinv, cpn: cv - cinv, usdtPnl, tp: usdtPnl + hp, total, spot: bin + hv + bv};
   }
   function calendar(){
     const now = new Date(), y = now.getFullYear(), m = now.getMonth(), first = new Date(y, m, 1), days = new Date(y, m+1, 0).getDate(), off = (first.getDay() + 6) % 7;
@@ -207,7 +208,7 @@ Pages.assets = (params) => {
     const promo = `<a class="px-promo" href="#/earn"><div class="tx"><b>Earn up to 12% APR on USDT</b><span>Flexible and locked plans, redeem anytime</span></div>${ART.coins(84)}<i class="arr">${ic("chev",14,2)}</i></a>`;
     let body = "";
     if (tab === "overview" && view === "account"){
-      const wb = store.wb, parts = [["Funding","fund",wb("funding"),"#2E6BFF"],["Spot","spot",wb("spot") + t.hv,"#7FA6FF"],["Futures","futures",Math.max(0,t.fut) + wb("futures"),"#5B6575"],["Binary / Options","spot",wb("binary") + wb("options") + t.bin,"#8A94A6"],["Copy Trading","copy",t.cv,"#A8B3C4"],["Earn","earn",t.vault + wb("earn"),"#D3D9E2"]], sum = parts.reduce((a,p) => a + p[2], 0) || 1;
+      const wb = store.wb, parts = [["Funding","fund",wb("funding"),"#2E6BFF"],["Spot","spot",wb("spot") + t.hv,"#7FA6FF"],["Futures","futures",Math.max(0,t.fut) + wb("futures"),"#5B6575"],["Binary / Options","spot",wb("binary") + wb("options") + t.bin,"#8A94A6"],["Copy Trading","copy",t.cv,"#A8B3C4"],["Earn","earn",t.vault + wb("earn"),"#D3D9E2"],["Money Racer","games",wb("games"),"#6E7B93"],["Prediction","predict",wb("predict"),"#B9C2D3"]], sum = parts.reduce((a,p) => a + p[2], 0) || 1;
       body = CHIPS() + `<div class="px-alloc">${parts.filter(p => p[2] > 0).map(p => `<i style="flex:${p[2]/sum};background:${p[3]}"></i>`).join("")}</div>
         ${parts.map(([n,k,v,c]) => `<button class="px-acc" data-go="${k}"><i style="background:${c}"></i><div class="grow"><b>${n}</b><span class="px-mut">${hide ? "**" : (v/sum*100).toFixed(1) + "% of total"}</span></div><div class="r"><b class="num">${H(money(v))}</b><span class="px-mut">USDT</span></div><span class="ch">${ic("chev",14)}</span></button>`).join("")}`;
     } else {
@@ -236,7 +237,7 @@ Pages.assets = (params) => {
     box.querySelectorAll("[data-pnl]").forEach(b => b.onclick = () => { if (window.Pages && Pages.pnl) location.hash = "#/pnl"; else pnlSheet(t); });
     const sm = box.querySelector("[data-small]"); if (sm) sm.onchange = () => { s.settings.hideSmall = sm.checked; store.save(); render(r); };
     box.querySelectorAll("[data-v]").forEach(b => { b.classList.toggle("on", b.dataset.v === view); b.onclick = () => { view = b.dataset.v; render(r); }; });
-    box.querySelectorAll("[data-go]").forEach(b => b.onclick = () => { tab = b.dataset.go; r.querySelectorAll("[data-at]").forEach(x => x.classList.toggle("on", x.dataset.at === tab)); render(r); });
+    box.querySelectorAll("[data-go]").forEach(b => b.onclick = () => { if (b.dataset.go === "games"){ location.hash = "#/racer"; return; } if (b.dataset.go === "predict"){ location.hash = "#/predict"; return; } tab = b.dataset.go; r.querySelectorAll("[data-at]").forEach(x => x.classList.toggle("on", x.dataset.at === tab)); render(r); });
     const sq = box.querySelector("[data-sq]"); if (sq) sq.onclick = () => { showQ = !showQ; if (!showQ) q = ""; render(r); if (showQ) r.querySelector("#aq")?.focus(); };
     const aq = box.querySelector("#aq"); if (aq) aq.oninput = () => { q = aq.value; const p = aq.selectionStart; render(r); const n = r.querySelector("#aq"); if (n){ n.focus(); n.setSelectionRange(p, p); } };
     const fl = box.querySelector("[data-filter]"); if (fl) fl.onclick = () => U.sheet("Sort by", [["value","Value (high to low)"],["pnl","Today's PnL"],["name","Name (A-Z)"]].map(([k,n]) => `<button class="px-opt ${sortBy===k?"on":""}" data-k="${k}">${n}${sortBy===k ? ic("check",18,2) : ""}</button>`).join(""), el => el.querySelectorAll("[data-k]").forEach(b => b.onclick = () => { sortBy = b.dataset.k; U.closeLayer(); render(r); }));

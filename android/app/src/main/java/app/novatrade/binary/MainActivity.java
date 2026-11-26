@@ -144,6 +144,45 @@ public class MainActivity extends Activity {
         }
         @JavascriptInterface public int version() { return BuildConfigVersion(); }
         @JavascriptInterface public void checkUpdate() { checkForUpdate(true); }
+        /** Share a PNG (base64, no data: prefix) to WhatsApp and other apps: NativeApp.shareImage(b64, "pnl.png", "text") */
+        @JavascriptInterface public void shareImage(String b64, String name, String text) {
+            try {
+                String safe = (name == null ? "novatrade.png" : name).replaceAll("[^A-Za-z0-9._-]", "_");
+                java.io.File f = new java.io.File(ShareProvider.dir(MainActivity.this), safe);
+                try (java.io.FileOutputStream o = new java.io.FileOutputStream(f)) { o.write(android.util.Base64.decode(b64, android.util.Base64.DEFAULT)); }
+                Uri uri = Uri.parse("content://" + ShareProvider.AUTH + "/" + safe);
+                Intent i = new Intent(Intent.ACTION_SEND).setType("image/png")
+                    .putExtra(Intent.EXTRA_STREAM, uri)
+                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                if (text != null && !text.isEmpty()) i.putExtra(Intent.EXTRA_TEXT, text);
+                Intent ch = Intent.createChooser(i, "Share");
+                ch.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                runOnUiThread(() -> { try { startActivity(ch); } catch (Exception e) { Toast.makeText(MainActivity.this, "No app to share with", Toast.LENGTH_SHORT).show(); } });
+            } catch (Exception e) {
+                runOnUiThread(() -> Toast.makeText(MainActivity.this, "Could not share image", Toast.LENGTH_SHORT).show());
+            }
+        }
+        /** Save a PNG to the gallery (Pictures/NovaTrade): NativeApp.saveImage(b64, "pnl.png") -> true if saved */
+        @JavascriptInterface public boolean saveImage(String b64, String name) {
+            try {
+                byte[] data = android.util.Base64.decode(b64, android.util.Base64.DEFAULT);
+                String safe = (name == null ? "novatrade.png" : name).replaceAll("[^A-Za-z0-9._-]", "_");
+                if (Build.VERSION.SDK_INT >= 29) {
+                    android.content.ContentValues v = new android.content.ContentValues();
+                    v.put(android.provider.MediaStore.Images.Media.DISPLAY_NAME, safe);
+                    v.put(android.provider.MediaStore.Images.Media.MIME_TYPE, "image/png");
+                    v.put(android.provider.MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/NovaTrade");
+                    Uri u = getContentResolver().insert(android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI, v);
+                    if (u == null) return false;
+                    try (java.io.OutputStream o = getContentResolver().openOutputStream(u)) { o.write(data); }
+                } else {
+                    java.io.File d = new java.io.File(getExternalFilesDir(Environment.DIRECTORY_PICTURES), "NovaTrade"); d.mkdirs();
+                    try (java.io.FileOutputStream o = new java.io.FileOutputStream(new java.io.File(d, safe))) { o.write(data); }
+                }
+                runOnUiThread(() -> Toast.makeText(MainActivity.this, "Saved to Pictures/NovaTrade", Toast.LENGTH_SHORT).show());
+                return true;
+            } catch (Exception e) { return false; }
+        }
     }
 
     /* ---------------- native app update (GitHub Releases) ---------------- */

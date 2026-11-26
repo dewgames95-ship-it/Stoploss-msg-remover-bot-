@@ -240,9 +240,10 @@ function openFut({sym, side, margin, lev, type="market", price=null, tp=null, sl
   mode = mode || S().settings.marginMode || "cross";
   margin = r2(margin);
   const err = futValidate(sym, margin, lev, type === "limit" ? price : null); if (err) return {err};
-  const p = M.get(sym), fee = r2(margin * lev * C.FEE);
+  const p = M.get(sym);
+  let fee = r2(margin * lev * C.FEE * (type === "limit" ? 0.4 : 1));   // maker (limit) fee = 0.4 x taker
   if (type === "limit"){
-    if (side === "long" ? price >= p.price : price <= p.price) type = "market";
+    if (side === "long" ? price >= p.price : price <= p.price){ type = "market"; fee = r2(margin * lev * C.FEE); }
     else {
       if (tif === "IOC" || tif === "FOK") return {err:`${tif} order cannot be filled immediately at this price.`};
       const e2 = tpslCheck(side, price, tp, sl, null); if (e2) return {err:e2};

@@ -2,8 +2,8 @@
    - App shell (index.html): network first with a short timeout, cached copy as fallback.
    - Versioned files (js/css ?v=, vendor libs, coin logos, fonts): cache first — they never change at the same URL.
    - Market data APIs and websockets: never cached (always live). */
-const CACHE = "nt-static-v6";
-const SHELL = "nt-shell-v6";
+const CACHE = "nt-static-v7";
+const SHELL = "nt-shell-v7";
 const MAX_ENTRIES = 500;
 
 self.addEventListener("install", e => {
@@ -19,7 +19,7 @@ self.addEventListener("activate", e => {
 });
 
 const isStatic = u =>
-  (u.origin === self.location.origin && /\.(js|css|svg|png|jpg|jpeg|webp|woff2?|json|webmanifest)$/i.test(u.pathname)) ||
+  (u.origin === self.location.origin && /\.(js|css|svg|png|jpg|jpeg|webp|woff2?|json|webmanifest|glb|mp3|wasm)$/i.test(u.pathname)) ||
   u.hostname === "fonts.googleapis.com" || u.hostname === "fonts.gstatic.com" ||
   u.hostname === "flagcdn.com" || u.hostname === "assets.coincap.io" || u.hostname === "cdn.jsdelivr.net" || u.hostname === "unpkg.com";
 
