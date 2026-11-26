@@ -444,7 +444,7 @@ function stats(){
     trades: d.history.filter(h => /buy|sell|fill|perp/.test(h.kind)).length, marketsTraded: new Set(d.history.filter(h => h.mid).map(h => h.mid)).size,
     biggestWin: wins.length ? Math.max(...wins) : 0, won: d.history.filter(h => h.kind === "won").length, lost: d.history.filter(h => h.kind === "lost").length, enabled: cfg().enabled};
 }
-window.PRED = {data: () => JSON.parse(JSON.stringify(data())), stats, cfg, settle: checkSettle, _internal: {PX, BOOK, EV, levels, loadBooks}};
+window.PRED = {data: () => JSON.parse(JSON.stringify(data())), stats, cfg, settle: checkSettle, _data: data, _internal: {PX, BOOK, EV, levels, loadBooks}};
 let curScreen = null;
 
 /* =====================================================================================================

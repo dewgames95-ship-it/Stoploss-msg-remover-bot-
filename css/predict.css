@@ -413,7 +413,7 @@
 .pd-perp-g b{font-size:13px;white-space:nowrap}
 .pd-perp-f{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:10px;font-size:12px;color:var(--muted)}
 .pd-perp-f b{color:var(--text)}
-.up{color:var(--up)}.down{color:var(--down)}
+.pd-page .up,.pd-qs .up{color:var(--up)}.pd-page .down,.pd-qs .down{color:var(--down)}
 
 @media (max-width:374px){
   .pd-sub{gap:16px}.pd-sub a{font-size:14px}

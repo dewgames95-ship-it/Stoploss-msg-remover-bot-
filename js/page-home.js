@@ -231,7 +231,7 @@ Pages.home = () => {
 
   function renderBal(){
     const b = document.getElementById("bal"); if (!b) return;
-    const hide = s.settings.hideBal, total = s.balance + E.earnValue() + s.fut.positions.reduce((a,p) => a + p.margin + E.futPnl(p).pnl, 0) + s.positions.reduce((a,p) => a + p.amount, 0);
+    const hide = s.settings.hideBal, total = s.balance + E.earnValue() + s.fut.positions.reduce((a,p) => a + p.margin + E.futPnl(p).pnl, 0) + s.positions.reduce((a,p) => a + p.amount, 0) + (s.spot?.bots || []).filter(b => b.running).reduce((a, b) => a + b.invest + b.invest * b.roiM / 100 * ((Date.now() - b.since) / (30 * 864e5)), 0);   // v6.8: running spot bots
     b.textContent = hide ? "******" : money(total);
     const st = E.stats(), fToday = s.fut.history.filter(x => x.closed >= new Date().setHours(0,0,0,0)).reduce((a,x) => a + x.profit, 0), tp = st.todayPnl + fToday;
     const el = document.getElementById("tp"); el.textContent = hide ? "****" : `${signed(tp)} USDT (${signed(tp / (s.balance || 1) * 100 || 0)}%)`; el.className = "num " + (tp > 0 ? "up" : tp < 0 ? "down" : "");
