@@ -182,7 +182,7 @@ function drawCopy(root){
   const L = (window.COPY_LEADERS || []).slice().sort((a,b) => b.roi - a.roi).slice(0, 8);
   if (!L.length){ box.hidden = true; return; }
   box.innerHTML = `<a class="hm-sh" href="#/copy"><h2>Copy Trading</h2>${ic("chev",16,2)}</a><div class="hm-cps">${L.map(l => `<div class="hm-cp" data-ld="${l.id}" role="button" tabindex="0">
-    <div class="hd">${window.ART && ART.avatar ? ART.avatar(l.id, 40) : avatar(l.name, 40)}<div class="nm"><b class="ellipsis">${esc(l.name)}</b><span>${esc(l.tag)} <i></i> ${ic("users",12,1.7)} <span class="num">${l.f}/2000</span></span></div></div>
+    <div class="hd">${window.ART && ART.avatar ? ART.avatar(l.id, 40) : avatar(l.name, 40)}<div class="nm"><b class="ellipsis">${esc(l.name)}</b><span>${esc(l.tag)} <i></i> ${ic("users",12,1.7)} <span class="num">${Number(l.f || 0).toLocaleString("en-US")} copiers</span></span></div></div>
     <div class="lb">30D PnL</div><div class="roi num">+${l.roi.toFixed(2)}%</div><div class="sp">${areaSpark(l.getSpark(28))}</div>
     <div class="ft"><span>AUM <b class="num">${cmp(l.aum)}</b></span><button class="cp" tabindex="-1">Copy</button></div></div>`).join("")}</div>`;
   box.onclick = e => { const c = e.target.closest("[data-ld]"); if (c) location.hash = "#/copy/" + c.dataset.ld; };

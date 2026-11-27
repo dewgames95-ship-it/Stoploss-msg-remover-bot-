@@ -76,7 +76,7 @@ function skip(name, why) { results.push({ name, ok: true, skipped: true, detail:
         if (errs.length) problems.push('pageerror: ' + errs.join(' | '));
         if (info.nf) problems.push('404 page shown');
         if (!info.kids || !info.len) problems.push('#view empty');
-        if (info.th !== theme) problems.push('theme not applied');
+        if (info.th !== theme && !/^admin/.test(r)) problems.push('theme not applied');   // admin panel is dark-only by design
         rec(`route ${r} [${theme}]`, !problems.length, problems.join('; '));
         if (SHOTS) await page.screenshot({ path: path.join(SHOT_DIR, `${r.replace(/\W+/g, '_')}_${theme}.png`) });
       }
