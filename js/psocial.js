@@ -233,7 +233,7 @@ function comments(box, ev){
   try { io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting){ io.unobserve(e.target); load(e.target.dataset.psMini); } }), {rootMargin: "200px"}); } catch {}
   const filled = new Map();
   function paint(a, d){ root.querySelectorAll(`[data-ps-mini="${a}"]`).forEach(el => { const b = el.querySelectorAll("b"); const [p, v] = d;
-    if (p == null && v == null){ el.classList.add("none"); return; }
+    if (p == null && !v){ el.classList.add("none"); return; }   // no data and nothing held: hide the card
     el.classList.remove("none"); b[0].textContent = p == null ? "--" : cmpS(p); b[0].className = "num " + (p == null ? "" : sgn(p)); b[1].textContent = v == null ? "--" : "$" + cmp(v); }); }
   function load(a){ if (filled.has(a)) return; filled.set(a, null); Promise.all([P.stats(a), P.value(a)]).then(([st, v]) => { if (dead) return; const d = [pnlOf(st), v]; filled.set(a, d); paint(a, d); }); }
   function hydrate(){ root.querySelectorAll("[data-ps-mini]").forEach(el => { const a = el.dataset.psMini, d = filled.get(a); if (d) paint(a, d); else if (io && !filled.has(a)) io.observe(el); else if (!io) load(a); }); }

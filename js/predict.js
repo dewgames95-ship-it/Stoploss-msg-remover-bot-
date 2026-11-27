@@ -1147,19 +1147,31 @@ function detailScreen(key, mid){
     const host = $("#pdRC"); if (!host || !window.CH) return;
     try { CH.mount(host, {sym: rd.sym, tf: sessionStorage.getItem("tf_ch3") || "1m", indicators: true, compact: true, tfbar: true, mode: "none", height: "280px", tfs: ["1s", "1m", "5m", "15m", "1h"]}); } catch (e){ console.warn(e); }
     startPrice(rd).then(v => { startPx = v != null ? v : livePx(rd.sym); updateRound(); });
-    updateRound();
+    updateRound(); cancelAnimationFrame(fr); fr = requestAnimationFrame(frameLoop);
   }
   const nextLink = txt => `${txt} <a class="pd-link" href="#/predict/m/${rd.a.k}-updown-${rd.iv}m-${rd.t1}">Go to the next round ${ic("chev", 14)}</a>`;
   const fp = v => v == null ? "--" : window.M && M.fmtPx ? M.fmtPx(M.get(rd.sym), v) : fmt(v, 2);
+  /* v7.0: the Start line / label and the start-time marker are HTML overlays, so they are re-placed on EVERY animation frame
+     (right after the chart repaints) from the chart's own price-to-y mapping. They cannot drift when the chart autoscales, pans or resizes. */
+  let slY = NaN, slX = NaN, slT = "", slE = "", fr = 0;
   function placeLines(){
     const g = window.CH && CH.geo && CH.geo(); const wrap = g && g.el && g.el.parentElement;
-    if (!wrap || startPx == null){ if (slEl) slEl.style.display = "none"; if (svEl) svEl.style.display = "none"; return; }
-    if (!slEl || !slEl.isConnected){ slEl = document.createElement("div"); slEl.className = "pd-sl"; slEl.innerHTML = "<i></i><span></span>"; wrap.appendChild(slEl); svEl = document.createElement("div"); svEl.className = "pd-sv"; wrap.appendChild(svEl); }
-    const y = g.p2y(startPx);
-    if (y == null || isNaN(y) || y < 0 || y > g.h){ slEl.style.display = "none"; } else { slEl.style.display = ""; slEl.style.top = y.toFixed(1) + "px"; slEl.lastChild.textContent = "Start " + fp(startPx); }
+    if (!wrap || startPx == null || !rd){ if (slEl) slEl.style.display = "none"; if (svEl) svEl.style.display = "none"; slY = slX = NaN; return; }
+    if (!slEl || !slEl.isConnected){ slEl = document.createElement("div"); slEl.className = "pd-sl"; slEl.innerHTML = "<i></i><span></span>"; wrap.appendChild(slEl); svEl = document.createElement("div"); svEl.className = "pd-sv"; wrap.appendChild(svEl); slY = slX = NaN; slT = slE = ""; }
+    const y = g.p2y(startPx), txt = "Start " + fp(startPx);
+    if (y == null || isNaN(y)){ slEl.style.display = "none"; slY = NaN; }
+    else {
+      /* start price outside the visible range: keep a small arrow chip at the edge instead of losing it */
+      const out = y < 0 ? "up" : y > g.h ? "down" : "", yy = out === "up" ? 12 : out === "down" ? g.h - 12 : y;
+      if (slEl.style.display === "none") slEl.style.display = "";
+      if (!(Math.abs(yy - slY) <= .04)){ slEl.style.transform = "translateY(" + (yy - .75).toFixed(2) + "px)"; slY = yy; }
+      if (out !== slE){ slE = out; slEl.className = "pd-sl" + (out ? " edge " + out : ""); }
+      const lab = out ? (out === "up" ? "\u25B2 " : "\u25BC ") + txt : txt; if (lab !== slT){ slT = lab; slEl.lastChild.textContent = lab; }
+    }
     let x = null; try { x = g.t2x(rd.t0); } catch {}
-    if (x == null || isNaN(x) || x < 0 || x > g.pw){ svEl.style.display = "none"; } else { svEl.style.display = ""; svEl.style.left = x.toFixed(1) + "px"; }
+    if (x == null || isNaN(x) || x < 0 || x > g.pw){ svEl.style.display = "none"; slX = NaN; } else { if (svEl.style.display === "none") svEl.style.display = ""; if (!(Math.abs(x - slX) <= .04)){ svEl.style.transform = "translateX(" + x.toFixed(2) + "px)"; slX = x; } }
   }
+  const frameLoop = () => { fr = requestAnimationFrame(frameLoop); if (root && rd && !document.hidden) placeLines(); };
   function updateRound(){
     if (!rd || !root) return; const t = now(), left = rd.t1 * 1000 - t, px = livePx(rd.sym);
     setTxt2($("[data-rcd]"), mmss(left));
@@ -1322,7 +1334,7 @@ function detailScreen(key, mid){
     let rz = 0; const onRz = () => { clearTimeout(rz); rz = setTimeout(() => series.length && drawSeries(), 200); }; addEventListener("resize", onRz); offs.push(() => removeEventListener("resize", onRz));
     boot();
   }
-  function unmount(){ curScreen = null; root = null; cmtOff && cmtOff(); cmtOff = null; closeWS && closeWS(); timers.forEach(clearInterval); offs.forEach(f => f()); closeAllOvl(); if (rd){ try { CH.destroy(); } catch {} } }
+  function unmount(){ curScreen = null; root = null; cancelAnimationFrame(fr); cmtOff && cmtOff(); cmtOff = null; closeWS && closeWS(); timers.forEach(clearInterval); offs.forEach(f => f()); closeAllOvl(); if (rd){ try { CH.destroy(); } catch {} } }
   return {html: cfg().enabled ? html : backHead("Market") + maint(), title: ev ? ev.title : "Prediction market", mount: cfg().enabled ? mount : () => {}, unmount};
 }
 async function cancelOrder(id){

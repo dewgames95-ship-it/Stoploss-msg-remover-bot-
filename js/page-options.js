@@ -150,7 +150,7 @@ function sizeSvg(type){
     <circle class="hp-dot" cx="${X(120)}" cy="112" r="4"/><circle class="hp-dot3" cx="${X(196)}" cy="74" r="4"/>
     <text class="hp-t hp-b" x="${X(120)}" y="140" text-anchor="middle">Strike</text><text class="hp-t hp-b" x="${X(196)}" y="140" text-anchor="middle">Breakeven</text>
     <text class="hp-t hp-dn" x="${X(14)}" y="104" text-anchor="${A}">LOSS: premium only</text>
-    <text class="hp-t hp-up" x="${X(306)}" y="42" text-anchor="${B}">PROFIT grows</text>
+    <text class="hp-t hp-up" x="${X(306)}" y="68" text-anchor="${B}">PROFIT grows</text>
     <text class="hp-t" x="${X(14)}" y="68" text-anchor="${A}">0</text>`, put ? "Put payoff at expiry" : "Call payoff at expiry");
 }
 /* the live numbers of the Simple-mode order form, used in the worked example of the "Profit if price reaches" help */
@@ -172,7 +172,7 @@ const HELP2 = {
     const c0 = hctx && hctx(), d = c0 && c0.d, isC = c0 ? c0.side === "call" : true;
     let ex = "", gr = "";
     if (d){
-      const qty = d.qty > 0 ? d.qty : d.min, cq = quote(c0.side, d.K, d.exp, qty);
+      const qty = c0.qty, cq = c0.cq, base = c0.base;
       if (cq){
         const rows = reachLv(isC).map(pc => { const T = d.S*(1 + pc/100), pr = intrinsic(c0.side, T, d.K)*qty - cq.cost; return {l: (pc > 0 ? "+" : "") + pc + "%", pr}; });
         gr = reachSvg(rows);
@@ -189,7 +189,7 @@ const HELP2 = {
       <p>This is an estimate at expiry. Selling early gives the current value, which can be lower or higher.</p>`;
   }]
 };
-const helpOpen = (k, a) => { const h2 = HELP2[k]; if (h2) return UI.help(h2[0](a), h2[1](a)); const h = HELP[k]; if (h) UI.help(h[0], h[1]()); };
+const helpOpen = (k, a) => { const h2 = HELP2[k]; if (h2) return UI.help(typeof h2[0] === "function" ? h2[0](a) : h2[0], h2[1](a)); const h = HELP[k]; if (h) UI.help(h[0], h[1]()); };
 
 /* ---------- page ---------- */
 Pages.options = (params) => {
@@ -645,7 +645,7 @@ Pages.options = (params) => {
     $("#opChain").onclick = e => { const b = e.target.closest("[data-buy]"); if (b) buySheet(+b.dataset.buy); };
     $("#opList").onclick = e => { let b = e.target.closest("[data-help]"); if (b) return helpOpen(b.dataset.help, b.dataset.ha); b = e.target.closest("[data-close]"); if (b) closePos(b.dataset.close); };
     $("#opList").addEventListener("keydown", e => { const h = e.target.closest && e.target.closest("[data-help]"); if (h && (e.key === "Enter" || e.key === " ")){ e.preventDefault(); helpOpen(h.dataset.help, h.dataset.ha); } });
-    hctx = () => ({d: simpleCalc(), side});
+    hctx = () => { const d = simpleCalc(), qty = d ? (d.qty > 0 ? d.qty : d.min) : 0; return {d, side, qty, base, cq: d ? quote(side, d.K, d.exp, qty) : null}; };
     root.querySelectorAll("[data-pt]").forEach(b => b.onclick = () => setPtab(b.dataset.pt));
     const onTick = x => { if (x !== base) return; renderHead(); if (tTimer) return;
       const wait = Math.max(0, 250 - (performance.now() - tT)); tTimer = setTimeout(() => { tTimer = 0; tT = performance.now(); if (!root) return; if (mode === "simple"){ renderSLive(); renderSDyn(); } else renderChain(); tickList(); }, wait); };

@@ -154,6 +154,7 @@ Pages.spot = (params) => {
   if (/USDC$/.test(sym) && sym !== "USDC"){ const t = sym.replace(/USDC$/, "USDT"); try{ sessionStorage.setItem("lastSym_spot", t); }catch{} return {title:"Spot", html:'<div class="sub" style="padding:40px 16px;text-align:center">Opening Spot…</div>', mount(){ location.replace("#/spot/" + t); }}; }
   if (!M.get(sym) && M.get(sym + "USDT")) sym += "USDT";
   if (!M.get(sym)) return M.cryptoOrder.length ? Pages.notfound() : loadingPage();
+  if (sym === UC && !(M.get(sym).price > 0)){ let off; return {title:"Loading", html: UI.pageHead("Spot") + `<div>${Array(8).fill('<div class="skel"></div>').join("")}</div>`, mount(){ ucPoll(); off = bus.on("tick", x => { if (x === UC) App.route(); }); }, unmount(){ off?.(); }}; }
   try{ sessionStorage.setItem("lastSym_spot", sym); }catch{}
   const P = () => M.get(sym), coin = keyOf(sym), unit = unitOf(M.get(sym), sym), isCrypto = M.get(sym).type === "crypto", label0 = M.label(M.get(sym)), s = S(), Q = quote, isUC = sym === UC;
   let unitMode = s.settings.spotUnit === "usdt" ? "usdt" : "coin", tsM = "price", lastStep = -1, root, offs = [], timers = [], side = "buy", otype = "limit", sliderPct = 0, ptab = "open", curOnly = false, chartOpen = false, unChart = null, prec = 0;
