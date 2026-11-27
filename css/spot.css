@@ -81,3 +81,23 @@
 .sp-kv>span{display:inline-flex;align-items:center;gap:0}
 .sp-form .fee-l{flex-wrap:nowrap;gap:2px 4px;white-space:nowrap}
 @media(max-width:380px){.sp-form .fee-l{font-size:10.5px;gap:2px 3px}.sp-form .fee-l .fee-b{padding:0 4px;font-size:10px}}
+/* v7.0 USDC/USDT pair header + 0 fee */
+.uc-hd{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:10px 0 4px}
+.uc-px{display:block;font-size:34px;font-weight:700;line-height:1.1;letter-spacing:-.5px}
+.uc-sub{font-size:14px;margin-top:6px;color:var(--text);display:flex;gap:8px}
+.uc-0{display:inline-block;margin-top:8px;font-size:13px;font-weight:700;color:var(--brand-2,var(--brand))}
+.uc-r{display:grid;gap:5px;min-width:0;font-size:12px}
+.uc-r>div{display:flex;justify-content:space-between;gap:14px}
+.uc-r span{color:var(--muted);white-space:nowrap}
+.uc-r b{font-weight:500;color:var(--text);text-align:right}
+@media(max-width:380px){.uc-px{font-size:28px}.uc-r{font-size:11px}.uc-r>div{gap:8px}}
+.uc-fee{justify-content:center}
+.uc-f0{font-weight:700;color:var(--brand-2,var(--brand))}
+/* v7.0 USDC ⇄ USDT Grid bot sheet */
+.ug-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.ug-pair{display:inline-flex;align-items:center;gap:8px;font-size:16px}
+.ug-0{font-size:12px;font-weight:700;color:var(--brand-2,var(--brand));padding:3px 10px;border-radius:999px;border:1px solid var(--line);background:var(--card-2,var(--input))}
+.ug-est{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}
+.ug-est div{background:var(--card-2,var(--input));border-radius:var(--r-card,12px);padding:10px 6px;text-align:center;min-width:0}
+.ug-est span{display:block;font-size:11px;color:var(--muted)}
+.ug-est b{display:block;font-size:15px;font-weight:800;margin-top:2px;white-space:nowrap}

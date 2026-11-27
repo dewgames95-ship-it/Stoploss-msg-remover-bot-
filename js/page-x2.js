@@ -221,7 +221,7 @@ Pages.assets = (params) => {
         + (rows.length ? rows.map(x => coinRow(x, H)).join("") : empty("wallet", s.settings.hideSmall ? "No balances above 1 USDT" : "No assets"));
       if (tab === "spot") body += `<a class="px-btn blk" style="margin-top:12px" href="#/trade">Trade</a>`;
       if (tab === "futures") body += `<div class="px-sec"><div class="px-sec-h"><h2>Position history</h2><a href="#/history">All</a></div>${s.fut.history.length ? UI.historyHtml(s.fut.history.slice(0, 5)) : empty("file","No closed positions")}</div>`;
-      if (tab === "copy"){ const act = cstate().active; body += `<div class="px-sec-h" style="margin-top:14px"><h2>Active copies (${act.length})</h2><a href="#/copy/my">My data</a></div>` + (act.length ? act.map(c => { const p = copyPct(c), pn = c.amt * p / 100; return `<a class="px-row" href="#/copy/my">${ART.avatar(c.lid, 36)}<div class="grow"><b>${esc(c.name)}</b><div class="px-mut">Invested ${H(money(c.amt))} USDT</div></div><div class="r"><b class="num ${cls(pn)}">${H(signed(pn))}</b><span class="px-mut num">${H(sgnPct(p))}</span></div></a>`; }).join("") : empty("users","No active copies")) + `<a class="px-btn pri blk" style="margin-top:12px" href="#/copy">Find traders</a>`; }
+      if (tab === "copy"){ const act = cstate().active; body += `<div class="px-sec-h" style="margin-top:14px"><h2>Active copies (${act.length})</h2><a href="#/copy/my">My copying</a></div>` + (act.length ? act.map(c => { const p = copyPct(c), pn = c.amt * p / 100; return `<a class="px-row" href="#/copy/my">${ART.avatar(c.lid, 36)}<div class="grow"><b>${esc(c.name)}</b><div class="px-mut">Invested ${H(money(c.amt))} USDT</div></div><div class="r"><b class="num ${cls(pn)}">${H(signed(pn))}</b><span class="px-mut num">${H(sgnPct(p))}</span></div></a>`; }).join("") : empty("users","No active copies")) + `<a class="px-btn pri blk" style="margin-top:12px" href="#/copy">Find traders</a>`; }
       if (tab === "earn") body += `<a class="px-btn pri blk" style="margin-top:12px" href="#/earn">Go to Earn</a>`;
       if (tab === "fund" || tab === "overview") body += `<div class="px-sec"><div class="px-sec-h"><h2>Recent transactions</h2><a href="#/history">Trade history</a></div>${txList(s.tx.slice(0, tab === "fund" ? 20 : 5))}</div>`;
     }
@@ -380,6 +380,23 @@ const LEADS = [
   return {id:a[0], name:a[1], style:a[2], sym:a[3], roi, pnl30:a[5], wr:a[6], mdd:a[7], aum:a[8], f:a[9], days:a[10], ai: hash01(a[0] + "ai") > .5, bin: a[0][0] === "b", pay: a[11] || 0, tpd: a[12] || 0,
     ini:a[1].replace(/[^A-Za-z ]/g," ").split(/\s+|(?=[A-Z])/).filter(Boolean).slice(0,2).map(w => w[0]).join("").toUpperCase() || a[1].slice(0,2).toUpperCase()}; });
 window.SIMLEADS = LEADS;   /* v6.7: traders are simulated by SIM (js/x3.js) */
+/* v7.0: realistic AUM ($10k-$300k, rarely ~$1M), slowly drifting, deterministic by time (same on all devices, no jumps).
+   Copiers and 30D PnL are derived from it so all three stay consistent. SIM writes to these fields are ignored. */
+const DAYMS = 864e5, ANCHOR = Date.UTC(2026, 10, 27);
+function aumOf(l, t){
+  t = t || Date.now(); const u = hash01(l.id + "aum"), big = hash01(l.id + "big") < .03;
+  const base = big ? 850e3 + hash01(l.id + "bg2") * 300e3 : 10e3 + 290e3 * Math.pow(u, 1.7);
+  const ph = k => hash01(l.id + k) * 6.2832;
+  const m = 1 + .05 * Math.sin(t / (DAYMS * 3.3) + ph("p1")) + .02 * Math.sin(t / (DAYMS * .8) + ph("p2")) + .006 * Math.sin(t / (36e5 * 2.1) + ph("p3"));
+  return base * m;
+}
+const copiersOf = l => Math.max(12, Math.min(2000, Math.round(aumOf(l) / (420 + 380 * hash01(l.id + "cp")))));
+const pnlOfAum = (aum, roi) => { const r = Math.max(-80, roi); return aum * r / (100 + r); };
+const startOf = l => Math.min(ANCHOR - l.days * DAYMS, Date.now() - DAYMS);
+const histCount = l => 50 + Math.floor(hash01(l.id + "hc") * 51);
+const fixGet = (o, get) => { ["aum", "f"].forEach(k => Object.defineProperty(o, k, {get: () => k === "aum" ? aumOf(get(o)) : copiersOf(get(o)), set(){}, enumerable: true, configurable: true}));
+  Object.defineProperty(o, "pnl30", {get: () => pnlOfAum(aumOf(get(o)), (get(o).roi && get(o).roi[1]) || 0) , set(){}, enumerable: true, configurable: true}); };
+LEADS.forEach(l => fixGet(l, x => x));
 const PRICE_FB = {BTC:67000, ETH:3300, SOL:160, BNB:600, XRP:.55, DOGE:.15, AVAX:35, LINK:15, XAU:2350, EUR:1.08};
 const PERS = [["7D",0],["30D",1],["90D",2]];
 const baseOf = sym => sym.replace(/USDT$/, "").replace(/USD$/, "");
@@ -388,8 +405,16 @@ const symLabel = sym => { const p = M.get(sym); return p ? M.label(p) : (sym.end
 const symPx = (sym, v) => { const p = M.get(sym); try { return M.fmtPx(p || {dp: v < 10 ? 4 : 2}, v); } catch { return fmt(v, v < 10 ? 4 : 2); } };
 const tdesc = mk => mk === "spot" ? .42 : 1;
 window.COPY_LEADERS = LEADS.filter(l => !l.bin).map(l => ({id:l.id, name:l.name, f:l.f, cap:CAP, roi:l.roi[1], pnl30:l.pnl30, aum:l.aum, wr:l.wr, ini:l.ini, tag:"Perp", spark:null, bin:false}));
-window.COPY_LEADERS.forEach(x => { const l = LEADS.find(y => y.id === x.id); x.getSpark = n => curve(l, 1, "futures", n || 24); });
+window.COPY_LEADERS.forEach(x => { const l = LEADS.find(y => y.id === x.id); Object.defineProperty(x, "aum", {get: () => l.aum, set(){}, enumerable: true, configurable: true}); Object.defineProperty(x, "pnl30", {get: () => l.pnl30, set(){}, enumerable: true, configurable: true}); Object.defineProperty(x, "f", {get: () => l.f, set(){}, enumerable: true, configurable: true}); x.getSpark = n => curve(l, 1, "futures", n || 24); });
 function lstats(l, per, mk){
+  const s = lstats0(l, per, mk), aum = l.aum * (mk === "spot" ? .6 : 1);
+  return Object.assign({}, s, {aum, pnl: pnlOfAum(aum, s.roi)});
+}
+function allTime(l, mk){
+  const s = lstats(l, 2, mk), days = Math.max(1, (Date.now() - startOf(l)) / DAYMS), roi = s.roi * (days > 90 ? Math.pow(days / 90, .8) : 1);
+  return {roi, pnl: pnlOfAum(s.aum, roi), days: Math.round(days), start: startOf(l)};
+}
+function lstats0(l, per, mk){
   const sx = window.SIM && SIM.stats(l.id, per);
   if (sx) return {roi:sx.roi, pnl:sx.pnl, wr:sx.wr, mdd:sx.mdd, aum:sx.aum, pay:l.pay, tpd:Math.round(sx.tpd * 10) / 10 || l.tpd, n:sx.n};
   const f = tdesc(mk), roi = l.roi[per] * f, pnl = l.pnl30 * (l.roi[per] / l.roi[1]) * (mk === "spot" ? .5 : 1);
@@ -483,33 +508,68 @@ const sharpe = l => +(.4 + Math.max(0, l.roi[1]) / Math.max(4, l.mdd) * .32 + ha
 const score = l => l.roi[1] * .35 + l.wr * .3 + (30 - l.mdd) * .8 + sharpe(l) * 6;
 const favs = () => (S().copyFavs ||= []);
 const POSTS = [
-  ["Closed {s} {d} for {p}. Stuck to the plan and let the trade breathe.", 1],
-  ["Reduced exposure on {s} ahead of the data release. Capital protection first.", 0],
-  ["Opened a small {d} on {s}. Risk is capped at 1.5% of the account.", 1],
-  ["Funding is turning on {s}. Watching for a clean break before adding.", 0],
-  ["Thanks for the support, followers. Month is {p} so far, drawdown still under control.", 1],
-  ["Took a stop on {s}. Part of the game, size was small and the plan is intact.", 0],
-  ["Scaling into {s} {d}. Entries are laddered, target is above the last swing high.", 1],
-  ["Market is choppy. Sitting in cash on most pairs and waiting for a setup.", 0]
+  "closed {s} {d} for {p}. nothing fancy, just waited for my level and let it run",
+  "ngl that {s} wick shook me out for a tiny loss, re-entered 20 min later and it went exactly where i wanted. lol",
+  "Trimmed some {s} ahead of CPI tomorrow. I'd rather miss a few % than get chopped up by a headline.",
+  "gm all. {s} looks sleepy, staying flat until something actually happens",
+  "People keep asking why I don't use more leverage. Because I like still being here next month.",
+  "Took a stop on {s}. Small size, plan unchanged. Moving on.",
+  "Month is {p} so far. Thanks for trusting me with your capital, honestly means a lot.",
+  "{s} funding is getting silly. Not fading it yet but I'm watching closely.",
+  "ok that {s} {d} was ugly for about two hours and then fine. patience pays, until it doesn't",
+  "Quick reminder: a stop-loss is not an opinion, it's part of the trade. Set it before you click buy.",
+  "Added to {s} {d} in three clips instead of one. Average entry came out better than my first plan.",
+  "slow day. 1 trade, +0.4%. will take it",
+  "Anyone else seeing {s} bids stack up around that level? Feels like someone is defending it.",
+  "Honest update: last week was my worst in a while, -3.1%. Cutting size until the market makes sense again.",
+  "My rule has been the same for years - never risk more than 1-2% per idea. Boring but it works.",
+  "{s} just broke out of that 4h range. Small {d}, stop right under the box.",
+  "lfg, {s} hit target number one. Moved stop to breakeven and now it's a free trade",
+  "Not touching {s} until the weekend liquidity thins out. Spreads get weird.",
+  "Someone asked if I trade overnight. Yes, but only with a hard stop, I like my sleep.",
+  "Re-reading my journal from March. Wow, I was overtrading so much back then. Fewer trades, better results.",
+  "Rough one. {s} reversed right after I closed, classic. Whatever, process over outcome.",
+  "{s} {d} from this morning is up {p}. Locking in half here.",
+  "Keeping it simple this week: one pair, one setup. {s} only.",
+  "volume is dead rn, nothing to do. going to the gym",
+  "To the new copiers: don't judge me by one day. Give it a few weeks and look at the drawdown, not just the profit.",
+  "Closed everything before the Fed. Will look again after the noise.",
+  "{s} liquidity sweep then reclaim, textbook. In {d}, tight risk.",
+  "Went a bit too heavy on {s} yesterday and it kept me up. Lesson learned, sizing down today.",
+  "Who else is tired of fake breakouts lately? Third one this week.",
+  "Hit my weekly target on Tuesday, so the rest of the week is just watching. Not forcing anything.",
+  "{s} is respecting the 200 EMA so far. Bias stays {d} while it holds.",
+  "Small win on {s}, {p}. Not every day needs to be a banger.",
+  "tbh the best trade this month was the one I skipped",
+  "Thank you for the messages. Yes I'm still taking new copiers, but I'd keep your risk settings modest.",
+  "Trimmed {s} into strength. If it keeps going I'm fine, if it drops I'm also fine.",
+  "{s} cooked me today. stop hit, -1.2% on the account, we go again tomorrow",
+  "Volatility is picking up. Cutting position sizes by a third until things calm down a bit.",
+  "Added a little {s} {d} on the dip. Not a huge position, just tracking it.",
+  "A reminder that past results are exactly that. I do my best but nobody wins every trade."
 ];
 const PERPS = LEADS.filter(l => !l.bin);
 function feed(){
-  const r = rngFor("feed"), out = [];
-  for (let i = 0; i < 16; i++){
-    const l = PERPS[Math.floor(r() * PERPS.length)], [tpl] = POSTS[Math.floor(r() * POSTS.length)], p = (r() * 6 + .6).toFixed(1) + "%";
-    out.push({l, text: tpl.replace("{s}", symLabel(l.sym)).replace("{d}", r() > .35 ? "long" : "short").replace("{p}", "+" + p), ago: Math.floor(10 + i * (20 + r() * 40)), likes: Math.floor(r() * 480) + 12, cm: Math.floor(r() * 60) + 1, sym: l.sym});
+  const r = rngFor("feed2"), out = [], order = POSTS.map((_, i) => i);
+  for (let i = order.length - 1; i > 0; i--){ const j = Math.floor(r() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
+  let lastL = null, ago = 0;
+  for (let i = 0; i < 18; i++){
+    let l = PERPS[Math.floor(r() * PERPS.length)]; if (l === lastL) l = PERPS[(PERPS.indexOf(l) + 1) % PERPS.length]; lastL = l;
+    const tpl = POSTS[order[i]], p = "+" + (r() * 5 + .6).toFixed(1) + "%";
+    ago += Math.floor(6 + r() * r() * 150);
+    out.push({l, text: tpl.replace(/\{s\}/g, symLabel(l.sym)).replace(/\{d\}/g, r() > .35 ? "long" : "short").replace(/\{p\}/g, p), ago, likes: Math.floor(r() * r() * 520) + 2, cm: Math.floor(r() * r() * 70), sym: l.sym});
   }
   return out;
 }
 const agoStr = m => m < 60 ? m + "m ago" : m < 1440 ? Math.floor(m / 60) + "h ago" : Math.floor(m / 1440) + "d ago";
-const SORTS = [["comp","Comprehensive"],["roi","30D ROI"],["pnl","30D PnL"],["wr","Win rate"],["mdd","Lowest drawdown"],["aum","AUM"],["f","Followers"]];
-const CHIPS = [["star","Star Traders", l => l.wr >= 66 && l.aum >= 4e5],["soar","Soaring ROI", l => l.roi[1] >= 30],["dd","Low Drawdown", l => l.mdd <= 9],["aum","High AUM", l => l.aum >= 1e6]];
+const SORTS = [["roi","30D ROI"],["pnl","30D PnL"],["wr","Win rate"],["mdd","Lowest drawdown"],["aum","AUM"],["f","Followers"]];
+const CHIPS = [["star","Star Traders", l => l.wr >= 62 && l.mdd <= 15],["soar","Soaring ROI", l => l.roi[1] >= 30],["dd","Low Drawdown", l => l.mdd <= 9],["aum","High AUM", l => l.aum >= 150e3]];
 
 Pages.copy = (params) => {
   const openId = params && LEADS.find(x => x.id === params[0]) ? params[0] : null;
-  let seg = params && params[0] === "binary" || (openId && LEADS.find(x => x.id === openId).bin) ? "binary" : "perp", view = params && params[0] === "my" ? "my" : "plaza", ltab = "lead", chip = null, sort = "comp", q = "", showQ = false;
+  let seg = params && params[0] === "binary" || (openId && LEADS.find(x => x.id === openId).bin) ? "binary" : "perp", view = params && params[0] === "my" ? "my" : "plaza", ltab = "lead", chip = null, sort = "roi", q = "", showQ = false;
   const html = `<div class="px-page px-cp-pg">${head("Copy Trading", `<button class="icon-btn" data-menu aria-label="Menu">${ic("dots",20,1.8)}</button>`)}<div id="cbody"></div>
-    <div class="px-subnav"><div class="pill" id="snav"></div><button class="rnd" data-sq aria-label="Search traders">${ic("search",20,1.8)}</button></div></div>`;
+    <div class="px-subnav"><div class="card"><div class="pill" id="snav"></div><button class="rnd" data-sq aria-label="Search traders">${ic("search",20,1.8)}</button></div></div></div>`;
   const mkOf = () => seg === "binary" ? "binary" : "futures";
   const pool = () => LEADS.filter(l => seg === "binary" ? l.bin : !l.bin);
   const tagOf = () => seg === "binary" ? "Binary" : "Perp";
@@ -519,12 +579,12 @@ Pages.copy = (params) => {
       ${mk === "binary" ? `<div class="b four"><div><span>Win rate</span><b class="num">${s.wr.toFixed(1)}%</b></div><div><span>Avg payout</span><b class="num">${l.pay}%</b></div><div><span>Trades/day</span><b class="num">${l.tpd}</b></div><div><span>AUM</span><b class="num">${compact(s.aum)}</b></div></div></div>` : `<div class="b four"><div><span>30D Max DD</span><b class="num">${s.mdd.toFixed(2)}%</b></div><div><span>30D Sharpe</span><b class="num">${sh.toFixed(2)}</b></div><div><span>AUM</span><b class="num">${compact(s.aum)}</b></div><div><span>Open pos.</span><b class="num">${openCount(l)}</b></div></div></div>`}`; };
   return {html, title:"Copy Trading", mount(r){
     const $ = x => r.querySelector(x), body = $("#cbody");
-    const nav = () => { const n = cstate().active.length; $("#snav").innerHTML = [["plaza","Copy Trading"],["my","My data" + (n ? ` (${n})` : "")],["say","Traders say"]].map(([k,t]) => `<button data-sv="${k}" class="${view===k?"on":""}">${t}</button>`).join(""); };
+    const nav = () => { const n = cstate().active.length; $("#snav").innerHTML = [["plaza","Copy Trading"],["my","My copying" + (n ? ` (${n})` : "")],["say","Community"]].map(([k,t]) => `<button data-sv="${k}" class="${(view===k || (k === "plaza" && view === "all"))?"on":""}">${t}</button>`).join(""); };
     const list = () => { const mk = mkOf(); let a = pool();
       if (ltab === "follow") a = a.filter(l => favs().includes(l.id));
       const ch = CHIPS.find(c => c[0] === chip); if (ch) a = a.filter(ch[2]);
       if (q) a = a.filter(l => l.name.toLowerCase().includes(q.toLowerCase()));
-      const key = sort === "comp" ? (ltab === "smart" ? score : l => l.roi[1]) : {roi:l => l.roi[1], pnl:l => l.pnl30, wr:l => l.wr, mdd:l => -l.mdd, aum:l => l.aum, f:l => l.f}[sort];
+      const key = {roi:l => l.roi[1], pnl:l => l.pnl30, wr:l => l.wr, mdd:l => -l.mdd, aum:l => l.aum, f:l => l.f}[sort];
       return a.sort((x, y) => key(y) - key(x)); };
     function renderList(){
       const a = list();
@@ -536,20 +596,30 @@ Pages.copy = (params) => {
       $("#lst [data-sort]").onclick = () => U.sheet("Sort by", SORTS.map(([k,n]) => `<button class="px-opt ${sort===k?"on":""}" data-k="${k}">${n}${sort===k ? ic("check",18,2) : ""}</button>`).join(""), el => el.querySelectorAll("[data-k]").forEach(b => b.onclick = () => { sort = b.dataset.k; U.closeLayer(); renderList(); }));
       const tq = $("#tq"); if (tq) tq.oninput = () => { q = tq.value; const p = tq.selectionStart; renderList(); const n = $("#tq"); if (n){ n.focus(); n.setSelectionRange(p, p); } };
     }
+    const allBtn = k => `<button class="px-all" data-all="${k}">All traders ${ic("chev",12,2)}</button>`;
+    const starCard = l => { const s = lstats(l, 1, mkOf()); return `<div class="px-nt" data-ld="${l.id}">${ART.avatar(l.id, 56)}<b class="ellipsis">${esc(l.name)}</b><span class="px-mut num">${ic("users",12,1.7)} ${fmt(l.f,0)}</span><span class="roi num ${cls(s.roi)}">${sgnPct(s.roi)}</span><span class="px-mut dot">30D ROI</span></div>`; };
     function renderPlaza(){
-      const mk = mkOf(), fresh = pool().slice().sort((a, b) => a.days - b.days).slice(0, 8);
+      const star = pool().filter(CHIPS[0][2]).sort((a, b) => score(b) - score(a)).slice(0, 8), top = pool().slice().sort((a, b) => b.roi[1] - a.roi[1]).slice(0, 5);
       body.innerHTML = `<a class="px-hero" href="#/copy/my"><div class="tx"><b>Copy top traders with one tap</b><span>Mirror proven strategies, stop any time</span><i class="go">${ic("chev",14,2)}</i></div>${ART.trophy(88)}</a>
         <div class="px-sg" id="seg">${[["perp","Perp"],["binary","Binary"]].map(([k,n]) => `<button data-s="${k}" class="${seg===k?"on":""}">${n}</button>`).join("")}</div>
-        <div class="px-sec-h" style="margin:16px 0 10px"><h2>New Traders</h2></div>
-        <div class="px-newr">${fresh.map(l => { const s = lstats(l, 1, mk); return `<div class="px-nt" data-ld="${l.id}">${ART.avatar(l.id, 56)}<b class="ellipsis">${esc(l.name)}</b><span class="px-mut">Joined ${l.days}d ago</span><span class="roi num ${cls(s.roi)}">${sgnPct(s.roi)}</span><span class="px-mut dot">30D ROI</span></div>`; }).join("")}</div>
-        <div class="px-tabs" id="lt" style="margin-top:6px">${[["lead","Leaderboard"],["smart","Smart Ranking"],["follow","Following"]].map(([k,n]) => `<button data-t="${k}" class="${ltab===k?"on":""}">${n}</button>`).join("")}</div>
-        <div id="lst" style="padding-top:12px"></div>`;
+        <div class="px-sec-h" style="margin:16px 0 10px"><h2>Star Traders</h2>${allBtn("star")}</div>
+        <div class="px-newr">${star.map(starCard).join("")}</div>
+        <div class="px-sec-h" style="margin:12px 0 10px"><h2>Top Traders</h2>${allBtn("top")}</div>
+        ${top.map(ldCard).join("")}
+        <button class="px-btn blk px-allb" data-all="top">All traders</button>`;
       $("#seg").onclick = e => { const b = e.target.closest("[data-s]"); if (b){ seg = b.dataset.s; renderPlaza(); } };
-      $("#lt").onclick = e => { const b = e.target.closest("[data-t]"); if (b){ ltab = b.dataset.t; renderPlaza(); } };
+    }
+    function renderAll(){
+      body.innerHTML = `<button class="px-backl" data-sv="plaza">${ic("back",16,2)} Copy Trading</button>
+        <div class="px-sg" id="seg">${[["perp","Perp"],["binary","Binary"]].map(([k,n]) => `<button data-s="${k}" class="${seg===k?"on":""}">${n}</button>`).join("")}</div>
+        <div class="px-tabs" id="lt" style="margin-top:6px">${[["lead","All traders"],["follow","Following"]].map(([k,n]) => `<button data-t="${k}" class="${ltab===k?"on":""}">${n}</button>`).join("")}</div>
+        <div id="lst" style="padding-top:12px"></div>`;
+      $("#seg").onclick = e => { const b = e.target.closest("[data-s]"); if (b){ seg = b.dataset.s; renderAll(); } };
+      $("#lt").onclick = e => { const b = e.target.closest("[data-t]"); if (b){ ltab = b.dataset.t; renderAll(); } };
       renderList();
     }
     function renderSay(){
-      body.innerHTML = `<div class="px-sec-h" style="margin:8px 0 4px"><h2>Traders say</h2><span class="px-mut"><i class="px-pulse"></i> Live</span></div>` + feed().map(p => `<div class="px-post" data-ld="${p.l.id}"><div class="h">${ART.avatar(p.l.id, 40)}<div class="grow"><b>${esc(p.l.name)}</b><div class="px-mut">${agoStr(p.ago)}</div></div><span class="px-tag">${esc(symLabel(p.sym))}</span></div><p>${esc(p.text)}</p>${SOCIAL.bar("px:" + p.l.id + ":" + p.ago, p.likes, p.cm, {who:p.l.name, text:p.text})}</div>`).join("");
+      body.innerHTML = `<div class="px-sec-h" style="margin:8px 0 4px"><h2>Community</h2><span class="px-mut"><i class="px-pulse"></i> Live</span></div>` + feed().map(p => `<div class="px-post" data-ld="${p.l.id}"><div class="h">${ART.avatar(p.l.id, 40)}<div class="grow"><b>${esc(p.l.name)}</b><div class="px-mut">${agoStr(p.ago)}</div></div><span class="px-tag">${esc(symLabel(p.sym))}</span></div><p>${esc(p.text)}</p>${SOCIAL.bar("px:" + p.l.id + ":" + p.ago, p.likes, p.cm, {who:p.l.name, text:p.text})}</div>`).join("");
       SOCIAL.bind(body);
     }
     function renderMy(){
@@ -573,14 +643,15 @@ Pages.copy = (params) => {
         }
       });
     }
-    const show = () => { nav(); view === "my" ? renderMy() : view === "say" ? renderSay() : renderPlaza(); };
+    const show = () => { nav(); view === "my" ? renderMy() : view === "say" ? renderSay() : view === "all" ? renderAll() : renderPlaza(); };
     function detail(l, mk, focus){
       let dp = 1;
       const full = l.f >= CAP, bal = () => store.wb(mk === "binary" ? "binary" : "futures");
       const body = () => { const s = lstats(l, dp, mk);
         return `<div class="row" style="gap:12px;padding:2px 0 4px">${ART.avatar(l.id, 56)}<div class="grow"><b style="font-size:16px">${esc(l.name)}</b><div class="px-mut">${esc(l.style)}</div><div class="px-mut mt">${ic("users",13,1.7)} <span class="num">${fmt(l.f,0)} / ${fmt(CAP,0)}</span> followers</div></div></div>
-        <div class="row between" style="margin-top:10px"><div class="px-seg" id="dseg">${PERS.map(([n,i]) => `<button data-p="${i}" class="${dp===i?"on":""}">${n}</button>`).join("")}</div><span class="px-mut">${l.days} trading days</span></div>
+        <div class="row between" style="margin-top:10px"><div class="px-seg" id="dseg">${PERS.map(([n,i]) => `<button data-p="${i}" class="${dp===i?"on":""}">${n}</button>`).join("")}</div><span class="px-mut">Trading since ${new Date(startOf(l)).toLocaleDateString("en-US", {month:"short", day:"numeric", year:"numeric"})}</span></div>
         <div class="px-grid3"><div><span>${PERS[dp][0]} ROI</span><b class="num ${cls(s.roi)}" style="font-size:20px">${sgnPct(s.roi)}</b></div><div><span>${PERS[dp][0]} PnL</span><b class="num ${cls(s.pnl)}">${s.pnl >= 0 ? "+" : "-"}$${fmt(Math.abs(s.pnl),0)}</b></div><div><span>Win rate</span><b class="num">${s.wr.toFixed(1)}%</b></div>${mk === "binary" ? `<div><span>Trades/day</span><b class="num">${l.tpd}</b></div>` : `<div><span>Max drawdown</span><b class="num">${s.mdd.toFixed(1)}%</b></div>`}<div><span>AUM</span><b class="num">$${compact(s.aum)}</b></div>${mk === "binary" ? `<div><span>Avg. payout</span><b class="num">${l.pay}%</b></div>` : `<div><span>Avg. leverage</span><b class="num">${(() => { const c = positionsOf(l, mk) || []; return c.length ? Math.round(c.reduce((a, x) => a + (x.lev || 1), 0) / c.length) : Math.round(3 + hash01(l.id) * 9); })()}x</b></div>`}</div>
+        ${(() => { const at = allTime(l, mk); return `<div class="px-sec-h" style="margin:14px 0 8px"><h2>All-time</h2><span class="px-mut num">${fmt(at.days,0)} days</span></div><div class="px-grid3 two"><div><span>All-time ROI</span><b class="num ${cls(at.roi)}" style="font-size:20px">${sgnPct(at.roi)}</b></div><div><span>All-time PnL</span><b class="num ${cls(at.pnl)}">${at.pnl >= 0 ? "+" : "-"}$${fmt(Math.abs(at.pnl),0)}</b></div></div>`; })()}
         <div class="px-sec-h" style="margin:4px 0 0"><h2>ROI</h2><span class="px-mut"><i class="px-pulse"></i> Live</span></div><div class="px-big">${spark(curve(l, dp, mk, 60), 320, 110, s.roi >= 0 ? "var(--up)" : "var(--down)")}</div>`; };
       const form = `<div class="px-sec" id="pf" style="margin-top:12px"><div class="px-sec-h"><h2>Copy settings</h2><span class="px-mut">Avbl <b class="num" style="color:var(--text)">${money(bal())}</b> USDT</span></div>
         <div class="px-fld"><label><span>Investment</span><span class="px-mut">Min 10 USDT</span></label><div class="px-inp" id="fi"><input id="inv" type="number" inputmode="decimal" value="${Math.min(500, Math.floor(bal() / 10) * 10 || 100)}"><span>USDT</span></div></div>
@@ -598,8 +669,18 @@ Pages.copy = (params) => {
       const tag = p => `<span class="px-tag ${p.long ? "up" : "dn"}">${p.bin ? (p.long ? "Up" : "Down") : (p.long ? "Long " : "Short ") + p.lev + "x"}</span>`;
       const clk = ms => { const s = Math.max(0, Math.ceil(ms / 1000)); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); };
       const secH = (t, n, live) => `<div class="px-sec-h" style="margin:4px 0 8px"><h2>${t}${n != null ? " (" + n + ")" : ""}</h2>${live ? `<span class="px-mut"><i class="px-pulse"></i> Live</span>` : ""}</div>`;
-      const histHtml = () => { const cl = positionsOf(l, mk) || [];
-        return `<div class="px-sec">${secH("Position history", null, true)}${cl.length ? cl.map(c => `<div class="px-pos hist${fresh(c.ct)}">${symIcon(c.sym, 28)}<div class="grow"><b>${esc(symLabel(c.sym))}</b> ${tag(c)}<div class="px-mut num">${tstr(c.t)} to ${tstr(c.ct)}</div><div class="px-mut num">${mk === "binary" ? "Stake " + money(c.margin) + " USDT" : "Entry " + symPx(c.sym, c.entry) + " · Close " + symPx(c.sym, c.exit)}</div></div><b class="num ${cls(c.pnl)}" style="font-size:13px;text-align:right">${c.pnl >= 0 ? "+" : "-"}${money(Math.abs(c.pnl))}<br><span style="font-weight:600;font-size:11px">${mk === "binary" ? (c.pnl > 0 ? "Win" : "Loss") : sgnPct(c.roi)}</span></b></div>`).join("") : empty("file", "No closed positions yet")}</div>`; };
+      const histRows = () => { const N = histCount(l), sim = ((window.SIM && SIM.closed(l.id, 60)) || []).slice(0, N), out = sim.slice(), st0 = startOf(l), now = Date.now();
+        let ct = out.length ? out[out.length - 1].t : now; const span = Math.max(DAYMS * .5, ct - st0), k = N - out.length, gapAvg = span / Math.max(1, k + 1);
+        for (let i = out.length; i < N; i++){
+          const r = rngFor("hx" + l.id + i), bin = mk === "binary" || l.bin, sym = r() < .65 ? l.sym : POPS[Math.floor(r() * 6)], p = M.get(sym), base = p?.price || PRICE_FB[baseOf(sym)] || 100;
+          ct -= gapAvg * (.4 + r() * 1.2); const dur = bin ? (60 + r() * 840) * 1e3 : (20 + r() * 700) * 6e4, long = r() > .42;
+          if (bin){ const win = r() < l.wr / 100, margin = [10,20,25,50,100,150][Math.floor(r() * 6)], pay = l.pay || 85, pnl = win ? margin * pay / 100 : -margin, entry = base * (1 + (r() - .5) * .03);
+            out.push({sym, long, lev:0, entry, exit: entry * (1 + (win === long ? 1 : -1) * r() * .002), margin, t: ct - dur, ct, pnl, roi: pnl / margin * 100, bin:1, pay}); continue; }
+          const lev = [3,5,8,10,15,20][Math.floor(r() * 6)], margin = Math.round((120 + r() * 2400) / 10) * 10, win = r() < Math.min(.9, l.wr / 100), roi = win ? (1 + r() * r() * 28) : -(1 + r() * 14), entry = base * (1 + (r() - .5) * .05), mv = roi / 100 / lev * (long ? 1 : -1);
+          out.push({sym, long, lev, entry, exit: entry * (1 + mv), margin, t: ct - dur, ct, pnl: margin * roi / 100, roi, bin:0}); }
+        return out; };
+      const histHtml = () => { const cl = histRows();
+        return `<div class="px-sec">${secH("Trade history", cl.length, true)}${cl.length ? cl.map(c => `<div class="px-pos hist${fresh(c.ct)}">${symIcon(c.sym, 28)}<div class="grow"><b>${esc(symLabel(c.sym))}</b> ${tag(c)}<div class="px-mut num">${tstr(c.t)} to ${tstr(c.ct)}</div><div class="px-mut num">${mk === "binary" ? "Stake " + money(c.margin) + " USDT" : "Entry " + symPx(c.sym, c.entry) + " · Close " + symPx(c.sym, c.exit)}</div></div><b class="num ${cls(c.pnl)}" style="font-size:13px;text-align:right">${c.pnl >= 0 ? "+" : "-"}${money(Math.abs(c.pnl))}<br><span style="font-weight:600;font-size:11px">${mk === "binary" ? (c.pnl > 0 ? "Win" : "Loss") : sgnPct(c.roi)}</span></b></div>`).join("") + `<div class="px-endnote">You can only see the latest ${cl.length} trades. Older history is not available.</div>` : empty("file", "No closed positions yet")}</div>`; };
       const recHtml = () => { const fd = (window.SIM && SIM.feed(l.id, 30)) || [];
         return `<div class="px-sec">${secH("Latest records", null, true)}${fd.length ? fd.map(f => `<div class="px-rec${fresh(f.t)}"><i class="d ${f.tp === "o" ? "o" : f.pnl >= 0 ? "up" : "dn"}"></i><div class="grow"><span>${esc(f.txt)}</span><div class="px-mut">${agoS(f.t)}</div></div></div>`).join("") : empty("clock", "No records yet")}</div>`; };
       const livePos = () => { const ps = openPositions(l) || [];
@@ -648,17 +729,18 @@ Pages.copy = (params) => {
 
     r.addEventListener("click", e => {
       const f = e.target.closest("[data-fav]"), c = e.target.closest("[data-cp]"), d = e.target.closest("[data-ld]"), sv = e.target.closest("[data-sv]");
-      if (f){ e.stopPropagation(); const id = f.dataset.fav, a = favs(), i = a.indexOf(id); i < 0 ? a.push(id) : a.splice(i, 1); store.save(); if (ltab === "follow") renderList(); else { f.classList.toggle("on", i < 0); } toast(i < 0 ? "Added to Following" : "Removed from Following", "info", 1500); return; }
+      if (f){ e.stopPropagation(); const id = f.dataset.fav, a = favs(), i = a.indexOf(id); i < 0 ? a.push(id) : a.splice(i, 1); store.save(); if (ltab === "follow" && view === "all") renderList(); else { f.classList.toggle("on", i < 0); } toast(i < 0 ? "Added to Following" : "Removed from Following", "info", 1500); return; }
       if (sv){ view = sv.dataset.sv; show(); window.scrollTo(0, 0); return; }
-      if (e.target.closest("[data-sq]")){ view = "plaza"; showQ = !showQ; if (!showQ) q = ""; show(); if (showQ) $("#tq")?.focus(); return; }
-      if (e.target.closest("[data-menu]")){ U.sheet("Copy Trading", `<button class="px-opt" data-m="my">My data${ic("chev",16)}</button><button class="px-opt" data-m="say">Traders say${ic("chev",16)}</button><button class="px-opt" data-m="follow">Following${ic("chev",16)}</button><div class="px-notice" style="margin-top:12px">${ic("info",14)}<span>Past performance does not guarantee future results. Trader stats are illustrative.</span></div>`, el => el.querySelectorAll("[data-m]").forEach(b => b.onclick = () => { U.closeLayer(); if (b.dataset.m === "follow"){ view = "plaza"; ltab = "follow"; } else view = b.dataset.m; show(); })); return; }
+      const al = e.target.closest("[data-all]"); if (al){ view = "all"; ltab = "lead"; chip = al.dataset.all === "star" ? "star" : null; show(); window.scrollTo(0, 0); return; }
+      if (e.target.closest("[data-sq]")){ view = "all"; showQ = !showQ; if (!showQ) q = ""; show(); if (showQ) $("#tq")?.focus(); return; }
+      if (e.target.closest("[data-menu]")){ U.sheet("Copy Trading", `<button class="px-opt" data-m="my">My copying${ic("chev",16)}</button><button class="px-opt" data-m="say">Community${ic("chev",16)}</button><button class="px-opt" data-m="follow">Following${ic("chev",16)}</button><div class="px-notice" style="margin-top:12px">${ic("info",14)}<span>Past performance does not guarantee future results. Trader stats are illustrative.</span></div>`, el => el.querySelectorAll("[data-m]").forEach(b => b.onclick = () => { U.closeLayer(); if (b.dataset.m === "follow"){ view = "all"; ltab = "follow"; } else view = b.dataset.m; show(); })); return; }
       if (c || d){ const l = LEADS.find(x => x.id === (c || d).dataset[c ? "cp" : "ld"]); if (l) detail(l, mkOf(), !!c); }
     });
     show();
     if (openId) setTimeout(() => { const l = LEADS.find(x => x.id === openId); if (l) detail(l, l.bin ? "binary" : "futures", false); }, 60);
     const check = checkCopies;
     check();
-    const liveList = () => { if (view !== "plaza" || !window.SIM) return; const mk = mkOf();
+    const liveList = () => { if ((view !== "plaza" && view !== "all") || !window.SIM) return; const mk = mkOf();
       r.querySelectorAll(".px-lc[data-ld]").forEach(el => { const l = LEADS.find(x => x.id === el.dataset.ld); if (!l) return; const s = lstats(l, 1, mk), e = el.querySelector(".roi"); if (!e) return;
         e.textContent = sgnPct(s.roi); e.className = "roi num " + cls(s.roi); const sp = el.querySelector(".spk"); if (sp) sp.innerHTML = spark(curve(l, 1, mk, 36), 130, 52, s.roi >= 0 ? "var(--up)" : "var(--down)");
         const bs = el.querySelectorAll(".b b"); if (bs.length === 4){ if (mk === "binary"){ bs[0].textContent = s.wr.toFixed(1) + "%"; bs[2].textContent = s.tpd; bs[3].textContent = compact(s.aum); } else { bs[0].textContent = s.mdd.toFixed(2) + "%"; bs[2].textContent = compact(s.aum); bs[3].textContent = openCount(l); } } }); };

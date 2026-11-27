@@ -12,6 +12,16 @@ html.rc-lock, html.rc-lock body{overflow:hidden !important; overscroll-behavior:
 .rc-bar i{display:block;height:100%;width:0;border-radius:inherit;background:linear-gradient(90deg,var(--brand,#2E6BFF),var(--brand-2,#5AA9FF));transition:width .15s linear}
 .rc-load small{font-size:12px;color:#9fb0c8}
 @media (min-width:900px){ .rc-stage{margin:4px 0 0;border-radius:var(--r-card,12px)} }
-/* v6.9: while a race runs the top tab strip and the bottom nav disappear and the game fills the whole screen; they return when it ends */
-html.rc-lock #bnav, html.rc-lock .rc-tabs { display: none !important; }
-html.rc-lock .rc-stage { position: fixed; inset: 0; margin: 0; height: 100dvh !important; z-index: 45; border-radius: 0; }
+/* v7.0: during a race the game does NOT go full screen. The top tab strip and the bottom nav dim to 0.35 and lock (a small
+   transparent lock icon on each; a tap on them only shows a 2-second toast), then unlock when the race ends. */
+html.rc-lock #bnav, html.rc-lock .rc-tabs { opacity: .35; transition: opacity .25s ease; }
+html.rc-lock #bnav *, html.rc-lock .rc-tabs * { pointer-events: none; }
+html.rc-lock #bnav, html.rc-lock .rc-tabs { cursor: not-allowed; }
+.rc-lockic { position: fixed; z-index: 80; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; pointer-events: none;
+  color: #fff; background: rgba(8, 13, 24, .4); border: 1px solid rgba(255, 255, 255, .22); opacity: .85; }
+.rc-lock-toast { position: fixed; left: 50%; bottom: calc(96px + env(safe-area-inset-bottom, 0px)); transform: translate(-50%, 8px); z-index: 90; max-width: calc(100vw - 32px);
+  padding: 8px 14px; border-radius: 999px; background: rgba(12, 18, 32, .94); border: 1px solid rgba(255, 255, 255, .2); color: #fff; font-size: 12.5px; font-weight: 600;
+  opacity: 0; pointer-events: none; transition: opacity .2s ease, transform .2s ease; white-space: nowrap; }
+.rc-lock-toast.show { opacity: 1; transform: translate(-50%, 0); }
+/* a popup is open inside the game: the app page behind it never scrolls */
+html.rc-pop, html.rc-pop body { overflow: hidden !important; overscroll-behavior: none; }

@@ -250,9 +250,51 @@ function tfClassify(sym, base, ut, pp){
   const pre = ut === "PREMARKET";
   return Object.assign(o, {type:"stock", base, name:N[base] || base, pre, region:TF_REGION[ut] || ""});
 }
+/* v7.0 TradFi session: "open" (regular hours) | "off" (Off-Hours: still trades on Binance) | "closed" (Binance itself is closed).
+   1) Binance trading schedule when the endpoint answers (REGULAR = open, NO_TRADING = closed, anything else = off-hours)
+   2) fallback: the exchange's local regular hours by underlying type (commodity/FX: Sun 22:00 - Fri 21:00 UTC with a 21:00-22:00 break; equities: local exchange hours)
+   3) closed only if Binance reports no trade for 6h while it is outside regular hours */
+let tfSched = null, tfSchedAt = 0;
+const TF_LOCAL = {EQUITY:["America/New_York", 570, 960], KR_EQUITY:["Asia/Seoul", 540, 930], HK_EQUITY:["Asia/Hong_Kong", 570, 960], CN_EQUITY:["Asia/Shanghai", 570, 900]};
+function tzParts(tz, ms){
+  try {
+    const f = new Intl.DateTimeFormat("en-US", {timeZone:tz, weekday:"short", hour:"numeric", minute:"numeric", hourCycle:"h23"}).formatToParts(new Date(ms)), g = k => (f.find(x => x.type === k) || {}).value;
+    return {d:["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].indexOf(g("weekday")), m:(+g("hour") % 24) * 60 + +g("minute")};
+  } catch { const d = new Date(ms); return {d:d.getUTCDay(), m:d.getUTCHours() * 60 + d.getUTCMinutes()}; }
+}
+function tfHeuristic(p, now){
+  const ut = p.tfType;
+  if (ut === "PREMARKET") return "open";
+  if (ut === "COMMODITY" || ut === "FX"){
+    const u = tzParts("UTC", now), m = u.m;
+    if (u.d === 6 || (u.d === 5 && m >= 21 * 60) || (u.d === 0 && m < 22 * 60)) return "off";
+    return m >= 21 * 60 && m < 22 * 60 ? "off" : "open";
+  }
+  const z = TF_LOCAL[ut] || TF_LOCAL.EQUITY, l = tzParts(z[0], now);
+  return l.d >= 1 && l.d <= 5 && l.m >= z[1] && l.m < z[2] ? "open" : "off";
+}
+function tfSessionOf(p, lastTrade, now){
+  let st = null;
+  if (tfSched){
+    const key = tfSched[p.tfType] ? p.tfType : (/EQUITY$/.test(p.tfType || "") || !p.tfType ? "EQUITY" : p.tfType), grp = tfSched[key] || (key === "FX" ? tfSched.COMMODITY : null);
+    const ss = grp && (grp.sessions || grp);
+    if (Array.isArray(ss)){
+      const hit = ss.find(x => +x.startTime <= now && now < +x.endTime);
+      if (hit){ const ty = String(hit.type || "").toUpperCase(); st = ty === "REGULAR" ? "open" : ty === "NO_TRADING" || ty === "CLOSED" ? "closed" : "off"; }
+    }
+  }
+  if (!st) st = tfHeuristic(p, now);
+  if (st === "off" && lastTrade > 0 && now - lastTrade > 6 * 3600e3 && now - lastTrade < 30 * 864e5) st = "closed";
+  return st;
+}
+async function loadTfSchedule(){
+  if (Date.now() - tfSchedAt < 30 * 60e3) return; tfSchedAt = Date.now();
+  try { const j = await fapi("/fapi/v1/tradingSchedule"), ms = j && (j.marketSchedules || j); if (ms && typeof ms === "object") tfSched = ms; } catch { /* endpoint not available: heuristic */ }
+}
 function tfApply(t){
   const p = pairs.get(t.symbol); if (!p || p.src !== "bnf") return;
   const price = +t.lastPrice, extra = {chg:+t.priceChangePercent, high:+t.highPrice, low:+t.lowPrice, qv:+t.quoteVolume, open:+t.openPrice};
+  { const st = tfSessionOf(p, +t.closeTime, Date.now()); extra.session = st; extra.offHours = st === "off"; extra.closed = st === "closed"; }
   if (price > 0 && price !== p.price) setPrice(t.symbol, price, extra);
   else { Object.assign(p, extra); if (price > 0){ p.updated = Date.now(); if (p.price == null) p.price = price; } }
 }
@@ -279,6 +321,7 @@ async function loadTradfi(){
       FX_SYMS = [...pairs.values()].filter(p => p.type !== "crypto" && p.src !== "bnf").map(p => p.sym);
       bus.emit("list");
     }
+    await loadTfSchedule();
     (await fapi("/fapi/v1/ticker/24hr")).forEach(tfApply);
     status.tradfi = "live"; bus.emit("status");
   } catch(e){ status.tradfi = "retry"; }
@@ -287,7 +330,7 @@ async function loadTradfi(){
 /* per-chart live stream for a TradFi pair: aggTrade over fstream, REST price poll as fallback */
 let ftws, ftTimer, ftPoll, ftSym = null, ftRetry = 0;
 function watchTradfi(sym){
-  unwatchTradfi(); ftSym = sym; book.sym = sym;
+  unwatchTradfi(); ftSym = sym; if (book.sym !== sym){ book.bids = []; book.asks = []; } book.sym = sym;
   const s = sym.toLowerCase();
   let gotWs = false;
   let nPoll = 0;
@@ -296,7 +339,7 @@ function watchTradfi(sym){
     try {
       const j = await fapi(`/fapi/v1/ticker/price?symbol=${sym}`); if (ftSym !== sym) return;
       if (+j.price > 0) setPrice(sym, +j.price);
-      if (!gotWs && nPoll++ % 2 === 0){ const d = await fapi(`/fapi/v1/depth?symbol=${sym}&limit=20`); if (ftSym === sym && !gotWs){ book.bids = d.bids; book.asks = d.asks; bus.emit("depth", sym); } }
+      if (!gotWs && nPoll++ % 2 === 0){ const d = await fapi(`/fapi/v1/depth?symbol=${sym}&limit=20`); if (ftSym === sym && !gotWs){ if ((d.bids || []).length || (d.asks || []).length || !book.bids.length){ book.bids = d.bids; book.asks = d.asks; } bus.emit("depth", sym); } }
     } catch {}
   };
   pollOnce(); ftPoll = setInterval(() => { if (!gotWs && !document.hidden) pollOnce(); }, 1500);
@@ -310,7 +353,7 @@ function watchTradfi(sym){
       if (String(m.stream).endsWith("@aggTrade")){
         const tr = {p:+d.p, q:+d.q, buy:!d.m, t:d.T}; trades.unshift(tr); if (trades.length > 40) trades.length = 40; bus.emit("trade", sym, tr);
         const now = Date.now(); if (now - lastEmit > 200){ lastEmit = now; setPrice(sym, tr.p); }
-      } else { const now = Date.now(); if (now - lastDepth < 300) return; lastDepth = now; book.bids = d.b || d.bids || []; book.asks = d.a || d.asks || []; bus.emit("depth", sym); }
+      } else { const now = Date.now(); if (now - lastDepth < 300) return; lastDepth = now; const nb = d.b || d.bids || [], na = d.a || d.asks || []; if (nb.length || na.length || !book.bids.length){ book.bids = nb; book.asks = na; } bus.emit("depth", sym); }   /* off-hours: keep the last snapshot if Binance sends an empty book */
     };
     sock.onclose = () => { gotWs = false; if (ftws !== sock || ftSym !== sym) return; ftTimer = setTimeout(open, Math.min(20000, 2000 * 2 ** (ftRetry++))); };
     sock.onerror = () => { try { sock.close(); } catch {} };

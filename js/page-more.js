@@ -281,7 +281,7 @@ Pages.earn = () => {
 
 
 /* ---------- Bots (BingX style) ---------- */
-const BOT_TAG = {grid:"Spot Grid", combo:"Futures Martingale", gold:"Futures Grid", fx:"Futures Grid", dca:"DCA Perp"};
+const BOT_TAG = {usdcgrid:"Spot Grid", grid:"Spot Grid", combo:"Futures Martingale", gold:"Futures Grid", fx:"Futures Grid", dca:"DCA Perp"};
 const STRATS = [
   {k:"fgrid", g:"perp", name:"Futures Grid", def:"gold", hot:true, desc:"Profit from price swings inside a range, with leverage"},
   {k:"fmart", g:"perp", name:"Futures Martingale", def:"combo", hot:true, desc:"Scale into dips to lower your average entry price"},
@@ -291,6 +291,7 @@ const STRATS = [
   {k:"trend", g:"binary", bin:true, name:"Trend Follower", hot:false, desc:"Follows momentum and opens trades in the direction of the trend"},
   {k:"sgrid", g:"spot", name:"Spot Grid", def:"grid", hot:true, desc:"Buys low and sells high inside a price range, 24/7"},
   {k:"sdca", g:"spot", name:"Smart DCA", def:"dca", hot:false, desc:"Dollar-cost averages into dips with safety orders"},
+  {k:"ugrid", g:"spot", name:"USDC ⇄ USDT Grid", def:"usdcgrid", hot:true, desc:"Grid-trades USDC/USDT in a tight range: buy low, sell high. 0 trading fee"},
   {k:"rebal", g:"spot", name:"Rebalancing", soon:true, desc:"Keeps your coins at target weights by trading the difference automatically"},
   {k:"twap", g:"spot", name:"TWAP / Smart Order", soon:true, desc:"Splits one big order into small slices over time to get a better average price"}
 ];
@@ -317,7 +318,7 @@ Pages.bots = (params) => {
     };
     const card = s => { const d = s.def && defOf(s.def), on = s.bin ? !!E.binCfg(s.k)?.on : d && S().bots[d.id]?.running;
       return `<div class="bt-card"><div class="bt-ch"><b>${esc(s.name)}</b>${s.hot ? `<span class="bt-hot">Hot</span>` : ""}</div><p>${esc(s.desc)}</p>
-        <div class="bt-ti"><span>Total Investment</span><b class="num">${demoInv(s.k)} USDT</b></div>${s.g === "perp" ? `<div class="bt-roi" data-roi="${s.k}"></div>` : ""}
+        <div class="bt-ti"><span>Total Investment</span><b class="num">${demoInv(s.k)} USDT</b></div>${s.g === "perp" || s.k === "ugrid" ? `<div class="bt-roi" data-roi="${s.k}"></div>` : ""}
         <div class="bt-cf"><div><span>Users</span><div class="bt-us">${avs(s.k)}<b class="num">${demoUsers(s.k)}</b></div></div>${s.soon ? `<button class="bt-cb" disabled aria-disabled="true">Coming soon</button>` : on ? `<span class="bt-run">Running</span>` : `<button class="bt-cb" data-create="${s.k}">${s.bin && E.binCfg(s.k)?.created ? "Edit" : "Create"}</button>`}</div></div>`; };
     const drawBots = () => {
       $("#btBody").innerHTML = `<div class="bt-tabs"><button data-t="spot" class="${tab === "spot" ? "on" : ""}">Spot</button><button data-t="perp" class="${tab === "perp" ? "on" : ""}">Perp</button><button data-t="binary" class="${tab === "binary" ? "on" : ""}">Binary</button></div>
@@ -363,6 +364,7 @@ Pages.bots = (params) => {
       if (cr){
         const s = STRATS.find(x => x.k === cr.dataset.create);
         if (s.bin) return UI.binBotEdit(s.k, () => { view = "inv"; draw(); });
+        if (window.BOTX && s.k === "ugrid") return BOTX.openUgrid(() => { view = "inv"; draw(); });
         if (window.BOTX && s.g === "perp") return BOTX.open(s, () => { view = "inv"; draw(); });
         const d = defOf(s.def), p = M.get(d.pair);
         return U.sheet("Create " + s.name, `<div class="pm-kv" style="padding-top:2px"><span>Strategy</span><b>${esc(s.name)}</b></div><div class="pm-kv"><span>Pair</span><b>${esc(M.label(p || {type:"crypto", base:d.pair}))}</b></div><div class="pm-kv"><span>Risk</span><b>${d.risk}</b></div><div class="pm-kv"><span>Est. APY</span><b class="num up">${esc(d.apy)}</b></div>
@@ -574,13 +576,13 @@ Pages.profile = () => {
   const dark = () => document.documentElement.dataset.theme === "dark";
   const G = items => `<div class="pf-grid">${items.map(([i, n, h]) => `<a class="pf-gi" href="${h}">${ic(i, 24, 1.6)}<span>${n}</span></a>`).join("")}</div>`;
   const html = `<div class="pf-page"><header class="pf-top"><button class="pf-circ" data-back aria-label="Go back">${ic("back",20)}</button><span class="grow"></span><button class="pf-ib" data-scan aria-label="Scan">${scan}</button><button class="pf-ib" data-th aria-label="Toggle theme"></button><a class="pf-ib" href="#/settings" aria-label="Settings">${ic("gear",22,1.7)}</a></header>
-    <section class="pf-id"><a class="pf-av" id="pa" href="#/profileedit" aria-label="Edit profile"></a><div class="grow" style="min-width:0"><div class="row" style="gap:8px;flex-wrap:nowrap"><button class="pf-nm ellipsis" id="pn" data-edit></button><button class="pf-lv" data-lv>Regular user ${ic("chev",12)}</button></div>
-      <div class="row pf-r2" style="gap:8px;margin-top:6px;flex-wrap:nowrap"><button class="pf-uid" data-uid>UID:<span id="pu"></span> ${ic("copy",13)}</button><span class="pf-main">Main Account</span></div></div><a class="pf-go" href="#/profileedit" aria-label="Open profile">${ic("chev",22,2)}</a></section>
+    <section class="pf-id"><a class="pf-av" id="pa" href="#/profileedit" aria-label="Edit profile"></a><div class="grow" style="min-width:0"><div class="row" style="gap:8px;flex-wrap:nowrap"><button class="pf-nm ellipsis" id="pn" data-edit></button><button class="pf-lv vip-l0" data-lv>VIP0 ${ic("chev",12)}</button></div>
+      <div class="row pf-r2" style="gap:6px 8px;margin-top:6px"><button class="pf-uid" data-uid>UID:<span id="pu"></span> ${ic("copy",13)}</button><span class="pf-main">Main Account</span></div></div><a class="pf-go" href="#/profileedit" aria-label="Open profile">${ic("chev",22,2)}</a></section>
     <div class="pf-tiles">${tile("share","Refer",'href="#/referral"')}${tile("gift","Vouchers",'data-vou')}${tile("cal","Events",'href="#/rewards"')}</div>
-    <h3 class="pf-h">Trade</h3>
-    ${G([["chart","Markets","#/markets"],["swap","Spot","#/spot"],["candle","Futures","#/futures"],["clock","Binary","#/trade"],["layers","Options","#/options"],["users","Copy Trading","#/copy"],["bot","Trading Bots","#/bots"]])}
-    <h3 class="pf-h">Earn &amp; Rewards</h3>
-    ${G([["earn","Earn","#/earn"],["wallet","Assets","#/assets"],["pie","PnL Analysis","#/pnl"],["trophy","Rewards Hub","#/rewards"],["share","Referral","#/referral"],["ring","Price Alerts","#/alerts"],["book","Academy","#/academy"]])}
+    <section class="pf-card"><h3 class="pf-h">Trade</h3>
+    ${G([["chart","Markets","#/markets"],["swap","Spot","#/spot"],["candle","Futures","#/futures"],["clock","Binary","#/trade"],["layers","Options","#/options"],["users","Copy Trading","#/copy"],["bot","Trading Bots","#/bots"]])}</section>
+    <section class="pf-card"><h3 class="pf-h">Earn &amp; Rewards</h3>
+    ${G([["earn","Earn","#/earn"],["wallet","Assets","#/assets"],["pie","PnL Analysis","#/pnl"],["trophy","Rewards Hub","#/rewards"],["share","Referral","#/referral"],["ring","Price Alerts","#/alerts"],["book","Academy","#/academy"]])}</section>
     <h3 class="pf-h">Account</h3>
     <section class="pf-list">${L("shield","Verification",'<span class="pf-ok">Verified</span>',"data-ver")}${L("lock","Security Center","",'href="#/security"')}${L("history","Trade History","",'href="#/history"')}${L("gear","Settings & Preferences","",'href="#/settings"')}${L("grid","Practical Functions","","data-prac")}</section>
     <h3 class="pf-h">Help</h3>
@@ -588,7 +590,7 @@ Pages.profile = () => {
     <button class="pf-sw" data-switch>Switch Account</button></div>`;
   return {html, title:"Profile", mount(r){
     const $ = q => r.querySelector(q);
-    const render = () => { const p = S().profile; $("#pa").innerHTML = UserAvatar(64); $("#pn").textContent = p.name; $("#pu").textContent = p.uid; if (window.VIPX){ const t = VIPX.tier(); $("[data-lv]").innerHTML = (t.i ? t.name : "Regular user") + " " + ic("chev",12); } };
+    const render = () => { const p = S().profile; $("#pa").innerHTML = UserAvatar(64); $("#pn").textContent = p.name; $("#pu").textContent = p.uid; if (window.VIPX){ const t = VIPX.tier(); const lv = $("[data-lv]"); lv.className = "pf-lv vip-l" + t.i; lv.innerHTML = "VIP" + t.i + " " + ic("chev",12); } };
     const syncTh = () => { $("[data-th]").innerHTML = ic(dark() ? "sun" : "moon", 22, 1.7); };
     render(); syncTh();
     $("[data-th]").onclick = () => { App.setTheme(dark() ? "light" : "dark"); syncTh(); };

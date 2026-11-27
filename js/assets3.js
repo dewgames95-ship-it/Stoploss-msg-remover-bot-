@@ -333,7 +333,7 @@ function pnlExtra(root){
     <div class="pnx-j"><span>Joined</span><b>${new Date(p.joined).toLocaleDateString("en-US", {month:"short", day:"numeric", year:"numeric"})}</b><em>${days < 1 ? "Today" : days + " day" + (days === 1 ? "" : "s") + " ago"}</em></div>
     <div class="pnx-g">${vr("Futures volume", v.fut)}${vr("Binary volume", v.bin)}${vr("Spot volume", v.spot)}${vr("Options volume", v.opt)}</div>
     <div class="pnx-j" style="margin-top:8px"><span>Total volume</span><b class="num">$${money(tot)}</b></div>
-    <div class="pnx-g"><div><span>Total fees paid</span><b class="num">$${money(v.fees)}</b></div><div><span>Avg fee</span><b class="num">${tot > 0 ? (v.fees / (v.fut + v.spot + v.opt || 1) * 100).toFixed(3) : "0.000"}%</b></div></div>
+    <div class="pnx-g"><div><span>Total fees paid</span><b class="num">${money(v.fees)} USDT</b></div><div><span>Avg fee</span><b class="num">${tot > 0 ? (v.fees / (v.fut + v.spot + v.opt || 1) * 100).toFixed(3) : "0.000"}%</b></div></div>
     <div class="pnx-c"><b>Same volume elsewhere</b>${tot > 0 ? cmp.map(([n, c]) => `<div><span>${n}</span><b class="num">$${money(c)}</b></div>`).join("") + `<div class="me"><span>${esc(window.CONFIG.APP_NAME)}</span><b class="num">$${money(v.fees)}</b></div>` : `<p>Trade to see how your fees compare.</p>`}</div>
     <p class="pn-mut" style="font-size:11px;margin-top:6px">Binary trades carry no fee. Comparison uses standard taker fees: futures 0.05%, spot 0.10%.</p></section>`);
 }
