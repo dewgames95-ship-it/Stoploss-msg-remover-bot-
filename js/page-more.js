@@ -587,7 +587,7 @@ Pages.profile = () => {
     <section class="pf-list">${L("shield","Verification",'<span class="pf-ok">Verified</span>',"data-ver")}${L("lock","Security Center","",'href="#/security"')}${L("history","Trade History","",'href="#/history"')}${L("gear","Settings & Preferences","",'href="#/settings"')}${L("grid","Practical Functions","","data-prac")}</section>
     <h3 class="pf-h">Help</h3>
     <section class="pf-list">${L("headset","Support","",'href="#/support"')}${L("users","Community","",'href="#/community"')}${L("chat","Feedback","","data-fb")}${L("info","About NovaTrade","",'href="#/about"')}</section>
-    <button class="pf-sw" data-switch>Switch Account</button></div>`;
+    <button class="pf-sw" data-switch>Switch Account</button><button class="pf-sw pf-adm" data-adm-switch>Switch to Admin Panel</button></div>`;
   return {html, title:"Profile", mount(r){
     const $ = q => r.querySelector(q);
     const render = () => { const p = S().profile; $("#pa").innerHTML = UserAvatar(64); $("#pn").textContent = p.name; $("#pu").textContent = p.uid; if (window.VIPX){ const t = VIPX.tier(); const lv = $("[data-lv]"); lv.className = "pf-lv vip-l" + t.i; lv.innerHTML = "VIP" + t.i + " " + ic("chev",12); } };

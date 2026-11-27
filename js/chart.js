@@ -24,8 +24,10 @@ function syncCols(){
   const a = IS("MA"), b = IS("EMA"), bo = IS("BOLL");
   Object.assign(COL, {m7:a.c1, m25:a.c2, m99:a.c3, e7:b.c1, e25:b.c2, e99:b.c3, boll:bo.c, bollMid:bo.cm, rsi:IS("RSI").c, macd:IS("MACD").c, sig:IS("MACD").cs, sar:IS("SAR").c, vwap:IS("VWAP").c});
 }
-const MAXI = 4, nonVol = l => l.filter(k => k !== "VOL").length;
+const MAXI = 4, nonVol = l => l.filter(k => k !== "VOL" && k !== "AI").length;
 let chart, el, sym, tf = "15m", sec = 900, bars = [], S = {}, inds = [], type = "candle", loadSeq = 0, offs = [], ro, ui = {}, dirty = false, raf, lastRender = 0, onDetail = null, hover = null, hoverPt = null, lines = new Map(), cache = {}, pctMode = false;
+let aiOn = false, aiSt = null, aiKey = "", aiSum = null, aiLast = 0;
+const AI_UP = "rgba(46,189,133,0.3)", AI_DN = "rgba(246,70,93,0.3)";   // forecast candles: 30% opacity so they never look like real ones
 let lineSpec = new Map(), draw = {tool:null, temp:null}, drawEl = null, binExpFn = null, srOn = false, liqOn = false, srLines = [], srZones = [], srKey = "", liqKey = "", liqData = null, stSigs = [], plusUntil = 0, lastHov = null, lastTick = 0;
 
 const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
@@ -79,18 +81,18 @@ const fmtVol = v => v >= 1e9 ? (v/1e9).toFixed(2)+"B" : v >= 1e6 ? (v/1e6).toFix
 function mount(container, parts, detailCb){
   destroy();
   el = container; ui = parts || {}; onDetail = detailCb;
-  inds = ui.noInd ? [] : (store.s.settings.inds || []).slice(); { let n = 0; inds = inds.filter(k => k === "VOL" || ++n <= MAXI); } type = store.s.settings.chartType || "candle";
+  inds = ui.noInd ? [] : (store.s.settings.inds || []).slice(); { let n = 0; inds = inds.filter(k => k !== "AI" && (k === "VOL" || ++n <= MAXI)); } if (ui.mode === "bin" && !ui.noInd && store.s.settings.aiFc !== false) inds.push("AI"); type = store.s.settings.chartType || "candle";
   offs.push(bus.on("tick", onTick), bus.on("trade", onTrade), bus.on("theme", () => { if (chart){ build(); } }), bus.on("positions", syncLines), bus.on("history", syncLines), bus.on("settled", binFx));
   ro = new ResizeObserver(() => { if (chart) chart.applyOptions({width: el.clientWidth, height: el.clientHeight}); ui.liqTip?.classList.add("hide"); });
   ro.observe(el);
   // overlay layers
-  el.insertAdjacentHTML("afterend", `<svg class="draw-svg" id="drawSvg"></svg><canvas class="liq-cv" id="liqCv"></canvas><div class="liq-tip hide" id="liqTip"></div><div class="lqbox hide" id="lqBox"></div><div class="lqpop hide" id="lqPop"></div><div class="ovl2" id="ovl2"></div><div class="cbox hide" id="cbox"></div><button class="auto-btn hide" id="autoBtn" aria-label="Auto scale">A</button>`);
+  el.insertAdjacentHTML("afterend", `<svg class="draw-svg" id="drawSvg"></svg><canvas class="liq-cv" id="liqCv"></canvas><div class="liq-tip hide" id="liqTip"></div><div class="lqbox hide" id="lqBox"></div><div class="lqpop hide" id="lqPop"></div><div class="aibox hide" id="aiBox"></div><div class="ovl2" id="ovl2"></div><div class="cbox hide" id="cbox"></div><button class="auto-btn hide" id="autoBtn" aria-label="Auto scale">A</button>`);
   el.parentElement.querySelector(":scope > .grid-cv")?.remove(); el.insertAdjacentHTML("beforebegin", `<canvas class="grid-cv" aria-hidden="true"></canvas>`); ui.grid = el.previousElementSibling;
   if (getComputedStyle(el).position === "static") el.style.position = "relative"; el.style.zIndex = "1";
   drawEl = el.parentElement.querySelector("#drawSvg");
-  ui.ovl2 = el.parentElement.querySelector("#ovl2"); ui.liq = el.parentElement.querySelector("#liqCv"); ui.liqTip = el.parentElement.querySelector("#liqTip"); ui.lqBox = el.parentElement.querySelector("#lqBox"); ui.lqPop = el.parentElement.querySelector("#lqPop"); ui.cbox = el.parentElement.querySelector("#cbox"); ui.auto = el.parentElement.querySelector("#autoBtn");
+  ui.ovl2 = el.parentElement.querySelector("#ovl2"); ui.liq = el.parentElement.querySelector("#liqCv"); ui.liqTip = el.parentElement.querySelector("#liqTip"); ui.lqBox = el.parentElement.querySelector("#lqBox"); ui.lqPop = el.parentElement.querySelector("#lqPop"); ui.aiBox = el.parentElement.querySelector("#aiBox"); ui.cbox = el.parentElement.querySelector("#cbox"); ui.auto = el.parentElement.querySelector("#autoBtn");
   ui.auto.onclick = () => { chart?.priceScale("right").applyOptions({autoScale:true}); ui.auto.classList.add("hide"); };
-  bindDraw(); bindAxisTap(); bindDrag(); bindMarks(); bindAxisDrag(); bindPbox(); bindLiq();
+  bindDraw(); bindAxisTap(); bindDrag(); bindMarks(); bindAxisDrag(); bindPbox(); bindLiq(); bindAi();
   loop();
 }
 
@@ -134,6 +136,8 @@ function build(){
   if (!lineMode && inds.includes("SAR")) S.sar = ln(COL.sar, 1, 0, {lineVisible:false, pointMarkersVisible:true, pointMarkersRadius:1.6});
   if (!lineMode && inds.includes("VWAP")) S.vw = ln(COL.vwap, 1.3);
   if (!lineMode && inds.includes("SUPER")) S.st = ln(UP, 1.5);
+  aiOn = !lineMode && ui.mode === "bin" && sec <= 86400 && inds.includes("AI"); aiKey = ""; aiSum = null;
+  if (aiOn) S.ai = chart.addSeries(LW.CandlestickSeries, {upColor:AI_UP, downColor:AI_DN, borderVisible:false, wickUpColor:AI_UP, wickDownColor:AI_DN, priceFormat:pf, lastValueVisible:false, priceLineVisible:false});
   srOn = !lineMode && inds.includes("SR"); liqOn = !lineMode && inds.includes("LIQ"); srLines = []; liqKey = "";
   let pane = 1;
   // Volume in its own pane under the candles (Binance style): bars never overlap price, no averages on it
@@ -373,7 +377,7 @@ const ICN_I = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" strok
 function liqBoxSync(){
   const bx = ui.lqBox; if (!bx) return;
   const d = liqData; if (!d || d.none){ bx.classList.add("hide"); return; }
-  const top = ui.legend && ui.legend.offsetHeight ? ui.legend.offsetTop + ui.legend.offsetHeight + 4 : 6;
+  const top = (ui.legend && ui.legend.offsetHeight ? ui.legend.offsetTop + ui.legend.offsetHeight + 4 : 6) + (aiOn && aiSum ? 28 : 0);
   const cls = d.bias === "Long" ? "up" : d.bias === "Short" ? "down" : "";
   let small = false; try { small = chart.panes()[0].getHeight() < 230; } catch {}
   const h = small ? `<div class="lqb-r"><i style="background:${LQ_DN}"></i><b class="num">${fmtUsd(d.totL)}</b><i style="background:${LQ_UP};margin-left:4px"></i><b class="num">${fmtUsd(d.totS)}</b></div>
@@ -449,7 +453,7 @@ function bindLiq(){
   host.addEventListener("pointerup", e => {
     if (!st || !liqOn || !liqData || liqData.none || !S.main) { st = null; return; }
     const s0 = st; st = null; if (Math.hypot(e.clientX - s0.x, e.clientY - s0.y) > 8 || Date.now() - s0.t > 450) return;
-    if (e.target.closest("[data-drag],[data-mk],.pbox,.lqbox,.lqpop")) return;
+    if (e.target.closest("[data-drag],[data-mk],.pbox,.lqbox,.lqpop,.aibox")) return;
     const r = el.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top, tip = ui.liqTip; if (!tip) return;
     const hs = (ui.liq && ui.liq._hit || []).filter(h => x >= h.x0 && x <= h.x1 && y >= h.y0 && y <= h.y1).sort((a, b) => b.pri - a.pri);
     if (!hs.length){ tip.classList.add("hide"); return; }
@@ -478,7 +482,7 @@ function setAll(){
   const r = cache = calc(), keys = seriesKeys(), data = {}; keys.forEach(k => data[k] = []);
   for (let i=0;i<bars.length;i++){ const o = point(i, r); keys.forEach(k => o[k] && data[k].push(o[k])); }
   try { keys.forEach(k => S[k].setData(data[k])); } catch(e){ console.warn(e); }
-  liqData = null; srKey = ""; syncSR();
+  liqData = null; srKey = ""; syncSR(); aiSync(true);
   legend();
 }
 function renderLast(){
@@ -486,14 +490,80 @@ function renderLast(){
   const r = cache = calc(), o = point(bars.length - 1, r);
   try { Object.keys(o).forEach(k => S[k] && S[k].update(o[k])); } catch(e){ setAll(); }
   if (S.st){ const L = bars.length - 1, st = cache.st; if (st && st.sig.length && st.sig[st.sig.length-1].i >= L - 3){ /* a flip on a just-closed candle repaints colours of earlier points once */ if (renderLast._n !== bars.length){ renderLast._n = bars.length; setAll(); } } }
-  syncSR();
+  syncSR(); aiSync();
   if (hover == null) legend();
 }
+
+
+/* ===== AI Forecast (binary): faint ghost candles from the current candle to the expiry line, in the chart's own timeframe.
+   Seeded random walk shaped by the last ~30 real candles (body size, wick size, swing rhythm). Placeholder model: swap aiCandle() for a real feed later. ===== */
+const AI_TF = {"1s":"1s","5s":"5s","30s":"30s","1m":"1m","5m":"5m","15m":"15m","1h":"1H","4h":"4H","1d":"1D"};
+const AI_SPARK = `<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><defs><linearGradient id="aisg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4FC3F7"/><stop offset=".55" stop-color="#6C7BFF"/><stop offset="1" stop-color="#B15CFF"/></linearGradient></defs><path fill="url(#aisg)" d="M12 2C12.6 7.5 16.5 11.4 22 12C16.5 12.6 12.6 16.5 12 22C11.4 16.5 7.5 12.6 2 12C7.5 11.4 11.4 7.5 12 2Z"/></svg>`;
+function aiHash(str){ let h = 2166136261; for (let i = 0; i < str.length; i++){ h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+function aiRng(seed){ let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ t >>> 15, t | 1); t ^= t + Math.imul(t ^ t >>> 7, t | 61); return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function aiStats(){   // relative body / wick sizes of the last ~30 candles
+  const L = bars.length - 1, body = [], up = [], lo = [], tr = [];
+  for (let i = Math.max(0, L - 30); i <= L; i++){ const b = bars[i], r = b.open || b.close; if (!r) continue; const hi = Math.max(b.open, b.close), lw = Math.min(b.open, b.close);
+    body.push(Math.abs(b.close - b.open) / r); up.push(Math.max(0, b.high - hi) / r); lo.push(Math.max(0, lw - b.low) / r); tr.push((b.high - b.low) / r); }
+  const med = a => { const c = a.slice().sort((x, y) => x - y); return c[c.length >> 1] || 0; }, fl = a => a.length ? a : [0.0001];
+  return {body:fl(body), up:fl(up), lo:fl(lo), mtr:Math.max(med(tr), 0.00004)};
+}
+function aiCandle(o, t, S0, stt){   // one ghost candle: deterministic for (symbol, timeframe, candle time)
+  const r = aiRng(aiHash(sym + "|" + tf + "|" + t)), pick = a => a[Math.floor(r() * a.length)];
+  if (stt.left <= 0){ stt.dir = -stt.dir; stt.left = 2 + Math.floor(r() * 3); }   // swing up, then down, then up ...
+  stt.left--;
+  const upC = (r() < 0.78 ? stt.dir : -stt.dir) > 0, body = Math.max(pick(S0.body), S0.mtr * 0.15) * (0.6 + r() * 0.9), uw = pick(S0.up) * (0.5 + r()), lw = pick(S0.lo) * (0.5 + r());
+  const c = o * (1 + (upC ? body : -body));
+  return {time:t, open:o, high:Math.max(o, c) + o * uw, low:Math.min(o, c) - o * lw, close:c};
+}
+function aiSync(force){
+  if (!aiOn || !chart || !S.ai || !bars.length){ if (aiSum){ aiSum = null; aiBoxSync(); } return; }
+  const L = bars.length - 1, last = bars[L], te = binExpFn ? binExpFn() : 0;
+  if (!te){ if (aiKey){ aiKey = ""; try { S.ai.setData([]); } catch {} aiSum = null; aiBoxSync(); } return; }
+  let spacing = 7; try { spacing = chart.timeScale().options().barSpacing || 7; } catch {}
+  const kmax = Math.floor((te / 1000 - last.time) / sec), cap = Math.max(2, Math.floor(0.4 * Math.max(120, el.clientWidth - 64) / spacing)), n = Math.max(1, Math.min(kmax, cap, 60));
+  let st = aiSt;
+  if (!st || st.sym !== sym || st.tf !== tf || st.sec !== sec){ st = aiSt = {sym, tf, sec, slots:[], lastT:last.time, S0:aiStats(), stt:null, ver:0}; }
+  if (st.lastT !== last.time){   // a new real candle formed: its ghost twin is gone, the rest stays (re-based onto the real open) and extends
+    st.slots = st.slots.filter(g => g.time > last.time); st.lastT = last.time; st.S0 = aiStats(); st.ver++;
+    const f = st.slots[0];
+    if (f && f.time === last.time + sec && Math.abs(last.open - f.open) <= last.open * Math.max(8 * st.S0.mtr, 0.0005)){ const d = last.open - f.open; if (d) st.slots = st.slots.map(g => ({time:g.time, open:g.open + d, high:g.high + d, low:g.low + d, close:g.close + d})); }
+    else st.slots = [];
+  }
+  if (!st.stt){ const r = aiRng(aiHash(sym + "|" + tf + "|" + last.time + "|d")); st.stt = {dir: r() < 0.5 ? 1 : -1, left: 1 + Math.floor(r() * 3)}; }
+  while (st.slots.length < n){ const pv = st.slots[st.slots.length - 1], g = aiCandle(pv ? pv.close : last.close, (pv ? pv.time : last.time) + sec, st.S0, st.stt); st.slots.push(g); st.ver++; }
+  const key = sym + "|" + tf + "|" + last.time + "|" + n + "|" + st.ver;
+  if (!force && key === aiKey) return;
+  aiKey = key; const show = st.slots.slice(0, n);
+  try { S.ai.setData(show.map(g => ({time:T(g.time), open:g.open, high:g.high, low:g.low, close:g.close}))); } catch(e){ console.warn(e); }
+  const end = show[show.length - 1].close, now = last.close, bias = end > now ? "Long" : end < now ? "Short" : "Neutral";
+  aiSum = {bias, n:show.length, tf};
+  aiBoxSync();
+}
+function aiBoxPos(){ const bx = ui.aiBox; if (!bx || bx.classList.contains("hide")) return; const top = ui.legend && ui.legend.offsetHeight ? ui.legend.offsetTop + ui.legend.offsetHeight + 4 : 6; if (bx._t !== top){ bx._t = top; bx.style.top = top + "px"; } }
+function aiBoxSync(){
+  const bx = ui.aiBox; if (!bx) return;
+  if (!aiOn || !aiSum){ bx.classList.add("hide"); return; }
+  const cls = aiSum.bias === "Long" ? "up" : aiSum.bias === "Short" ? "down" : "", arr = aiSum.bias === "Long" ? " ▲" : aiSum.bias === "Short" ? " ▼" : "";
+  const h = `<span class="ai-pill"><i class="ai-ic">${AI_SPARK}</i><b>AI Suggestion</b><s></s><b class="${cls}">${aiSum.bias}${arr}</b><em>${AI_TF[tf] || tf}</em></span><button class="ai-q" data-aiq type="button" aria-label="How the AI forecast works">?</button>`;
+  if (bx._h !== h){ bx._h = h; bx.innerHTML = h; }
+  bx.classList.remove("hide"); aiBoxPos();
+}
+function aiInfo(){
+  const tn = AI_TF[tf] || tf, cd = (x, o, c, h, l, f) => { const up = c < o, col = up ? "var(--up)" : "var(--down)"; return `<g opacity="${f ? .32 : 1}"><line x1="${x}" y1="${h}" x2="${x}" y2="${l}" stroke="${col}" stroke-width="1.4"/><rect x="${x - 4}" y="${Math.min(o, c)}" width="8" height="${Math.max(3, Math.abs(c - o))}" rx="1" fill="${col}"/></g>`; };
+  const real = [[44,36,32,48],[36,28,24,40],[28,34,24,38],[34,26,22,38],[26,20,16,30],[20,26,16,30]], ghost = [[26,22,18,30],[22,30,18,34],[30,26,22,34],[26,18,14,30]];
+  const svg = `<svg viewBox="0 0 280 78" class="ai-svg" role="img" aria-label="Real candles followed by faint forecast candles up to the expiry line">${real.map((c, i) => cd(22 + i * 16, c[0], c[1], c[2], c[3], 0)).join("")}${ghost.map((c, i) => cd(22 + (6 + i) * 16, c[0], c[1], c[2], c[3], 1)).join("")}<line x1="214" y1="6" x2="214" y2="72" stroke="var(--muted)" stroke-dasharray="3 3"/><text x="52" y="72" class="bq-t" text-anchor="middle">Real candles</text><text x="170" y="72" class="bq-t" text-anchor="middle">Forecast</text><text x="214" y="12" class="bq-t" text-anchor="start" dx="4">Expiry</text></svg>`;
+  const html = `${svg}<p class="info-p">The faint candles ahead of the live candle are a projected path for the <b>${tn}</b> chart, drawn up to your trade's expiry line.</p>
+    <ul class="bq-ul"><li><b>How it is made:</b> it reads the last 30 candles of the selected interval (usual body size, wick length, how often price swings up and down) and projects the next candles in the same style, one ${tn} candle at a time.</li><li><b>Long / Short:</b> Long if the forecast ends above the current price, Short if below.</li><li>When a real candle forms it replaces its faint twin. The rest stays and extends. Change the interval and it is rebuilt from that interval's candles.</li></ul>
+    <p class="info-p" style="color:var(--muted)">A statistical projection, not advice. Price can move either way. Turn it off with the AI button on the indicator bar.</p>`;
+  (window.UI && UI.tip ? UI.tip : (t, b) => U.sheet(t, b))("AI Forecast", html);
+}
+function bindAi(){ ui.aiBox?.addEventListener("click", e => { if (e.target.closest("[data-aiq]")){ e.stopPropagation(); U.buzz(10); aiInfo(); } }); }
 
 async function load(s, timeframe){
   sym = s; tf = timeframe; sec = M.TF_SEC[tf];
   const seq = ++loadSeq;
-  bars = []; build(); msg("Loading…");
+  bars = []; aiSt = null; build(); msg("Loading…");
   let data = [];
   for (let i=0;i<5;i++){
     try { data = await M.candles(sym, tf); break; }
@@ -524,6 +594,7 @@ function loop(){
   raf = requestAnimationFrame(loop);
   const n = performance.now();
   if (dirty && n - lastRender >= 120){ dirty = false; lastRender = n; renderLast(); }
+  if (aiOn && n - aiLast > 500){ aiLast = n; aiSync(); }
   overlay(); drawGrid(); renderDraw(); if (CH.frame) CH.frame();   // every frame → HTML labels move in sync with the canvas while panning
 }
 
@@ -538,7 +609,7 @@ function legend(){
   if (r.sar) h += `<div><span>SAR(${IS("SAR").step},${IS("SAR").max}) <b style="color:${COL.sar}">${f(r.sar.val[i])}</b></span></div>`;
   if (r.vw) h += `<div><span>VWAP <b style="color:${COL.vwap}">${f(r.vw[i])}</b></span></div>`;
   if (r.st) h += `<div><span>SUPERTREND(${IS("SUPER").n},${IS("SUPER").m}) <b style="color:${r.st.dir[i] === 1 ? UP : DN}">${f(r.st.val[i])}</b></span></div>`;
-  ui.legend.innerHTML = h;
+  if (ui.legend._h !== h){ ui.legend._h = h; ui.legend.innerHTML = h; aiBoxPos(); }
   if (S.vol && ui.vlg && chart){ const b = bars[i] || {}, v = b.volume || 0, q = v * (b.close || 0), k = n => n >= 1e9 ? (n/1e9).toFixed(2) + "B" : n >= 1e6 ? (n/1e6).toFixed(2) + "M" : n >= 1e3 ? (n/1e3).toFixed(2) + "K" : n.toFixed(2);
     try { ui.vlg.style.top = (chart.panes()[0].getHeight() + 3) + "px"; } catch {}
     ui.vlg.innerHTML = `Vol(${U.esc(p.base || "")}): <b>${k(v)}</b>&nbsp;&nbsp;Vol(${U.esc(p.quote || "USDT")}): <b>${k(q)}</b>`; }
@@ -876,14 +947,16 @@ function clearDraw(){ saveDrawings([]); }
 
 function setInds(list){
   const added = list.filter(k => !inds.includes(k));
-  if (added.some(k => k !== "VOL") && nonVol(list) > MAXI){ U.toast("Max 4 indicators", "info", 1600); return false; }
-  inds = list.slice(); store.s.settings.inds = inds; store.save(); const keep = chart ? chart.timeScale().getVisibleLogicalRange() : null; build(); if (keep) chart.timeScale().setVisibleLogicalRange(keep); return true; }
+  if (added.some(k => k !== "VOL" && k !== "AI") && nonVol(list) > MAXI){ U.toast("Max 4 indicators", "info", 1600); return false; }
+  const aiCh = added.includes("AI") || (inds.includes("AI") && !list.includes("AI"));
+  inds = list.slice(); if (ui.mode === "bin") store.s.settings.aiFc = inds.includes("AI"); store.s.settings.inds = inds.filter(k => k !== "AI"); store.save();   // AI Forecast (binary only) keeps its own on/off flag
+  const keep = chart ? chart.timeScale().getVisibleLogicalRange() : null; build(); if (aiCh) chart.timeScale().scrollToRealTime(); else if (keep) chart.timeScale().setVisibleLogicalRange(keep); return true; }
 function refresh(){ if (!chart) return; const keep = chart.timeScale().getVisibleLogicalRange(); srKey = ""; liqData = null; build(); if (keep) chart.timeScale().setVisibleLogicalRange(keep); }
 function setType(t){ type = t; store.s.settings.chartType = t; store.save(); build(); chart.timeScale().scrollToRealTime(); }
 function zoom(f){ if (!chart) return; const ts = chart.timeScale(), cur = ts.options().barSpacing; ts.applyOptions({barSpacing: U.clamp(cur * f, 1, 60)}); }
 function reset(){ chart?.timeScale().scrollToRealTime(); chart?.priceScale("right").applyOptions({autoScale:true}); checkAuto(); }
 function resize(){ if (chart && el) chart.applyOptions({width: el.clientWidth, height: el.clientHeight}); }
-function destroy(){ extraSpec = []; offs.forEach(f => f()); offs = []; ro?.disconnect(); cancelAnimationFrame(raf); if (chart) chart.remove(); chart = null; S = {}; lines.clear(); loadSeq++; bars = []; draw = {tool:null, temp:null}; ui.xlab?.remove(); }
+function destroy(){ aiOn = false; aiSt = null; aiSum = null; extraSpec = []; offs.forEach(f => f()); offs = []; ro?.disconnect(); cancelAnimationFrame(raf); if (chart) chart.remove(); chart = null; S = {}; lines.clear(); loadSeq++; bars = []; draw = {tool:null, temp:null}; ui.xlab?.remove(); }
 async function perfStats(s){
   const out = {}; try {
     const d = await M.candles(s, "1d"); if (!d.length) return out; const last = d[d.length-1].close;
@@ -891,5 +964,5 @@ async function perfStats(s){
   } catch {} return out;
 }
 
-window.CH = {setExtra: l => { extraSpec = Array.isArray(l) ? l : []; syncLines(); }, liqState: () => liqData, geo: () => chart && S.main && bars.length ? {sym, el, tf, sec, pw: chart.timeScale().width(), h: chart.panes()[0].getHeight(), t2x: timeToX, x2t: xToTime, p2y: p => S.main.priceToCoordinate(p), y2p: y => S.main.coordinateToPrice(y)} : null, IDEF, IS, refresh, MAXI, setBinExp: f => { binExpFn = f; }, mount, load, zoom, reset, destroy, setInds, setType, resize, syncLines, setTool, undoDraw, clearDraw, performance: perfStats, get tool(){ return draw.tool; }, get inds(){ return inds; }, get type(){ return type; }, fmtVol};
+window.CH = {setExtra: l => { extraSpec = Array.isArray(l) ? l : []; syncLines(); }, liqState: () => liqData, geo: () => chart && S.main && bars.length ? {sym, el, tf, sec, pw: chart.timeScale().width(), h: chart.panes()[0].getHeight(), t2x: timeToX, x2t: xToTime, p2y: p => S.main.priceToCoordinate(p), y2p: y => S.main.coordinateToPrice(y)} : null, IDEF, IS, refresh, MAXI, setBinExp: f => { binExpFn = f; }, mount, load, zoom, reset, destroy, setInds, setType, resize, syncLines, setTool, undoDraw, clearDraw, performance: perfStats, get tool(){ return draw.tool; }, get mode(){ return ui.mode; }, aiState: () => ({on:aiOn, st:aiSt, sum:aiSum}), get inds(){ return inds; }, get type(){ return type; }, fmtVol};
 })();

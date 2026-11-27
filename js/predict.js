@@ -36,6 +36,7 @@ const now = () => Date.now();
 /* ---------- formatting (en-US, $ amounts, ¢ prices) ---------- */
 const usd = (v, d = 2) => (v < 0 ? "-" : "") + "$" + fmt(Math.abs(v || 0), d);
 const usdS = v => (v > 0.004 ? "+" : v < -0.004 ? "-" : "") + "$" + fmt(Math.abs(v || 0), 2);
+const hUsd = v => { v = +v || 0; return v >= 1e6 ? "$" + (v / 1e6).toFixed(2) + "M" : v >= 100 ? "$" + fmt(v, 0) : "$" + fmt(v, 2); };
 const cmp = v => { v = +v || 0; const a = Math.abs(v); return a >= 1e9 ? (v/1e9).toFixed(1) + "B" : a >= 1e6 ? (v/1e6).toFixed(1) + "M" : a >= 1e3 ? (v/1e3).toFixed(a >= 1e4 ? 0 : 1) + "K" : fmt(v, 0); };
 const cents = p => { if (p == null || isNaN(p)) return "--"; const v = p * 100; if (v > 0 && v < .1) return "<0.1¢"; return (Math.abs(v - Math.round(v)) < 1e-6 ? String(Math.round(v)) : v.toFixed(1)) + "¢"; };
 const chancePct = p => p == null || isNaN(p) ? "--" : p * 100 < 1 && p > 0 ? "<1%" : p * 100 > 99 && p < 1 ? ">99%" : Math.round(p * 100) + "%";
@@ -1133,7 +1134,7 @@ async function history(tk, tf){
   const v = (d.history || []).map(p => [p.t * 1000, +p.p]).filter(p => p[1] >= 0);
   HI[k] = {t: now(), v}; return v;
 }
-const nm = s => /^0x[0-9a-f]{12,}$/i.test(s || "") ? s.slice(0, 6) + "…" + s.slice(-4) : (s || "Trader");
+const nm = s => { s = String(s || ""); const x = /^(0x[0-9a-f]{12,})(?:-\d+)?$/i.exec(s); return x ? x[1].slice(0, 6) + "…" + x[1].slice(-4) : (s || "Trader"); };
 const nameAv = (seed, size = 30) => { let h = 0; for (const ch of String(seed)) h = (h * 31 + ch.charCodeAt(0)) >>> 0; const hue = h % 360; return `<span class="pd-av" style="width:${size}px;height:${size}px;background:linear-gradient(135deg,hsl(${hue} 70% 58%),hsl(${(hue + 50) % 360} 75% 48%))">${esc(String(seed || "?").replace(/^0x/, "")[0] || "?").toUpperCase()}</span>`; };
 const SIMN = ["Theo4","Fredi9999","PrincessCaro","zxgngl","Domer","50pence","JustKen","CigarettesAfterSex","WindWalk3","kch123","gopfan2","RepTrump","sargallot","bobe2","HyperLiquid0xb","Erasmus","Car","BrokenStrategy"];
 function simTrades(m, n = 14){ const out = [], c = chance(m); for (let i = 0; i < n; i++){ const yes = Math.random() < c + .1, p = Math.max(.01, Math.min(.99, (yes ? c : 1 - c) + (Math.random() - .5) * .02)); out.push({name: SIMN[(i * 7 + m.id.length) % SIMN.length], side: Math.random() < .78 ? "BUY" : "SELL", outcome: m.outs[yes ? 0 : 1], size: Math.round(5 + Math.random() ** 2 * 3000), price: p, t: now() - i * (40e3 + Math.random() * 200e3), sim: true}); } return out; }
@@ -1197,6 +1198,8 @@ function detailScreen(key, mid){
     if (phase() === "past"){ loadPast(); if (winnerOf(ev) == null){ rPoll = 0; pollRound(); } updateRound(); return; }
     if (!window.CH) return;
     try { CH.mount(host, {sym: rd.sym, tf: sessionStorage.getItem("tf_ch3") || "1m", indicators: true, compact: true, tfbar: true, mode: "none", height: "280px", tfs: ["1s", "1m", "5m", "15m", "1h", "4h", "1d"]}); } catch (e){ console.warn(e); }
+    /* drags that start on the chart pan / scale the chart only; the page does not scroll (touch-action:none in css + this guard) */
+    const cw = host.closest(".chart-wrap"); if (cw && !cw._pdTm){ cw._pdTm = 1; cw.addEventListener("touchmove", e => { if (e.cancelable) e.preventDefault(); }, {passive: false}); }
     if (phase() === "live") startPrice(rd).then(v => { if (phase() === "live"){ startPx = v != null ? v : livePx(rd.sym); updateRound(); } });
     updateRound(); cancelAnimationFrame(fr); fr = requestAnimationFrame(frameLoop);
   }
@@ -1391,7 +1394,7 @@ function detailScreen(key, mid){
     } else if (tab === "comments"){
       if (!cmtOff && window.PSOC){ cmtBox = box; box.innerHTML = ""; cmtOff = PSOC.comments(box, ev); }
     } else if (tab === "holders"){
-      box.innerHTML = holders ? `<div class="pd-hold">${[0, 1].map(oi => `<div><h4 class="${oi ? "down" : "up"}">${esc(short(m.outs[oi]))} holders</h4>${(holders[oi] || []).slice(0, 8).map((h, i) => `<div class="pd-hr" ${h.addr ? `data-paddr="${esc(h.addr)}" role="button" tabindex="0"` : ""}><span class="pd-hn">${i + 1}</span>${h.img ? `<img class="pd-av" src="${esc(h.img)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">` : nameAv(h.name, 24)}<span class="pd-hname">${esc(h.name)}</span><b class="num">${cmp(h.amount)}</b></div>`).join("") || '<div class="pd-fine">No holders</div>'}</div>`).join("")}</div>${holders.sim ? '<div class="pd-fine">Sample holders (live data unavailable)</div>' : ""}` : `<div class="pd-ch-empty" style="height:100px"><span class="pd-spin"></span></div>`;
+      box.innerHTML = holders ? `<div class="pd-hold">${[0, 1].map(oi => `<div><h4 class="${oi ? "down" : "up"}">${esc(short(m.outs[oi]))} holders</h4>${(holders[oi] || []).slice(0, 8).map((h, i) => `<div class="pd-hr" ${h.addr ? `data-paddr="${esc(h.addr)}" role="button" tabindex="0"` : ""}><span class="pd-hn">${i + 1}</span>${h.img ? `<img class="pd-av" src="${esc(h.img)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">` : nameAv(h.name, 24)}<span class="pd-hcol"><span class="pd-hname">${esc(h.name)}</span><b class="num ${oi ? "down" : "up"}" title="${shr(h.amount)} shares">${hUsd(h.amount * (outPx(m, oi) || 0))}</b></span></div>`).join("") || '<div class="pd-fine">No holders</div>'}</div>`).join("")}</div><div class="pd-fine">Position value in USD: shares held \u00d7 current price (${cents(outPx(m, 0))} ${esc(short(m.outs[0]))} / ${cents(outPx(m, 1))} ${esc(short(m.outs[1]))}).</div>${holders.sim ? '<div class="pd-fine">Sample holders (live data unavailable)</div>' : ""}` : `<div class="pd-ch-empty" style="height:100px"><span class="pd-spin"></span></div>`;
     } else {
       const desc = (m.desc || ev.desc || "").trim();
       box.innerHTML = `<div class="pd-rules"><p>${esc(desc || "No rules provided.").replace(/\n+/g, "<br><br>")}</p><div class="pd-kv"><div><span>Market opened</span><b>${esc(dShort(m.start || ev.start) || "--")}</b></div><div><span>End date</span><b>${esc(dShort(m.end || ev.end) || "--")}</b></div><div><span>Resolver</span><b>UMA optimistic oracle</b></div>${ev.res ? `<div><span>Source</span><b><a href="${esc(ev.res)}" target="_blank" rel="noopener noreferrer">${esc(ev.res.replace(/^https?:\/\//, "").slice(0, 40))}</a></b></div>` : ""}</div></div>`;

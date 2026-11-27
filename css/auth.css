@@ -119,8 +119,8 @@ html:root[data-theme] body.auth-mode{background:radial-gradient(520px 260px at 5
 
 /* v7.1 guest entry */
 .au-wrap{position:relative}
-.au-x{position:absolute;top:2px;right:0;width:40px;height:40px;border-radius:50%;border:1px solid var(--card-bd,rgba(127,140,170,.25));background:linear-gradient(180deg,var(--card-g1),var(--card-g2));color:var(--t2,inherit);display:grid;place-items:center;cursor:pointer;z-index:2}
-.au-guest{display:block;width:100%;height:46px;margin-top:14px;border-radius:var(--r-ctl,8px);border:1px solid var(--card-bd,rgba(127,140,170,.3));background:linear-gradient(180deg,var(--card-g1),var(--card-g2));color:inherit;font:600 15px/1 inherit;cursor:pointer}
+.au-x{position:absolute;top:2px;right:0;width:40px;height:40px;border-radius:50%;border:1px solid var(--card-bd,rgba(127,140,170,.25));background:linear-gradient(180deg,var(--card-g1),var(--card-g2));color:var(--text-2);display:grid;place-items:center;cursor:pointer;z-index:2}
+.au-guest{display:block;width:100%;height:46px;margin-top:14px;border-radius:var(--r-ctl,8px);border:1px solid var(--card-bd,rgba(127,140,170,.3));background:linear-gradient(180deg,var(--card-g1),var(--card-g2));color:var(--text);font:600 15px/1 inherit;cursor:pointer}
 .gl-acts{display:flex!important;gap:10px;grid-template-columns:none!important}
 .gl-acts .gl-btn{flex:1;display:grid;place-items:center;height:44px;border-radius:var(--r-ctl,8px);font-weight:600;font-size:14px;text-decoration:none;border:1px solid var(--card-bd,rgba(127,140,170,.3));color:inherit;background:linear-gradient(180deg,var(--card-g1),var(--card-g2))}
 .gl-acts .gl-btn.pri{background:linear-gradient(180deg,#3b8bff,#2f6dff);border-color:transparent;color:#fff}

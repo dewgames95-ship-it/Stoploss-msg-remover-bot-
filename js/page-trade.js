@@ -56,7 +56,8 @@ const INFO = {
   fee: () => ["Trading Fees", `<p class="info-p"><b>${esc(C.APP_NAME || "NovaTrade")} charges 5x less than others.</b></p><div class="rz-cmp" style="margin-top:8px"><div class="rz-ch"><span>Product</span><span>${esc(C.APP_NAME || "NovaTrade")}</span><span>Binance</span></div>
     <div class="rz-cr me"><span>Futures taker</span><span class="num">${(C.FEE*100).toFixed(2)}%</span><b class="num">0.05%</b></div><div class="rz-cr me"><span>Futures maker</span><span class="num">${(C.FEE*40).toFixed(3)}%</span><b class="num">0.02%</b></div><div class="rz-cr me"><span>Spot</span><span class="num">0.02%</span><b class="num">0.10%</b></div><div class="rz-cr me"><span>Binary</span><span>No fee</span><b>--</b></div></div>`]
 };
-function showInfo(k){ const f = INFO[k]; if (!f) return; const [t, h] = f(); U.sheet(t, h + `<button class="btn btn-primary btn-block" style="margin-top:14px" data-x>OK</button>`, el => el.querySelector("[data-x]").onclick = U.closeLayer); }
+function showInfo(k){ const f = INFO[k]; if (!f) return; const [t, h] = f();
+  if (BIN_TIPS.includes(k) && UI.tip) return UI.tip(t, h); U.sheet(t, h + `<button class="btn btn-primary btn-block" style="margin-top:14px" data-x>OK</button>`, el => el.querySelector("[data-x]").onclick = U.closeLayer); }
 document.addEventListener("click", e => { const t = e.target.closest("[data-info]"); if (t){ e.preventDefault(); showInfo(t.dataset.info); } });
 
 /* ---------------- Quick trade sheet (open a futures position without leaving the chart) ---------------- */
@@ -735,10 +736,17 @@ const clock = t => new Date(t).toLocaleTimeString("en-US", {hour12: false});
 const STRAT_N = {trend: "Trend follow", reversal: "Reversal", random: "Random"};
 const botTag = x => x.bot ? `<span class="perp bot-tag" title="Placed by a bot">${ic("bot", 11)} ${esc(x.bot)}${x.strat ? " · " + (STRAT_N[x.strat] || x.strat) : ""}</span>` : x.source === "auto" ? `<span class="perp bot-tag">${ic("bot", 11)} Auto Trade</span>` : "";
 Object.assign(window.UI, {binExps: BIN_EXPS, expLabel, expLong, binClock: clock, botTag});
+let curPay = 0.92;
+const BIN_TIPS = ["bpay", "bexp", "beven", "bwait", "bbot"];
 const qBtn = k => `<button type="button" class="bx-q" data-info="${k}" aria-label="What does this mean?">?</button>`;
 Object.assign(INFO, {
-  bpay: () => ["Payout %", `<div class="bq-g"><div class="bq-b"><span>Stake</span><b class="num">10.00</b></div><div class="bq-b w"><span>Win at 92%</span><b class="num up">+9.20</b></div><div class="bq-b l"><span>Lose</span><b class="num down">-10.00</b></div></div><p class="info-p">The payout % is the profit you earn on your stake if the trade wins. At 92%, a 10.00 USDT stake returns 19.20 USDT (your stake plus 9.20 profit). If you lose, the stake is gone. The % depends on the pair and is shown before you trade.</p>`],
-  bexp: () => ["Expiry", `<svg viewBox="0 0 300 70" class="bq-svg" role="img" aria-label="Timeline from entry to expiry"><line x1="20" y1="38" x2="280" y2="38" stroke="var(--line-2)" stroke-width="2"/><circle cx="40" cy="38" r="6" fill="var(--brand)"/><circle cx="260" cy="38" r="6" fill="var(--up)"/><text x="40" y="20" text-anchor="middle" class="bq-t">Entry</text><text x="260" y="20" text-anchor="middle" class="bq-t">Expiry</text><text x="150" y="60" text-anchor="middle" class="bq-t">exactly 1 min later</text></svg><p class="info-p">Expiry is how long the trade lasts. It starts the moment you tap Up or Down and ends exactly that long afterwards, for example a 1 minute trade placed at 14:31:07 ends at 14:32:07 sharp, no matter where the 1-minute candle is. At expiry your exit price is compared with your entry price. Tap the clock button to pick longer times and see the exact expiry time.</p>`],
+  bpay: () => { const pc = Math.round(curPay * 100), w = (10 * curPay).toFixed(2);
+    return ["Payout (win)", `<svg viewBox="0 0 280 96" class="bq-svg" role="img" aria-label="Win if the price ends above your entry, lose if below"><line x1="14" y1="48" x2="266" y2="48" stroke="var(--line-2)" stroke-width="1.5" stroke-dasharray="4 4"/><circle cx="40" cy="48" r="5" fill="var(--brand)"/><path d="M40 48 L104 30 L152 40 L226 16" fill="none" stroke="var(--up)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M40 48 L98 62 L150 56 L226 82" fill="none" stroke="var(--down)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><line x1="226" y1="6" x2="226" y2="92" stroke="var(--muted)" stroke-width="1.2" stroke-dasharray="3 3"/><text x="40" y="38" text-anchor="middle" class="bq-t">Entry</text><text x="214" y="12" text-anchor="end" class="bq-t" fill="var(--up)" style="fill:var(--up)">WIN +${w}</text><text x="214" y="92" text-anchor="end" class="bq-t" style="fill:var(--down)">LOSE -10.00</text></svg>
+      <p class="info-p">The total you receive if you win: your bet plus <b class="up">${pc}%</b> profit. Bet 10.00 and win, get ${(10 + +w).toFixed(2)} USDT.</p>
+      <ul class="bq-ul"><li><b class="up">Win:</b> you tap Up and the price at the end is above your entry price (Down: below).</li><li><b class="down">Loss:</b> the price ends on the other side. The bet is lost.</li><li><b>Same price:</b> your bet is returned.</li><li><b>When paid:</b> automatically, the moment the time period ends. It goes straight to your Binary wallet.</li></ul>`]; },
+  bexp: () => ["Time period", `<svg viewBox="0 0 280 78" class="bq-svg" role="img" aria-label="Timeline from entry to expiry"><line x1="24" y1="38" x2="256" y2="38" stroke="var(--line-2)" stroke-width="2"/><circle cx="40" cy="38" r="6" fill="var(--brand)"/><circle cx="240" cy="38" r="6" fill="var(--up)"/><text x="22" y="22" text-anchor="start" class="bq-t">You tap Up / Down</text><text x="258" y="22" text-anchor="end" class="bq-t">Result + payout</text><text x="140" y="62" text-anchor="middle" class="bq-t">time period (30s, 1m, 5m ...)</text></svg>
+      <p class="info-p">The time period is how long your trade stays open. It starts the moment you tap <b>Up</b> or <b>Down</b> and ends exactly that long later. For example 1m placed at 14:31:07 ends at 14:32:07.</p>
+      <ul class="bq-ul"><li>At the end, the exit price is compared with your entry price.</li><li>The result and payout arrive automatically.</li><li>Tap the clock button for longer periods. Expiry time is shown on the right.</li></ul>`],
   beven: () => ["Even (tie)", `<p class="info-p">Even means the price at expiry is exactly the same as your entry price. Nobody wins or loses: your stake is returned in full. While a trade is open, <b>Even</b> in Status simply shows that the price right now equals your entry price.</p><p class="info-p"><b>Winning:</b> Up trade and the price is above entry, or Down trade and the price is below entry.</p>`],
   bwait: () => ["Wait after each trade", `<p class="info-p">A bot never holds two trades at once. When its trade ends, it waits this long (the cooldown) before looking for the next signal. A longer wait means fewer trades and less risk of a losing streak.</p>`],
   bbot: () => ["How binary bots trade", `<p class="info-p">A bot opens a normal Up or Down trade for you using the strategy you choose. It opens one trade, waits until it expires, waits the cooldown, then repeats until it reaches the trade limit or you stop it. Every trade shows the bot name in your History.</p>`]
@@ -766,7 +774,7 @@ Pages.trade = (params) => {
           <button class="bx-step" data-plus aria-label="Increase amount">${ic("plus",15,2.4)}</button><button class="bb-max" data-v="max">MAX</button></div>
         <div class="bb-chips" id="qa">${[0.1,0.5,1,2,5,10].map(v => `<button data-v="${v}">${v}</button>`).join("")}</div>
       </div>
-      <div class="bx-pay"><small>Payout (win) ${qBtn("bpay")}</small><b class="num" id="po"></b><span class="pp" id="ppct"></span></div>
+      <div class="bx-pay"><small>Payout (win)${qBtn("bpay")}</small><b class="num" id="po"></b><span class="pp" id="ppct"></span></div>
     </div>
     <div class="bx-trow"><div class="bx-tl"><span>Time period ${qBtn("bexp")}</span><span class="bx-exat" id="exat"></span></div>
     <div class="bx-time" id="exps">${QUICK_EXPS.map(x => `<button class="exp-chip" data-e="${x}"><b>${expLabel(x)}</b></button>`).join("")}<button class="exp-chip bx-tsel" data-timepick type="button" aria-label="Choose expiry time">${ic("clock", 16, 2)}<b id="tsl"></b></button></div></div>
@@ -789,7 +797,7 @@ Pages.trade = (params) => {
   function renderOrder(){
     const p = P(), a = parseFloat($("#amt").value) || 0;
     const pp = E.payoutOf(sym, exp), pct = Math.round(pp * 100) + "%";
-    $("#ob").textContent = money(store.wb("binary")); $("#po").textContent = money(a * (1 + pp)) + " USDT"; $("#ppct").textContent = "+" + pct + " profit";
+    $("#ob").textContent = money(store.wb("binary")); curPay = pp; $("#po").innerHTML = `${money(a * (1 + pp))}<em>USDT</em>`; $("#ppct").textContent = "+" + pct + " profit";
     root.querySelectorAll("[data-e]").forEach(b => b.classList.toggle("on", +b.dataset.e === exp));
     const ts = $("[data-timepick]"), custom = !QUICK_EXPS.includes(exp); ts.classList.toggle("on", custom); ts.classList.toggle("has", custom); $("#tsl").textContent = custom ? expLabel(exp) : ""; updExat();
     const hp = $("#hpp"); if (hp) hp.textContent = pct;

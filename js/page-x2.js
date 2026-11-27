@@ -59,7 +59,7 @@ const ART = {
 window.ART = ART;
 
 /* ======================= ASSETS ======================= */
-const WL = ["spot","funding","futures","binary","options","earn","games","predict"];
+const WL = ["spot","funding","futures","binary","options","earn","games","predict","cfd"];
 const NAMES = c => c === "USDT" ? "TetherUS" : (window.COIN_NAMES && window.COIN_NAMES[c]) || c;
 function spotHoldings(){
   try { const h = window.SPOT?.holdings?.() || []; return (Array.isArray(h) ? h : []).map(x => {
@@ -200,8 +200,8 @@ Pages.assets = (params) => {
   const CHIPS = () => `<div class="px-sec-h" style="margin-top:14px"><h2>Coins</h2></div><div class="px-chips2"><div class="px-chip-g"><button data-v="crypto" class="on">Crypto</button><button data-v="account">Account</button></div><span class="sp"></span><button class="icon-btn" data-sq aria-label="Search">${ic("search",18,1.7)}</button><button class="icon-btn" data-filter aria-label="Sort">${ic("sort",18,1.7)}</button></div>`;
   function render(r){
     const s = S(), t = totals(), hide = !!s.settings.hideBal, H = v => hide ? "******" : v, box = r.querySelector("#ab");
-    const label = {overview:"Total Assets", fund:"Funding Account", spot:"Spot Account", futures:"Futures Account", copy:"Copy Trading", earn:"Earn Account"}[tab] || (PI && PI.label);
     const PI = UI.assetsProdInfo && UI.assetsProdInfo(tab);
+    const label = {overview:"Total Assets", fund:"Funding Account", spot:"Spot Account", futures:"Futures Account", copy:"Copy Trading", earn:"Earn Account"}[tab] || (PI && PI.label);
     const val = PI ? PI.val : {overview:t.total, fund:store.wb("funding"), spot:t.spot + store.wb("spot"), futures:t.fut + store.wb("futures"), copy:t.cv, earn:t.vault}[tab];
     const pnl = PI ? PI.pnl : {overview:t.tp, fund:null, spot:t.hp, futures:t.up, copy:t.cpn, earn:null}[tab];
     const pc = pnl == null ? 0 : pnl / Math.max(1, val - pnl) * 100;
@@ -210,7 +210,7 @@ Pages.assets = (params) => {
     let body = "";
     if (PI){ body = UI.assetsProd(tab, H); }
     else if (tab === "overview" && view === "account"){
-      const wb = store.wb, parts = [["Funding","fund",wb("funding"),"#2E6BFF"],["Spot","spot",wb("spot") + t.hv,"#7FA6FF"],["Futures","futures",Math.max(0,t.fut) + wb("futures"),"#5B6575"],["Binary / Options","spot",wb("binary") + wb("options") + t.bin,"#8A94A6"],["Copy Trading","copy",t.cv,"#A8B3C4"],["Earn","earn",t.vault + wb("earn"),"#D3D9E2"],["Money Game","games",wb("games"),"#6E7B93"],["Prediction","predict",wb("predict"),"#B9C2D3"]], sum = parts.reduce((a,p) => a + p[2], 0) || 1;
+      const wb = store.wb, parts = [["Funding","fund",wb("funding"),"#2E6BFF"],["Spot","spot",wb("spot") + t.hv,"#7FA6FF"],["Futures","futures",Math.max(0,t.fut) + wb("futures"),"#5B6575"],["Binary / Options","spot",wb("binary") + wb("options") + t.bin,"#8A94A6"],["Copy Trading","copy",t.cv,"#A8B3C4"],["Earn","earn",t.vault + wb("earn"),"#D3D9E2"],["Money Game","games",wb("games"),"#6E7B93"],["Prediction","predict",wb("predict"),"#B9C2D3"],["CFD Trade","cfd",wb("cfd"),"#9AA6BA"]], sum = parts.reduce((a,p) => a + p[2], 0) || 1;
       body = CHIPS() + `<div class="px-alloc">${parts.filter(p => p[2] > 0).map(p => `<i style="flex:${p[2]/sum};background:${p[3]}"></i>`).join("")}</div>
         ${parts.map(([n,k,v,c]) => `<button class="px-acc" data-go="${k}"><i style="background:${c}"></i><div class="grow"><b>${n}</b><span class="px-mut">${hide ? "**" : (v/sum*100).toFixed(1) + "% of total"}</span></div><div class="r"><b class="num">${H(money(v))}</b><span class="px-mut">USDT</span></div><span class="ch">${ic("chev",14)}</span></button>`).join("")}`;
     } else {
@@ -249,6 +249,7 @@ Pages.assets = (params) => {
   }
   return {html, title:"Assets", mount(r){
     render(r);
+    try { const on = r.querySelector("#atabs .on"); if (on) r.querySelector("#atabs").scrollLeft = Math.max(0, on.offsetLeft - 40); } catch (e) {}
     r.querySelectorAll("[data-at]").forEach(b => b.onclick = () => { tab = b.dataset.at; r.querySelectorAll("[data-at]").forEach(x => x.classList.toggle("on", x===b)); q = ""; showQ = false; render(r); });
     const iv = setInterval(() => { if (r.isConnected && document.activeElement?.id !== "aq") render(r); }, 4000), offs = [bus.on("balance", () => { if (document.activeElement?.id !== "aq") render(r); })];
     this.unmount = () => { clearInterval(iv); offs.forEach(f => f()); };

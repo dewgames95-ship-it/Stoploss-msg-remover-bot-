@@ -30,6 +30,7 @@ const SCH = [
   {k:"VWAP", n:"VWAP", main:1, f:[C("c","Colour")]},
   {k:"SR", n:"Support/Resistance", main:1, f:[N("lv","Zones per side (1-3)"), N("k","Pivot strength")]},
   {k:"LIQ", n:"Liquidation", main:1, f:[["lev","Leverages (comma list)","t"], N("bins","Resolution (bins)")]},
+  {k:"AI", n:"AI Forecast", main:1, bin:1, f:[]},
   {k:"VOL", n:"VOL", f:[]},
   {k:"RSI", n:"RSI", f:[N("n","Period"), C("c","Colour")]},
   {k:"MACD", n:"MACD", f:[N("f","Fast"), N("s","Slow"), N("g","Signal"), C("c","MACD colour"), C("cs","Signal colour")]}
@@ -37,9 +38,10 @@ const SCH = [
 const hex = v => /^#[0-9a-f]{6}$/i.test(v) ? v : "#2e6bff";
 let tmr = 0;
 /* indicator chips: full names; SuperTrend + Liquidation get a faint "hot" background, glow and a flame icon */
-const CHIP = {SR:["Support/Resistance", 0], LIQ:["Liquidation", 1], SUPER:["SuperTrend", 1]};
+const CHIP = {SR:["Support/Resistance", 0], LIQ:["Liquidation", 1], SUPER:["SuperTrend", 1], AI:["AI Forecast", 2]};
+const spark = `<svg class="aispark" viewBox="0 0 24 24" width="12" height="12" aria-hidden="true"><defs><linearGradient id="aisgc" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4FC3F7"/><stop offset=".55" stop-color="#6C7BFF"/><stop offset="1" stop-color="#B15CFF"/></linearGradient></defs><path fill="url(#aisgc)" d="M12 2C12.6 7.5 16.5 11.4 22 12C16.5 12.6 12.6 16.5 12 22C11.4 16.5 7.5 12.6 2 12C7.5 11.4 11.4 7.5 12 2Z"/></svg>`;
 const flame = k => `<svg class="flame" viewBox="0 0 24 24" width="12" height="12" aria-hidden="true"><defs><linearGradient id="flg${k}" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#FF3B1D"/><stop offset=".55" stop-color="#FF8A00"/><stop offset="1" stop-color="#FFD24A"/></linearGradient></defs><path fill="url(#flg${k})" d="M12.5 2c.5 3.4-1.3 5-2.8 6.9C8.1 10.8 6.4 12.7 6.4 15.5 6.4 19 9 22 12.4 22s6-3 6-6.6c0-2.3-1-4-2.3-5.4-.2 1.3-.9 2.3-1.9 2.7.7-3.6-.3-7.7-2.1-10.7z"/></svg>`;
-function decorate(){ document.querySelectorAll("[data-ind]").forEach(b => { const c = CHIP[b.dataset.ind]; if (!c || b.dataset.dec) return; b.dataset.dec = "1"; b.innerHTML = (c[1] ? flame(b.dataset.ind) : "") + `<span>${c[0]}</span>`; if (c[1]) b.classList.add("hot"); b.setAttribute("aria-label", c[0]); }); }
+function decorate(){ document.querySelectorAll("[data-ind]").forEach(b => { const c = CHIP[b.dataset.ind]; if (!c || b.dataset.dec) return; b.dataset.dec = "1"; b.innerHTML = (c[1] === 2 ? spark : c[1] ? flame(b.dataset.ind) : "") + `<span>${c[0]}</span>`; if (c[1]) b.classList.add("hot"); b.setAttribute("aria-label", c[0]); }); }
 const syncRow = () => { decorate(); document.querySelectorAll("[data-ind]").forEach(b => b.classList.toggle("on", CH.inds.includes(b.dataset.ind))); };
 
 function open(){
@@ -53,7 +55,7 @@ function open(){
       return `<div class="ip-row${ex ? " open" : ""}" data-k="${x.k}"><div class="ip-h" data-tg="${x.k}"><b>${esc(x.n)}</b><span class="ip-sp"></span><button class="switch ${on ? "on" : ""}" data-sw="${x.k}" aria-label="${esc(x.n)}"></button>${x.f.length ? `<span class="ip-chev">${U.ic("chevd", 14)}</span>` : `<span class="ip-chev" style="visibility:hidden"></span>`}</div>
         ${ex ? `<div class="ip-b">${x.f.map(([f, l, t]) => `<label><span>${l}</span>${t === "c" ? `<input type="color" data-f="${x.k}.${f}" value="${hex(val(x.k, f))}">` : `<input class="ip-in" ${t === "n" ? 'type="number" inputmode="decimal" step="any"' : 'type="text"'} data-f="${x.k}.${f}" value="${esc(String(val(x.k, f)))}">`}</label>`).join("")}<button class="ip-reset" data-rs="${x.k}">Reset</button></div>` : ""}</div>`;
     }).join("");
-    return sec("Main chart", SCH.filter(x => x.main)) + sec("Sub chart", SCH.filter(x => !x.main)) + `<div class="ip-note">Up to ${CH.MAXI} indicators at a time (VOL not counted). Values are saved on this device.</div>`;
+    return sec("Main chart", SCH.filter(x => x.main && (!x.bin || CH.mode === "bin"))) + sec("Sub chart", SCH.filter(x => !x.main)) + `<div class="ip-note">Up to ${CH.MAXI} indicators at a time (VOL not counted). Values are saved on this device.</div>`;
   };
   const render = () => { const sc = pg.querySelector(".ip-body"), y = sc ? sc.scrollTop : 0; pg.querySelector(".ip-body").innerHTML = body(); pg.querySelector(".ip-body").scrollTop = y; };
   pg.innerHTML = `<div class="ip-head"><button class="icon-btn" data-ipx aria-label="Back">${U.ic("back", 20)}</button><b>Indicator Settings</b><span class="ip-sp"></span><button class="ip-resetall" data-rsall>Reset</button></div><div class="ip-body"></div>`;
@@ -127,6 +129,9 @@ CH.mount = function(container, parts, cb){
         const su = row.querySelector('[data-ind="SUPER"]');
         const html = `<button data-ind="SR">S/R</button><button data-ind="LIQ">LIQ</button>`;
         su ? su.insertAdjacentHTML("afterend", html) : row.insertAdjacentHTML("afterbegin", html);
+      }
+      if (parts.mode === "bin" && !parts.noInd && !row.querySelector('[data-ind="AI"]')){   // v7.1 AI Forecast: last in the main-chart group, after Support/Resistance, SuperTrend, Liquidation
+        const anchor = row.querySelector('[data-ind="LIQ"]') || row.querySelector('[data-ind="SR"]'); if (anchor) anchor.insertAdjacentHTML("afterend", `<button data-ind="AI">AI</button>`);
       }
       const ib = root.querySelector("[data-indinfo]"); if (ib){ ib.innerHTML = ICON; ib.classList.add("ind-set"); ib.setAttribute("aria-label", "Indicator settings"); }
       if (!root._ch3){ root._ch3 = 1; root.addEventListener("click", e => { if (e.target.closest("[data-indinfo],[data-indset]")){ e.stopPropagation(); e.preventDefault(); open(); } }, true); }
