@@ -49,7 +49,7 @@
 .exp-line.next>span{top:auto!important;bottom:34px}
 
 /* ===== v7.1 binary: wider bet card (full amount visible), compact payout card, precise "?" targets, tab/card gap ===== */
-.bin-page .bx2{grid-template-columns:minmax(0,1fr) 96px;gap:8px}
+.bin-page .bx2{grid-template-columns:minmax(0,1fr) 104px;gap:8px}
 .bin-page .bx-bet{padding:9px 8px 8px;min-width:0}
 .bin-page .bb-top{gap:3px}
 .bin-page .bb-top .bx-step{width:26px;height:26px;flex:0 0 26px;border-radius:7px}
@@ -60,7 +60,7 @@
 .bin-page .bb-v input{flex:1 1 0;min-width:0;width:100%;max-width:none;font-size:15px;text-align:right;padding:0}
 .bin-page .bb-v em{flex:0 0 auto;font-size:9.5px}
 .bin-page .bx-pay{padding:8px 6px;min-width:0;gap:1px}
-.bin-page .bx-pay small{font-size:8.5px;letter-spacing:.02em;white-space:nowrap;line-height:1.2;display:flex;align-items:center;justify-content:center}
+.bin-page .bx-pay small{font-size:8.5px;letter-spacing:.01em;white-space:nowrap;line-height:1.2;display:flex;align-items:center;justify-content:center}
 .bin-page .bx-pay b{font-size:15px;line-height:1.15;margin:3px 0 0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .bin-page .bx-pay b em{display:block;font-style:normal;font-size:9px;font-weight:700;letter-spacing:.06em;color:var(--up);opacity:.85;margin-top:1px}
 .bin-page .bx-pay .pp{font-size:9.5px;padding:1px 6px;margin-top:5px;white-space:nowrap}

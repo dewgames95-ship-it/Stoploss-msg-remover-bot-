@@ -124,6 +124,7 @@ function emptyState(icon, text){ return `<div class="empty">${ic(icon,32,1.5)}<p
 function notifCat(n){
   if (n.kind === "game" || n.cat === "game") return "game";
   if (n.kind === "predict" || n.cat === "predict") return "predict";
+  if (n.cat === "trade") return "trade";
   const x = (n.title + " " + (n.body || "")).toLowerCase();
   if (/order|trade|position|liquidat|option|spot|copy trading|bot|settled|limit|tp\/sl|funding/.test(x)) return "trade";
   return "system";

@@ -48,6 +48,13 @@ function run(fn, m = VIEW){
     RC = {};
   }
 }
+/* read-only variant of run(): swaps the account in, calls fn, swaps back, writes nothing */
+function peek(fn, m = VIEW){
+  if (live(m)) return fn();
+  const S0 = store.s, snap = Object.assign({}, S0), base = readS(m);
+  Object.keys(S0).forEach(x => delete S0[x]); Object.assign(S0, base);
+  try { return fn(); } finally { Object.keys(S0).forEach(x => delete S0[x]); Object.assign(S0, snap); }
+}
 /* wallet / user notification helpers */
 function bal(k, m = VIEW){ return +(readS(m).wallets || {})[k] || 0; }
 function totalOf(m = VIEW){ const w = readS(m).wallets || {}; return WK.reduce((a, k) => a + (+w[k] || 0), 0); }
@@ -150,7 +157,7 @@ const kpi = (l, v, ic, tone, href) => `<${href ? `a href="${href}"` : "div"} cla
 const field = (l, id, v, o = {}) => `<label class="a2-f"><span>${l}</span><input id="${id}" ${o.type ? `type="${o.type}"` : 'type="number"'} ${o.min != null ? `min="${o.min}"` : ""} ${o.step ? `step="${o.step}"` : ""} ${o.ph ? `placeholder="${o.ph}"` : ""} ${o.max != null ? `maxlength="${o.max}"` : ""} inputmode="${o.type === "text" || o.type === "password" ? "text" : "decimal"}" autocomplete="off" value="${esc(v ?? "")}"></label>`;
 const tog = (id, on, l, s, tip) => `<label class="a2-tg"><span><b>${l}${tip ? tipBtn(tip) : ""}</b>${s ? `<small>${s}</small>` : ""}</span><input type="checkbox" id="${id}" ${on ? "checked" : ""}><i></i></label>`;
 const kv = (a, b) => `<div class="a2-kv"><span>${a}</span><b>${b}</b></div>`;
-const chips = (id, opts, cur) => `<div class="a2-chips" id="${id}" role="radiogroup">${opts.map(o => `<button type="button" role="radio" aria-checked="${String(o.v) === String(cur)}" class="a2-chip ${String(o.v) === String(cur) ? "on" : ""}" data-v="${esc(o.v)}">${o.ic || ""}<span>${esc(o.l)}</span>${o.s ? `<small>${o.s}</small>` : ""}</button>`).join("")}</div>`;
+const chips = (id, opts, cur, cls = "") => `<div class="a2-chips ${cls}" id="${id}" role="radiogroup">${opts.map(o => `<button type="button" role="radio" aria-checked="${String(o.v) === String(cur)}" class="a2-chip ${String(o.v) === String(cur) ? "on" : ""}" data-v="${esc(o.v)}">${o.ic || ""}<span>${esc(o.l)}</span>${o.s ? `<small>${o.s}</small>` : ""}</button>`).join("")}</div>`;
 function bindChips(root, id, cb){ const g = root.querySelector("#" + id); if (!g) return; g.querySelectorAll(".a2-chip").forEach(b => b.onclick = () => { g.querySelectorAll(".a2-chip").forEach(x => { x.classList.toggle("on", x === b); x.setAttribute("aria-checked", x === b); }); U.buzz && U.buzz(8); cb(b.dataset.v); }); }
 const walletChips = (id, cur, showBal = true) => chips(id, WK.map(k => ({v:k, l:wname(k), ic:`<span class="a2-wi">${wic(k, 17)}</span>`, s:showBal ? n2(bal(k)) : ""})), cur);
 function bars(arr){
@@ -285,7 +292,7 @@ V.users = () => {
 /* adjust-balance sheet: app-style wallet chips, amount, note */
 function adjustSheet(defWallet){
   let wk = defWallet || "spot", sign = 1;
-  U.sheet("Add or deduct balance", `<div class="a2-sh">${chips("a2sgn", [{v:"1", l:"Add", ic:I("plus", 16)}, {v:"-1", l:"Deduct", ic:I("minus", 16)}], "1")}
+  U.sheet("Add or deduct balance", `<div class="a2-sh">${chips("a2sgn", [{v:"1", l:"Add", ic:I("plus", 16)}, {v:"-1", l:"Deduct", ic:I("minus", 16)}], "1", "c2")}
     <div class="a2-lbl">Wallet</div>${walletChips("a2wk", wk)}
     ${field("Amount (USDT)", "a2am", "", {step:"any", min:0, ph:"0.00"})}${field("Note for the user (optional)", "a2nt", "", {type:"text", max:60, ph:"e.g. Bonus"})}
     <p class="a2-hint">The user gets a notification: "Balance added by system".</p><button class="a2-b pri" id="a2go">Confirm</button></div>`, el => {
@@ -349,7 +356,7 @@ V.requests = () => {
   const wd = txOf("real").filter(isWd), dp = txOf("real").filter(x => isDep(x) && x.status), f = fin();
   const html = card(secH(I("inbox", 18), "Withdraw requests", "requests"), tog("a2ap", f.autoPay, "Auto-pay", f.autoPay ? "Requests complete by themselves" : "Pay each request manually", "autopay") + (wd.length ? wd.slice(0, 30).map(wdCard).join("") : empty("No withdrawal requests."))) +
     card(secH(I("fin", 18), "Deposits", null), tog("a2ac", f.autoCredit, "Auto-credit deposits", f.autoCredit ? "Credited instantly" : "Approve each deposit below", "autocredit") + (dp.length ? dp.slice(0, 30).map(depCard).join("") : empty("No deposits waiting. Deposits show here when Auto-credit is off.")));
-  return {title:"Requests", html, mount(r){ finToggles(r); wdActions(r); markSeen(); }};
+  return {title:"Requests", noMode:true, html, mount(r){ finToggles(r); wdActions(r); markSeen(); }};
 };
 
 V.notifs = () => {
@@ -358,7 +365,7 @@ V.notifs = () => {
   const seenT0 = seenT();
   const html = card(secH(I("bell", 18), "Real-account activity", "notifs", `<button class="a2-b sm" data-readall>Mark all read</button>`), chips("a2f", [{v:"all", l:"All"}, {v:"dep", l:"Deposits"}, {v:"wd", l:"Withdrawals"}, {v:"trade", l:"Trades"}], "all") + `<div id="a2nl"></div>`) +
     (pendCount() ? card(secH(I("inbox", 18), "Needs action"), `<a class="a2-link" href="#/admin/requests">${I("inbox", 16)}<span>${pendCount()} request${pendCount() > 1 ? "s" : ""} waiting</span>${I("chev", 14)}</a>`) : "");
-  return {title:"Notifications", html, mount(r){
+  return {title:"Notifications", noMode:true, html, mount(r){
     const draw = () => { const l = ev.filter(e => flt === "all" || e.k === flt); r.querySelector("#a2nl").innerHTML = l.length ? l.map(row).join("") : empty("No activity yet. Real-account deposits and withdrawals appear here."); };
     bindChips(r, "a2f", v => { flt = v; draw(); }); draw();
     r.querySelector("[data-readall]").onclick = () => { markSeen(); toast("All marked as read", "ok"); App.route(); };
@@ -385,7 +392,7 @@ V.brand = () => {
     ${field("or paste an image URL (https)", "a2lu", /^https:/.test(b.logo) ? b.logo : "", {type:"text", ph:"https://..."})}
     <p class="a2-hint">The name and logo replace the old ones everywhere after you save (header, login, browser tab, favicon). The page reloads once.</p>
     <div class="a2-btns"><button class="a2-b pri" id="a2sv">Save branding</button><button class="a2-b dng" id="a2rs">Reset to default</button></div>`);
-  return {title:"Branding", html, mount(r){
+  return {title:"Branding", noMode:true, html, mount(r){
     const q = x => r.querySelector(x); let logo = b.logo || "";
     const pv = () => { q("#a2pv").innerHTML = logo ? `<img src="${esc(logo)}" alt="">` : I("shield", 30); q("#a2pn").textContent = q("#a2bn").value.trim() || ((window.Brand && Brand.orig) || "NovaTrade"); };
     q("#a2bn").oninput = pv;
@@ -406,7 +413,7 @@ V.settings = () => {
     card(secH(I("bell", 18), "Announcement"), field("Message", "a2an", "", {type:"text", max:200, ph:"Sent to every user's notifications"}) + `<button class="a2-b" id="a2sd">Send announcement</button>${a.announce ? `<p class="a2-hint">Last: ${esc(a.announce)}</p>` : ""}`) +
     card(secH(I("chip", 18), "Backend"), kv("API", API_ST()) + kv("Running account", curMode() === "real" ? "Real" : "Demo") + kv("Stored data", "Demo and Real stores on this device") + `<p class="a2-hint">Set CONFIG.API_URL to route Real account actions to the server.</p>`) +
     card(secH(I("info", 18), "App"), kv("Version", esc((window.CONFIG && CONFIG.APP_VERSION) || "7.1")) + kv("Signed in as", esc(A.me()?.email || "admin")) + kv("Settings updated", a.updated ? tstr(a.updated) : "Never") + `<div class="a2-btns col"><button class="a2-b pri" data-toapp>${I("swap", 16)} Switch to app</button><button class="a2-b dng" data-nt-logout>${I("out", 16)} Log out</button></div>`);
-  return {title:"Settings", html, mount(r){
+  return {title:"Settings", noMode:true, html, mount(r){
     const q = x => r.querySelector(x);
     q("#a2mt").onchange = e => { const b = q("#a2ban"); if (e.target.checked && !b.value.trim()) b.value = "Scheduled maintenance in progress. Some features may be unavailable."; if (!e.target.checked) b.value = ""; };
     q("#a2sv").onclick = () => { A.saveAdmin({...A.adminSettings(), banner:q("#a2ban").value.trim()}); toast("Content saved", "ok"); };
@@ -486,5 +493,5 @@ if (A.isAdmin()){
   if ((!h || h === "home") && m === "admin") history.replaceState(null, "", "#/admin");
 }
 window.Admin2 = {V, A, I, P, esc, n2, n0, dstr, tstr, sgn, card, secH, kpi, empty, field, tog, kv, chips, bindChips, walletChips, tipBtn, showTip, TIPS, hbars, actRow, wic, wname, WK, WN, WI,
-  get view(){ return VIEW; }, setView, live, curMode, readS, run, bal, totalOf, adjust, adjustSheet, userNotify, fin, setFin, toApp, toAdmin, open:openAdmin, stats, rd, wr, events};
+  get view(){ return VIEW; }, setView, live, curMode, readS, run, peek, bal, totalOf, adjust, adjustSheet, userNotify, fin, setFin, toApp, toAdmin, open:openAdmin, stats, rd, wr, events};
 })();

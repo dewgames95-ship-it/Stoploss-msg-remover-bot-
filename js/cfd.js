@@ -1,5 +1,5 @@
 /* ===== v7.1 CFD Trade — Forex / Commodities / Indices / Crypto CFDs against the `cfd` wallet =====
-   Routes: #/cfd  ·  #/cfd/<SYM>   (e.g. #/cfd/XAUUSD)      API: window.CFD = {open(sym), quote(sym), data()}
+   Routes: #/cfd  ·  #/cfd/<SYM>   (e.g. #/cfd/XAUUSD)      API: window.CFD = {open, data, positions, history, close, modify, quote}
    • Top-5 symbols per category (20 total). Prices come from the app's live feeds (M.get); a closed or stale feed disables trading
      (the last known price is only shown, never traded and never invented).
    • Spread = 20% of a typical broker spread (80% tighter). No fee, no commission, no swap. Market orders only, no confirmation.
@@ -365,7 +365,7 @@ function pageFactory(params){
       syncLines(); setTimeout(() => { try { CH.resize && CH.resize(); } catch {} }, 80);
     } catch (e) { console.warn("cfd chart", e); }
   }
-  function tick(){ raf = 0; if (dead || !root) return; updList(); updQuote(); updSum(); updEq(); renderBody(false); }
+  function tick(){ raf = 0; if (dead || !root) return; updList(); updQuote(); updSum(); updEq(); renderBody(false); updPos(); }
   const sched = () => { if (!raf && !dead) raf = requestAnimationFrame(tick); };
 
   /* ----- actions ----- */
@@ -417,12 +417,9 @@ function pageFactory(params){
       if (p.tp) tp.value = String(p.tp); if (p.sl) sl.value = String(p.sl);
       const n = el.querySelector("[data-n]"), q0 = quote(p.sym); if (q0) n.textContent = px(p.side === "buy" ? q0.bid : q0.ask, d.dp);
       el.querySelector("#msave").onclick = () => {
-        const q = quote(p.sym), t = +tp.value || 0, s = +sl.value || 0, buy = p.side === "buy";
-        if (!q) { err.textContent = "No price yet"; return; }
-        if (t && (buy ? t <= q.bid : t >= q.ask)) { err.textContent = "Take profit must be " + (buy ? "above" : "below") + " the current price."; return; }
-        if (s && (buy ? s >= q.bid : s <= q.ask)) { err.textContent = "Stop loss must be " + (buy ? "below" : "above") + " the current price."; return; }
-        const live = D().positions.find(x => x.id === id); if (!live){ U.closeLayer(); return; }
-        live.tp = t; live.sl = s; store.save(); emit(); buzz(10); U.closeLayer(); toast("TP/SL updated: " + p.sym, "ok"); renderBody(true); check();
+        const r = modifyPos(id, tp.value, sl.value);
+        if (r.err){ err.textContent = r.err; return; }
+        buzz(10); U.closeLayer(); toast("TP/SL updated: " + p.sym, "ok"); renderBody(true); check();
       };
     });
   }
@@ -469,5 +466,32 @@ function pageFactory(params){
 }
 
 if (window.Pages) Pages.cfd = pageFactory;
-window.CFD = {open(sym){ const s = norm(sym) || "XAUUSD"; try { sessionStorage.setItem("cfd_sym", s); } catch {} location.hash = "#/cfd/" + s; }, quote, data: D, account: acct, symbols: SP, check};
+/* ---- public API (works without the page mounted: reads U.store.s.cfd + live M prices) ---- */
+function modifyPos(id, tp, sl){
+  const p = D().positions.find(x => x.id === id); if (!p) return {err: "Position not found"};
+  const q = quote(p.sym); if (!q) return {err: "No price yet"};
+  tp = +tp || 0; sl = +sl || 0; const buy = p.side === "buy";
+  if (tp && (buy ? tp <= q.bid : tp >= q.ask)) return {err: "Take profit must be " + (buy ? "above" : "below") + " the current price."};
+  if (sl && (buy ? sl >= q.bid : sl <= q.ask)) return {err: "Stop loss must be " + (buy ? "below" : "above") + " the current price."};
+  p.tp = tp; p.sl = sl; store.save(); emit(); return {ok: true};
+}
+window.CFD = {
+  open(sym){ const s = norm(sym) || "XAUUSD"; try { sessionStorage.setItem("cfd_sym", s); } catch {} location.hash = "#/cfd/" + s; },
+  data(){ const a = acct(); return {balance: a.bal, equity: a.eq, usedMargin: a.used, freeMargin: a.free, upnl: a.fl}; },
+  positions(){
+    return D().positions.map(p => { const q = quote(p.sym), at = q ? closePx(p, q) : p.entry, v = q ? pnlAt(p, at) : 0;
+      return {id: p.id, sym: p.sym, side: p.side, lots: p.lots, entry: p.entry, price: at, pnl: v, roi: p.margin > 0 ? v / p.margin * 100 : 0, margin: p.margin, tp: p.tp, sl: p.sl, time: p.t}; });
+  },
+  history(){ return D().history.map(h => ({id: h.id, sym: h.sym, side: h.side, lots: h.lots, entry: h.entry, exit: h.close, pnl: h.pnl, roi: h.roi, closed: h.tc})); },
+  close(id){
+    const r = closePos(id, "manual");
+    if (r && r.err){ toast(r.err, "bad"); return null; }
+    if (!r || !r.h) return null; buzz("close");
+    toast(`Closed ${r.h.sym}: ${sg(r.h.pnl)} USDT (${sg(r.h.roi)}%)`, r.h.pnl >= 0 ? "ok" : "bad");
+    return {id: r.h.id, sym: r.h.sym, side: r.h.side, lots: r.h.lots, entry: r.h.entry, exit: r.h.close, pnl: r.h.pnl, roi: r.h.roi, closed: r.h.tc};
+  },
+  modify(id, o){ o = o || {}; const p = D().positions.find(x => x.id === id); if (!p) return false;
+    const r = modifyPos(id, "tp" in o ? o.tp : p.tp, "sl" in o ? o.sl : p.sl); if (r.err){ toast(r.err, "bad"); return false; } check(); return true; },
+  quote, account: acct, symbols: SP, check
+};
 })();

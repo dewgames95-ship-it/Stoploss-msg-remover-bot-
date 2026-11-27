@@ -71,13 +71,29 @@ function numInput(el, dec, onCh){
 function pdOverlay(cls, html){ const el = document.createElement("div"); el.className = "pd-ovl " + cls; el.innerHTML = html; document.body.appendChild(el); requestAnimationFrame(() => el.classList.add("show")); return el; }
 function closeOvl(el){ if (!el) return; el.classList.remove("show"); setTimeout(() => el.remove(), 200); }
 const closeAllOvl = () => document.querySelectorAll(".pd-ovl").forEach(e => e.remove());
-/* confirmation with details; resolves true only on Confirm */
-function pdConfirm({title, sub = "", rows = [], ok = "Confirm", tone = "yes"}){
+/* confirmation with details; resolves true only on Confirm.
+   v7.1: pass `live: () => ({rows, ok, px})` to keep the sheet in step with the market while it is open: the live price line, every row
+   (price, profit / loss, ROI, you'll receive) and the confirm button text are re-computed on every price tick (and once a second as a fallback). */
+function pdConfirm({title, sub = "", rows = [], ok = "Confirm", tone = "yes", live = null, pxLabel = "Live price"}){
   return new Promise(res => {
+    const L0 = live ? live() : null; if (L0){ rows = L0.rows; ok = L0.ok || ok; }
+    const rowHtml = ([k, v, c], i) => `<div class="${c || ""}" data-cr="${i}"><span>${k}</span><b class="num">${v}</b></div>`;
     const el = pdOverlay("pd-cfw", `<div class="pd-cf" role="dialog" aria-modal="true" aria-label="${esc(title)}"><div class="pd-cf-h"><b>${esc(title)}</b><button type="button" data-x aria-label="Close">${ic("close", 18)}</button></div>${sub ? `<div class="pd-cf-sub">${sub}</div>` : ""}
-      <div class="pd-cf-rows">${rows.map(([k, v, c]) => `<div class="${c || ""}"><span>${k}</span><b class="num">${v}</b></div>`).join("")}</div>
+      ${L0 && L0.px != null ? `<div class="pd-cf-live"><span><i class="pd-live"></i>${esc(pxLabel)}</span><b class="num" data-lpx>${L0.px}</b></div>` : ""}
+      <div class="pd-cf-rows">${rows.map(rowHtml).join("")}</div>
       <div class="pd-cf-btns"><button type="button" class="pd-cf-no" data-no>Cancel</button><button type="button" class="pd-cf-ok ${tone}" data-yes>${esc(ok)}</button></div></div>`);
-    let done = false; const fin = v => { if (done) return; done = true; closeOvl(el); res(v); };
+    let done = false, tm = 0, off = null;
+    const fin = v => { if (done) return; done = true; clearInterval(tm); off && off(); closeOvl(el); res(v); };
+    if (live){
+      const set = (node, html) => { if (!node || node.innerHTML === html) return false; node.innerHTML = html; return true; };
+      const upd = () => {
+        if (done || !el.isConnected) return; let L; try { L = live(); } catch { return; } if (!L) return;
+        const lp = el.querySelector("[data-lpx]"); if (lp && L.px != null){ const old = parseFloat(lp.textContent); if (set(lp, L.px)){ const nw = parseFloat(L.px); if (!isNaN(old) && !isNaN(nw) && old !== nw) flash(lp, nw > old); } }
+        L.rows.forEach((r, i) => { const row = el.querySelector(`[data-cr="${i}"]`); if (!row) return; if (row.className !== (r[2] || "")) row.className = r[2] || ""; const b = row.querySelector("b"); set(b, r[1]); });
+        const yb = el.querySelector("[data-yes]"); if (yb && L.ok && yb.textContent !== L.ok) yb.textContent = L.ok;
+      };
+      const f = () => upd(); pxListeners.add(f); off = () => pxListeners.delete(f); tm = setInterval(upd, 1000);
+    }
     el.querySelector("[data-yes]").onclick = () => fin(true);
     el.querySelector("[data-no]").onclick = el.querySelector("[data-x]").onclick = () => fin(false);
     el.addEventListener("click", e => { if (e.target === el) fin(false); });
@@ -853,10 +869,14 @@ function tradePanel(host, st, opts = {}){
       if (req.amount > bal() + 1e-9){ bad("Insufficient balance: Add funds to your Prediction wallet"); setTimeout(() => UI.transferSheet({to: W, amount: r2(req.amount - bal())}), 400); return; }
     } else { req.shares = Q.sh; if (!(req.shares > 0)) return bad(pos ? "Enter an amount" : "You have no position to sell"); }
     /* confirmation with details — executes only on Confirm */
-    const out = `<span class="pd-pill ${oi ? "no" : "yes"}">${esc(short(m.outs[oi]))}</span>`, f = feeR(), rows = [["Outcome", out], ["Order type", type === "limit" ? "Limit" : "Market"]];
-    if (side === "buy"){ rows.push([type === "limit" ? "Limit price" : "Avg price", cents(type === "limit" ? req.price : Q.avg)], ["Shares", shr(Q.sh)], ["Total", usd(Q.usd)]); if (f) rows.push(["Fee", usd(Q.usd * f / (1 + (type === "limit" ? f : 0)))]); rows.push(["To win", usd(Q.sh), "big up"]); }
-    else { const basis = pos ? pos.avg * Q.sh : 0; rows.push([type === "limit" ? "Limit price" : "Avg price", cents(type === "limit" ? req.price : Q.avg)], ["Shares", shr(Q.sh)], ["Invested", usd(basis)], ["Est. PnL", `<span class="${Q.usd - basis >= 0 ? "up" : "down"}">${usdS(Q.usd - basis)}</span>`], ["You'll receive", usd(Q.usd), "big up"]); }
-    const ok = opts.noConfirm ? true : await pdConfirm({title: side === "buy" ? "Confirm buy" : "Confirm sell", sub: esc(ev.markets.length > 1 ? (m.gt || m.q) + " · " + ev.title : ev.title), rows, ok: `${side === "buy" ? "Buy" : "Sell"} ${short(m.outs[oi])}`, tone: side === "sell" ? "sell" : oi ? "no" : "yes"});
+    const out = `<span class="pd-pill ${oi ? "no" : "yes"}">${esc(short(m.outs[oi]))}</span>`, f = feeR();
+    const mkRows = () => {
+      const Qn = type === "limit" ? Q : quote(), rows = [["Outcome", out], ["Order type", type === "limit" ? "Limit" : "Market"]];
+      if (side === "buy"){ rows.push([type === "limit" ? "Limit price" : "Avg price", cents(type === "limit" ? req.price : Qn.avg)], ["Shares", shr(Qn.sh)], ["Total", usd(Qn.usd)]); if (f) rows.push(["Fee", usd(Qn.usd * f / (1 + (type === "limit" ? f : 0)))]); rows.push(["To win", usd(Qn.sh), "big up"]); }
+      else { const basis = pos ? pos.avg * Qn.sh : 0, pl = Qn.usd - basis; rows.push([type === "limit" ? "Limit price" : "Avg price", cents(type === "limit" ? req.price : Qn.avg)], ["Shares", shr(Qn.sh)], ["Invested", usd(basis)], ["Est. PnL", `<span class="${pl >= 0 ? "up" : "down"}">${usdS(pl)} (${pl >= 0 ? "+" : "-"}${fmt(Math.abs(basis ? pl / basis * 100 : 0), 1)}%)</span>`], ["You'll receive", usd(Qn.usd), "big up"]); }
+      return {rows, px: cents(side === "buy" ? buyPx(m, oi) : sellPx(m, oi))};
+    };
+    const ok = opts.noConfirm ? true : await pdConfirm({title: side === "buy" ? "Confirm buy" : "Confirm sell", sub: esc(ev.markets.length > 1 ? (m.gt || m.q) + " · " + ev.title : ev.title), live: mkRows, ok: `${side === "buy" ? "Buy" : "Sell"} ${short(m.outs[oi])}`, tone: side === "sell" ? "sell" : oi ? "no" : "yes"});
     if (!ok || !host.isConnected) return;
     busyGo = true; btn.classList.add("loading"); btn.setAttribute("aria-busy", "true");
     try {
@@ -886,9 +906,9 @@ async function cashout(p){
   if (!(free > 0)) return toast("This position is locked in open sell orders", "info");
   if (!BOOK[m.tokens[0]] && !BOOK[m.tokens[1]]) await loadBooks(m.tokens).catch(() => {});
   const f = cfg().feePct / 100, calc = () => { const L = levels(m, p.oi, "bid"), w = walkSell(L, free, sellPx(m, p.oi)), net = w.proceeds * (1 - f); return {L, w, net, pnl: net - p.avg * free}; };
-  const c = calc();
-  const ok = await pdConfirm({title: "Cash out", sub: esc(p.q + (p.title ? " · " + p.title : "")), tone: "sell", ok: "Cash out " + usd(c.net),
-    rows: [["Outcome", `<span class="pd-pill ${p.oi ? "no" : "yes"}">${esc(short(p.outcome))}</span>`], ["Invested", usd(p.cost)], ["Cash-out price", cents(c.w.avg)], ["Profit / loss", `<span class="${c.pnl >= 0 ? "up" : "down"}">${usdS(c.pnl)} (${fmt(p.cost ? c.pnl / p.cost * 100 : 0, 1)}%)</span>`], ["You'll receive", usd(c.net), "big up"]]});
+  const mk = () => { const c = calc(); return {c, px: cents(sellPx(m, p.oi)), ok: "Cash out " + usd(c.net),
+    rows: [["Outcome", `<span class="pd-pill ${p.oi ? "no" : "yes"}">${esc(short(p.outcome))}</span>`], ["Shares", shr(free)], ["Invested", usd(p.cost)], ["Cash-out price", cents(c.w.avg)], ["Profit / loss", `<span class="${c.pnl >= 0 ? "up" : "down"}">${usdS(c.pnl)} (${c.pnl >= 0 ? "+" : "-"}${fmt(Math.abs(p.cost ? c.pnl / p.cost * 100 : 0), 1)}%)</span>`], ["You'll receive", usd(c.net), "big up"]]}; };
+  const ok = await pdConfirm({title: "Cash out", sub: esc(p.q + (p.title ? " · " + p.title : "")), tone: "sell", live: mk});
   if (!ok) return;
   try {
     const n = calc(), r = await API.call("predict.sell", {token: p.token, shares: free, levels: n.L.slice(0, 60), price: sellPx(m, p.oi)}), fi = r.fill || {};

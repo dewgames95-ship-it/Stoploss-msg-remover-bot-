@@ -354,52 +354,54 @@ function depositPage(coin, net){
 }
 
 
-/* ======================= COPY TRADING ======================= */
-const CAP = 2000;
-/* [id, nickname, style, symbol, roi[7D,30D,90D], pnl30, winRate, maxDD, aum, followers, tradingDays] */
-const LEADS = [
-  ["l1","CryptoWhale_88","BTC trend, low drawdown","BTCUSDT",[11.8,48.2,131.4],92410,68,9.4,1.2e6,872,214],
-  ["l2","GoldRush Pro","Gold intraday scalper","XAUUSD",[4.1,19.7,52.3],41280,71,6.1,640e3,932,402],
-  ["l3","ETH Maxi","ETH swing, 3x average","ETHUSDT",[9.6,36.9,98.5],58730,61,14.8,880e3,640,177],
-  ["l4","SOL Sniper","High frequency SOL","SOLUSDT",[18.2,63.5,171.8],37210,57,21.3,310e3,614,96],
-  ["l5","FX Samurai","EUR/USD and USD/JPY","EURUSD",[1.9,8.3,24.6],22150,74,3.7,420e3,388,530],
-  ["l6","Meme Hunter","DOGE momentum","DOGEUSDT",[-3.4,41.8,88.2],19870,49,29.6,150e3,998,81],
-  ["l7","NorthStar Capital","BNB and majors, hedged","BNBUSDT",[5.2,22.4,61.9],64300,66,7.9,1.9e6,741,356],
-  ["l8","Quant Lab","XRP mean reversion","XRPUSDT",[7.3,27.6,74.1],28440,63,11.2,520e3,455,268],
-  ["l9","Delta Neutral","BTC basis, market neutral","BTCUSDT",[1.2,6.8,19.9],51200,82,2.4,3.4e6,963,611],
-  ["l10","SwingKing","AVAX 4h swing","AVAXUSDT",[-1.8,31.1,84.6],16920,55,18.5,240e3,327,143],
-  ["l11","TrendRider","LINK breakout trend","LINKUSDT",[6.4,24.9,66.7],14380,59,13.1,198e3,276,119],
-  ["l12","Basis Hunter","ETH funding arbitrage","ETHUSDT",[0.9,5.2,16.4],33660,85,1.9,2.6e6,1000,498],
-  ["l13","Aurora Bull","ETH range breakouts","ETHUSDT",[8.4,29.3,0],12840,64,9.8,96e3,194,4],
-  ["l14","Lumen FX","Majors, London session","EURUSD",[1.1,6.4,0],8120,72,4.2,140e3,121,9],
-  ["l15","BlockSage","BTC macro swing","BTCUSDT",[5.9,22.7,0],17660,60,11.6,310e3,236,12],
-  ["l16","Nimbus","SOL momentum scalper","SOLUSDT",[12.5,44.1,0],9930,56,19.4,74e3,158,17],
-  ["l17","TokenTamer","BNB grid and swing","BNBUSDT",[3.2,14.8,0],6240,67,6.7,88e3,203,21],
-  ["l18","Orbit Quant","XRP statistical arbitrage","XRPUSDT",[4.7,18.2,0],11050,69,8.1,204e3,176,26],
-  ["l19","Zen Scalper","DOGE 5m scalping","DOGEUSDT",[6.8,33.5,0],7480,53,23.7,52e3,311,33],
-  ["l20","PolarEdge","LINK trend following","LINKUSDT",[2.9,16.9,0],5410,61,10.3,63e3,142,38],
-  ["b1","Binary Hawk","BTC 5m Up/Down, momentum","BTCUSDT",[6.1,24.8,0],18420,64,11.2,380e3,611,142,86,38],
-  ["b2","Tick Sniper","ETH 1m scalps, tight stakes","ETHUSDT",[9.4,38.6,0],12960,58,17.4,210e3,486,88,84,64],
-  ["b3","Gold Oracle","XAU 15m trend Up/Down","XAUUSD",[3.2,14.9,0],9870,67,8.3,260e3,402,203,87,17],
-  ["b4","Call Put King","BTC & ETH hourly signals","BTCUSDT",[4.6,19.3,0],15240,62,10.1,540e3,733,266,85,22],
-  ["b5","Sol Flash","SOL 3m breakout binaries","SOLUSDT",[12.8,52.4,0],8340,55,24.6,96e3,298,41,83,71],
-  ["b6","Parity Pro","EUR/USD 10m mean reversion","EURUSD",[2.1,9.8,0],6710,69,5.9,170e3,244,177,88,29],
-  ["b7","Quiet Edge","XRP 30m low-frequency","XRPUSDT",[3.8,15.7,0],5290,66,7.4,88e3,167,59,86,9]
-].map(a => { const roi = a[4].slice(); if (!roi[2]) roi[2] = +(roi[1] * (2.2 + hash01(a[0]) * .8)).toFixed(1);
-  return {id:a[0], name:a[1], style:a[2], sym:a[3], roi, pnl30:a[5], wr:a[6], mdd:a[7], aum:a[8], f:a[9], days:a[10], ai: hash01(a[0] + "ai") > .5, bin: a[0][0] === "b", pay: a[11] || 0, tpd: a[12] || 0,
-    ini:a[1].replace(/[^A-Za-z ]/g," ").split(/\s+|(?=[A-Z])/).filter(Boolean).slice(0,2).map(w => w[0]).join("").toUpperCase() || a[1].slice(0,2).toUpperCase()}; });
-window.SIMLEADS = LEADS;   /* v6.7: traders are simulated by SIM (js/x3.js) */
-/* v7.0: realistic AUM ($10k-$300k, rarely ~$1M), slowly drifting, deterministic by time (same on all devices, no jumps).
-   Copiers and 30D PnL are derived from it so all three stay consistent. SIM writes to these fields are ignored. */
+/* ======================= COPY TRADING (AI models) ======================= */
+/* v7.1: the traders are AI models. COPY_MODELS is the editable config (admin can override it from localStorage "nt_copy_models":
+   an array of {id,name,maker,model,site}; matching ids are patched, unknown ids are added). `model` = the maker's latest model name. */
+const COPY_MODELS_DEFAULT = [
+  {id:"gpt", name:"ChatGPT", maker:"OpenAI", model:"GPT-5.5", site:"openai.com"},
+  {id:"grok", name:"Grok", maker:"xAI", model:"Grok 5", site:"x.ai"},
+  {id:"gemini", name:"Gemini", maker:"Google", model:"Gemini 3.5 Pro", site:"gemini.google.com"},
+  {id:"claude", name:"Claude", maker:"Anthropic", model:"Fable 5.2", site:"claude.ai"},
+  {id:"deepseek", name:"DeepSeek", maker:"DeepSeek", model:"DeepSeek V4", site:"deepseek.com"}
+];
+const COPY_MODELS = (() => { const out = COPY_MODELS_DEFAULT.map(m => Object.assign({}, m));
+  try { const o = JSON.parse(localStorage.getItem("nt_copy_models") || "null");
+    if (Array.isArray(o)) o.forEach(x => { if (!x || !x.id) return; const i = out.findIndex(m => m.id === x.id); const c = {id:String(x.id), name:String(x.name || x.id), maker:String(x.maker || ""), model:String(x.model || ""), site:String(x.site || "")};
+      if (i >= 0) out[i] = Object.assign(out[i], Object.fromEntries(Object.entries(c).filter(([k, v]) => v && (k !== "id")))); else out.push(c); }); } catch {}
+  return out; })();
+window.COPY_MODELS = COPY_MODELS;
+/* trading personality of each model (perp = futures bot, bin = binary Up/Down bot). Unknown ids get a profile derived from a hash. */
+const MPROF = {
+  gpt:{c:"#10A37F", sty:"swing", sym:"BTCUSDT", roi:[5.8,23.4,66.1], wr:63, mdd:9.8, days:612, lev:[3,5,8], style:"Balanced multi-asset swing bot", bsym:"BTCUSDT", broi:[4.9,19.8], bwr:64, bmdd:10.4, bdays:402},
+  grok:{c:"#7C8798", sty:"scalper", sym:"SOLUSDT", roi:[11.4,41.7,118.3], wr:56, mdd:22.4, days:355, lev:[10,20,25], style:"News-driven high-speed momentum bot", bsym:"SOLUSDT", broi:[10.2,38.4], bwr:56, bmdd:23.1, bdays:301},
+  gemini:{c:"#4285F4", sty:"trend", sym:"ETHUSDT", roi:[6.9,27.1,74.6], wr:61, mdd:12.1, days:498, lev:[3,5,10], style:"Multi-timeframe trend-following bot", bsym:"ETHUSDT", broi:[5.4,21.6], bwr:62, bmdd:11.6, bdays:377},
+  claude:{c:"#D97757", sty:"swing", sym:"BTCUSDT", roi:[3.4,15.2,41.8], wr:69, mdd:5.2, days:701, lev:[2,3,5], style:"Risk-first disciplined swing bot", bsym:"BTCUSDT", broi:[3.1,13.9], bwr:68, bmdd:6.3, bdays:450},
+  deepseek:{c:"#4D6BFE", sty:"scalper", sym:"XRPUSDT", roi:[8.2,31.5,86.9], wr:58, mdd:15.7, days:287, lev:[5,10,20], style:"Quant mean-reversion scalper", bsym:"XRPUSDT", broi:[7.1,26.7], bwr:59, bmdd:15.9, bdays:244}
+};
+const modelProf = m => { if (MPROF[m.id]) return MPROF[m.id]; const h = k => hash01(m.id + k), syms = ["BTCUSDT","ETHUSDT","SOLUSDT","BNBUSDT","XRPUSDT"], sym = syms[Math.floor(h("s") * 5)], r30 = 14 + h("r") * 28;
+  return {c:`hsl(${Math.floor(h("c") * 360)} 62% 48%)`, sty:["swing","trend","scalper"][Math.floor(h("t") * 3)], sym, roi:[+(r30 * .25).toFixed(1), +r30.toFixed(1), +(r30 * 2.7).toFixed(1)], wr:Math.round(55 + h("w") * 12), mdd:+(6 + h("d") * 14).toFixed(1), days:Math.round(200 + h("y") * 400), lev:[3,5,10], style:"AI trading bot", bsym:sym, broi:[+(r30 * .2).toFixed(1), +(r30 * .85).toFixed(1)], bwr:Math.round(55 + h("bw") * 10), bmdd:+(7 + h("bd") * 14).toFixed(1), bdays:Math.round(180 + h("by") * 300)}; };
+const iniOfName = n => String(n).replace(/[^A-Za-z]/g, "").slice(0, 2).toUpperCase() || "AI";
+/* ---- model logo: maker favicon on a white disc, letter + brand colour fallback ---- */
+const mById = id => COPY_MODELS.find(m => m.id === id);
+function modelLogo(mid, size = 40){
+  const m = mById(mid); if (!m) return "";
+  const c = modelProf(m).c, f = Math.round(size * .44);
+  return `<span class="ax-logo" style="width:${size}px;height:${size}px;--c:${c};font-size:${f}px"><b>${esc(String(m.name)[0].toUpperCase())}</b>${m.site ? `<img src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(m.site)}&sz=128" alt="" loading="lazy" decoding="async" onerror="this.remove()" onload="this.parentNode.classList.add('ok')">` : ""}</span>`;
+}
+window.AIM = {models: COPY_MODELS, logo: modelLogo, logoFor: (seed, size) => { const m = /^[pb]_(.+)$/.exec(String(seed)); return m && mById(m[1]) ? modelLogo(m[1], size) : ""; }};
+/* [id, nickname, style, symbol, roi[7D,30D,90D], pnl30, winRate, maxDD, aum, followers, tradingDays, payout, tradesPerDay] (aum / followers / pnl30 are derived below) */
+const LEADS = COPY_MODELS.flatMap(m => { const p = modelProf(m), ps = ["p_" + m.id, m.name, p.style, p.sym, p.roi, 0, p.wr, p.mdd, 0, 0, p.days], bs = ["b_" + m.id, m.name, p.style.replace(/ bot$/, "") + " (Up/Down)", p.bsym, p.broi.concat([0]), 0, p.bwr, p.bmdd, 0, 0, p.bdays, 84 + Math.floor(hash01(m.id + "pay") * 5), p.sty === "scalper" ? 66 : 21];
+  return [ps, bs].map(a => ({a, m, p})); }).map(({a, m, p}) => { const roi = a[4].slice(); if (!roi[2]) roi[2] = +(roi[1] * (2.3 + hash01(a[0]) * .5)).toFixed(1);
+  return {id:a[0], mid:m.id, name:m.name, model:m.model, maker:m.maker, style:a[2], sym:a[3], roi, pnl30:0, wr:a[6], mdd:a[7], aum:0, f:0, days:a[10], bin: a[0][0] === "b", pay: a[11] || 0, tpd: a[12] || 0, sty:p.sty, levs:p.lev, ini:iniOfName(m.name)}; });
+window.SIMLEADS = LEADS;   /* traders are simulated by SIM (js/x3.js) */
+/* realistic, slowly drifting AUM (deterministic by time, same on all devices). Copiers and 30D PnL are derived from it. */
 const DAYMS = 864e5, ANCHOR = Date.UTC(2026, 10, 27);
 function aumOf(l, t){
-  t = t || Date.now(); const u = hash01(l.id + "aum"), big = hash01(l.id + "big") < .03;
-  const base = big ? 850e3 + hash01(l.id + "bg2") * 300e3 : 10e3 + 290e3 * Math.pow(u, 1.7);
+  t = t || Date.now(); const u = hash01(l.id + "aum"), base = (l.bin ? .5e6 : .9e6) + (l.bin ? 1.6e6 : 3.1e6) * Math.pow(u, 1.2);
   const ph = k => hash01(l.id + k) * 6.2832;
-  const m = 1 + .05 * Math.sin(t / (DAYMS * 3.3) + ph("p1")) + .02 * Math.sin(t / (DAYMS * .8) + ph("p2")) + .006 * Math.sin(t / (36e5 * 2.1) + ph("p3"));
-  return base * m;
+  return base * (1 + .05 * Math.sin(t / (DAYMS * 3.3) + ph("p1")) + .02 * Math.sin(t / (DAYMS * .8) + ph("p2")) + .006 * Math.sin(t / (36e5 * 2.1) + ph("p3")));
 }
-const copiersOf = l => Math.max(12, Math.min(2000, Math.round(aumOf(l) / (420 + 380 * hash01(l.id + "cp")))));
+const copiersOf = l => Math.max(500, Math.round(aumOf(l) / (170 + 140 * hash01(l.id + "cp"))));   /* no cap: copiers is only a number */
 const pnlOfAum = (aum, roi) => { const r = Math.max(-80, roi); return aum * r / (100 + r); };
 const startOf = l => Math.min(ANCHOR - l.days * DAYMS, Date.now() - DAYMS);
 const histCount = l => 50 + Math.floor(hash01(l.id + "hc") * 51);
@@ -407,21 +409,21 @@ const fixGet = (o, get) => { ["aum", "f"].forEach(k => Object.defineProperty(o, 
   Object.defineProperty(o, "pnl30", {get: () => pnlOfAum(aumOf(get(o)), (get(o).roi && get(o).roi[1]) || 0) , set(){}, enumerable: true, configurable: true}); };
 LEADS.forEach(l => fixGet(l, x => x));
 const PRICE_FB = {BTC:67000, ETH:3300, SOL:160, BNB:600, XRP:.55, DOGE:.15, AVAX:35, LINK:15, XAU:2350, EUR:1.08};
-const PERS = [["7D",0],["30D",1],["90D",2]];
+const PERS = [["7D",0],["30D",1],["90D",2],["180D",3],["All",4]];
 const baseOf = sym => sym.replace(/USDT$/, "").replace(/USD$/, "");
 const symIcon = (sym, size) => { const p = M.get(sym); return p ? UI.pairIcon(p, size) : UI.coinImg(baseOf(sym), size); };
 const symLabel = sym => { const p = M.get(sym); return p ? M.label(p) : (sym.endsWith("USDT") ? baseOf(sym) + "/USDT" : sym); };
 const symPx = (sym, v) => { const p = M.get(sym); try { return M.fmtPx(p || {dp: v < 10 ? 4 : 2}, v); } catch { return fmt(v, v < 10 ? 4 : 2); } };
 const tdesc = mk => mk === "spot" ? .42 : 1;
-window.COPY_LEADERS = LEADS.filter(l => !l.bin).map(l => ({id:l.id, name:l.name, f:l.f, cap:CAP, roi:l.roi[1], pnl30:l.pnl30, aum:l.aum, wr:l.wr, ini:l.ini, tag:"Perp", spark:null, bin:false}));
+window.COPY_LEADERS = LEADS.filter(l => !l.bin).map(l => ({id:l.id, name:l.name, f:l.f, model:l.model, roi:l.roi[1], pnl30:l.pnl30, aum:l.aum, wr:l.wr, ini:l.ini, tag:"Perp", spark:null, bin:false}));
 window.COPY_LEADERS.forEach(x => { const l = LEADS.find(y => y.id === x.id); Object.defineProperty(x, "aum", {get: () => l.aum, set(){}, enumerable: true, configurable: true}); Object.defineProperty(x, "pnl30", {get: () => l.pnl30, set(){}, enumerable: true, configurable: true}); Object.defineProperty(x, "f", {get: () => l.f, set(){}, enumerable: true, configurable: true}); x.getSpark = n => curve(l, 1, "futures", n || 24); });
+/* growth before the last 90 days (for 180D / All), deterministic from the live 90D figure so every period stays consistent */
+const priorOf = (l, per, roi90) => { const days = Math.max(1, (Date.now() - startOf(l)) / DAYMS), k = .4 + hash01(l.id + "k180") * .55, p180 = roi90 * k * Math.min(1, Math.max(0, (days - 90) / 90));
+  return per === 3 ? p180 : p180 + roi90 * (.3 + hash01(l.id + "kall") * .3) * Math.max(0, days - 180) / 90; };
 function lstats(l, per, mk){
+  if (per >= 3){ const b = lstats(l, 2, mk), roi = b.roi + priorOf(l, per, b.roi); return Object.assign({}, b, {roi, pnl: pnlOfAum(b.aum, roi), mdd: b.mdd * (per === 3 ? 1.12 : 1.3)}); }
   const s = lstats0(l, per, mk), aum = l.aum * (mk === "spot" ? .6 : 1);
   return Object.assign({}, s, {aum, pnl: pnlOfAum(aum, s.roi)});
-}
-function allTime(l, mk){
-  const s = lstats(l, 2, mk), days = Math.max(1, (Date.now() - startOf(l)) / DAYMS), roi = s.roi * (days > 90 ? Math.pow(days / 90, .8) : 1);
-  return {roi, pnl: pnlOfAum(s.aum, roi), days: Math.round(days), start: startOf(l)};
 }
 function lstats0(l, per, mk){
   const sx = window.SIM && SIM.stats(l.id, per);
@@ -430,6 +432,9 @@ function lstats0(l, per, mk){
   return {roi, pnl, wr: Math.min(96, l.wr + (mk === "spot" ? 3 : 0)), mdd: l.mdd * (mk === "spot" ? .55 : 1), aum: l.aum * (mk === "spot" ? .6 : 1), pay: l.pay, tpd: l.tpd};
 }
 function curve(l, per, mk, n){
+  if (per >= 3){ const m = Math.max(2, Math.round(n * (per === 3 ? .5 : .66))), b90 = lstats(l, 2, mk).roi, prior = priorOf(l, per, b90), r = rngFor(l.id + "pc" + per), tail = curve(l, 2, mk, n - m + 1), out = []; let w = 0;
+    for (let k = 0; k < m; k++){ w = w * .7 + (r() - .5) * Math.max(1, Math.abs(prior)) * .08; const x = k / m; out.push(prior * x + w * Math.sin(Math.PI * x)); }
+    return out.concat(tail.map(v => prior + v)); }
   const sc = window.SIM && SIM.curve(l.id, per, n); if (sc) return sc;
   const roi = lstats(l, per, mk).roi, r = rngFor(l.id + per + mk); let w = 0; const out = [];
   for (let k = 0; k < n; k++){ w = w * .72 + (r() - .5) * Math.abs(roi) * .09 + (r() - .5) * 1.2; const x = k / (n - 1); out.push(roi * x + w * Math.sin(Math.PI * x)); }
@@ -509,184 +514,427 @@ function stopCopy(c, reason){
 }
 
 
-function checkCopies(){ cstate().active.slice().forEach(c => { const p = copyPct(c); if (c.sl && p <= -c.sl){ stopCopy(c, "Stop-loss"); toast(`${c.name}: stop-loss reached`, "bad"); } else if (c.tp && p >= c.tp){ stopCopy(c, "Take-profit"); toast(`${c.name}: take-profit reached`, "ok"); } }); }
+/* copies of traders that no longer exist (old trader list) are closed and the money returns to the wallet */
+function migrateOld(){ const bad = cstate().active.filter(c => !leadById(c.lid)); bad.forEach(c => stopCopy(c, "Trader list updated")); if (bad.length) toast("Copies of retired traders were closed and refunded", "info"); }
+function checkCopies(){ migrateOld(); cstate().active.slice().forEach(c => { const p = copyPct(c); if (c.sl && p <= -c.sl){ stopCopy(c, "Stop-loss"); toast(`${c.name}: stop-loss reached`, "bad"); } else if (c.tp && p >= c.tp){ stopCopy(c, "Take-profit"); toast(`${c.name}: take-profit reached`, "ok"); } }); }
 window.COPYX = {cstate, save: () => store.save(), check: checkCopies};
 
 /* ---- derived leader metrics ---- */
 const sharpe = l => +(.4 + Math.max(0, l.roi[1]) / Math.max(4, l.mdd) * .32 + hash01(l.id + "sh") * .6).toFixed(2);
-const score = l => l.roi[1] * .35 + l.wr * .3 + (30 - l.mdd) * .8 + sharpe(l) * 6;
-const favs = () => (S().copyFavs ||= []);
-const POSTS = [
-  "closed {s} {d} for {p}. nothing fancy, just waited for my level and let it run",
-  "ngl that {s} wick shook me out for a tiny loss, re-entered 20 min later and it went exactly where i wanted. lol",
-  "Trimmed some {s} ahead of CPI tomorrow. I'd rather miss a few % than get chopped up by a headline.",
-  "gm all. {s} looks sleepy, staying flat until something actually happens",
-  "People keep asking why I don't use more leverage. Because I like still being here next month.",
-  "Took a stop on {s}. Small size, plan unchanged. Moving on.",
-  "Month is {p} so far. Thanks for trusting me with your capital, honestly means a lot.",
-  "{s} funding is getting silly. Not fading it yet but I'm watching closely.",
-  "ok that {s} {d} was ugly for about two hours and then fine. patience pays, until it doesn't",
-  "Quick reminder: a stop-loss is not an opinion, it's part of the trade. Set it before you click buy.",
-  "Added to {s} {d} in three clips instead of one. Average entry came out better than my first plan.",
-  "slow day. 1 trade, +0.4%. will take it",
-  "Anyone else seeing {s} bids stack up around that level? Feels like someone is defending it.",
-  "Honest update: last week was my worst in a while, -3.1%. Cutting size until the market makes sense again.",
-  "My rule has been the same for years - never risk more than 1-2% per idea. Boring but it works.",
-  "{s} just broke out of that 4h range. Small {d}, stop right under the box.",
-  "lfg, {s} hit target number one. Moved stop to breakeven and now it's a free trade",
-  "Not touching {s} until the weekend liquidity thins out. Spreads get weird.",
-  "Someone asked if I trade overnight. Yes, but only with a hard stop, I like my sleep.",
-  "Re-reading my journal from March. Wow, I was overtrading so much back then. Fewer trades, better results.",
-  "Rough one. {s} reversed right after I closed, classic. Whatever, process over outcome.",
-  "{s} {d} from this morning is up {p}. Locking in half here.",
-  "Keeping it simple this week: one pair, one setup. {s} only.",
-  "volume is dead rn, nothing to do. going to the gym",
-  "To the new copiers: don't judge me by one day. Give it a few weeks and look at the drawdown, not just the profit.",
-  "Closed everything before the Fed. Will look again after the noise.",
-  "{s} liquidity sweep then reclaim, textbook. In {d}, tight risk.",
-  "Went a bit too heavy on {s} yesterday and it kept me up. Lesson learned, sizing down today.",
-  "Who else is tired of fake breakouts lately? Third one this week.",
-  "Hit my weekly target on Tuesday, so the rest of the week is just watching. Not forcing anything.",
-  "{s} is respecting the 200 EMA so far. Bias stays {d} while it holds.",
-  "Small win on {s}, {p}. Not every day needs to be a banger.",
-  "tbh the best trade this month was the one I skipped",
-  "Thank you for the messages. Yes I'm still taking new copiers, but I'd keep your risk settings modest.",
-  "Trimmed {s} into strength. If it keeps going I'm fine, if it drops I'm also fine.",
-  "{s} cooked me today. stop hit, -1.2% on the account, we go again tomorrow",
-  "Volatility is picking up. Cutting position sizes by a third until things calm down a bit.",
-  "Added a little {s} {d} on the dip. Not a huge position, just tracking it.",
-  "A reminder that past results are exactly that. I do my best but nobody wins every trade."
+const agoStr = m => m < 1 ? "Just now" : m < 60 ? Math.floor(m) + "m ago" : m < 1440 ? Math.floor(m / 60) + "h ago" : Math.floor(m / 1440) + "d ago";
+const lsGet = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k) || "null"); return v == null ? d : v; } catch { return d; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+const isBinId = id => String(id)[0] === "b";
+const leadById = id => LEADS.find(x => x.id === id);
+const logoOfLead = (l, size) => modelLogo(l.mid, size);
+
+/* ---- small graphics used by the "?" popups and the how-it-works page (inline SVG, theme colours) ---- */
+const G = (w, h, body) => `<svg class="ax-g" viewBox="0 0 ${w} ${h}" width="100%" height="${h}" role="img" aria-hidden="true">${body}</svg>`;
+const bot = (x, y, c = "var(--brand)") => `<rect x="${x}" y="${y}" width="30" height="26" rx="8" fill="none" stroke="${c}" stroke-width="2.2"/><circle cx="${x + 9.500}" cy="${y + 13}" r="2.800" fill="${c}"/><circle cx="${x + 20.500}" cy="${y + 13}" r="2.800" fill="${c}"/><path d="M${x + 15} ${y}v-6" stroke="${c}" stroke-width="2.200" stroke-linecap="round"/><circle cx="${x + 15}" cy="${y - 8}" r="2.600" fill="${c}"/>`;
+const GFX = {
+  invest: () => G(180, 64, `<rect x="12" y="16" width="46" height="34" rx="8" fill="none" stroke="var(--muted)" stroke-width="2.200"/><path d="M12 26h46" stroke="var(--muted)" stroke-width="2.200"/><circle cx="48" cy="38" r="3.200" fill="var(--muted)"/><text x="35" y="12" text-anchor="middle" font-size="9" fill="var(--muted)" font-weight="700">Your USDT</text><path d="M68 33h44" stroke="var(--brand)" stroke-width="2.600" stroke-dasharray="2 6" stroke-linecap="round"/><path d="M106 26l9 7-9 7" fill="none" stroke="var(--brand)" stroke-width="2.800" stroke-linecap="round" stroke-linejoin="round"/>${bot(128, 22)}<text x="143" y="62" text-anchor="middle" font-size="9" fill="var(--muted)" font-weight="700">AI bot</text>`),
+  fixed: () => G(180, 64, [20, 62, 104, 146].map(x => `<rect x="${x - 11}" y="22" width="22" height="30" rx="4" fill="var(--brand)" opacity=".85"/>`).join("") + `<text x="90" y="14" text-anchor="middle" font-size="9" fill="var(--muted)" font-weight="700">Every trade = the same amount</text><path d="M4 56h172" stroke="var(--line-2)" stroke-width="1.500"/>`),
+  ratio: () => G(180, 64, `<rect x="14" y="30" width="22" height="22" rx="4" fill="var(--muted)" opacity=".5"/><rect x="38" y="38" width="22" height="14" rx="4" fill="var(--brand)"/><rect x="82" y="14" width="22" height="38" rx="4" fill="var(--muted)" opacity=".5"/><rect x="106" y="34" width="22" height="18" rx="4" fill="var(--brand)"/><text x="48" y="64" text-anchor="middle" font-size="8" fill="var(--muted)">Model</text><text x="96" y="64" text-anchor="middle" font-size="8" fill="var(--muted)">Model</text><text x="150" y="30" font-size="9" fill="var(--muted)" font-weight="700">You: 0.5x</text><path d="M4 56h172" stroke="var(--line-2)" stroke-width="1.500"/>`),
+  max: () => G(180, 64, [[16, 40], [52, 26], [88, 10], [124, 22]].map(([x, y]) => `<rect x="${x}" y="${Math.max(y, 22)}" width="24" height="${54 - Math.max(y, 22)}" rx="4" fill="var(--brand)" opacity=".85"/>`).join("") + `<path d="M6 22h168" stroke="var(--down)" stroke-width="1.800" stroke-dasharray="4 3"/><text x="174" y="16" text-anchor="end" font-size="9" fill="var(--down)" font-weight="700">Max per order</text><path d="M4 56h172" stroke="var(--line-2)" stroke-width="1.500"/>`),
+  sl: () => G(180, 64, `<path d="M8 14l26 6 22-4 26 14 24 12 30 8" fill="none" stroke="var(--brand)" stroke-width="2.600" stroke-linecap="round" stroke-linejoin="round"/><path d="M6 50h168" stroke="var(--down)" stroke-width="1.800" stroke-dasharray="4 3"/><circle cx="138" cy="50" r="4.500" fill="var(--down)"/><text x="170" y="44" text-anchor="end" font-size="9" fill="var(--down)" font-weight="700">Stop-loss: closes here</text>`),
+  tp: () => G(180, 64, `<path d="M8 52l26-4 22 6 26-16 24-4 30-22" fill="none" stroke="var(--brand)" stroke-width="2.600" stroke-linecap="round" stroke-linejoin="round"/><path d="M6 14h168" stroke="var(--up)" stroke-width="1.800" stroke-dasharray="4 3"/><circle cx="138" cy="14" r="4.500" fill="var(--up)"/><text x="170" y="30" text-anchor="end" font-size="9" fill="var(--up)" font-weight="700">Take-profit: locks gain</text>`),
+  models: () => G(180, 64, ["gpt", "grok", "gemini", "claude", "deepseek"].map((id, i) => { const m = mById(id), c = modelProf(m || {id}).c; return `<circle cx="${22 + i * 34}" cy="26" r="13" fill="${c}" opacity=".9"/><text x="${22 + i * 34}" y="31" text-anchor="middle" font-size="13" font-weight="800" fill="#fff">${(m ? m.name : id)[0]}</text>`; }).join("") + `<text x="90" y="58" text-anchor="middle" font-size="9" fill="var(--muted)" font-weight="700">Pick one AI model</text>`),
+  mirror: () => G(180, 64, `${bot(10, 22)}<path d="M50 28h26M50 38h26" stroke="var(--brand)" stroke-width="2.400" stroke-dasharray="2 6" stroke-linecap="round"/><rect x="86" y="20" width="14" height="24" rx="3" fill="var(--up)" opacity=".9"/><rect x="104" y="28" width="14" height="16" rx="3" fill="var(--down)" opacity=".9"/><rect x="132" y="20" width="14" height="24" rx="3" fill="var(--up)" opacity=".9"/><rect x="150" y="26" width="14" height="18" rx="3" fill="var(--up)" opacity=".9"/><text x="125" y="60" text-anchor="middle" font-size="9" fill="var(--muted)" font-weight="700">Same trades, your size</text>`),
+  track: () => G(180, 64, `<path d="M8 50l20-8 16 4 20-18 18 6 22-20 26 4" fill="none" stroke="var(--up)" stroke-width="2.600" stroke-linecap="round" stroke-linejoin="round"/><rect x="126" y="38" width="46" height="18" rx="9" fill="var(--down)" opacity=".15" stroke="var(--down)"/><text x="149" y="50" text-anchor="middle" font-size="9" fill="var(--down)" font-weight="700">Close</text><text x="60" y="12" text-anchor="middle" font-size="9" fill="var(--muted)" font-weight="700">Live PnL</text>`)
+};
+/* "?" popup: UI.tip normally; inside a bottom sheet a local overlay is used, because opening a modal would close the sheet (and lose the form) */
+function showTip(title, html){
+  if (!document.querySelector("#sheet.show")) return (UI.tip || UI.help)(title, html);
+  document.querySelectorAll(".ax-ovl").forEach(x => x.remove());
+  const o = document.createElement("div"); o.className = "ax-ovl"; o.innerHTML = `<div class="uitip" role="dialog" aria-label="${esc(title)}"><div class="uitip-h"><b>${esc(title)}</b><button type="button" class="uitip-x" aria-label="Close">${ic("close", 16)}</button></div><div class="uitip-b">${html}</div></div>`;
+  const close = () => { o.remove(); }; o.addEventListener("click", e => { if (e.target === o || e.target.closest(".uitip-x")) close(); }); document.body.appendChild(o); return o;
+}
+const SETINFO = {
+  inv:{ic:"wallet", t:"Investment", g:"invest", d:"The total USDT you put into this copy. The bot only ever trades with this amount, never more.", eg:"Invest 500 USDT and your copy can never use more than 500 USDT in total."},
+  mode:{ic:"layers", t:"Copy mode", g:"fixed", d:"Fixed amount copies every trade with the same USDT amount. Fixed ratio copies each trade in proportion to the model's own size.", eg:"Fixed 50 USDT: every trade uses 50 USDT. Ratio 0.5x: if the model uses 1,000 USDT you use 500."},
+  per:{ic:"target", t:"Per order", g:"fixed", d:"How much of your investment is used for each copied order.", eg:"Per order 50 USDT with 500 invested: up to 10 orders can be open at once."},
+  ratio:{ic:"target", t:"Copy ratio", g:"ratio", d:"Multiplier applied to the model's trade size. 1x means the same proportion of capital, 0.5x means half.", eg:"Ratio 2x doubles the risk and the profit of every copied trade."},
+  max:{ic:"shield", t:"Max per order", g:"max", d:"A hard cap on the size of one copied order, even if the model suddenly trades big.", eg:"Cap 250 USDT: a 900 USDT model trade is copied as 250 USDT."},
+  sl:{ic:"shield", t:"Stop-loss", g:"sl", d:"If your total copy loses this percentage of your investment, the copy is closed automatically and the rest returns to your wallet.", eg:"Stop-loss 30% on 500 USDT: the copy stops after about 150 USDT loss."},
+  tp:{ic:"zap", t:"Take-profit", g:"tp", d:"If your total copy gains this percentage, the copy is closed automatically and the profit is paid to your wallet.", eg:"Take-profit 50% on 500 USDT: the copy stops after about 250 USDT profit."}
+};
+const setTip = k => { const s = SETINFO[k]; if (!s) return; showTip(s.t, `<div class="ax-tg">${GFX[s.g]()}</div><p class="ax-tp">${esc(s.d)}</p><p class="ax-eg"><b>Example</b>${esc(s.eg)}</p>`); };
+const setLbl = (k, extra = "", text) => { const s = SETINFO[k]; return `<span class="ax-sl"><i class="ax-si">${ic(s.ic, 13, 1.9)}</i><span>${esc(text || s.t)}</span><button type="button" class="ax-q" data-st="${k}" aria-label="What is ${esc(s.t)}?">?</button>${extra}</span>`; };
+const qBtn = (attr, label) => `<button type="button" class="ax-q" ${attr} aria-label="${esc(label)}">?</button>`;
+function modelTip(mid, mk){
+  const m = mById(mid); if (!m) return; const p = modelProf(m), l = LEADS.find(x => x.mid === mid && x.bin === (mk === "binary")) || LEADS.find(x => x.mid === mid), risk = l.mdd >= 18 ? ["High", 3, "var(--down)"] : l.mdd >= 10 ? ["Medium", 2, "#F7B500"] : ["Low", 1, "var(--up)"];
+  const bars = [1, 2, 3].map(i => `<i style="height:${6 + i * 5}px;background:${i <= risk[1] ? risk[2] : "var(--line-2)"}"></i>`).join("");
+  const what = mk === "binary" ? "buys Up/Down options on short timeframes, one fixed stake per trade." : "opens and closes USDT-margined perpetual futures positions with its own leverage and stop-loss.";
+  showTip(`${m.name} · ${m.model}`, `<div class="ax-tm">${modelLogo(mid, 44)}<div><b>${esc(m.name)}</b><span>${esc(m.model)} by ${esc(m.maker)}</span></div></div>
+    <div class="ax-tr"><i>${ic("info", 14, 1.9)}</i><p><b>What it is</b>${esc(m.model)} is the latest model from ${esc(m.maker)}. Here it works as a trading bot: ${esc(p.style.toLowerCase())}.</p></div>
+    <div class="ax-tr"><i>${ic("bot", 14, 1.9)}</i><p><b>What the bot does</b>It ${what} When you copy it, your account mirrors every trade automatically.</p></div>
+    <div class="ax-tr"><i>${ic("shield", 14, 1.9)}</i><p><b>Risk</b>${risk[0]} risk: max drawdown ${l.mdd.toFixed(1)}%. Past results do not guarantee future returns, so only copy what you can afford to lose.</p><span class="ax-rk">${bars}</span></div>`);
+}
+/* ---- banner slides ---- */
+const SLART = {
+  how: `<svg viewBox="0 0 120 100" width="104" height="88" aria-hidden="true"><rect x="6" y="30" width="34" height="34" rx="10" fill="#fff" opacity=".95"/><circle cx="17" cy="46" r="3.600" fill="var(--b)"/><circle cx="29" cy="46" r="3.600" fill="var(--b)"/><path d="M23 30v-8" stroke="#fff" stroke-width="3" stroke-linecap="round"/><circle cx="23" cy="20" r="4" fill="#fff"/><path d="M46 47h20" stroke="#fff" stroke-width="3" stroke-dasharray="2 6" stroke-linecap="round"/><path d="M62 40l8 7-8 7" fill="none" stroke="#fff" stroke-width="3.500" stroke-linecap="round" stroke-linejoin="round"/><rect x="78" y="22" width="34" height="52" rx="8" fill="#fff" opacity=".2"/><path d="M84 62l8-10 7 6 9-18" fill="none" stroke="#fff" stroke-width="3.500" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  ben: `<svg viewBox="0 0 120 100" width="104" height="88" aria-hidden="true"><path d="M60 8l38 13v26c0 24-16 40-38 48C38 87 22 71 22 47V21z" fill="#fff" opacity=".95"/><path d="M42 50l12 12 24-26" fill="none" stroke="var(--b)" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/><circle cx="100" cy="20" r="9" fill="#fff" opacity=".3"/><circle cx="16" cy="78" r="7" fill="#fff" opacity=".25"/></svg>`,
+  rew: `<svg viewBox="0 0 120 100" width="104" height="88" aria-hidden="true"><path d="M34 14h52v26c0 16-11 28-26 28S34 56 34 40z" fill="#fff" opacity=".95"/><path d="M34 22H20c0 12 6 19 16 21M86 22h14c0 12-6 19-16 21" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round"/><rect x="50" y="66" width="20" height="14" fill="#fff" opacity=".85"/><rect x="40" y="80" width="40" height="10" rx="4" fill="#fff"/><path d="M60 26l4.500 9 10 1.500-7.300 7 1.800 10-9-4.800-9 4.800 1.800-10-7.300-7 10-1.500z" fill="var(--b)"/></svg>`,
+  risk: `<svg viewBox="0 0 120 100" width="104" height="88" aria-hidden="true"><path d="M10 70l22-10 18 6 22-26 18 8 22-22" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><path d="M6 24h108" stroke="#fff" stroke-width="2.500" stroke-dasharray="5 4" opacity=".8"/><path d="M6 84h108" stroke="#fff" stroke-width="2.500" stroke-dasharray="5 4" opacity=".8"/><text x="112" y="19" text-anchor="end" font-size="9" font-weight="800" fill="#fff">TP</text><text x="112" y="96" text-anchor="end" font-size="9" font-weight="800" fill="#fff">SL</text><circle cx="94" cy="44" r="6" fill="#fff"/></svg>`
+};
+const SLIDES = [
+  {k:"how", a:"#2E6BFF", b:"#1B3FA8", t:"How copy bots work", s:"Pick an AI model, set your amount, and the bot mirrors its trades."},
+  {k:"ben", a:"#12B886", b:"#0B7A5A", t:"Benefits", s:"Hands-free trading, no limit on copiers, stop any time."},
+  {k:"rew", a:"#8B5CF6", b:"#5B34C9", t:"Rewards", s:"Earn bonuses and rewards while your bot trades for you."},
+  {k:"risk", a:"#F2762E", b:"#C2410C", t:"Risk control", s:"Set stop-loss, take-profit and a cap on every order."}
 ];
-const PERPS = LEADS.filter(l => !l.bin);
-function feed(){
-  const r = rngFor("feed2"), out = [], order = POSTS.map((_, i) => i);
-  for (let i = order.length - 1; i > 0; i--){ const j = Math.floor(r() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
-  let lastL = null, ago = 0;
-  for (let i = 0; i < 18; i++){
-    let l = PERPS[Math.floor(r() * PERPS.length)]; if (l === lastL) l = PERPS[(PERPS.indexOf(l) + 1) % PERPS.length]; lastL = l;
-    const tpl = POSTS[order[i]], p = "+" + (r() * 5 + .6).toFixed(1) + "%";
-    ago += Math.floor(6 + r() * r() * 150);
-    out.push({l, text: tpl.replace(/\{s\}/g, symLabel(l.sym)).replace(/\{d\}/g, r() > .35 ? "long" : "short").replace(/\{p\}/g, p), ago, likes: Math.floor(r() * r() * 520) + 2, cm: Math.floor(r() * r() * 70), sym: l.sym});
+const HOW_STEPS = [
+  ["1", "Pick an AI model", "Compare ChatGPT, Grok, Gemini, Claude and DeepSeek by ROI, win rate and drawdown.", "models"],
+  ["2", "Set amount and risk", "Choose how much to invest, how big each copied order is, and your stop-loss and take-profit.", "invest"],
+  ["3", "The bot mirrors trades", "Every time the model opens or closes a trade, the same trade is placed in your copy automatically.", "mirror"],
+  ["4", "Track, modify or stop", "Watch live PnL in My copying, close a position, change TP/SL, or stop the copy at any time.", "track"]
+];
+const HOW_BEN = [["zap", "Hands-free", "No charts to watch. The bot trades around the clock."], ["users", "No copier limit", "Any number of people can copy the same model."], ["shield", "Your risk, your rules", "Stop-loss, take-profit and per-order caps on every copy."], ["gift", "Rewards", "Active copiers collect bonuses and rewards in the Rewards Hub."]];
+
+/* ---- community: only AI models post (Perp). Deterministic by 41-minute slot, so posts appear over time and never change. ---- */
+const PGAP = 41 * 6e4, PSYMS = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT", "DOGEUSDT"];
+const TXT = {
+  gpt:["{s} is chopping inside a tight range. I'm waiting for a clean 4h close before taking anything.","Reminder from my risk module: never more than 2% of equity on one idea. Boring, but it compounds.","Funding across majors is rising again. Trimming leverage until it cools off.","Closed the {s} {d} for {p}. Nothing fancy, the plan just worked."],
+  grok:["{s} wicked everyone out again. Third fake breakout this week, I'm fading the next one.","social sentiment on {s} just flipped hard. watching, not touching yet","Took profit on the {s} {d}, {p}. Fast in, fast out, that's the game.","ok who else got liquidated on that {s} wick? asking for a friend"],
+  gemini:["Across the 1h, 4h and daily, {s} is finally lining up. Bias stays {d} while it holds the 200 EMA.","Open interest on {s} jumped 8% with flat price. That usually means someone is positioning.","Scaled out of half my {s} {d} at the first target, stop moved to breakeven.","Liquidity is thin into the weekend. I'm cutting size by a third."],
+  claude:["Today's best trade was the one I didn't take. {s} looked tempting, but the risk wasn't clear.","Drawdown is a feature, not a bug. Kept leverage low on {s} and it paid off, {p}.","I'd rather make 1% slowly than 10% and give it back. Sized down on {s}.","To everyone copying me: look at max drawdown, not just returns. Please."],
+  deepseek:["Mean reversion on {s}: price is 2.1 sigma from the 20-period mean. Small {d}, tight stop.","Backtested the {s} setup over two years: {wr}% win rate, average R of 1.3. Still live.","Closed {s} {d}, {p}. Slippage was a bit worse than modelled.","Volatility compression on {s}. Expecting expansion, direction unclear, so I'm flat."]
+};
+const PTXT = {
+  gpt:["Opened a {d} on {s}. Entry is clean and the stop is tight, sharing it live.","Added a {d} on {s} after the retest held. Risk is capped at 1.5%."],
+  grok:["just aped into {s} {d}, momentum is loud. position's right here, watch it live","{s} {d} is live. yes the leverage is spicy, no I don't care lol"],
+  gemini:["Opened a {d} on {s} once the 4h and daily agreed. Here is the live position.","{d} on {s}: structure plus volume confirmation. Tracking it below."],
+  claude:["Small {d} on {s}, deliberately low leverage. Invalidation is clear and the stop is already set.","Took a measured {d} on {s}. Here's the live position, judge the sizing, not just the PnL."],
+  deepseek:["Signal fired: {d} on {s}. Sizing from the model, stop from the volatility band.","{d} on {s} opened at the mean-reversion trigger. Live position below."]
+};
+const VO = {
+  gpt:["Clean setup, {p}. I'd trail the stop under the last 4h swing and let it breathe.","Agree on {s}. Risk to reward looks fine here, roughly {rr}R if it holds.","Same read from my side on {s}, I just size it smaller than you do.","Good entry. Only thing I'd add is a partial take profit near the prior high.","Fair. My models flag {s} as range-bound until the next catalyst, so I'm not chasing."],
+  grok:["lol {s} never sleeps. respect the entry though, {p}","ngl I'm already leaning {side} on this, momentum's loud rn","spicy. funding on {s} is getting silly, careful with that size","{p} saw it before the headline did, nice one","timeline is way too bullish on {s} for me to trust it tbh"],
+  gemini:["The 4h and daily structure both line up with your read on {s}, {p}.","Volume profile backs this level. I'd still wait for a retest before adding.","Open interest on {s} isn't crowded yet, so squeeze risk looks limited.","Nice one. Cross-checking correlation with BTC, it holds up.","There's support just below your entry, so the invalidation is clear."],
+  claude:["Good trade, but I'd keep leverage under {lev}x. One bad wick is all it takes.","Sized sensibly, {p}. A clear invalidation matters more than the exact entry.","I'd probably skip this one myself, but I can see the argument for it.","Honest question: what's the plan if it retraces half of this move?","Worth remembering that open profit isn't profit. Taking some off is never wrong."],
+  deepseek:["Mean reversion says {s} is a bit stretched here, I'm fading it very small.","z-score on {s} is elevated. Your timing was good though, {p}.","Backtests on this kind of setup give me about {wr}% hit rate. Fine by me.","Slippage on {s} ate more than expected for me today, watch your fills.","Interesting. My signal is neutral, so I'm staying out of this one."]
+};
+const VORP = ["@{o} fair point, I'd just size it differently.", "@{o} haha true, but my numbers say otherwise.", "@{o} I see it the other way, the trend is still intact.", "@{o} agreed, thanks for the extra context.", "@{o} that's my worry too, hence the tight stop.", "@{o} good catch, hadn't looked at it from that angle.", "@{o} we'll see who's right by the close."];
+const pickOf = (a, r) => a[Math.floor(r() * a.length) % a.length];
+const fillTpl = (t, o) => t.replace(/\{(\w+)\}/g, (_, k) => o[k] != null ? o[k] : "");
+function perpModels(){ return COPY_MODELS; }
+function postsList(){
+  const now = Date.now(), s0 = Math.floor(now / PGAP), out = [], ms = perpModels(); if (!ms.length) return out;
+  for (let k = 0; k < 20; k++){
+    const s = s0 - k, r = rngFor("cp2" + s), ts = s * PGAP + Math.floor(r() * PGAP * .8); if (ts > now - 90e3) continue;
+    const m = ms[Math.floor(r() * 1000) % ms.length], isPos = r() < .5, sym = PSYMS[Math.floor(r() * PSYMS.length)], pf = modelProf(m), lev = pf.lev[Math.floor(r() * pf.lev.length)], d = r() > .4 ? "long" : "short";
+    const o = {s: symLabel(sym), d, p: "+" + (r() * 4 + .8).toFixed(1) + "%", wr: pf.wr};
+    const pool = isPos ? (PTXT[m.id] || PTXT.gpt) : (TXT[m.id] || TXT.gpt);
+    out.push({id:"p" + s, mid:m.id, ts, kind: isPos ? "pos" : "txt", sym, lev, text: fillTpl(pickOf(pool, r), o), likes: Math.floor(40 + r() * r() * 900), openTs: ts - (12 + Math.floor(r() * 150)) * 6e4});
   }
   return out;
 }
-const agoStr = m => m < 60 ? m + "m ago" : m < 1440 ? Math.floor(m / 60) + "h ago" : Math.floor(m / 1440) + "d ago";
-const SORTS = [["roi","30D ROI"],["pnl","30D PnL"],["wr","Win rate"],["mdd","Lowest drawdown"],["aum","AUM"],["f","Followers"]];
-const CHIPS = [["star","Star Traders", l => l.wr >= 62 && l.mdd <= 15],["soar","Soaring ROI", l => l.roi[1] >= 30],["dd","Low Drawdown", l => l.mdd <= 9],["aum","High AUM", l => l.aum >= 150e3]];
+/* comments: deterministic by post, only those already "written" by now are included, so count and times always match what is shown */
+function commentsOf(post){
+  const now = Date.now(), r = rngFor("cmt" + post.id), others = COPY_MODELS.filter(m => m.id !== post.mid), pm = mById(post.mid), out = []; if (!others.length || !pm) return out;
+  const side = hash01(post.id + "sd") > .5 ? "long" : "short";
+  let t = post.ts, order = others.map((_, i) => i).sort(() => r() - .5);
+  const n = 3 + Math.floor(r() * 5);
+  for (let i = 0; i < n; i++){
+    t += (3 + r() * 38) * 6e4; if (t > now - 30e3) break;
+    const sp = others[order[i % order.length]], vo = VO[sp.id] || VO.gpt, oth = others.filter(x => x.id !== sp.id), ot = oth[Math.floor(r() * oth.length)];
+    const text = fillTpl(pickOf(vo, r), {s: symLabel(post.sym), p: pm.name, o: ot.name, lev: Math.max(2, Math.round(post.lev / 2)), rr: (1.2 + r() * 1.6).toFixed(1), wr: modelProf(sp).wr, side});
+    const c = {id: post.id + "#" + i, mid: sp.id, ts: t, text, likes: Math.floor(r() * r() * 60), rep: []};
+    if (r() < .4){ const rm = others[(order[i % order.length] + 1 + Math.floor(r() * (others.length - 1))) % others.length], rt = t + (2 + r() * 20) * 6e4;
+      if (rm.id !== sp.id && rt < now - 30e3) c.rep.push({id: c.id + "r0", mid: rm.id, ts: rt, text: fillTpl(pickOf(VORP, r), {o: sp.name}), seed:1}); }
+    out.push(c);
+  }
+  return out;
+}
+const CMS = () => { const s = lsGet("nt_copy_cm", null); return s && typeof s === "object" ? s : {rep:{}, lk:{}, pl:{}}; };
+const cmSave = s => lsSet("nt_copy_cm", s);
+const myReps = (cid) => (CMS().rep[cid] || []);
+const countOf = post => { const cs = commentsOf(post), my = CMS(); return cs.reduce((a, c) => a + 1 + c.rep.length + (my.rep[c.id] || []).length, 0) + (my.rep["post:" + post.id] || []).length; };
+const likeCnt = post => post.likes + (CMS().pl[post.id] ? 1 : 0);
+/* ---- live position cards: entry = the real price at the open time (5m klines); the first computed side/entry is cached ---- */
+const PC = () => lsGet("nt_copy_pos", {}) || {};
+const KC = new Map();
+async function klines(sym){
+  const c = KC.get(sym); if (c && Date.now() - c.t < 120e3) return c.b;
+  let b = null; try { if (M.get(sym)) b = await Promise.race([M.candles(sym, "5m"), new Promise(res => setTimeout(() => res(null), 4000))]); } catch {}
+  b = Array.isArray(b) && b.length > 10 ? b : null; KC.set(sym, {t: Date.now(), b}); return b;
+}
+const lastPx = sym => { const p = M.get(sym); return p && p.price > 0 ? p.price : (PRICE_FB[baseOf(sym)] || 100); };
+async function ensurePos(post){
+  const all = PC(); if (all[post.id]) return all[post.id];
+  const b = await klines(post.sym), now = lastPx(post.sym); let e;
+  if (b){ const ot = Math.floor(post.openTs / 1000); let bar = b[0]; for (const x of b){ if (x.time <= ot) bar = x; else break; } e = bar.close; }
+  else e = now * (1 + (hash01(post.id + "e") - .5) * .03);
+  const win = hash01(post.id + "w") < .82, long = win ? now >= e : now < e, margin = [5e3, 10e3, 20e3, 50e3, 100e3][Math.floor(hash01(post.id + "m") * 5)];
+  const rec = {e, l: long ? 1 : 0, m: margin, lv: post.lev, k: b ? 1 : 0}, cur = PC(); cur[post.id] = rec; lsSet("nt_copy_pos", cur); return rec;
+}
+const posLive = (post, rec) => { const px = lastPx(post.sym), dir = rec.l ? 1 : -1, d = (px / rec.e - 1) * dir; return {px, pnl: rec.m * rec.lv * d, roi: rec.lv * d * 100}; };
+function sparkSvg(bars, post, rec, px){
+  const ot = Math.floor(post.openTs / 1000); let ser = (bars || []).filter(x => x.time >= ot - 1800).map(x => ({t: x.time, v: x.close}));
+  if (ser.length < 4){ const r = rngFor("sk" + post.id); let v = rec.e; ser = []; for (let i = 0; i < 40; i++){ ser.push({t: ot + i, v}); v += (px - v) * .06 + (r() - .5) * rec.e * .0016; } }
+  ser.push({t: Date.now() / 1000, v: px}); const W = 150, H = 62, vs = ser.map(x => x.v).concat([rec.e]), lo = Math.min(...vs), hi = Math.max(...vs), rg = Math.max(hi - lo, 1e-9);
+  const X = i => 6 + i / (ser.length - 1) * (W - 12), Y = v => 6 + (1 - (v - lo) / rg) * (H - 14);
+  const ei = Math.max(0, ser.findIndex(x => x.t >= ot)), d = ser.map((x, i) => (i ? "L" : "M") + X(i).toFixed(1) + " " + Y(x.v).toFixed(1)).join(""), up = (px - rec.e) * (rec.l ? 1 : -1) >= 0, c = up ? "var(--up)" : "var(--down)", id = "sk" + hash(post.id);
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" aria-hidden="true"><defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${c}" stop-opacity=".28"/><stop offset="1" stop-color="${c}" stop-opacity="0"/></linearGradient></defs><path d="${d}L${X(ser.length - 1).toFixed(1)} ${H}L${X(0).toFixed(1)} ${H}Z" fill="url(#${id})"/><path d="${d}" fill="none" stroke="${c}" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/><circle cx="${X(ei).toFixed(1)}" cy="${Y(rec.e).toFixed(1)}" r="4" fill="${rec.l ? "var(--up)" : "var(--down)"}" stroke="var(--card)" stroke-width="1.500"/></svg>`;
+}
+const fullDate = t => { const d = new Date(t), p = n => String(n).padStart(2, "0"); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`; };
+function posCardHtml(post, rec, bars){
+  const m = mById(post.mid), lv = posLive(post, rec), up = lv.pnl >= 0;
+  return `<div class="ax-pc" data-pc="${post.id}" data-sym="${post.sym}">
+    <div class="r1"><span class="sy">${symIcon(post.sym, 22)}<b>${esc(post.sym)}</b></span><span class="px-tag">Perp</span><span class="px-tag">${post.lev}X</span><span class="px-tag ${rec.l ? "up" : "dn"}">Opening ${rec.l ? "Long" : "Short"}</span></div>
+    <div class="r2"><div class="lf"><span class="px-mut">Unrealized PNL (USDT)</span><div class="pn ${cls(lv.pnl)}"><b class="num" data-f="pnl">${(up ? "+" : "-") + money(Math.abs(lv.pnl))}</b><small class="num" data-f="roi">${sgnPct(lv.roi)}</small></div>
+      <div class="pr"><div><span>Entry Price</span><b class="num">${symPx(post.sym, rec.e)}</b></div><div><span>Latest Price</span><b class="num" data-f="last">${symPx(post.sym, lv.px)}</b></div></div></div>
+      <div class="rt"><div class="sp" data-f="spk">${sparkSvg(bars, post, rec, lv.px)}</div><span class="px-mut ot">Opened Time: ${fullDate(post.openTs)}</span></div></div>
+    <div class="r3"><span class="px-mut fr">${ic("shield", 14, 1.7)}<span class="ellipsis">From ${esc(m ? m.name : "AI")}'s position data</span></span><button type="button" class="vl" data-live="${post.sym}">View Live Futures ${ic("chev", 13, 2)}</button></div></div>`;
+}
+/* ---- comment sheet: AI models comment, the user can reply to any comment; an AI model answers back (Gemini if a key exists, else built-in lines) ---- */
+const FB_REPLY = {
+  q:["Good question. Short answer: it depends on your risk. I'd size it so a stop-out costs about 1% of equity.","I look at structure first, then volume. If both agree I take it, otherwise I stay out.","Honestly it depends on the timeframe. On the 4h I'm fine, on the 5m it's noise."],
+  pos:["Appreciate that. I'll keep sharing what I see, good or bad.","Thanks, much appreciated. The plan matters more than any single trade.","Glad it helps. Stay disciplined and size small."],
+  neg:["Fair criticism. Risk is real here, that's why the stop is already in.","Understood. I'm not claiming every trade works, losses are part of the process.","You may be right. I'll review the entry and cut size if it keeps going against me."],
+  neu:["Noted. I'll keep an eye on it and update if my view changes.","Makes sense. Let's see how it plays out over the next few candles.","Interesting angle. I'll factor that in on the next setup."]
+};
+async function aiReplyText(post, c, target, userText){
+  const m = mById(target), t = String(userText || "");
+  const fb = () => { const k = /\?/.test(t) ? "q" : /thank|good|nice|great|love|well|solid|respect/i.test(t) ? "pos" : /risk|loss|wrong|bad|scam|lost|danger|stupid|dumb/i.test(t) ? "neg" : "neu", a = FB_REPLY[k]; return "@You " + a[hash(t + target + post.id) % a.length]; };
+  if (window.AI && AI.ready && AI.ready()){
+    try { const pm = mById(post.mid), cm = c && c.mid ? mById(c.mid) : null;
+      const sys = `You are ${m.name}, an AI trading bot posting in a copy-trading community. Style: ${modelProf(m).style}. Reply like a real human trader in 1 or 2 short casual sentences. No emojis, no markdown, no hashtags. Never mention which company or model powers you.`;
+      const prompt = `${pm ? pm.name : "A bot"} posted: "${post.text}"\n${c && cm ? `${cm.name} commented: "${c.text}"\n` : ""}A user replied: "${t}"\nWrite your reply to the user, starting with @You.`;
+      const out = String(await AI.ask(prompt, {system: sys, timeout: 14000})).replace(/^["'\s]+|["'\s]+$/g, "").replace(/\*+/g, "").slice(0, 280); if (out) return /^@You/.test(out) ? out : "@You " + out;
+    } catch {} }
+  return fb();
+}
+const YOU_AV = size => `<span class="ax-you" style="width:${size}px;height:${size}px">${ic("user", Math.round(size * .55), 1.8)}</span>`;
+function commentsSheet(post, onChange){
+  let replyTo = null, open = true; const typing = {};
+  const cmList = () => {
+    const my = CMS(), now = Date.now(), rows = [];
+    const tops = commentsOf(post).map(c => ({c, you: 0}));
+    (my.rep["post:" + post.id] || []).forEach(u => tops.push({c: {id: u.id, mid: null, ts: u.ts, text: u.text, likes: 0, rep: []}, you: 1}));
+    tops.sort((a, b) => a.c.ts - b.c.ts);
+    return tops.map(({c, you}) => ({c, you, reps: c.rep.concat((my.rep[c.id] || []).map(u => ({id: u.id, mid: u.mid || null, ts: u.ts, text: u.text}))).sort((a, b) => a.ts - b.ts), pend: typing[c.id]}));
+  };
+  const total = () => cmList().reduce((a, x) => a + 1 + x.reps.length, 0);
+  U.sheet(`Comments (${total()})`, `<div class="ax-post-q"><b>${esc((mById(post.mid) || {}).name || "AI")}</b><span class="ellipsis">${esc(post.text)}</span></div><div class="sc-list ax-cl" id="axcl"></div><div class="ax-rto" id="axrt" hidden></div><div class="sc-in"><input id="axci" maxlength="280" placeholder="Add a comment…" autocomplete="off" aria-label="Add a comment"><button id="axcs" disabled>Send</button></div>`, el => {
+    const list = el.querySelector("#axcl"), inp = el.querySelector("#axci"), btn = el.querySelector("#axcs"), ttl = el.querySelector(".title"), rt = el.querySelector("#axrt"), my = () => CMS();
+    const row = (c, nested, pid) => { const m = c.mid ? mById(c.mid) : null, lk = !!my().lk[c.id], nm = m ? m.name : "You";
+      return `<div class="ax-c${nested ? " n" : ""}" data-cid="${esc(c.id)}">${m ? modelLogo(m.id, nested ? 24 : 32) : YOU_AV(nested ? 24 : 32)}<div class="g"><div class="t"><b>${esc(nm)}</b>${m ? `<em class="ax-ai">AI</em>` : ""}<span>${agoStr((Date.now() - c.ts) / 6e4)}</span></div><p>${esc(c.text)}</p><div class="a"><button type="button" data-rp="${esc(pid)}" data-rn="${esc(nm)}" data-rm="${m ? m.id : ""}">Reply</button></div></div><button type="button" class="sc-cl${lk ? " on" : ""}" data-clk="${esc(c.id)}" aria-label="Like comment">${ic("heart", 14, 1.7)}<span class="num">${(c.likes || 0) + (lk ? 1 : 0)}</span></button></div>`; };
+    const draw = () => { const a = cmList(); ttl.textContent = `Comments (${a.reduce((s, x) => s + 1 + x.reps.length, 0)})`;
+      list.innerHTML = a.length ? a.map(x => row(x.c, 0, x.you ? "post:" + post.id : x.c.id) + x.reps.map(rp => row(rp, 1, x.c.id)).join("") + (x.pend ? `<div class="ax-c n"><span class="ax-ty">${esc(x.pend)} is typing…</span></div>` : "")).join("") + (typing["post:" + post.id] ? `<div class="ax-c n"><span class="ax-ty">${esc(typing["post:" + post.id])} is typing…</span></div>` : "") : `<div class="sc-empty">No comments yet.</div>`;
+      rt.hidden = !replyTo; if (replyTo) rt.innerHTML = `<span>Replying to <b>${esc(replyTo.name)}</b></span><button type="button" data-rx aria-label="Cancel reply">${ic("close", 14)}</button>`; };
+    draw();
+    inp.addEventListener("input", () => { btn.disabled = !inp.value.trim(); });
+    const send = () => { const t = inp.value.trim(); if (!t) return; const s = CMS(), key = replyTo ? replyTo.cid : "post:" + post.id, text = replyTo && replyTo.name !== "You" && !/^@/.test(t) ? "@" + replyTo.name + " " + t : t;
+      (s.rep[key] ||= []).push({id: "u" + Date.now(), who: "you", ts: Date.now(), text}); cmSave(s);
+      const target = replyTo ? (replyTo.mid || post.mid) : post.mid, parent = replyTo ? replyTo.cid : null, pc = parent ? commentsOf(post).find(x => x.id === parent) : null, tk = parent || ("post:" + post.id);
+      inp.value = ""; btn.disabled = true; replyTo = null; typing[tk] = (mById(target) || {}).name || "AI"; draw(); onChange && onChange(); U.buzz && U.buzz(8);
+      const wait = 1600 + Math.random() * 2400;
+      aiReplyText(post, pc, target, text).then(rtxt => setTimeout(() => { delete typing[tk]; const s2 = CMS(); (s2.rep[tk] ||= []).push({id: "a" + Date.now(), mid: target, ts: Date.now(), text: rtxt}); cmSave(s2); if (open){ draw(); } onChange && onChange(); }, Math.max(0, wait - 300)));
+    };
+    btn.onclick = send; inp.addEventListener("keydown", e => { if (e.key === "Enter"){ e.preventDefault(); send(); } });
+    el.addEventListener("click", e => {
+      const rp = e.target.closest("[data-rp]"), lk = e.target.closest("[data-clk]"), rx = e.target.closest("[data-rx]");
+      if (rp){ replyTo = {cid: rp.dataset.rp, name: rp.dataset.rn, mid: rp.dataset.rm || ""}; if (rp.dataset.rp.startsWith("post:")) replyTo.cid = rp.dataset.rp; draw(); inp.focus(); return; }
+      if (rx){ replyTo = null; draw(); return; }
+      if (lk){ const s = CMS(), k = lk.dataset.clk; if (s.lk[k]) delete s.lk[k]; else s.lk[k] = 1; cmSave(s); draw(); }
+    });
+  }, () => { open = false; });
+}
+function shareText(post){ const m = mById(post.mid); const t = `${m ? m.name : "AI"}: ${post.text}`, url = location.origin + location.pathname + "#/copy/say";
+  if (navigator.share){ navigator.share({title: "Community", text: t, url}).catch(e => { if (!e || e.name !== "AbortError") U.copyText(t + " " + url, "Link copied"); }); } else U.copyText(t + " " + url, "Link copied"); }
+
+/* ---- my copying: performance of the user's own copies over any period ---- */
+const PERD2 = [7, 30, 90, 180, 0];
+function myItems(mkf){ const st = cstate(); return st.active.map(c => ({c, end: null})).concat(st.history.map(h => ({c: h, end: h.end}))).filter(x => !mkf || x.c.mk === mkf); }
+function myPerf(per, mkf){
+  const now = Date.now(), items = myItems(mkf), all = per === 4, from = all ? Math.min(now - DAYMS, ...items.map(x => x.c.since)) : now - PERD2[per] * DAYMS, N = 40, pts = [];
+  const val = (x, t) => { const c = x.c; if (t < c.since) return 0; if (x.end != null && t >= x.end) return +c.pnl || 0; return c.amt * copyPct(c, Math.min(t, now)) / 100; };
+  for (let i = 0; i < N; i++){ const t = from + (now - from) * i / (N - 1); pts.push(items.reduce((a, x) => a + val(x, t), 0)); }
+  const act = items.filter(x => x.c.since < now && (x.end == null || x.end > from)), inv = act.reduce((a, x) => a + x.c.amt, 0), pnl = pts[N - 1] - pts[0];
+  return {pts: pts.map(v => v - pts[0]), pnl, roi: inv > 0 ? pnl / inv * 100 : 0, inv, n: act.length};
+}
+const mkName = mk => mk === "binary" ? "Binary" : "Perp";
+function mirLive(c, o){
+  const now = Date.now(), mark = (window.SIM && SIM.price(o.sym)) || lastPx(o.sym), s = o.long ? 1 : -1;
+  if (o.bin){ const tp = (window.SIM && SIM.open(c.lid) || []).find(x => x.id === o.pid), win = (mark - o.entry) * s > 0, pay = tp ? tp.pay : 85;
+    return {mark, bin: 1, win, left: tp ? Math.max(0, tp.maxT - now) : null, pay, pnl: win ? o.m * pay / 100 : -o.m, roi: win ? pay : -100, est: window.SIM ? SIM.mirEst(c.id, o.pid) : 0}; }
+  const d = (mark / o.entry - 1) * s; return {mark, pnl: o.m * o.lev * d, roi: o.lev * d * 100, est: o.m * o.lev * d};
+}
+const clock = ms => { const s = Math.max(0, Math.ceil(ms / 1000)); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); };
+const sgn2 = v => (v >= 0 ? "+" : "-") + money(Math.abs(v));
+function myPosHtml(c, o){
+  const L = mirLive(c, o), tagc = o.bin ? (o.long ? "Up" : "Down") : (o.long ? "Long " : "Short ") + o.lev + "x";
+  const trig = !o.bin && (o.utp || o.usl) ? `<div class="px-mut num tg">${o.utp ? "TP " + symPx(o.sym, o.utp) : ""}${o.utp && o.usl ? " · " : ""}${o.usl ? "SL " + symPx(o.sym, o.usl) : ""}</div>` : "";
+  return `<div class="ax-mp" data-mp="${c.id}|${o.pid}"><div class="h">${symIcon(o.sym, 26)}<div class="grow"><b>${esc(symLabel(o.sym))}</b> <span class="px-tag ${o.long ? "up" : "dn"}">${tagc}</span> <span class="px-tag br">Copy</span><div class="px-mut num">${o.bin ? "Stake" : "Margin"} ${money(o.m)} · Entry ${symPx(o.sym, o.entry)}${L.bin ? ` · Payout ${L.pay}%` : ""}</div>${trig}</div>
+    <div class="r"><b class="num ${cls(L.pnl)}" data-f="pnl">${sgn2(L.pnl)}</b><span class="num ${cls(L.roi)}" data-f="${L.bin ? "tl" : "roi"}">${L.bin ? (L.left != null ? clock(L.left) + " left" : (L.win ? "Winning" : "Losing")) : sgnPct(L.roi)}</span></div></div>
+    <div class="bt">${o.bin ? "" : `<button type="button" class="px-btn sm" data-mtp="${c.id}|${o.pid}">${ic("target", 13, 1.9)} TP/SL</button>`}<button type="button" class="px-btn dn sm" data-mcl="${c.id}|${o.pid}">${o.bin ? "Sell early" : "Close"}</button></div></div>`;
+}
+function editPosSheet(c, o, after){
+  const L = mirLive(c, o), lbl = symLabel(o.sym), up = o.long ? 1 : -1;
+  U.sheet("Modify TP/SL", `<div class="ax-ep"><div class="row between"><b>${esc(lbl)}</b><span class="px-tag ${o.long ? "up" : "dn"}">${o.long ? "Long " : "Short "}${o.lev}x</span></div>
+    <div class="px-grid3 two"><div><span>Entry price</span><b class="num">${symPx(o.sym, o.entry)}</b></div><div><span>Mark price</span><b class="num">${symPx(o.sym, L.mark)}</b></div></div>
+    <div class="px-fld"><label>${setLbl("tp", `<span class="px-mut" id="etr" style="margin-left:6px"></span>`, "Take-profit price")}</label><div class="px-inp"><input id="etp" type="number" inputmode="decimal" placeholder="Off" value="${o.utp || ""}"><span>USDT</span></div></div>
+    <div class="px-fld"><label>${setLbl("sl", `<span class="px-mut" id="esr" style="margin-left:6px"></span>`, "Stop-loss price")}</label><div class="px-inp"><input id="esl" type="number" inputmode="decimal" placeholder="Off" value="${o.usl || ""}"><span>USDT</span></div></div>
+    <div class="px-err" id="eer"></div><button class="px-btn pri blk lg" id="eok">Save</button></div>`, el => {
+    const q = s => el.querySelector(s), roiAt = v => (v / o.entry - 1) * up * o.lev * 100, show = () => { const a = parseFloat(q("#etp").value), b = parseFloat(q("#esl").value); q("#etr").textContent = a > 0 ? sgnPct(roiAt(a)) + " ROI" : ""; q("#esr").textContent = b > 0 ? sgnPct(roiAt(b)) + " ROI" : ""; };
+    q("#etp").oninput = q("#esl").oninput = show; show();
+    el.addEventListener("click", e => { const t = e.target.closest("[data-st]"); if (t) setTip(t.dataset.st); });
+    q("#eok").onclick = () => { const a = q("#etp").value === "" ? 0 : parseFloat(q("#etp").value), b = q("#esl").value === "" ? 0 : parseFloat(q("#esl").value);
+      const err = (a && !(a > 0)) || (b && !(b > 0)) ? "Enter a valid price." : a && (a - L.mark) * up <= 0 ? "Take-profit must be " + (o.long ? "above" : "below") + " the mark price." : b && (b - L.mark) * up >= 0 ? "Stop-loss must be " + (o.long ? "below" : "above") + " the mark price." : "";
+      q("#eer").textContent = err; if (err) return; o.utp = a || 0; o.usl = b || 0; store.save(); U.fx("claim"); U.closeLayer(); toast("TP/SL updated", "ok"); after && after(); };
+  });
+}
+function editCopySheet(c, mk, after){
+  U.sheet("Modify copy settings", `<div class="ax-ep"><div class="row" style="gap:10px;margin-bottom:12px">${modelLogo(c.lid.slice(2), 40)}<div class="grow"><b>${esc(c.name)}</b><div class="px-mut">${mkName(c.mk)} · Invested ${money(c.amt)} USDT</div></div></div>
+    <div class="px-2c"><div class="px-fld"><label>${c.sizing === "ratio" ? setLbl("ratio") : setLbl("per", "", c.mk === "binary" ? "Stake per trade" : "")}</label><div class="px-inp"><input id="emv" type="number" inputmode="decimal" value="${c.modeVal}"><span>${c.sizing === "ratio" ? "x" : "USDT"}</span></div></div>
+      <div class="px-fld"><label>${setLbl("max")}</label><div class="px-inp"><input id="emo" type="number" inputmode="decimal" value="${c.maxOrder}"><span>USDT</span></div></div></div>
+    <div class="px-2c"><div class="px-fld"><label>${setLbl("sl")}</label><div class="px-inp"><input id="esl" type="number" inputmode="decimal" placeholder="Off" value="${c.sl || ""}"><span>%</span></div></div>
+      <div class="px-fld"><label>${setLbl("tp")}</label><div class="px-inp"><input id="etp" type="number" inputmode="decimal" placeholder="Off" value="${c.tp || ""}"><span>%</span></div></div></div>
+    <div class="px-err" id="eer"></div><button class="px-btn pri blk lg" id="eok">Save</button></div>`, el => {
+    const q = s => el.querySelector(s);
+    el.addEventListener("click", e => { const t = e.target.closest("[data-st]"); if (t) setTip(t.dataset.st); });
+    q("#eok").onclick = () => { const mv = parseFloat(q("#emv").value), mo = parseFloat(q("#emo").value), sl = q("#esl").value === "" ? 0 : parseFloat(q("#esl").value), tp = q("#etp").value === "" ? 0 : parseFloat(q("#etp").value);
+      const err = !(mv > 0) ? "Enter a valid copy amount." : !(mo > 0) ? "Enter the maximum per order." : (q("#esl").value !== "" && !(sl >= 1 && sl <= 90)) ? "Stop-loss must be between 1% and 90%." : (q("#etp").value !== "" && !(tp >= 1)) ? "Take-profit must be at least 1%." : "";
+      q("#eer").textContent = err; if (err) return; c.modeVal = mv; c.maxOrder = mo; c.sl = sl; c.tp = tp; store.save(); U.fx("claim"); U.closeLayer(); toast("Copy settings updated", "ok"); after && after(); };
+  });
+}
 
 Pages.copy = (params) => {
-  const openId = params && LEADS.find(x => x.id === params[0]) ? params[0] : null;
-  let seg = params && params[0] === "binary" || (openId && LEADS.find(x => x.id === openId).bin) ? "binary" : "perp", view = params && params[0] === "my" ? "my" : "plaza", ltab = "lead", chip = null, sort = "roi", q = "", showQ = false;
+  const p0 = params && params[0], openId = p0 && leadById(p0) ? p0 : null;
+  let seg = p0 === "binary" || (openId && leadById(openId).bin) ? "binary" : "perp", view = p0 === "my" ? "my" : p0 === "say" ? "say" : p0 === "how" ? "how" : "plaza", lp = 1, mp = 1, mf = "", q = "", showQ = false;
   const html = `<div class="px-page px-cp-pg">${head("Copy Trading", `<button class="icon-btn" data-menu aria-label="Menu">${ic("dots",20,1.8)}</button>`)}<div id="cbody"></div>
-    <div class="px-subnav"><div class="card"><div class="pill" id="snav"></div><button class="rnd" data-sq aria-label="Search traders">${ic("search",20,1.8)}</button></div></div></div>`;
+    <div class="px-subnav"><div class="card"><div class="pill" id="snav"></div><button class="rnd" data-sq aria-label="Search AI traders">${ic("search",20,1.8)}</button></div></div></div>`;
   const mkOf = () => seg === "binary" ? "binary" : "futures";
-  const pool = () => LEADS.filter(l => seg === "binary" ? l.bin : !l.bin);
   const tagOf = () => seg === "binary" ? "Binary" : "Perp";
-  const ldCard = l => { const mk = mkOf(), s = lstats(l, 1, mk), sh = sharpe(l), full = l.f >= CAP, fav = favs().includes(l.id);
-    return `<div class="px-lc" data-ld="${l.id}"><div class="h">${ART.avatar(l.id, 44)}<div class="grow"><div class="nm"><span class="ellipsis">${esc(l.name)}</span><button class="star ${fav ? "on" : ""}" data-fav="${l.id}" aria-label="${fav ? "Unfollow" : "Favourite"}">${ic("star",16,1.7)}</button></div><div class="px-mut mt">${tagOf()} <i class="sepv"></i> ${ic("users",13,1.7)} <span class="num">${l.f} / ${fmt(CAP,0)}</span></div></div><button class="cpy" data-cp="${l.id}" ${full ? "disabled" : ""}>${full ? "Full" : "Copy"}</button></div>
-      <div class="m"><div><div class="px-mut">30D PnL</div><div class="roi num ${cls(s.roi)}">${sgnPct(s.roi)}</div></div><div class="spk">${spark(curve(l, 1, mk, 36), 130, 52, s.roi >= 0 ? "var(--up)" : "var(--down)")}</div></div>
-      ${mk === "binary" ? `<div class="b four"><div><span>Win rate</span><b class="num">${s.wr.toFixed(1)}%</b></div><div><span>Avg payout</span><b class="num">${l.pay}%</b></div><div><span>Trades/day</span><b class="num">${l.tpd}</b></div><div><span>AUM</span><b class="num">${compact(s.aum)}</b></div></div></div>` : `<div class="b four"><div><span>30D Max DD</span><b class="num">${s.mdd.toFixed(2)}%</b></div><div><span>30D Sharpe</span><b class="num">${sh.toFixed(2)}</b></div><div><span>AUM</span><b class="num">${compact(s.aum)}</b></div><div><span>Open pos.</span><b class="num">${openCount(l)}</b></div></div></div>`}`; };
+  const pseg = (id, cur) => `<div class="px-seg ax-pseg" id="${id}">${PERS.map(([n, i]) => `<button data-p="${i}" class="${cur === i ? "on" : ""}">${n}</button>`).join("")}</div>`;
+  const cellsOf = (l, s, mk) => { const pl = PERS[lp][0], pn = (s.pnl >= 0 ? "+" : "-") + "$" + compact(Math.abs(s.pnl)); return mk === "binary" ? [[pl + " PnL", pn, cls(s.pnl)], ["Win rate", s.wr.toFixed(1) + "%", ""], ["Avg payout", l.pay + "%", ""], ["AUM", "$" + compact(s.aum), ""]] : [[pl + " PnL", pn, cls(s.pnl)], ["Win rate", s.wr.toFixed(1) + "%", ""], ["Max DD", s.mdd.toFixed(1) + "%", ""], ["AUM", "$" + compact(s.aum), ""]]; };
+  const ldCard = l => { const mk = mkOf(), s = lstats(l, lp, mk), pl = PERS[lp][0], cells = cellsOf(l, s, mk);
+    return `<div class="px-lc ax-lc" data-ld="${l.id}" role="button" tabindex="0"><div class="h">${logoOfLead(l, 44)}<div class="grow"><div class="nm"><span class="ellipsis">${esc(l.name)}</span>${qBtn(`data-mq="${l.mid}"`, "About " + l.name)}</div><div class="px-mut mt"><span class="ellipsis">${esc(l.model)}</span><i class="sepv"></i><span>${tagOf()}</span><i class="sepv"></i><span>Bot</span></div><div class="px-mut cpr">${ic("users", 13, 1.7)}<span class="num" data-k="cn">${fmt(l.f, 0)}</span><span>copiers</span></div></div><button class="cpy" data-cp="${l.id}">Copy</button></div>
+      <div class="m"><div><div class="px-mut" data-k="rl">${pl} ROI</div><div class="roi num ${cls(s.roi)}" data-k="roi">${sgnPct(s.roi)}</div></div><div class="spk" data-k="spk">${spark(curve(l, lp, mk, 36), 130, 52, s.roi >= 0 ? "var(--up)" : "var(--down)")}</div></div>
+      <div class="b four">${cells.map(([a, b, c], i) => `<div><span>${a}</span><b class="num ${c}" data-k="s${i}">${b}</b></div>`).join("")}</div></div>`; };
   return {html, title:"Copy Trading", mount(r){
-    const $ = x => r.querySelector(x), body = $("#cbody");
-    const nav = () => { const n = cstate().active.length; $("#snav").innerHTML = [["plaza","Copy Trading"],["my","My copying" + (n ? ` (${n})` : "")],["say","Community"]].map(([k,t]) => `<button data-sv="${k}" class="${(view===k || (k === "plaza" && view === "all"))?"on":""}">${t}</button>`).join(""); };
-    const list = () => { const mk = mkOf(); let a = pool();
-      if (ltab === "follow") a = a.filter(l => favs().includes(l.id));
-      const ch = CHIPS.find(c => c[0] === chip); if (ch) a = a.filter(ch[2]);
-      if (q) a = a.filter(l => l.name.toLowerCase().includes(q.toLowerCase()));
-      const key = {roi:l => l.roi[1], pnl:l => l.pnl30, wr:l => l.wr, mdd:l => -l.mdd, aum:l => l.aum, f:l => l.f}[sort];
-      return a.sort((x, y) => key(y) - key(x)); };
-    function renderList(){
-      const a = list();
-      $("#lst").innerHTML = `<div class="px-chips2"><div class="chs">${CHIPS.map(([k,n]) => `<button data-c="${k}" class="${chip===k?"on":""}">${n}</button>`).join("")}</div></div>
-        <div class="row between" style="padding:2px 0 10px"><span class="px-mut">${a.length} traders</span><button class="px-sortb" data-sort>${SORTS.find(x => x[0] === sort)[1]} ${ic("chevd",12,2)}</button></div>
-        ${showQ ? `<label class="px-search" style="margin-bottom:10px">${ic("search",16)}<input id="tq" value="${esc(q)}" placeholder="Search traders" autocomplete="off" aria-label="Search traders"></label>` : ""}
-        ${a.length ? a.map(ldCard).join("") : empty(ltab === "follow" ? "star" : "users", ltab === "follow" ? "Tap the star on a trader to follow them here" : "No traders match")}`;
-      $("#lst").querySelectorAll("[data-c]").forEach(b => b.onclick = () => { chip = chip === b.dataset.c ? null : b.dataset.c; renderList(); });
-      $("#lst [data-sort]").onclick = () => U.sheet("Sort by", SORTS.map(([k,n]) => `<button class="px-opt ${sort===k?"on":""}" data-k="${k}">${n}${sort===k ? ic("check",18,2) : ""}</button>`).join(""), el => el.querySelectorAll("[data-k]").forEach(b => b.onclick = () => { sort = b.dataset.k; U.closeLayer(); renderList(); }));
-      const tq = $("#tq"); if (tq) tq.oninput = () => { q = tq.value; const p = tq.selectionStart; renderList(); const n = $("#tq"); if (n){ n.focus(); n.setSelectionRange(p, p); } };
+    const $ = x => r.querySelector(x), body = $("#cbody"); let carIv = null, tick = 0, sayTok = 0; const feedMap = new Map(); let mySigV = "";
+    const pool = () => { let a = LEADS.filter(l => seg === "binary" ? l.bin : !l.bin); if (q) a = a.filter(l => (l.name + " " + l.model + " " + l.maker).toLowerCase().includes(q.toLowerCase())); return a.sort((x, y) => lstats(y, lp, mkOf()).roi - lstats(x, lp, mkOf()).roi); };
+    const nav = () => { const n = cstate().active.length; if (seg === "binary" && view === "say") view = "plaza";
+      $("#snav").innerHTML = [["plaza", "Copy Trading"], ["my", "My copying" + (n ? ` (${n})` : "")]].concat(seg === "perp" ? [["say", "Community"]] : []).map(([k, t]) => `<button data-sv="${k}" class="${view === k || (k === "plaza" && view === "how") ? "on" : ""}">${t}</button>`).join(""); };
+    const stopCar = () => { if (carIv){ clearInterval(carIv); carIv = null; } };
+    function startCar(){
+      stopCar(); const t = $("#axt"); if (!t) return; let hold = 0; const step = () => t.clientWidth + 10, idx = () => Math.round(t.scrollLeft / Math.max(1, step()));
+      const dots = () => { const i = idx(); r.querySelectorAll(".ax-dots i").forEach((d, k) => d.classList.toggle("on", k === i)); };
+      t.addEventListener("scroll", dots, {passive: true}); const h = () => { hold = Date.now() + 9000; }; t.addEventListener("touchstart", h, {passive: true}); t.addEventListener("pointerdown", h);
+      r.querySelectorAll(".ax-dots i").forEach((d, k) => d.onclick = () => { h(); t.scrollTo({left: k * step(), behavior: "smooth"}); });
+      carIv = setInterval(() => { if (!t.isConnected || document.hidden || Date.now() < hold) return; t.scrollTo({left: ((idx() + 1) % SLIDES.length) * step(), behavior: "smooth"}); }, 4500);
     }
-    const allBtn = k => `<button class="px-all" data-all="${k}">All traders ${ic("chev",12,2)}</button>`;
-    const starCard = l => { const s = lstats(l, 1, mkOf()); return `<div class="px-nt" data-ld="${l.id}">${ART.avatar(l.id, 56)}<b class="ellipsis">${esc(l.name)}</b><span class="px-mut num">${ic("users",12,1.7)} ${fmt(l.f,0)}</span><span class="roi num ${cls(s.roi)}">${sgnPct(s.roi)}</span><span class="px-mut dot">30D ROI</span></div>`; };
+    const carHtml = () => `<div class="ax-car"><div class="ax-track" id="axt">${SLIDES.map(s => `<button type="button" class="ax-slide" data-sl="${s.k}" style="--a:${s.a};--b:${s.b}"><div class="tx"><b>${s.t}</b><span>${s.s}</span><i>Learn more ${ic("chev", 12, 2.2)}</i></div><div class="ar">${SLART[s.k]}</div></button>`).join("")}</div><div class="ax-dots">${SLIDES.map((_, i) => `<i class="${i ? "" : "on"}"></i>`).join("")}</div></div>`;
+    function renderList(){ const a = pool(); $("#lst").innerHTML = a.length ? a.map(ldCard).join("") : empty("users", "No AI traders match"); $("#cnt").textContent = a.length + " AI traders"; }
     function renderPlaza(){
-      const star = pool().filter(CHIPS[0][2]).sort((a, b) => score(b) - score(a)).slice(0, 8), top = pool().slice().sort((a, b) => b.roi[1] - a.roi[1]).slice(0, 5);
-      body.innerHTML = `<a class="px-hero" href="#/copy/my"><div class="tx"><b>Copy top traders with one tap</b><span>Mirror proven strategies, stop any time</span><i class="go">${ic("chev",14,2)}</i></div>${ART.trophy(88)}</a>
-        <div class="px-sg" id="seg">${[["perp","Perp"],["binary","Binary"]].map(([k,n]) => `<button data-s="${k}" class="${seg===k?"on":""}">${n}</button>`).join("")}</div>
-        <div class="px-sec-h" style="margin:16px 0 10px"><h2>Star Traders</h2>${allBtn("star")}</div>
-        <div class="px-newr">${star.map(starCard).join("")}</div>
-        <div class="px-sec-h" style="margin:12px 0 10px"><h2>Top Traders</h2>${allBtn("top")}</div>
-        ${top.map(ldCard).join("")}
-        <button class="px-btn blk px-allb" data-all="top">All traders</button>`;
-      $("#seg").onclick = e => { const b = e.target.closest("[data-s]"); if (b){ seg = b.dataset.s; renderPlaza(); } };
+      body.innerHTML = carHtml() + `<div class="px-sg" id="seg">${[["perp", "Perp"], ["binary", "Binary"]].map(([k, n]) => `<button data-s="${k}" class="${seg === k ? "on" : ""}">${n}</button>`).join("")}</div>
+        <div class="ax-hd"><h2>AI traders ${qBtn("data-how", "How copy bots work")}</h2><span class="px-mut" id="cnt"></span></div>${pseg("lps", lp)}
+        ${showQ ? `<label class="px-search" style="margin:10px 0 0">${ic("search", 16)}<input id="tq" value="${esc(q)}" placeholder="Search AI traders" autocomplete="off" aria-label="Search AI traders"></label>` : ""}
+        <div id="lst" style="padding-top:12px"></div><div class="px-notice" style="margin-top:4px">${ic("info", 14)}<span>Past performance does not guarantee future results. Copy bots can lose money. Never invest more than you can afford to lose.</span></div>`;
+      renderList(); startCar();
+      $("#seg").onclick = e => { const b = e.target.closest("[data-s]"); if (b && b.dataset.s !== seg){ seg = b.dataset.s; nav(); renderPlaza(); } };
+      $("#lps").onclick = e => { const b = e.target.closest("[data-p]"); if (b){ lp = +b.dataset.p; $("#lps").querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b)); renderList(); } };
+      const tq = $("#tq"); if (tq) tq.oninput = () => { q = tq.value; renderList(); };
     }
-    function renderAll(){
-      body.innerHTML = `<button class="px-backl" data-sv="plaza">${ic("back",16,2)} Copy Trading</button>
-        <div class="px-sg" id="seg">${[["perp","Perp"],["binary","Binary"]].map(([k,n]) => `<button data-s="${k}" class="${seg===k?"on":""}">${n}</button>`).join("")}</div>
-        <div class="px-tabs" id="lt" style="margin-top:6px">${[["lead","All traders"],["follow","Following"]].map(([k,n]) => `<button data-t="${k}" class="${ltab===k?"on":""}">${n}</button>`).join("")}</div>
-        <div id="lst" style="padding-top:12px"></div>`;
-      $("#seg").onclick = e => { const b = e.target.closest("[data-s]"); if (b){ seg = b.dataset.s; renderAll(); } };
-      $("#lt").onclick = e => { const b = e.target.closest("[data-t]"); if (b){ ltab = b.dataset.t; renderAll(); } };
-      renderList();
+    function renderHow(){
+      body.innerHTML = `<button class="px-backl" data-sv="plaza">${ic("back", 16, 2)} Copy Trading</button><div class="ax-hw"><h2>How copy bots work</h2><p class="px-mut">Copy an AI trading model in four steps. Your account mirrors its trades automatically.</p>
+        ${HOW_STEPS.map(([n, t, d, g]) => `<div class="ax-st"><div class="gf">${GFX[g]()}</div><div class="tx"><i>${n}</i><div><b>${t}</b><span>${d}</span></div></div></div>`).join("")}
+        <h3>Benefits</h3><div class="ax-bn">${HOW_BEN.map(([i, t, d]) => `<div><span>${ic(i, 18, 1.8)}</span><b>${t}</b><small>${d}</small></div>`).join("")}</div>
+        <h3>Settings explained</h3>${["inv", "mode", "max", "sl", "tp"].map(k => `<button type="button" class="ax-ex" data-st="${k}"><i>${ic(SETINFO[k].ic, 16, 1.8)}</i><div><b>${SETINFO[k].t}</b><span>${SETINFO[k].d}</span></div><span class="q">?</span></button>`).join("")}
+        <div class="px-notice" style="margin-top:12px">${ic("info", 14)}<span>Copy bots trade with real market prices but can lose money. Past performance does not guarantee future results.</span></div>
+        <button class="px-btn pri blk lg" style="margin-top:14px" data-sv="plaza">Browse AI traders</button></div>`;
     }
-    function renderSay(){
-      body.innerHTML = `<div class="px-sec-h" style="margin:8px 0 4px"><h2>Community</h2><span class="px-mut"><i class="px-pulse"></i> Live</span></div>` + feed().map(p => `<div class="px-post" data-ld="${p.l.id}"><div class="h">${ART.avatar(p.l.id, 40)}<div class="grow"><b>${esc(p.l.name)}</b><div class="px-mut">${agoStr(p.ago)}</div></div><span class="px-tag">${esc(symLabel(p.sym))}</span></div><p>${esc(p.text)}</p>${SOCIAL.bar("px:" + p.l.id + ":" + p.ago, p.likes, p.cm, {who:p.l.name, text:p.text})}</div>`).join("");
-      SOCIAL.bind(body);
+    /* ---- community ---- */
+    const sayCard = (p, rec, bars) => { const m = mById(p.mid) || {name: "AI"}, my = CMS(), lk = !!my.pl[p.id];
+      return `<div class="px-post ax-post" data-pid="${p.id}"><div class="h">${modelLogo(p.mid, 40)}<div class="grow"><b>${esc(m.name)}</b> <em class="ax-ai">AI</em><div class="px-mut">${esc(m.model || "")} · ${agoStr((Date.now() - p.ts) / 6e4)}</div></div><span class="px-tag">${esc(symLabel(p.sym))}</span></div><p>${esc(p.text)}</p>${p.kind === "pos" && rec ? posCardHtml(p, rec, bars) : ""}
+        <div class="ax-bar"><button type="button" class="ax-b${lk ? " on" : ""}" data-lk="${p.id}" aria-pressed="${lk}">${ic("heart", 15, 1.7)}<span class="num">${likeCnt(p)}</span></button><button type="button" class="ax-b" data-cmb="${p.id}">${ic("chat", 15, 1.7)}<span class="num ax-cc">${countOf(p)}</span></button><button type="button" class="ax-b" data-sh="${p.id}">${ic("share", 15, 1.7)}</button></div></div>`; };
+    async function renderSay(){
+      const tok = ++sayTok; body.innerHTML = `<div class="px-sec-h" style="margin:8px 0 4px"><h2>Community</h2><span class="px-mut"><i class="px-pulse"></i> Live</span></div><p class="px-mut" style="margin:0 0 4px;font-size:12px">AI models share their live Perp positions and market views.</p><div id="feed"><div class="px-mut" style="padding:24px 0;text-align:center">Loading…</div></div>`;
+      const posts = postsList(), syms = [...new Set(posts.filter(p => p.kind === "pos").map(p => p.sym))];
+      await Promise.all(syms.map(klines)); const recs = await Promise.all(posts.map(p => p.kind === "pos" ? ensurePos(p) : null));
+      if (tok !== sayTok || view !== "say" || !r.isConnected) return; feedMap.clear();
+      $("#feed").innerHTML = posts.map((p, i) => { feedMap.set(p.id, {p, rec: recs[i]}); return sayCard(p, recs[i], (KC.get(p.sym) || {}).b); }).join("") || empty("chat", "No posts yet");
     }
+    function liveSay(){ r.querySelectorAll(".ax-pc").forEach(el => { const f = feedMap.get(el.dataset.pc); if (!f || !f.rec) return; const lv = posLive(f.p, f.rec), set = (k, v, c) => { const n = el.querySelector(`[data-f="${k}"]`); if (n){ if (n.textContent !== v) n.textContent = v; if (c) n.parentNode.className = n.parentNode.className.replace(/\b(up|down)\b/g, "").trim() + " " + c; } };
+      const pn = el.querySelector(".pn"); if (pn) pn.className = "pn " + cls(lv.pnl); set("pnl", (lv.pnl >= 0 ? "+" : "-") + money(Math.abs(lv.pnl))); set("roi", sgnPct(lv.roi)); set("last", symPx(f.p.sym, lv.px));
+      if (tick % 3 === 0){ const s = el.querySelector('[data-f="spk"]'); if (s) s.innerHTML = sparkSvg((KC.get(f.p.sym) || {}).b, f.p, f.rec, lv.px); } }); }
+    /* ---- my copying ---- */
+    const mySig = () => cstate().active.map(c => c.id + ":" + ((c.mir && c.mir.open) || []).map(o => o.pid + (o.utp || "") + (o.usl || "")).join(",")).join("|") + "|" + mf + mp + cstate().history.length;
     function renderMy(){
-      const st = cstate(), now = Date.now();
-      const act = st.active.map(c => ({c, pct:copyPct(c, now)})), inv = act.reduce((a,x) => a + x.c.amt, 0), pl = act.reduce((a,x) => a + x.c.amt * x.pct / 100, 0);
-      const histPl = st.history.reduce((a,x) => a + x.pnl, 0);
-      body.innerHTML = `<div class="px-sum"><div><span>Invested (USDT)</span><b class="num">${money(inv)}</b></div><div><span>Current value</span><b class="num">${money(inv + pl)}</b></div><div><span>Unrealized PnL</span><b class="num ${cls(pl)}">${signed(pl)}</b></div></div>
-        <div class="px-sec-h" style="margin-top:16px"><h2>Active (${act.length})</h2></div>
-        ${act.length ? act.map(({c, pct}) => { const pn = c.amt * pct / 100, pts = [...Array(24)].map((_,i) => copyPct(c, c.since + (now - c.since) * i / 23));
-          return `<div class="px-lc"><div class="h">${ART.avatar(c.lid, 40)}<div class="grow"><div class="nm"><span class="ellipsis">${esc(c.name)}</span> <span class="px-tag">${c.mk === "binary" ? "Binary" : c.mk === "spot" ? "Spot" : "Perp"}</span></div><div class="px-mut mt">Running ${dur(now - c.since)}</div></div><button class="px-btn dn sm" data-stop="${c.id}">Stop</button></div>
-          <div class="m"><div><div class="px-mut">PnL (USDT)</div><div class="roi num ${cls(pn)}" style="font-size:24px">${signed(pn)}</div><div class="num ${cls(pn)}" style="font-size:12px">${sgnPct(pct)}</div></div><div class="spk">${spark(pts, 130, 52, pn >= 0 ? "var(--up)" : "var(--down)")}</div></div>
-          <div class="b four"><div><span>Invested</span><b class="num">${money(c.amt)}</b></div><div><span>Value</span><b class="num">${money(c.amt + pn)}</b></div><div><span>Stop-loss</span><b class="num">${c.sl ? "-" + c.sl + "%" : "Off"}</b></div><div><span>Take-profit</span><b class="num">${c.tp ? "+" + c.tp + "%" : "Off"}</b></div></div></div>`; }).join("") : `${empty("users","No active copies yet")}<button class="px-btn pri blk" data-find>Find traders</button>`}
-        <div class="px-sec-h" style="margin-top:20px"><h2>History</h2>${st.history.length ? `<span class="px-mut">Realized <b class="num ${cls(histPl)}">${signed(histPl)}</b></span>` : ""}</div>
-        ${st.history.length ? st.history.slice(0, 20).map(h => `<div class="px-row">${ART.avatar(h.lid, 36)}<div class="grow"><b>${esc(h.name)}</b><div class="px-mut">${U.dateStr(h.end)} · ${dur(h.end - h.since)} · ${esc(h.reason)}</div></div><div class="r"><b class="num ${cls(h.pnl)}">${signed(h.pnl)}</b><span class="px-mut num">${sgnPct(h.pct)} on ${money(h.amt)}</span></div></div>`).join("") : empty("file","No history yet")}`;
-      const f = body.querySelector("[data-find]"); if (f) f.onclick = () => { view = "plaza"; show(); };
-      body.querySelectorAll("[data-stop]").forEach(b => b.onclick = async () => {
-        const c = cstate().active.find(x => x.id === b.dataset.stop); if (!c) return;
-        if (await U.confirmBox("Stop copying?", `Your investment plus PnL (${signed(c.amt * copyPct(c) / 100)} USDT) returns to your balance and ${c.name}'s positions are no longer copied.`, "Stop", true)){
-          if (!cstate().active.find(x => x.id === c.id)) return;
-          const x = stopCopy(c); toast(`Copy stopped: ${signed(x.pnl)} USDT`, x.pnl >= 0 ? "ok" : "bad"); nav(); renderMy();
-        }
-      });
+      const st = cstate(), now = Date.now(), act = st.active.filter(c => !mf || c.mk === mf), perf = myPerf(mp, mf), inv = act.reduce((a, c) => a + c.amt, 0), pl = act.reduce((a, c) => a + c.amt * copyPct(c, now) / 100, 0);
+      const closedAll = myItems(mf).flatMap(x => ((x.c.mir && x.c.mir.closed) || []).map(t => Object.assign({lid: x.c.lid, nm: x.c.name, mk: x.c.mk}, t))).sort((a, b) => b.ct - a.ct).slice(0, 15);
+      const hist = st.history.filter(h => !mf || h.mk === mf).slice(0, 15), hp = hist.reduce((a, x) => a + x.pnl, 0);
+      body.innerHTML = `<div class="px-sg" id="mfs" style="margin-top:6px">${[["", "All"], ["futures", "Perp"], ["binary", "Binary"]].map(([k, n]) => `<button data-mf="${k}" class="${mf === k ? "on" : ""}">${n}</button>`).join("")}</div>
+        <div class="px-sum"><div><span>Invested (USDT)</span><b class="num" data-sm="inv">${money(inv)}</b></div><div><span>Current value</span><b class="num" data-sm="val">${money(inv + pl)}</b></div><div><span>Unrealized PnL</span><b class="num ${cls(pl)}" data-sm="pl">${signed(pl)}</b></div></div>
+        <div class="ax-perf"><div class="px-sec-h" style="margin:2px 0 8px"><h2>My performance</h2><span class="px-mut"><i class="px-pulse"></i> Live</span></div>${pseg("mps", mp)}
+          <div class="row between" style="margin-top:10px;align-items:flex-end"><div><div class="px-mut">${PERS[mp][0]} PnL (USDT)</div><div class="roi num ${cls(perf.pnl)}" id="mpn" style="font-size:26px;font-weight:800">${signed(perf.pnl)}</div></div><div style="text-align:right"><div class="px-mut">${PERS[mp][0]} ROI</div><div class="num ${cls(perf.roi)}" id="mpr" style="font-size:18px;font-weight:700">${sgnPct(perf.roi)}</div></div></div>
+          <div class="px-big" id="mpc">${spark(perf.pts, 320, 110, perf.pnl >= 0 ? "var(--up)" : "var(--down)")}</div></div>
+        <div class="px-sec-h" style="margin-top:16px"><h2>Active copies (${act.length})</h2></div>
+        ${act.length ? act.map(c => { const pct = copyPct(c, now), pn = c.amt * pct / 100, ops = (c.mir && c.mir.open) || [], pts = [...Array(24)].map((_, i) => copyPct(c, c.since + (now - c.since) * i / 23));
+          return `<div class="px-lc ax-my" data-cid="${c.id}"><div class="h">${modelLogo(c.lid.slice(2), 40)}<div class="grow"><div class="nm"><span class="ellipsis">${esc(c.name)}</span>${qBtn(`data-mq="${c.lid.slice(2)}" data-mk="${c.mk}"`, "About " + c.name)}<span class="px-tag">${mkName(c.mk)}</span><span class="px-tag br">Copy</span></div><div class="px-mut mt">${esc((mById(c.lid.slice(2)) || {}).model || "")} · Running ${dur(now - c.since)}</div></div></div>
+            <div class="m"><div><div class="px-mut">PnL (USDT)</div><div class="roi num ${cls(pn)}" style="font-size:24px" data-cv="pn">${signed(pn)}</div><div class="num ${cls(pn)}" style="font-size:12px" data-cv="pc">${sgnPct(pct)}</div></div><div class="spk" data-cv="spk">${spark(pts, 130, 52, pn >= 0 ? "var(--up)" : "var(--down)")}</div></div>
+            <div class="b four"><div><span>Invested</span><b class="num">${money(c.amt)}</b></div><div><span>Value</span><b class="num" data-cv="val">${money(c.amt + pn)}</b></div><div><span>Stop-loss</span><b class="num">${c.sl ? "-" + c.sl + "%" : "Off"}</b></div><div><span>Take-profit</span><b class="num">${c.tp ? "+" + c.tp + "%" : "Off"}</b></div></div>
+            <div class="ax-ph"><b>Live positions (${ops.length})</b><span class="px-mut">Only here, not in Futures</span></div>${ops.length ? ops.map(o => myPosHtml(c, o)).join("") : `<div class="px-mut" style="padding:8px 0">No open positions right now. The bot copies the next trade automatically.</div>`}
+            <div class="ax-act"><button type="button" class="px-btn sm" data-edit="${c.id}">${ic("gear", 14, 1.8)} Modify</button><button type="button" class="px-btn dn sm" data-stop="${c.id}">Stop copying</button></div></div>`; }).join("") : `${empty("users", "No active copies yet")}<button class="px-btn pri blk" data-find>Find AI traders</button>`}
+        <div class="px-sec-h" style="margin-top:20px"><h2>Closed copied trades</h2></div>
+        ${closedAll.length ? closedAll.map(t => `<div class="px-row">${symIcon(t.sym, 30)}<div class="grow"><b>${esc(symLabel(t.sym))}</b> <span class="px-tag ${t.long ? "up" : "dn"}">${t.bin ? (t.long ? "Up" : "Down") : (t.long ? "Long " : "Short ") + t.lev + "x"}</span> <span class="px-tag br">Copy</span><div class="px-mut">${esc(t.nm)} · ${U.dateStr(t.ct)}</div></div><b class="num ${cls(t.pnl)}">${sgn2(t.pnl)}</b></div>`).join("") : empty("file", "No closed trades yet")}
+        <div class="px-sec-h" style="margin-top:20px"><h2>Copy history</h2>${hist.length ? `<span class="px-mut">Realized <b class="num ${cls(hp)}">${signed(hp)}</b></span>` : ""}</div>
+        ${hist.length ? hist.map(h => `<div class="px-row">${(h.lid || "")[1] === "_" ? modelLogo(h.lid.slice(2), 36) : ART.avatar(h.lid, 36)}<div class="grow"><b>${esc(h.name)}</b> <span class="px-tag">${mkName(h.mk)}</span><div class="px-mut">${U.dateStr(h.end)} · ${dur(h.end - h.since)} · ${esc(h.reason)}</div></div><div class="r"><b class="num ${cls(h.pnl)}">${signed(h.pnl)}</b><span class="px-mut num">${sgnPct(h.pct)} on ${money(h.amt)}</span></div></div>`).join("") : empty("file", "No history yet")}`;
+      mySigV = mySig();
+      $("#mfs").onclick = e => { const b = e.target.closest("[data-mf]"); if (b){ mf = b.dataset.mf; renderMy(); } };
+      $("#mps").onclick = e => { const b = e.target.closest("[data-p]"); if (b){ mp = +b.dataset.p; renderMy(); } };
     }
-    const show = () => { nav(); view === "my" ? renderMy() : view === "say" ? renderSay() : view === "all" ? renderAll() : renderPlaza(); };
+    function liveMy(){
+      const st = cstate(), now = Date.now(), act = st.active.filter(c => !mf || c.mk === mf), setT = (el, v, c) => { if (!el) return; if (el.textContent !== v) el.textContent = v; if (c != null) el.className = el.className.replace(/\b(up|down)\b/g, "").trim() + " " + c; };
+      const inv = act.reduce((a, c) => a + c.amt, 0), pl = act.reduce((a, c) => a + c.amt * copyPct(c, now) / 100, 0);
+      setT($('[data-sm="inv"]'), money(inv)); setT($('[data-sm="val"]'), money(inv + pl)); setT($('[data-sm="pl"]'), signed(pl), cls(pl));
+      act.forEach(c => { const el = r.querySelector(`.ax-my[data-cid="${c.id}"]`); if (!el) return; const pct = copyPct(c, now), pn = c.amt * pct / 100;
+        setT(el.querySelector('[data-cv="pn"]'), signed(pn), cls(pn)); setT(el.querySelector('[data-cv="pc"]'), sgnPct(pct), cls(pn)); setT(el.querySelector('[data-cv="val"]'), money(c.amt + pn));
+        ((c.mir && c.mir.open) || []).forEach(o => { const pe = el.querySelector(`[data-mp="${c.id}|${o.pid}"]`); if (!pe) return; const L = mirLive(c, o);
+          const a = pe.querySelector('[data-f="pnl"]'); setT(a, sgn2(L.pnl), cls(L.pnl)); const b = pe.querySelector('[data-f="roi"],[data-f="tl"]'); if (b){ setT(b, L.bin ? (L.left != null ? clock(L.left) + " left" : (L.win ? "Winning" : "Losing")) : sgnPct(L.roi), cls(L.roi)); } }); });
+      if (tick % 4 === 0){ const perf = myPerf(mp, mf); setT($("#mpn"), signed(perf.pnl), cls(perf.pnl)); setT($("#mpr"), sgnPct(perf.roi), cls(perf.roi)); const c = $("#mpc"); if (c) c.innerHTML = spark(perf.pts, 320, 110, perf.pnl >= 0 ? "var(--up)" : "var(--down)"); }
+    }
+    const show = () => { stopCar(); nav(); view === "my" ? renderMy() : view === "say" ? renderSay() : view === "how" ? renderHow() : renderPlaza(); };
+    function liveList(){ if (view !== "plaza") return; const mk = mkOf();
+      r.querySelectorAll(".ax-lc").forEach(el => { const l = leadById(el.dataset.ld); if (!l) return; const s = lstats(l, lp, mk), cells = cellsOf(l, s, mk), set = (k, v, c) => { const n = el.querySelector(`[data-k="${k}"]`); if (n){ if (n.textContent !== v) n.textContent = v; if (c != null) n.className = n.className.replace(/\b(up|down)\b/g, "").trim() + " " + c; } };
+        set("roi", sgnPct(s.roi), cls(s.roi)); set("cn", fmt(l.f, 0)); cells.forEach(([a, b, c], i) => set("s" + i, b, c));
+        const sp = el.querySelector('[data-k="spk"]'); if (sp) sp.innerHTML = spark(curve(l, lp, mk, 36), 130, 52, s.roi >= 0 ? "var(--up)" : "var(--down)"); }); }
+    /* ---- trader detail + copy settings ---- */
     function detail(l, mk, focus){
-      let dp = 1;
-      const full = l.f >= CAP, bal = () => store.wb(mk === "binary" ? "binary" : "futures");
-      const body = () => { const s = lstats(l, dp, mk);
-        return `<div class="row" style="gap:12px;padding:2px 0 4px">${ART.avatar(l.id, 56)}<div class="grow"><b style="font-size:16px">${esc(l.name)}</b><div class="px-mut">${esc(l.style)}</div><div class="px-mut mt">${ic("users",13,1.7)} <span class="num">${fmt(l.f,0)} / ${fmt(CAP,0)}</span> followers</div></div></div>
-        <div class="row between" style="margin-top:10px"><div class="px-seg" id="dseg">${PERS.map(([n,i]) => `<button data-p="${i}" class="${dp===i?"on":""}">${n}</button>`).join("")}</div><span class="px-mut">Trading since ${new Date(startOf(l)).toLocaleDateString("en-US", {month:"short", day:"numeric", year:"numeric"})}</span></div>
-        <div class="px-grid3"><div><span>${PERS[dp][0]} ROI</span><b class="num ${cls(s.roi)}" style="font-size:20px">${sgnPct(s.roi)}</b></div><div><span>${PERS[dp][0]} PnL</span><b class="num ${cls(s.pnl)}">${s.pnl >= 0 ? "+" : "-"}$${fmt(Math.abs(s.pnl),0)}</b></div><div><span>Win rate</span><b class="num">${s.wr.toFixed(1)}%</b></div>${mk === "binary" ? `<div><span>Trades/day</span><b class="num">${l.tpd}</b></div>` : `<div><span>Max drawdown</span><b class="num">${s.mdd.toFixed(1)}%</b></div>`}<div><span>AUM</span><b class="num">$${compact(s.aum)}</b></div>${mk === "binary" ? `<div><span>Avg. payout</span><b class="num">${l.pay}%</b></div>` : `<div><span>Avg. leverage</span><b class="num">${(() => { const c = positionsOf(l, mk) || []; return c.length ? Math.round(c.reduce((a, x) => a + (x.lev || 1), 0) / c.length) : Math.round(3 + hash01(l.id) * 9); })()}x</b></div>`}</div>
-        ${(() => { const at = allTime(l, mk); return `<div class="px-sec-h" style="margin:14px 0 8px"><h2>All-time</h2><span class="px-mut num">${fmt(at.days,0)} days</span></div><div class="px-grid3 two"><div><span>All-time ROI</span><b class="num ${cls(at.roi)}" style="font-size:20px">${sgnPct(at.roi)}</b></div><div><span>All-time PnL</span><b class="num ${cls(at.pnl)}">${at.pnl >= 0 ? "+" : "-"}$${fmt(Math.abs(at.pnl),0)}</b></div></div>`; })()}
+      let dp = lp, mode = "fixed";
+      const bal = () => store.wb(mk === "binary" ? "binary" : "futures");
+      const ovTop = () => { const s = lstats(l, dp, mk);
+        return `<div class="row" style="gap:12px;padding:2px 0 4px">${logoOfLead(l, 56)}<div class="grow"><div class="row" style="gap:2px"><b style="font-size:17px">${esc(l.name)}</b>${qBtn(`data-mq="${l.mid}"`, "About " + l.name)}</div><div class="px-mut">${esc(l.model)} by ${esc(l.maker)}</div><div class="px-mut mt">${ic("users", 13, 1.7)} <span class="num">${fmt(l.f, 0)}</span> copiers · <span class="px-tag">${mkName(mk)}</span> <span class="px-tag br">Bot</span></div></div></div>
+        <div class="px-mut" style="font-size:12.5px;margin:4px 0 10px">${esc(l.style)}</div>
+        <div class="px-seg ax-pseg" id="dseg">${PERS.map(([n, i]) => `<button data-p="${i}" class="${dp === i ? "on" : ""}">${n}</button>`).join("")}</div><div class="px-mut" style="margin-top:8px;font-size:12px">Trading since ${new Date(startOf(l)).toLocaleDateString("en-US", {month: "short", day: "numeric", year: "numeric"})}</div>
+        <div class="px-grid3"><div><span>${PERS[dp][0]} ROI</span><b class="num ${cls(s.roi)}" style="font-size:20px">${sgnPct(s.roi)}</b></div><div><span>${PERS[dp][0]} PnL</span><b class="num ${cls(s.pnl)}">${s.pnl >= 0 ? "+" : "-"}$${fmt(Math.abs(s.pnl), 0)}</b></div><div><span>Win rate</span><b class="num">${s.wr.toFixed(1)}%</b></div>${mk === "binary" ? `<div><span>Trades/day</span><b class="num">${l.tpd}</b></div>` : `<div><span>Max drawdown</span><b class="num">${s.mdd.toFixed(1)}%</b></div>`}<div><span>AUM</span><b class="num">$${compact(s.aum)}</b></div>${mk === "binary" ? `<div><span>Avg. payout</span><b class="num">${l.pay}%</b></div>` : `<div><span>Avg. leverage</span><b class="num">${Math.round(l.levs.reduce((a, x) => a + x, 0) / l.levs.length)}x</b></div>`}</div>
         <div class="px-sec-h" style="margin:4px 0 0"><h2>ROI</h2><span class="px-mut"><i class="px-pulse"></i> Live</span></div><div class="px-big">${spark(curve(l, dp, mk, 60), 320, 110, s.roi >= 0 ? "var(--up)" : "var(--down)")}</div>`; };
       const form = `<div class="px-sec" id="pf" style="margin-top:12px"><div class="px-sec-h"><h2>Copy settings</h2><span class="px-mut">Avbl <b class="num" style="color:var(--text)">${money(bal())}</b> USDT</span></div>
-        <div class="px-fld"><label><span>Investment</span><span class="px-mut">Min 10 USDT</span></label><div class="px-inp" id="fi"><input id="inv" type="number" inputmode="decimal" value="${Math.min(500, Math.floor(bal() / 10) * 10 || 100)}"><span>USDT</span></div></div>
-        <div class="px-chips" style="margin-bottom:14px">${[100,500,1000,5000].map(v => `<button data-v="${v}">${fmt(v,0)}</button>`).join("")}<button data-v="max">Max</button></div>
-        <div class="px-fld"><label><span>Copy mode</span></label><div class="px-seg" id="cm" style="display:flex"><button data-m="fixed" class="on" style="flex:1">Fixed amount</button><button data-m="ratio" style="flex:1">Fixed ratio</button></div></div>
-        <div class="px-2c"><div class="px-fld"><label><span id="mvl">Per order</span></label><div class="px-inp"><input id="mv" type="number" inputmode="decimal" value="50"><span id="mvu">USDT</span></div></div>
-          <div class="px-fld"><label><span>Max per order</span></label><div class="px-inp"><input id="mo" type="number" inputmode="decimal" value="250"><span>USDT</span></div></div></div>
-        <div class="px-2c"><div class="px-fld"><label><span>Stop-loss</span></label><div class="px-inp"><input id="sl" type="number" inputmode="decimal" value="30" placeholder="Off"><span>%</span></div></div>
-          <div class="px-fld"><label><span>Take-profit</span></label><div class="px-inp"><input id="tp" type="number" inputmode="decimal" placeholder="Off"><span>%</span></div></div></div>
-        <div class="px-notice" style="margin-bottom:12px">${ic("info",14)}<span>Past performance does not guarantee future results. Copying may be closed automatically when your stop-loss or take-profit is reached.</span></div>
-        <div class="px-err" id="fe"></div><button class="px-btn pri blk lg" id="go" ${full ? "disabled" : ""}>${full ? "Lead trader is full" : "Start Copying"}</button></div>`;
-      const tstr = t => new Date(t).toLocaleString("en-US", {month:"short", day:"numeric", hour:"2-digit", minute:"2-digit", hour12:false});
+        <div class="px-fld"><label>${setLbl("inv")}<span class="px-mut">Min 10 USDT</span></label><div class="px-inp" id="fi"><input id="inv" type="number" inputmode="decimal" value="${Math.min(500, Math.floor(bal() / 10) * 10 || 100)}"><span>USDT</span></div></div>
+        <div class="px-chips" style="margin-bottom:14px">${[100, 500, 1000, 5000].map(v => `<button data-v="${v}">${fmt(v, 0)}</button>`).join("")}<button data-v="max">Max</button></div>
+        <div class="px-fld"><label>${setLbl("mode")}</label><div class="px-seg" id="cm" style="display:flex"><button data-m="fixed" class="on" style="flex:1">Fixed amount</button><button data-m="ratio" style="flex:1">Fixed ratio</button></div></div>
+        <div class="px-2c"><div class="px-fld"><label id="mvl"></label><div class="px-inp"><input id="mv" type="number" inputmode="decimal" value="50"><span id="mvu">USDT</span></div></div>
+          <div class="px-fld"><label>${setLbl("max")}</label><div class="px-inp"><input id="mo" type="number" inputmode="decimal" value="250"><span>USDT</span></div></div></div>
+        <div class="px-2c"><div class="px-fld"><label>${setLbl("sl")}</label><div class="px-inp"><input id="sl" type="number" inputmode="decimal" value="30" placeholder="Off"><span>%</span></div></div>
+          <div class="px-fld"><label>${setLbl("tp")}</label><div class="px-inp"><input id="tp" type="number" inputmode="decimal" placeholder="Off"><span>%</span></div></div></div>
+        <div class="px-notice" style="margin-bottom:12px">${ic("info", 14)}<span>Past performance does not guarantee future results. Copying may be closed automatically when your stop-loss or take-profit is reached.</span></div>
+        <div class="px-err" id="fe"></div><button class="px-btn pri blk lg" id="go">Start Copying</button></div>`;
+      const tstr = t => new Date(t).toLocaleString("en-US", {month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false});
       const fresh = t => Date.now() - t < 20000 ? " fresh" : "";
       const agoS = t => { const sec = Math.max(0, Math.round((Date.now() - t) / 1000)); return sec < 60 ? sec + "s ago" : dur(Date.now() - t) + " ago"; };
       const tag = p => `<span class="px-tag ${p.long ? "up" : "dn"}">${p.bin ? (p.long ? "Up" : "Down") : (p.long ? "Long " : "Short ") + p.lev + "x"}</span>`;
-      const clk = ms => { const s = Math.max(0, Math.ceil(ms / 1000)); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); };
       const secH = (t, n, live) => `<div class="px-sec-h" style="margin:4px 0 8px"><h2>${t}${n != null ? " (" + n + ")" : ""}</h2>${live ? `<span class="px-mut"><i class="px-pulse"></i> Live</span>` : ""}</div>`;
       const histRows = () => { const N = histCount(l), sim = ((window.SIM && SIM.closed(l.id, 60)) || []).slice(0, N), out = sim.slice(), st0 = startOf(l), now = Date.now();
         let ct = out.length ? out[out.length - 1].t : now; const span = Math.max(DAYMS * .5, ct - st0), k = N - out.length, gapAvg = span / Math.max(1, k + 1);
         for (let i = out.length; i < N; i++){
-          const r = rngFor("hx" + l.id + i), bin = mk === "binary" || l.bin, sym = r() < .65 ? l.sym : POPS[Math.floor(r() * 6)], p = M.get(sym), base = p?.price || PRICE_FB[baseOf(sym)] || 100;
-          ct -= gapAvg * (.4 + r() * 1.2); const dur = bin ? (60 + r() * 840) * 1e3 : (20 + r() * 700) * 6e4, long = r() > .42;
-          if (bin){ const win = r() < l.wr / 100, margin = [10,20,25,50,100,150][Math.floor(r() * 6)], pay = l.pay || 85, pnl = win ? margin * pay / 100 : -margin, entry = base * (1 + (r() - .5) * .03);
-            out.push({sym, long, lev:0, entry, exit: entry * (1 + (win === long ? 1 : -1) * r() * .002), margin, t: ct - dur, ct, pnl, roi: pnl / margin * 100, bin:1, pay}); continue; }
-          const lev = [3,5,8,10,15,20][Math.floor(r() * 6)], margin = Math.round((120 + r() * 2400) / 10) * 10, win = r() < Math.min(.9, l.wr / 100), roi = win ? (1 + r() * r() * 28) : -(1 + r() * 14), entry = base * (1 + (r() - .5) * .05), mv = roi / 100 / lev * (long ? 1 : -1);
-          out.push({sym, long, lev, entry, exit: entry * (1 + mv), margin, t: ct - dur, ct, pnl: margin * roi / 100, roi, bin:0}); }
+          const rg = rngFor("hx" + l.id + i), bin = mk === "binary" || l.bin, sym = rg() < .65 ? l.sym : POPS[Math.floor(rg() * 6)], p = M.get(sym), base = p?.price || PRICE_FB[baseOf(sym)] || 100;
+          ct -= gapAvg * (.4 + rg() * 1.2); const du = bin ? (60 + rg() * 840) * 1e3 : (20 + rg() * 700) * 6e4, long = rg() > .42;
+          if (bin){ const win = rg() < l.wr / 100, margin = [10, 20, 25, 50, 100, 150][Math.floor(rg() * 6)], pay = l.pay || 85, pnl = win ? margin * pay / 100 : -margin, entry = base * (1 + (rg() - .5) * .03);
+            out.push({sym, long, lev: 0, entry, exit: entry * (1 + (win === long ? 1 : -1) * rg() * .002), margin, t: ct - du, ct, pnl, roi: pnl / margin * 100, bin: 1, pay}); continue; }
+          const lev = l.levs[Math.floor(rg() * l.levs.length)], margin = Math.round((120 + rg() * 2400) / 10) * 10, win = rg() < Math.min(.9, l.wr / 100), roi = win ? (1 + rg() * rg() * 28) : -(1 + rg() * 14), entry = base * (1 + (rg() - .5) * .05), mv = roi / 100 / lev * (long ? 1 : -1);
+          out.push({sym, long, lev, entry, exit: entry * (1 + mv), margin, t: ct - du, ct, pnl: margin * roi / 100, roi, bin: 0}); }
         return out; };
       const histHtml = () => { const cl = histRows();
         return `<div class="px-sec">${secH("Trade history", cl.length, true)}${cl.length ? cl.map(c => `<div class="px-pos hist${fresh(c.ct)}">${symIcon(c.sym, 28)}<div class="grow"><b>${esc(symLabel(c.sym))}</b> ${tag(c)}<div class="px-mut num">${tstr(c.t)} to ${tstr(c.ct)}</div><div class="px-mut num">${mk === "binary" ? "Stake " + money(c.margin) + " USDT" : "Entry " + symPx(c.sym, c.entry) + " · Close " + symPx(c.sym, c.exit)}</div></div><b class="num ${cls(c.pnl)}" style="font-size:13px;text-align:right">${c.pnl >= 0 ? "+" : "-"}${money(Math.abs(c.pnl))}<br><span style="font-weight:600;font-size:11px">${mk === "binary" ? (c.pnl > 0 ? "Win" : "Loss") : sgnPct(c.roi)}</span></b></div>`).join("") + `<div class="px-endnote">You can only see the latest ${cl.length} trades. Older history is not available.</div>` : empty("file", "No closed positions yet")}</div>`; };
@@ -695,40 +943,40 @@ Pages.copy = (params) => {
       const livePos = () => { const ps = openPositions(l) || [];
         return secH("Current positions", ps.length, true) + (ps.length ? ps.map(p => {
           if (p.bin){ const win = (p.mark - p.entry) * (p.long ? 1 : -1) > 0;
-            return `<div class="px-pos${fresh(p.t)}">${symIcon(p.sym, 28)}<div class="grow"><b>${esc(symLabel(p.sym))}</b> ${tag(p)}<div class="px-mut num">Stake ${money(p.margin)} USDT · Payout ${p.pay}% · Entry ${symPx(p.sym, p.entry)}</div></div><b class="num ${win ? "up" : "down"}" style="font-size:13px;text-align:right">${win ? "Winning" : "Losing"}<br><span style="font-weight:600;font-size:11px" class="num">${clk(p.maxT - Date.now())} left</span></b></div>`; }
-          const q = posPnl(p);
-          return `<div class="px-opn${fresh(p.t)}"><div class="h">${symIcon(p.sym, 28)}<div class="grow"><b>${esc(symLabel(p.sym))}</b> ${tag(p)}<div class="px-mut">Opened ${agoS(p.t)}</div></div><div class="r"><b class="num ${cls(q.pnl)}">${(q.pnl >= 0 ? "+" : "") + fmt(q.pnl, 2)}</b><span class="num ${cls(q.roi)}">${sgnPct(q.roi)}</span></div></div>
+            return `<div class="px-pos${fresh(p.t)}">${symIcon(p.sym, 28)}<div class="grow"><b>${esc(symLabel(p.sym))}</b> ${tag(p)}<div class="px-mut num">Stake ${money(p.margin)} USDT · Payout ${p.pay}% · Entry ${symPx(p.sym, p.entry)}</div></div><b class="num ${win ? "up" : "down"}" style="font-size:13px;text-align:right">${win ? "Winning" : "Losing"}<br><span style="font-weight:600;font-size:11px" class="num">${clock(p.maxT - Date.now())} left</span></b></div>`; }
+          const qq = posPnl(p);
+          return `<div class="px-opn${fresh(p.t)}"><div class="h">${symIcon(p.sym, 28)}<div class="grow"><b>${esc(symLabel(p.sym))}</b> ${tag(p)}<div class="px-mut">Opened ${agoS(p.t)}</div></div><div class="r"><b class="num ${cls(qq.pnl)}">${(qq.pnl >= 0 ? "+" : "") + fmt(qq.pnl, 2)}</b><span class="num ${cls(qq.roi)}">${sgnPct(qq.roi)}</span></div></div>
           <div class="g"><div><span>Size</span><b class="num">${symQty(p.size)}</b></div><div><span>Entry</span><b class="num">${symPx(p.sym, p.entry)}</b></div><div><span>Mark</span><b class="num">${symPx(p.sym, p.mark)}</b></div></div></div>`; }).join("") : empty("clock", "No open positions right now")); };
       let dtab = "ov", liv = null, lsn = 0; const stopLive = () => { if (liv){ clearInterval(liv); liv = null; } };
       if (window.SIM) SIM.watch(l.id);
-      U.sheet(l.name, `<div class="px-tabs" id="dtabs" style="margin-bottom:12px">${[["ov","Overview"],["pos","Positions"],["hist","History"],["rec","Records"]].map(([k,n]) => `<button data-t="${k}" class="${k==="ov"?"on":""}">${n}</button>`).join("")}</div>
-        <div id="t-ov"><div id="dbody">${body()}</div>${form}</div><div id="t-pos" hidden></div><div id="t-hist" hidden></div><div id="t-rec" hidden></div>`, el => {
-        const q = s => el.querySelector(s);
-        const paint = k => { const t = q("#t-" + k); if (t) t.innerHTML = k === "pos" ? livePos() : k === "hist" ? histHtml() : recHtml(); };
-        const refresh = () => { if (!q("#t-pos") || !q("#t-pos").isConnected) return stopLive(); lsn++; if (window.SIM) SIM.watch(l.id); if (dtab === "ov"){ if (lsn % 4 === 0 && !el.querySelector("#inv:focus")) redraw(); } else paint(dtab); };
-        q("#dtabs").onclick = e => { const b = e.target.closest("[data-t]"); if (!b) return; dtab = b.dataset.t; q("#dtabs").querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b));
-          ["ov","pos","hist","rec"].forEach(k => q("#t-" + k).hidden = k !== dtab); if (dtab !== "ov") paint(dtab); };
+      U.sheet(l.name, `<div class="px-tabs" id="dtabs" style="margin-bottom:12px">${[["ov", "Overview"], ["pos", "Positions"], ["hist", "History"], ["rec", "Records"]].map(([k, n]) => `<button data-t="${k}" class="${k === "ov" ? "on" : ""}">${n}</button>`).join("")}</div>
+        <div id="t-ov"><div id="dbody">${ovTop()}</div>${form}</div><div id="t-pos" hidden></div><div id="t-hist" hidden></div><div id="t-rec" hidden></div>`, el => {
+        const qs = s => el.querySelector(s);
+        const paint = k => { const t = qs("#t-" + k); if (t) t.innerHTML = k === "pos" ? livePos() : k === "hist" ? histHtml() : recHtml(); };
+        const refresh = () => { if (!qs("#t-pos") || !qs("#t-pos").isConnected) return stopLive(); lsn++; if (window.SIM) SIM.watch(l.id); if (dtab === "ov"){ if (lsn % 4 === 0 && !el.querySelector("#inv:focus")) redraw(); } else paint(dtab); };
+        qs("#dtabs").onclick = e => { const b = e.target.closest("[data-t]"); if (!b) return; dtab = b.dataset.t; qs("#dtabs").querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b));
+          ["ov", "pos", "hist", "rec"].forEach(k => qs("#t-" + k).hidden = k !== dtab); if (dtab !== "ov") paint(dtab); };
         liv = setInterval(refresh, 1000);
-        const redraw = () => { q("#dbody").innerHTML = body(); q("#dseg").onclick = segClick; };
+        const redraw = () => { qs("#dbody").innerHTML = ovTop(); qs("#dseg").onclick = segClick; };
         const segClick = e => { const b = e.target.closest("[data-p]"); if (b){ dp = +b.dataset.p; redraw(); } };
-        q("#dseg").onclick = segClick;
-        let mode = "fixed";
-        const sync = () => { const inv = parseFloat(q("#inv").value) || 0; if (mode === "fixed"){ q("#mvl").textContent = mk === "binary" ? "Stake per trade" : "Margin per order"; q("#mvu").textContent = "USDT"; } else { q("#mvl").textContent = "Copy ratio"; q("#mvu").textContent = "x"; } };
-        q("#cm").onclick = e => { const b = e.target.closest("[data-m]"); if (!b) return; mode = b.dataset.m; q("#cm").querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b)); q("#mv").value = mode === "fixed" ? Math.max(1, Math.round((parseFloat(q("#inv").value) || 100) / 10)) : 1; sync(); };
-        q("#pf .px-chips").onclick = e => { const b = e.target.closest("[data-v]"); if (!b) return; const v = b.dataset.v === "max" ? Math.floor(bal()) : +b.dataset.v; q("#inv").value = v; if (mode === "fixed") q("#mv").value = Math.max(1, Math.round(v / 10)); q("#mo").value = Math.round(v / 2); };
-        q("#inv").oninput = () => { const v = parseFloat(q("#inv").value) || 0; if (mode === "fixed") q("#mv").value = Math.max(1, Math.round(v / 10)); q("#mo").value = Math.round(v / 2); };
+        qs("#dseg").onclick = segClick;
+        el.addEventListener("click", e => { const t = e.target.closest("[data-st]"); if (t){ setTip(t.dataset.st); return; } const m = e.target.closest("[data-mq]"); if (m) modelTip(m.dataset.mq, mk); });
+        const sync = () => { qs("#mvl").innerHTML = mode === "fixed" ? setLbl("per", "", mk === "binary" ? "Stake per trade" : "Margin per order") : setLbl("ratio"); qs("#mvu").textContent = mode === "fixed" ? "USDT" : "x"; };
+        qs("#cm").onclick = e => { const b = e.target.closest("[data-m]"); if (!b) return; mode = b.dataset.m; qs("#cm").querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b)); qs("#mv").value = mode === "fixed" ? Math.max(1, Math.round((parseFloat(qs("#inv").value) || 100) / 10)) : 1; sync(); };
+        qs("#pf .px-chips").onclick = e => { const b = e.target.closest("[data-v]"); if (!b) return; const v = b.dataset.v === "max" ? Math.floor(bal()) : +b.dataset.v; qs("#inv").value = v; if (mode === "fixed") qs("#mv").value = Math.max(1, Math.round(v / 10)); qs("#mo").value = Math.round(v / 2); };
+        qs("#inv").oninput = () => { const v = parseFloat(qs("#inv").value) || 0; if (mode === "fixed") qs("#mv").value = Math.max(1, Math.round(v / 10)); qs("#mo").value = Math.round(v / 2); };
         sync();
-        if (focus) setTimeout(() => q("#pf")?.scrollIntoView({block:"start"}), 360);
-        q("#go").onclick = async () => {
-          const inv = parseFloat(q("#inv").value), mv = parseFloat(q("#mv").value), mo = parseFloat(q("#mo").value), sl = q("#sl").value === "" ? 0 : parseFloat(q("#sl").value), tp = q("#tp").value === "" ? 0 : parseFloat(q("#tp").value);
-          const err = !(inv >= 10) ? "Minimum investment is 10 USDT." : inv > bal() ? "Insufficient " + (mk === "binary" ? "Binary" : "Futures") + " balance" : inv > 100000 ? "Maximum investment is 100,000 USDT." : !(mv > 0) ? "Enter the copy " + (mode === "fixed" ? "amount per order." : "ratio.") : (mode === "fixed" && mv > inv) ? "Per-order amount cannot exceed your investment." : (mode === "ratio" && mv > 10) ? "Maximum copy ratio is 10x." : !(mo > 0) ? "Enter the maximum per order." : (q("#sl").value !== "" && !(sl >= 1 && sl <= 90)) ? "Stop-loss must be between 1% and 90%." : (q("#tp").value !== "" && !(tp >= 1)) ? "Take-profit must be at least 1%." : "";
-          q("#fe").textContent = err; if (err) return;
-          const ok = await U.confirmTrade({kind:"market", title:"Confirm Copy Trading", okText:"Start Copying", tone:"primary", rows:[
-            ["Lead trader", esc(l.name)], ["Market", mk === "binary" ? "Binary (Up/Down)" : "Futures"], ["Investment", `${money(inv)} USDT`], ["Copy mode", mode === "fixed" ? `Fixed amount, ${fmt(mv, 2)} USDT` : `Fixed ratio, ${fmt(mv, 2)}x`],
+        if (focus) setTimeout(() => qs("#pf")?.scrollIntoView({block: "start"}), 360);
+        qs("#go").onclick = async () => {
+          const inv = parseFloat(qs("#inv").value), mv = parseFloat(qs("#mv").value), mo = parseFloat(qs("#mo").value), sl = qs("#sl").value === "" ? 0 : parseFloat(qs("#sl").value), tp = qs("#tp").value === "" ? 0 : parseFloat(qs("#tp").value);
+          const err = !(inv >= 10) ? "Minimum investment is 10 USDT." : inv > bal() ? "Insufficient " + (mk === "binary" ? "Binary" : "Futures") + " balance" : inv > 100000 ? "Maximum investment is 100,000 USDT." : !(mv > 0) ? "Enter the copy " + (mode === "fixed" ? "amount per order." : "ratio.") : (mode === "fixed" && mv > inv) ? "Per-order amount cannot exceed your investment." : (mode === "ratio" && mv > 10) ? "Maximum copy ratio is 10x." : !(mo > 0) ? "Enter the maximum per order." : (qs("#sl").value !== "" && !(sl >= 1 && sl <= 90)) ? "Stop-loss must be between 1% and 90%." : (qs("#tp").value !== "" && !(tp >= 1)) ? "Take-profit must be at least 1%." : "";
+          qs("#fe").textContent = err; if (err) return;
+          const ok = await U.confirmTrade({kind: "market", title: "Confirm Copy Trading", okText: "Start Copying", tone: "primary", rows: [
+            ["AI model", `${esc(l.name)} (${esc(l.model)})`], ["Market", mk === "binary" ? "Binary (Up/Down)" : "Perp (Futures)"], ["Investment", `${money(inv)} USDT`], ["Copy mode", mode === "fixed" ? `Fixed amount, ${fmt(mv, 2)} USDT` : `Fixed ratio, ${fmt(mv, 2)}x`],
             ["Max per order", `${money(mo)} USDT`], ["Stop-loss", sl ? `-${sl}%` : "Off"], ["Take-profit", tp ? `+${tp}%` : "Off"]]});
           if (!ok) return;
           if (inv > bal() + 1e-9){ toast("Insufficient " + (mk === "binary" ? "Binary" : "Futures") + " balance", "bad"); UI.walletErr("Insufficient " + (mk === "binary" ? "Binary" : "Futures") + " balance"); return; }
-          cstate().active.unshift(newCopy(l, {mk, amt:inv, mode:mk === "binary" ? "binary" : mode, sizing:mode, modeVal:mv, maxOrder:mo, sl, tp}));
+          cstate().active.unshift(newCopy(l, {mk, amt: inv, mode: mk === "binary" ? "binary" : mode, sizing: mode, modeVal: mv, maxOrder: mo, sl, tp}));
           store.addWallet(mk === "binary" ? "binary" : "futures", -inv, "copy"); store.save();
           store.notify("Copy trading started", `Copying ${l.name} with ${money(inv)} USDT`, "ok"); U.fx("open"); toast("Copy trading started", "ok");
           view = "my"; show();
@@ -736,25 +984,39 @@ Pages.copy = (params) => {
       }, stopLive);
     }
 
-    r.addEventListener("click", e => {
-      const f = e.target.closest("[data-fav]"), c = e.target.closest("[data-cp]"), d = e.target.closest("[data-ld]"), sv = e.target.closest("[data-sv]");
-      if (f){ e.stopPropagation(); const id = f.dataset.fav, a = favs(), i = a.indexOf(id); i < 0 ? a.push(id) : a.splice(i, 1); store.save(); if (ltab === "follow" && view === "all") renderList(); else { f.classList.toggle("on", i < 0); } toast(i < 0 ? "Added to Following" : "Removed from Following", "info", 1500); return; }
-      if (sv){ view = sv.dataset.sv; show(); window.scrollTo(0, 0); return; }
-      const al = e.target.closest("[data-all]"); if (al){ view = "all"; ltab = "lead"; chip = al.dataset.all === "star" ? "star" : null; show(); window.scrollTo(0, 0); return; }
-      if (e.target.closest("[data-sq]")){ view = "all"; showQ = !showQ; if (!showQ) q = ""; show(); if (showQ) $("#tq")?.focus(); return; }
-      if (e.target.closest("[data-menu]")){ U.sheet("Copy Trading", `<button class="px-opt" data-m="my">My copying${ic("chev",16)}</button><button class="px-opt" data-m="say">Community${ic("chev",16)}</button><button class="px-opt" data-m="follow">Following${ic("chev",16)}</button><div class="px-notice" style="margin-top:12px">${ic("info",14)}<span>Past performance does not guarantee future results. Trader stats are illustrative.</span></div>`, el => el.querySelectorAll("[data-m]").forEach(b => b.onclick = () => { U.closeLayer(); if (b.dataset.m === "follow"){ view = "all"; ltab = "follow"; } else view = b.dataset.m; show(); })); return; }
-      if (c || d){ const l = LEADS.find(x => x.id === (c || d).dataset[c ? "cp" : "ld"]); if (l) detail(l, mkOf(), !!c); }
+    r.addEventListener("click", async e => {
+      const T = s => e.target.closest(s);
+      const mq = T("[data-mq]"); if (mq){ e.stopPropagation(); modelTip(mq.dataset.mq, mq.dataset.mk || mkOf()); return; }
+      const st = T("[data-st]"); if (st){ setTip(st.dataset.st); return; }
+      if (T("[data-how]") || T("[data-sl]")){ view = "how"; show(); window.scrollTo(0, 0); return; }
+      const lv = T("[data-live]"); if (lv){ location.hash = "#/futures/" + lv.dataset.live; return; }
+      const lk = T("[data-lk]"); if (lk){ const s = CMS(), id = lk.dataset.lk; if (s.pl[id]) delete s.pl[id]; else s.pl[id] = 1; cmSave(s); const f = feedMap.get(id); lk.classList.toggle("on", !!s.pl[id]); lk.setAttribute("aria-pressed", !!s.pl[id]); if (f) lk.querySelector(".num").textContent = likeCnt(f.p); return; }
+      const cb = T("[data-cmb]"); if (cb){ const f = feedMap.get(cb.dataset.cmb); if (f) commentsSheet(f.p, () => { const n = r.querySelector(`.ax-post[data-pid="${f.p.id}"] .ax-cc`); if (n) n.textContent = countOf(f.p); }); return; }
+      const sh = T("[data-sh]"); if (sh){ const f = feedMap.get(sh.dataset.sh); if (f) shareText(f.p); return; }
+      const ed = T("[data-edit]"); if (ed){ const c = cstate().active.find(x => x.id === ed.dataset.edit); if (c) editCopySheet(c, c.mk, () => { nav(); renderMy(); }); return; }
+      const tpb = T("[data-mtp]"); if (tpb){ const [cid, pid] = tpb.dataset.mtp.split("|"), c = cstate().active.find(x => x.id === cid), o = c && c.mir && c.mir.open.find(x => x.pid === pid); if (o) editPosSheet(c, o, () => renderMy()); return; }
+      const mc = T("[data-mcl]"); if (mc){ const [cid, pid] = mc.dataset.mcl.split("|"), c = cstate().active.find(x => x.id === cid), o = c && c.mir && c.mir.open.find(x => x.pid === pid); if (!o) return; const L = mirLive(c, o);
+        const ok = await U.confirmBox(o.bin ? "Sell early?" : "Close position?", o.bin ? `${symLabel(o.sym)} ${o.long ? "Up" : "Down"}: selling early gives an estimated ${sgn2(L.est)} USDT instead of waiting for expiry.` : `Close ${symLabel(o.sym)} ${o.long ? "Long" : "Short"} ${o.lev}x at market now. Estimated PnL ${sgn2(L.est)} USDT.`, o.bin ? "Sell" : "Close", true);
+        if (!ok) return; const x = window.SIM && SIM.closeMirPos(cid, pid, "Manual"); if (!x){ toast("Position already closed", "info"); renderMy(); return; }
+        U.fx("close"); toast(`Position closed: ${sgn2(x.pnl)} USDT`, x.pnl >= 0 ? "ok" : "bad"); renderMy(); return; }
+      const sp = T("[data-stop]"); if (sp){ const c = cstate().active.find(x => x.id === sp.dataset.stop); if (!c) return;
+        if (await U.confirmBox("Stop copying?", `Your investment plus PnL (${signed(c.amt * copyPct(c) / 100)} USDT) returns to your balance and ${c.name}'s trades are no longer copied.`, "Stop", true)){
+          if (!cstate().active.find(x => x.id === c.id)) return; const x = stopCopy(c); toast(`Copy stopped: ${signed(x.pnl)} USDT`, x.pnl >= 0 ? "ok" : "bad"); nav(); renderMy(); } return; }
+      if (T("[data-find]")){ view = "plaza"; show(); return; }
+      const sv = T("[data-sv]"); if (sv){ view = sv.dataset.sv; if (view === "say" && seg !== "perp") seg = "perp"; show(); window.scrollTo(0, 0); return; }
+      if (T("[data-sq]")){ view = "plaza"; showQ = !showQ; if (!showQ) q = ""; show(); if (showQ) $("#tq")?.focus(); return; }
+      if (T("[data-menu]")){ U.sheet("Copy Trading", `<button class="px-opt" data-m="my">My copying${ic("chev", 16)}</button>${seg === "perp" ? `<button class="px-opt" data-m="say">Community${ic("chev", 16)}</button>` : ""}<button class="px-opt" data-m="how">How copy bots work${ic("chev", 16)}</button><div class="px-notice" style="margin-top:12px">${ic("info", 14)}<span>Past performance does not guarantee future results. Trader stats are illustrative.</span></div>`, el => el.querySelectorAll("[data-m]").forEach(b => b.onclick = () => { U.closeLayer(); view = b.dataset.m; show(); window.scrollTo(0, 0); })); return; }
+      const c = T("[data-cp]"), d = T("[data-ld]"); if (c || d){ const l = leadById((c || d).dataset[c ? "cp" : "ld"]); if (l) detail(l, l.bin ? "binary" : "futures", !!c); }
     });
-    show();
-    if (openId) setTimeout(() => { const l = LEADS.find(x => x.id === openId); if (l) detail(l, l.bin ? "binary" : "futures", false); }, 60);
-    const check = checkCopies;
-    check();
-    const liveList = () => { if ((view !== "plaza" && view !== "all") || !window.SIM) return; const mk = mkOf();
-      r.querySelectorAll(".px-lc[data-ld]").forEach(el => { const l = LEADS.find(x => x.id === el.dataset.ld); if (!l) return; const s = lstats(l, 1, mk), e = el.querySelector(".roi"); if (!e) return;
-        e.textContent = sgnPct(s.roi); e.className = "roi num " + cls(s.roi); const sp = el.querySelector(".spk"); if (sp) sp.innerHTML = spark(curve(l, 1, mk, 36), 130, 52, s.roi >= 0 ? "var(--up)" : "var(--down)");
-        const bs = el.querySelectorAll(".b b"); if (bs.length === 4){ if (mk === "binary"){ bs[0].textContent = s.wr.toFixed(1) + "%"; bs[2].textContent = s.tpd; bs[3].textContent = compact(s.aum); } else { bs[0].textContent = s.mdd.toFixed(2) + "%"; bs[2].textContent = compact(s.aum); bs[3].textContent = openCount(l); } } }); };
-    const iv = setInterval(() => { if (!r.isConnected) return; check(); if (view === "my" && !document.querySelector("#sheet.show")){ nav(); renderMy(); } liveList(); }, 3000);
-    this.unmount = () => clearInterval(iv);
+    r.addEventListener("keydown", e => { if (e.key === "Enter"){ const d = e.target.closest && e.target.closest(".ax-lc"); if (d && e.target === d) d.click(); } });
+    migrateOld(); show();
+    if (openId) setTimeout(() => { const l = leadById(openId); if (l) detail(l, l.bin ? "binary" : "futures", false); }, 60);
+    checkCopies();
+    const iv = setInterval(() => { if (!r.isConnected) return; tick++; if (tick % 2 === 0) checkCopies();
+      if (view === "my"){ if (document.querySelector("#sheet.show")) return; if (mySig() !== mySigV){ nav(); renderMy(); } else liveMy(); }
+      else if (view === "say") liveSay(); else if (view === "plaza" && tick % 2 === 0) liveList();
+      if (tick % 4 === 0) nav(); }, 1500);
+    this.unmount = () => { clearInterval(iv); stopCar(); sayTok++; document.querySelectorAll(".ax-ovl").forEach(x => x.remove()); };
   }};
 };
 })();

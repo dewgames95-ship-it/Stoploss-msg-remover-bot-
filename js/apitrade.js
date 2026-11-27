@@ -29,7 +29,7 @@ const CHANNELS = [
   {id:"alt",   name:"Altcoin Alpha",     style:"Altcoin breakouts",      verified:false, wr:66, roi:51.2, fol:3940,  grow:11, hue:330, g:"rocket",pool:["SOLUSDT","AVAXUSDT","LINKUSDT","DOGEUSDT","ADAUSDT","XRPUSDT"], per:4, dur:[6, 30],   levs:[5,10,10,20],   tp:[1.0, 2.4],sl:[.6, 1.3]},
 ];
 const CHB = Object.fromEntries(CHANNELS.map(c => [c.id, c]));
-const followersOf = c => c.fol + Math.floor((now() / 864e5 - 20000) * c.grow);
+const followersOf = c => c.fol + Math.max(0, Math.floor((now() / 864e5 - 20780) * c.grow));
 const lerp = (r, u) => r[0] + (r[1] - r[0]) * u;
 
 /* signals of a channel: newest first, deterministic by time. Entry price is cached the first time this device sees the signal */
@@ -209,9 +209,9 @@ const SVG_STEPS = [
      <rect class="bx on" x="196" y="18" width="96" height="52" rx="10"/><text x="244" y="40" text-anchor="middle" class="tb">NovaTrade</text><text x="244" y="55" text-anchor="middle" class="tb">API Trade</text>
      <path class="ln" d="M108 44h84"/><path class="fb" d="M192 44l-7-5v10z"/><circle class="fb" cx="150" cy="44" r="12"/><path class="wh" d="M145 47a4 4 0 1 1 3.4-6l7 .1M153 41v3M156 41v3" />
      <text x="150" y="76" text-anchor="middle" class="ts">API key + secret</text><text x="150" y="90" text-anchor="middle" class="ts">saved on this device only</text>`),
-  sv("0 0 300 96", "Pick a signal channel and follow it",
-    `${[0, 1, 2].map(i => `<g transform="translate(${28 + i * 84} 10)"><circle cx="24" cy="24" r="22" class="${i === 1 ? "bx on" : "bx"}"/><circle cx="24" cy="24" r="13" fill="hsl(${[215, 160, 265][i]} 70% 55%)"/><text x="24" y="63" text-anchor="middle" class="tb">${["Signals", "Scalp", "Swing"][i]}</text></g>`).join("")}
-     <circle cx="148" cy="12" r="0"/><rect class="fb" x="122" y="68" width="52" height="20" rx="10"/><text x="148" y="82" text-anchor="middle" class="tw">Follow</text><circle class="up" cx="178" cy="14" r="9"/><path class="wh" d="M173.8 14l3 3 5-5.6"/>`),
+  sv("0 0 300 104", "Pick a signal channel and follow it",
+    `${[0, 1, 2].map(i => `<g transform="translate(${28 + i * 84} 6)"><circle cx="24" cy="24" r="22" class="${i === 1 ? "bx on" : "bx"}"/><circle cx="24" cy="24" r="13" fill="hsl(${[215, 160, 265][i]} 70% 55%)"/><text x="24" y="64" text-anchor="middle" class="tb">${["Signals", "Scalp", "Swing"][i]}</text></g>`).join("")}
+     <rect class="fb" x="122" y="76" width="56" height="22" rx="11"/><text x="150" y="91" text-anchor="middle" class="tw">Follow</text><circle class="up" cx="182" cy="14" r="9"/><path class="wh" d="M177.8 14l3 3 5-5.6"/>`),
   sv("0 0 300 96", "A signal arrives and the trade opens at once with take profit and stop loss",
     `<path class="ln2" d="M10 70L60 62 100 66 140 46 180 52 232 28 290 34"/>
      <line class="tpl" x1="100" x2="290" y1="22" y2="22"/><line class="slh" x1="100" x2="290" y1="82" y2="82"/>
@@ -219,7 +219,7 @@ const SVG_STEPS = [
      <circle class="fb" cx="100" cy="66" r="6"/><rect class="bx on" x="14" y="8" width="104" height="24" rx="12"/><text x="66" y="24" text-anchor="middle" class="tb">Signal: Long</text><path class="ln" d="M100 34v26"/>`),
   sv("0 0 300 96", "Safety: Read and Trade permission only, Withdraw off",
     `<path class="shd" d="M52 8l34 12v26c0 20-14 34-34 42-20-8-34-22-34-42V20z"/><path class="wh2" d="M36 48l11 11 20-22"/>
-     ${[["Read", 1], ["Trade", 1], ["Withdraw", 0]].map(([n, on], i) => `<g transform="translate(112 ${6 + i * 29})"><text x="0" y="17" class="tb">${n}</text><rect x="118" y="2" width="52" height="24" rx="12" class="${on ? "tg on" : "tg off"}"/><circle cx="${on ? 158 : 130}" cy="14" r="9" fill="#fff"/><text x="182" y="18" class="${on ? "tu" : "td"}">${on ? "ON" : "OFF"}</text></g>`).join("")}`),
+     ${[["Read", 1], ["Trade", 1], ["Withdraw", 0]].map(([n, on], i) => `<g transform="translate(108 ${6 + i * 29})"><text x="0" y="17" class="tb">${n}</text><rect x="70" y="2" width="46" height="24" rx="12" class="${on ? "tg on" : "tg off"}"/><circle cx="${on ? 104 : 82}" cy="14" r="9" fill="#fff"/><text x="126" y="18" class="${on ? "tu" : "td"}">${on ? "ON" : "OFF"}</text></g>`).join("")}`),
 ];
 const HIW = [
   ["Connect your exchange API", "Pick your exchange and paste an API key and secret that has Read + Trade permission. Your keys stay on this device only and are never sent anywhere."],
@@ -236,7 +236,7 @@ const TIPS = {
   amount: ["Amount per trade", () => `<p>The margin (in USDT) used for every copied trade. A larger amount means bigger profits and bigger losses.</p><p>Position size = amount × leverage. For example 50 USDT at 10x opens a 500 USDT position.</p>`],
   lev: ["Max leverage", () => `<p>The highest leverage a copied trade may use. If a signal asks for more, your trade uses this limit instead.</p>${sv("0 0 260 70", "Leverage multiplies the position size", `<rect class="bx" x="10" y="26" width="50" height="30" rx="6"/><text x="35" y="46" text-anchor="middle" class="tb">50</text><path class="ln" d="M66 41h40"/><path class="fb" d="M106 41l-7-5v10z"/><text x="86" y="32" text-anchor="middle" class="ts">10x</text><rect class="bx on" x="114" y="10" width="136" height="48" rx="8"/><text x="182" y="40" text-anchor="middle" class="tb">500 position</text>`)}<p>Higher leverage moves your profit and loss faster.</p>`],
   open: ["Max open trades", () => `<p>The most copied trades that can be open at the same time. New signals are skipped while you are at the limit.</p>`],
-  tpsl: ["Copy TP / SL", () => `<p><b>TP</b> (take profit) closes the trade when it reaches the channel's target. <b>SL</b> (stop loss) closes it if the price goes against you.</p>${sv("0 0 260 90", "Take profit above the entry and stop loss below", `<line class="tpl" x1="10" x2="250" y1="14" y2="14"/><line class="ln" x1="10" x2="250" y1="46" y2="46"/><line class="slh" x1="10" x2="250" y1="78" y2="78"/><text x="14" y="10" class="tu">Take profit</text><text x="14" y="42" class="tb">Entry</text><text x="14" y="90" class="td">Stop loss</text><path class="ln2" d="M120 46L150 38 180 30 210 14"/>`)}<p>Turn it off to manage the exit yourself. Without TP/SL a trade stays open until you close it.</p>`],
+  tpsl: ["Copy TP / SL", () => `<p><b>TP</b> (take profit) closes the trade when it reaches the channel's target. <b>SL</b> (stop loss) closes it if the price goes against you.</p>${sv("0 0 260 98", "Take profit above the entry and stop loss below", `<line class="tpl" x1="10" x2="250" y1="14" y2="14"/><line class="ln" x1="10" x2="250" y1="46" y2="46"/><line class="slh" x1="10" x2="250" y1="78" y2="78"/><text x="14" y="10" class="tu">Take profit</text><text x="14" y="42" class="tb">Entry</text><text x="14" y="92" class="td">Stop loss</text><path class="ln2" d="M120 46L150 38 180 30 210 14"/>`)}<p>Turn it off to manage the exit yourself. Without TP/SL a trade stays open until you close it.</p>`],
   daily: ["Daily loss limit", () => `<p>If the trades you copied from this channel lose this much (in USDT) today, new signals are skipped until tomorrow.</p>${sv("0 0 260 64", "Daily loss limit bar", `<rect class="bx" x="10" y="22" width="240" height="16" rx="8"/><rect class="dnf" x="10" y="22" width="150" height="16" rx="8"/><text x="10" y="14" class="ts">Lost today</text><text x="250" y="14" text-anchor="end" class="td">Limit</text><text x="130" y="56" text-anchor="middle" class="ts">New signals pause at the limit</text>`)}`],
   perm: ["Why Read + Trade only?", () => `<p>An API key can have several permissions. API Trade needs only <b>Read</b> (see balances and positions) and <b>Trade</b> (open and close positions).</p><p><b>Never enable Withdraw.</b> With Withdraw off, nobody can move money out of your exchange account with this key, even if it leaks.</p>`],
 };
@@ -457,7 +457,7 @@ function tradesScreen(){
     r.querySelectorAll("[data-t]").forEach(b => b.onclick = () => { hap(4); tab = b.dataset.t; r.querySelectorAll("[data-t]").forEach(x => { x.classList.toggle("on", x === b); x.setAttribute("aria-selected", x === b); }); paint(); });
     r.addEventListener("click", e => {
       const cl = e.target.closest("[data-close]"), md = e.target.closest("[data-mod]");
-      if (cl){ const id = cl.dataset.close, pos = posOf(id); if (!pos) return; hap(12); cl.disabled = true; E.closeFut(id, "manual"); toast("Trade closed", "ok", 2000); }   // no confirmation (finish() runs from futClosed)
+      if (cl){ const id = cl.dataset.close, pos = posOf(id); if (!pos) return; hap(12); cl.disabled = true; E.closeFut(id, "manual"); }   // no confirmation (finish() runs from futClosed)
       if (md){ hap(6); modSheet(md.dataset.mod); }
     });
     offs.push(bus.on("apitrade", paint));

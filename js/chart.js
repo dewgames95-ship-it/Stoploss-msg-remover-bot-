@@ -136,7 +136,7 @@ function build(){
   if (!lineMode && inds.includes("SAR")) S.sar = ln(COL.sar, 1, 0, {lineVisible:false, pointMarkersVisible:true, pointMarkersRadius:1.6});
   if (!lineMode && inds.includes("VWAP")) S.vw = ln(COL.vwap, 1.3);
   if (!lineMode && inds.includes("SUPER")) S.st = ln(UP, 1.5);
-  aiOn = !lineMode && ui.mode === "bin" && sec <= 86400 && inds.includes("AI"); aiKey = ""; aiSum = null;
+  aiOn = !lineMode && ui.mode === "bin" && sec <= 86400 && inds.includes("AI"); aiKey = ""; aiSum = null; aiBoxSync();
   if (aiOn) S.ai = chart.addSeries(LW.CandlestickSeries, {upColor:AI_UP, downColor:AI_DN, borderVisible:false, wickUpColor:AI_UP, wickDownColor:AI_DN, priceFormat:pf, lastValueVisible:false, priceLineVisible:false});
   srOn = !lineMode && inds.includes("SR"); liqOn = !lineMode && inds.includes("LIQ"); srLines = []; liqKey = "";
   let pane = 1;
@@ -521,7 +521,7 @@ function aiSync(force){
   const L = bars.length - 1, last = bars[L], te = binExpFn ? binExpFn() : 0;
   if (!te){ if (aiKey){ aiKey = ""; try { S.ai.setData([]); } catch {} aiSum = null; aiBoxSync(); } return; }
   let spacing = 7; try { spacing = chart.timeScale().options().barSpacing || 7; } catch {}
-  const kmax = Math.floor((te / 1000 - last.time) / sec), cap = Math.max(2, Math.floor(0.4 * Math.max(120, el.clientWidth - 64) / spacing)), n = Math.max(1, Math.min(kmax, cap, 60));
+  const kmax = Math.floor((te / 1000 - last.time) / sec), cap = Math.max(2, Math.floor(0.7 * Math.max(120, el.clientWidth - 64) / spacing)), n = Math.max(1, Math.min(kmax, cap, 60));
   let st = aiSt;
   if (!st || st.sym !== sym || st.tf !== tf || st.sec !== sec){ st = aiSt = {sym, tf, sec, slots:[], lastT:last.time, S0:aiStats(), stt:null, ver:0}; }
   if (st.lastT !== last.time){   // a new real candle formed: its ghost twin is gone, the rest stays (re-based onto the real open) and extends
@@ -552,10 +552,9 @@ function aiBoxSync(){
 function aiInfo(){
   const tn = AI_TF[tf] || tf, cd = (x, o, c, h, l, f) => { const up = c < o, col = up ? "var(--up)" : "var(--down)"; return `<g opacity="${f ? .32 : 1}"><line x1="${x}" y1="${h}" x2="${x}" y2="${l}" stroke="${col}" stroke-width="1.4"/><rect x="${x - 4}" y="${Math.min(o, c)}" width="8" height="${Math.max(3, Math.abs(c - o))}" rx="1" fill="${col}"/></g>`; };
   const real = [[44,36,32,48],[36,28,24,40],[28,34,24,38],[34,26,22,38],[26,20,16,30],[20,26,16,30]], ghost = [[26,22,18,30],[22,30,18,34],[30,26,22,34],[26,18,14,30]];
-  const svg = `<svg viewBox="0 0 280 78" class="ai-svg" role="img" aria-label="Real candles followed by faint forecast candles up to the expiry line">${real.map((c, i) => cd(22 + i * 16, c[0], c[1], c[2], c[3], 0)).join("")}${ghost.map((c, i) => cd(22 + (6 + i) * 16, c[0], c[1], c[2], c[3], 1)).join("")}<line x1="214" y1="6" x2="214" y2="72" stroke="var(--muted)" stroke-dasharray="3 3"/><text x="52" y="72" class="bq-t" text-anchor="middle">Real candles</text><text x="170" y="72" class="bq-t" text-anchor="middle">Forecast</text><text x="214" y="12" class="bq-t" text-anchor="start" dx="4">Expiry</text></svg>`;
-  const html = `${svg}<p class="info-p">The faint candles ahead of the live candle are a projected path for the <b>${tn}</b> chart, drawn up to your trade's expiry line.</p>
-    <ul class="bq-ul"><li><b>How it is made:</b> it reads the last 30 candles of the selected interval (usual body size, wick length, how often price swings up and down) and projects the next candles in the same style, one ${tn} candle at a time.</li><li><b>Long / Short:</b> Long if the forecast ends above the current price, Short if below.</li><li>When a real candle forms it replaces its faint twin. The rest stays and extends. Change the interval and it is rebuilt from that interval's candles.</li></ul>
-    <p class="info-p" style="color:var(--muted)">A statistical projection, not advice. Price can move either way. Turn it off with the AI button on the indicator bar.</p>`;
+  const svg = `<svg viewBox="0 6 280 72" class="ai-svg" role="img" aria-label="Real candles followed by faint forecast candles up to the expiry line">${real.map((c, i) => cd(22 + i * 16, c[0], c[1], c[2], c[3], 0)).join("")}${ghost.map((c, i) => cd(22 + (6 + i) * 16, c[0], c[1], c[2], c[3], 1)).join("")}<line x1="214" y1="6" x2="214" y2="72" stroke="var(--muted)" stroke-dasharray="3 3"/><text x="52" y="72" class="bq-t" text-anchor="middle">Real candles</text><text x="170" y="72" class="bq-t" text-anchor="middle">Forecast</text><text x="214" y="12" class="bq-t" text-anchor="start" dx="4">Expiry</text></svg>`;
+  const html = `${svg}<ul class="bq-ul"><li><b>Faint candles</b> = a projected path for the <b>${tn}</b> chart, from the live candle up to your expiry line.</li><li><b>Built from</b> the last 30 ${tn} candles: usual body size, wick length and up / down swings. Change the interval and it is rebuilt.</li><li><b class="up">Long</b> if it ends above the current price, <b class="down">Short</b> if below.</li><li>A real candle replaces its faint twin. The rest stays and extends.</li></ul>
+    <p class="info-p" style="color:var(--muted)">A statistical projection, not advice. Turn it off with the AI button on the indicator bar.</p>`;
   (window.UI && UI.tip ? UI.tip : (t, b) => U.sheet(t, b))("AI Forecast", html);
 }
 function bindAi(){ ui.aiBox?.addEventListener("click", e => { if (e.target.closest("[data-aiq]")){ e.stopPropagation(); U.buzz(10); aiInfo(); } }); }

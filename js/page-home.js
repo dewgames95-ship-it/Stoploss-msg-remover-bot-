@@ -241,6 +241,7 @@ Pages.home = () => {
   <header class="hm-top">
     <a class="hm-av" href="#/profile" aria-label="Profile">${window.UserAvatar ? window.UserAvatar(34) : avatar(s.profile.name, 34)}</a>
     <label class="hm-search" id="hs">${ic("flame",16)}<span class="hm-rot"><span class="hm-rot-in" id="rot">${[...HOT, HOT[0]].map(x => `<span>${x} Hot Searched</span>`).join("")}</span></span><input id="q" type="search" aria-label="Search markets" autocomplete="off" enterkeyhint="search"></label>
+    <a class="hm-ib hm-ai" href="#/ai" aria-label="AI assistant"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 3l1.9 5.1L18 10l-5.1 1.9L11 17l-1.9-5.1L4 10l5.1-1.9z"/><path d="M19 14l.8 2.2L22 17l-2.2.8L19 20l-.8-2.2L16 17l2.2-.8z"/></svg></a>
     <a class="hm-ib" href="#/support" aria-label="Support">${ic("headset",21)}<i></i></a>
     <a class="hm-ib" href="#/rewards" aria-label="Rewards">${ic("gift",21)}</a>
     <button class="hm-ib" data-bell aria-label="Notifications">${ic("bell",21)}<b class="hide" id="nb"></b></button>

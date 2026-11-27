@@ -141,7 +141,7 @@ function md(src){
     let m;
     if ((m = /^\u0000B(\d+)\u0000$/.exec(tr))){ out.push(`<pre class="ai-code"><code>${esc(blocks[+m[1]])}</code></pre>`); continue; }
     if ((m = /^(#{1,4})\s+(.*)$/.exec(tr))){ out.push(`<div class="ai-h">${inl(m[2])}</div>`); continue; }
-    if (/^(-{3,}|\*{3,})$/.test(tr)){ out.push('<hr class="ai-hr">'); continue; }
+    if (/^(-{3,}|\*{3,})$/.test(tr)){ out.push('<hr class="ai-rule">'); continue; }
     if (tr[0] === "|" && i + 1 < L.length && /^\|?\s*:?-{2,}/.test(L[i + 1].trim())){
       const cells = r => r.trim().replace(/^\||\|$/g, "").split("|").map(x => inl(x.trim()));
       const head = cells(tr); let j = i + 2; const rows = [];
@@ -202,7 +202,7 @@ function balanceCard(){
   const rows = keys.map(k => [k, store.wb(k)]).filter(([k, v]) => v > 0.004 || k === "spot" || k === "futures");
   const mx = Math.max(1, ...rows.map(r => r[1]));
   return `<div class="ai-card"><div class="ai-bal"><span>Total balance</span><b class="num">${fmt(tot)} <small>USDT</small></b></div>
-    <div class="ai-wl">${rows.map(([k, v]) => `<div class="ai-wr"><span class="ai-wn">${esc(WN(k))}</span><span class="ai-wb"><i style="width:${Math.max(3, v / mx * 100).toFixed(1)}%"></i></span><b class="num">${fmt(v)}</b></div>`).join("")}</div>
+    <div class="ai-wl">${rows.map(([k, v]) => `<div class="ai-wr"><span class="ai-wnm">${esc(WN(k))}</span><span class="ai-wb"><i style="width:${Math.max(3, v / mx * 100).toFixed(1)}%"></i></span><b class="num">${fmt(v)}</b></div>`).join("")}</div>
     <button class="ai-lk" data-go="#/assets">${ic("wallet", 15)} Open Assets ${ic("chev", 14)}</button></div>`;
 }
 function posCard(){
@@ -211,9 +211,9 @@ function posCard(){
   const tot = rows.reduce((a, r) => a + (r.pnl || 0), 0);
   const line = r => {
     const side = r.side === "long" || r.side === "up" || r.side === "call" ? "up" : r.side === "short" || r.side === "down" || r.side === "put" ? "down" : "";
-    const sub = r.kind === "Futures" ? `${r.lev}x · ${fmt(r.margin)} USDT margin` : r.kind === "Binary" ? `${fmt(r.amount)} USDT · ${r.left}s left` : r.kind === "Spot" ? `${r.qty} · ${fmt(r.value)} USDT` : r.kind === "Options" ? `${r.qty} · cost ${fmt(r.cost)}` : r.cost ? `cost ${fmt(r.cost)} USDT` : "";
+    const sub = r.kind === "Futures" ? `${r.lev}x · ${fmt(r.margin)} USDT` : r.kind === "Binary" ? `${fmt(r.amount)} USDT · ${r.left}s left` : r.kind === "Spot" ? `${r.qty} · ${fmt(r.value)} USDT` : r.kind === "Options" ? `${r.qty} · cost ${fmt(r.cost)}` : r.cost ? `cost ${fmt(r.cost)} USDT` : "";
     return `<button class="ai-po" data-go="${esc(r.route)}"><span class="ai-pk">${esc(r.kind)}</span><span class="ai-pn"><b>${esc(r.label)} ${side ? `<em class="${side}">${esc(String(r.side)[0].toUpperCase() + String(r.side).slice(1))}</em>` : ""}</b><small>${esc(sub)}</small></span>
-      <span class="ai-pp"><b class="num ${r.pnl > 0 ? "up" : r.pnl < 0 ? "down" : ""}">${r.pnl ? signed(r.pnl) : "--"}</b>${r.roe != null ? `<small class="num ${r.roe >= 0 ? "up" : "down"}">${signed(r.roe)}%</small>` : ""}</span></button>`;
+      <span class="ai-pp"><b class="num ${r.pnl > 0 ? "up" : r.pnl < 0 ? "down" : ""}">${r.pnl ? signed(r.pnl) : r.kind === "Futures" || r.kind === "Binary" ? "0.00" : "--"}</b>${r.roe != null ? `<small class="num ${r.roe >= 0 ? "up" : "down"}">${signed(r.roe)}%</small>` : ""}</span></button>`;
   };
   return `<div class="ai-card ai-cardl">${rows.slice(0, 8).map(line).join("")}<div class="ai-ptot"><span>${rows.length} open${rows.length > 8 ? " (8 shown)" : ""}</span><span>Unrealized <b class="num ${tot >= 0 ? "up" : "down"}">${signed(tot)} USDT</b></span></div></div>`;
 }
@@ -372,7 +372,7 @@ const GLOSS = [
   [/vip|fee/, "VIP and fees", "👑 VIP levels lower your fees based on 30-day volume or total deposits. Binary trades carry no fee.", "#/profile"],
   [/mark price|index price/, "Mark price", "🧮 **Mark price** is the fair price used for PnL and liquidation, so a brief spike on one order book cannot liquidate you unfairly.", "#/futures"]
 ];
-const STOP = new Set(["near", "link", "one", "op", "apt", "ar", "uni", "sei", "ton", "sui", "ape", "act", "ace", "ena", "tia", "inj", "dot", "eth", "ltc", "wif", "fil", "all"]);
+const STOP = new Set(["near", "link", "one", "op", "apt", "ar", "uni", "sei", "ton", "ape", "act", "ace", "ena", "tia", "dot", "all", "fet", "arb", "jup", "icp"]);
 const ALIAS = {bitcoin: "BTCUSDT", ethereum: "ETHUSDT", ether: "ETHUSDT", solana: "SOLUSDT", ripple: "XRPUSDT", dogecoin: "DOGEUSDT", doge: "DOGEUSDT", cardano: "ADAUSDT", gold: "XAUUSD", silver: "XAGUSD", euro: "EURUSD", pound: "GBPUSD", yen: "USDJPY", bnb: "BNBUSDT", binance: "BNBUSDT"};
 function findSyms(text){
   const out = [], seen = new Set();
@@ -401,7 +401,7 @@ function intentAction(text){
     const mt = /to\s+([a-z ]+?)(?:\s+wallet|\s+account|$|[.,!?])/.exec(t), mf = /from\s+([a-z ]+?)(?:\s+to\b|\s+wallet|$|[.,!?])/.exec(t);
     let to = mt && wKey(mt[1]), from = mf && wKey(mf[1]);
     if (!to){ const w = WKEYS().filter(k => new RegExp("\\b" + (k === "games" ? "money game|games?" : k === "futures" ? "futures?|perps?" : k) + "\\b").test(t)); if (w.length === 2){ from = from || w[0]; to = w[1]; } else if (w.length === 1) to = w[0]; }
-    if (to){ if (!from){ from = WKEYS().filter(k => k !== to).sort((a, b) => store.wb(b) - store.wb(a))[0]; } const a = normAction({action: "transfer", from, to, amount: amt[0]}); if (a) return {act: a}; }
+    if (to){ if (!from){ from = ["spot", "funding"].find(k => k !== to && WKEYS().includes(k) && store.wb(k) >= amt[0]) || WKEYS().filter(k => k !== to).sort((a, b) => store.wb(b) - store.wb(a))[0]; } const a = normAction({action: "transfer", from, to, amount: amt[0]}); if (a) return {act: a}; }
   }
   // close
   if (/\b(close|exit|square ?off|band kar)\b/.test(t) && !/\bbinary\b/.test(t)){
@@ -415,7 +415,7 @@ function intentAction(text){
   }
   // trade
   const side = /\b(long|buy|up|call)\b/.test(t) ? "long" : /\b(short|sell|down|put)\b/.test(t) ? "short" : null;
-  const verb = /\b(open|buy|sell|place|enter|take|start|lelo|le lo|le|kharid|long|short)\b/.test(t);
+  const verb = /\b(open|buy|sell|place|enter|take|start|lelo|le lo|le|kharid|long|short|binary)\b/.test(t);
   if (side && syms[0] && verb){
     const isBin = /\bbinary\b|\bexpiry\b|\b\d+\s*(s|sec|secs|seconds?|m|min|mins|minutes?)\b/.test(t) || /\b(up|down|call|put)\b/.test(t) && !/\b(long|short)\b/.test(t);
     const levM = /(\d+(?:\.\d+)?)\s*x\b/.exec(t), lev = levM ? +levM[1] : undefined;
@@ -452,14 +452,17 @@ function local(text, kind){
   if (/\b(history|recent|last trades?|past trades?)\b/.test(t)){
     const r = recent(); if (!r.length){ res.text = "🕘 No closed trades yet."; return res; }
     res.text = "🕘 **Recent closed trades**\n\n| Pair | Type | PnL |\n|---|---|---|\n" + r.slice(0, 6).map(x => `| ${lbl(x.sym)} | ${x.type === "futures" ? "Futures " + (x.side || "") : "Binary " + (x.dir || "")} | ${signed(x.pnl || 0)} |`).join("\n"); res.cards.push({type: "link", route: "#/history"}); return res; }
+  if (syms.length && /\b(should|worth|good time|safe|invest|kya .*lena|lena chahiye)\b/.test(t)){
+    res.text = `📈 I can't predict the market, but here is the live snapshot for **${lbl(syms[0])}**. If you decide to trade, say **Open ${syms[0].replace("USDT", "")} long 10 USDT** and I will prepare it for you to confirm. ⚠️ Leverage raises risk, use a stop loss.`;
+    res.cards.push({type: "prices", syms: syms.slice(0, 3)}); return res; }
+  if (/\b(open|go to|take me|show me|kholo|dikhao|navigate)\b/.test(t) && !/\b(what|explain|why|how)\b/.test(t)){
+    const pg = PAGE_WORDS.find(([, re]) => re.test(t)); if (pg){ res.text = "Here you go:"; res.cards.push({type: "link", route: "#/" + pg[0] + (syms[0] && /^(futures|spot|chart)$/.test(pg[0]) ? "/" + syms[0] : "")}); return res; } }
   const gl = GLOSS.find(g => g[0].test(t));
   const isQ = /(what|explain|meaning|means|define|how does|kya|kaise|samjha|batao|tell me|guide|learn|difference|vs)\b/.test(t) || t.length < 20;
   if (gl && (isQ || !syms.length)){ res.text = gl[2]; res.cards.push({type: "link", route: gl[3]}); return res; }
   if (syms.length && (/(price|rate|chart|how much|kitna|quote|trend|doing|analy|view|forecast|prediction for|show)/.test(t) || t.split(/\s+/).length <= 3)){
     const p = M.get(syms[0]); res.text = p?.price != null ? `📈 **${M.label(p)}** is at **${M.fmtPx(p)}**${p.chg != null ? ` (${signed(p.chg)}% 24h)` : ""}${p.high ? `\n- 24h range: ${M.fmtPx(p, p.low)} to ${M.fmtPx(p, p.high)}` : ""}` : "Prices are loading, try again in a moment.";
     res.cards.push({type: "prices", syms: syms.slice(0, 4)}); res.cards.push({type: "link", route: (p?.type === "crypto" ? "#/futures/" : "#/chart/") + syms[0]}); return res; }
-  if (/\b(open|go to|take me|show me|kholo|dikhao|navigate)\b/.test(t)){
-    const pg = PAGE_WORDS.find(([, re]) => re.test(t)); if (pg){ res.text = "Here you go:"; res.cards.push({type: "link", route: "#/" + pg[0] + (syms[0] && /^(futures|spot|chart)$/.test(pg[0]) ? "/" + syms[0] : "")}); return res; } }
   if (kind === "support" || /(deposit|withdraw|kyc|password|login|verify|not working|problem|issue|error|stuck|pending|refund|closed)/.test(t)){
     const s = supportLocal(t); if (s) return Object.assign(res, s); }
   if (gl){ res.text = gl[2]; res.cards.push({type: "link", route: gl[3]}); return res; }
