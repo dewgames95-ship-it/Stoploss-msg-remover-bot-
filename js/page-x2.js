@@ -366,8 +366,9 @@ const COPY_MODELS_DEFAULT = [
 ];
 const COPY_MODELS = (() => { const out = COPY_MODELS_DEFAULT.map(m => Object.assign({}, m));
   try { const o = JSON.parse(localStorage.getItem("nt_copy_models") || "null");
-    if (Array.isArray(o)) o.forEach(x => { if (!x || !x.id) return; const i = out.findIndex(m => m.id === x.id); const c = {id:String(x.id), name:String(x.name || x.id), maker:String(x.maker || ""), model:String(x.model || ""), site:String(x.site || "")};
-      if (i >= 0) out[i] = Object.assign(out[i], Object.fromEntries(Object.entries(c).filter(([k, v]) => v && (k !== "id")))); else out.push(c); }); } catch {}
+    if (Array.isArray(o)) o.forEach(x => { if (!x || !x.id) return; const i = out.findIndex(m => m.id === x.id), c = {};
+      ["name", "maker", "model", "site"].forEach(k => { if (x[k]) c[k] = String(x[k]); });
+      if (i >= 0) Object.assign(out[i], c); else out.push(Object.assign({id: String(x.id), name: String(x.id), maker: "", model: "", site: ""}, c)); }); } catch {}
   return out; })();
 window.COPY_MODELS = COPY_MODELS;
 /* trading personality of each model (perp = futures bot, bin = binary Up/Down bot). Unknown ids get a profile derived from a hash. */
@@ -562,13 +563,13 @@ const setTip = k => { const s = SETINFO[k]; if (!s) return; showTip(s.t, `<div c
 const setLbl = (k, extra = "", text) => { const s = SETINFO[k]; return `<span class="ax-sl"><i class="ax-si">${ic(s.ic, 13, 1.9)}</i><span>${esc(text || s.t)}</span><button type="button" class="ax-q" data-st="${k}" aria-label="What is ${esc(s.t)}?">?</button>${extra}</span>`; };
 const qBtn = (attr, label) => `<button type="button" class="ax-q" ${attr} aria-label="${esc(label)}">?</button>`;
 function modelTip(mid, mk){
-  const m = mById(mid); if (!m) return; const p = modelProf(m), l = LEADS.find(x => x.mid === mid && x.bin === (mk === "binary")) || LEADS.find(x => x.mid === mid), risk = l.mdd >= 18 ? ["High", 3, "var(--down)"] : l.mdd >= 10 ? ["Medium", 2, "#F7B500"] : ["Low", 1, "var(--up)"];
+  const m = mById(mid); if (!m) return; const p = modelProf(m), l = LEADS.find(x => x.mid === mid && x.bin === (mk === "binary")) || LEADS.find(x => x.mid === mid), md = lstats(l, 2, l.bin ? "binary" : "futures").mdd, risk = md >= 14 ? ["High", 3, "var(--down)"] : md >= 7 ? ["Medium", 2, "#F7B500"] : ["Low", 1, "var(--up)"];
   const bars = [1, 2, 3].map(i => `<i style="height:${6 + i * 5}px;background:${i <= risk[1] ? risk[2] : "var(--line-2)"}"></i>`).join("");
   const what = mk === "binary" ? "buys Up/Down options on short timeframes, one fixed stake per trade." : "opens and closes USDT-margined perpetual futures positions with its own leverage and stop-loss.";
   showTip(`${m.name} · ${m.model}`, `<div class="ax-tm">${modelLogo(mid, 44)}<div><b>${esc(m.name)}</b><span>${esc(m.model)} by ${esc(m.maker)}</span></div></div>
     <div class="ax-tr"><i>${ic("info", 14, 1.9)}</i><p><b>What it is</b>${esc(m.model)} is the latest model from ${esc(m.maker)}. Here it works as a trading bot: ${esc(p.style.toLowerCase())}.</p></div>
     <div class="ax-tr"><i>${ic("bot", 14, 1.9)}</i><p><b>What the bot does</b>It ${what} When you copy it, your account mirrors every trade automatically.</p></div>
-    <div class="ax-tr"><i>${ic("shield", 14, 1.9)}</i><p><b>Risk</b>${risk[0]} risk: max drawdown ${l.mdd.toFixed(1)}%. Past results do not guarantee future returns, so only copy what you can afford to lose.</p><span class="ax-rk">${bars}</span></div>`);
+    <div class="ax-tr"><i>${ic("shield", 14, 1.9)}</i><p><b>Risk</b>${risk[0]} risk: max drawdown ${md.toFixed(1)}%. Past results do not guarantee future returns, so only copy what you can afford to lose.</p><span class="ax-rk">${bars}</span></div>`);
 }
 /* ---- banner slides ---- */
 const SLART = {

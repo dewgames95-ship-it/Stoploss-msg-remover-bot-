@@ -245,57 +245,6 @@ if (window.E){
 }
 mirror(); banner();
 
-/* ---------- admin panel ---------- */
-const n2 = v => (+v || 0).toLocaleString("en-US", {minimumFractionDigits:2, maximumFractionDigits:2});
-const dstr = t => new Date(t).toLocaleDateString("en-US", {year:"numeric", month:"short", day:"numeric"});
-Pages.admin = () => {
-  const s = S(), a = accounts(), A = adm();
-  const today = new Date().setHours(0, 0, 0, 0);
-  const bin = (s.history || []).filter(h => (h.closed || h.open || 0) >= today).length + (s.positions || []).filter(p => p.open >= today).length;
-  const openPos = (s.positions || []).length + ((s.fut && s.fut.positions) || []).length;
-  const total = Object.values(s.wallets || {}).reduce((x, y) => x + (+y || 0), 0);
-  const kpi = (l, v, ic2) => `<div class="ad-k"><span class="ad-ki">${ic(ic2, 18, 1.7)}</span><div><b class="num">${v}</b><small>${l}</small></div></div>`;
-  const users = a.map(u => `<button class="ad-u" data-u="${esc(u.id)}"><span class="ad-av">${esc((u.name || "?")[0].toUpperCase())}</span><span class="ad-um"><b>${esc(u.name)}${u.blocked ? ' <em class="blk">Blocked</em>' : ""}</b><small>${esc(u.email)}</small></span><span class="ad-ud">${dstr(u.createdAt)}</span><span class="ad-role ${u.role}">${u.role}</span></button>`).join("");
-  const tk = s.tickets || [];
-  const tickets = tk.length ? tk.map(x => `<div class="ad-t"><div><b>#${esc(String(x.id).slice(0, 6).toUpperCase())} · ${esc(x.topic || "Ticket")}</b><small>${esc(x.em || "")} · ${dstr(x.t)}</small></div><p>${esc(x.msg || "")}</p></div>`).join("") : `<div class="ad-empty">No support tickets yet.</div>`;
-  const pin = (g, l) => `<label class="ad-f"><span>${l} payout %</span><input type="number" min="0" max="200" step="1" data-pay="${g}" placeholder="Auto" value="${A.payout[g] ?? ""}"></label>`;
-  const html = `<div class="ad"><header class="ad-top"><div class="ad-h">${logo(30)}<div><h1>Admin Panel</h1><small>${esc(me()?.email || "")}</small></div></div><div class="ad-act"><a class="ad-btn ghost" href="#/home">Open app</a><button class="ad-btn" data-nt-logout>${SV.out}<span>Log out</span></button></div></header>
-    <div class="ad-note">${ic("info", 16)}<span>Demo admin: data is local to this device until the backend is connected.</span></div>
-    <section class="ad-kpis">${kpi("Total users", a.length, "users")}${kpi("Total balance (USDT)", n2(total), "wallet")}${kpi("Open positions", openPos, "layers")}${kpi("Binary trades today", bin, "clock")}${kpi("Tickets", tk.length, "headset")}</section>
-    <div class="ad-cols"><section class="ad-card"><h2>Users <small>${a.length}</small></h2><div class="ad-ul">${users}</div></section>
-    <section class="ad-card"><h2>Settings</h2>
-      <div class="ad-sg"><h3>Binary payout override</h3><p>Leave empty to use the automatic payout.</p><div class="ad-grid">${pin("crypto", "Crypto")}${pin("forex", "Forex")}${pin("stocks", "Stocks")}</div></div>
-      <div class="ad-sg"><h3>Binary max bet</h3><label class="ad-f"><span>USDT per trade</span><input type="number" min="1" step="1" id="adMax" value="${A.maxBet}"></label></div>
-      <div class="ad-sg"><h3>Maintenance banner</h3><label class="ad-f"><span>Shown at the top of the app when set</span><input id="adBan" maxlength="140" placeholder="e.g. Scheduled maintenance tonight 02:00 UTC" value="${esc(A.banner)}"></label></div>
-      <button class="btn btn-primary au-btn" id="adSave">Save settings</button>
-      <div class="ad-sg" style="margin-top:18px"><h3>Announcement</h3><label class="ad-f"><span>Sent to the notifications list</span><input id="adAnn" maxlength="200" placeholder="Write an announcement"></label><button class="btn btn-ghost au-btn" id="adSend">Send announcement</button></div>
-    </section></div>
-    <section class="ad-card"><h2>Support tickets <small>${tk.length}</small></h2>${tickets}</section></div>`;
-  return {html, title:"Admin Panel", mount(r){
-    setBody(true); const q = x => r.querySelector(x);
-    q("#adSave").onclick = () => {
-      const mx = parseFloat(q("#adMax").value); if (!(mx >= 1)) return toast("Max bet must be at least 1", "bad");
-      const pay = {}; r.querySelectorAll("[data-pay]").forEach(i => { const v = parseFloat(i.value); pay[i.dataset.pay] = v > 0 ? Math.min(200, v) : null; });
-      saveAdm({...adm(), maxBet:mx, payout:pay, banner:q("#adBan").value.trim()}); toast("Settings saved", "ok");
-    };
-    q("#adSend").onclick = () => { const t = q("#adAnn").value.trim(); if (!t) return toast("Write an announcement first", "bad"); store.notify("Announcement", t, "info"); saveAdm({...adm(), announce:t}); q("#adAnn").value = ""; toast("Announcement sent", "ok"); };
-    r.querySelectorAll("[data-u]").forEach(b => b.onclick = () => userSheet(b.dataset.u));
-  }, unmount(){ setBody(false); }};
-};
-function userSheet(id){
-  const u = accounts().find(x => x.id === id); if (!u) return;
-  const w = S().wallets || {};
-  const body = `<div class="ad-ud2"><span class="ad-av big">${esc((u.name || "?")[0].toUpperCase())}</span><div><b>${esc(u.name)}</b><small>${esc(u.email)}</small></div><span class="ad-role ${u.role}">${u.role}</span></div>
-    <div class="pm-kv"><span>Joined</span><b>${dstr(u.createdAt)}</b></div><div class="pm-kv"><span>Referral used</span><b>${esc(u.ref || "None")}</b></div><div class="pm-kv"><span>Status</span><b class="${u.blocked ? "down" : "up"}">${u.blocked ? "Blocked" : "Active"}</b></div>
-    <h3 class="ad-wh">Wallets (this device)</h3>${Object.keys(w).map(k => `<div class="pm-kv"><span style="text-transform:capitalize">${k}</span><b class="num">${n2(w[k])} USDT</b></div>`).join("")}
-    <div class="ad-addrow"><input type="number" id="adAmt" min="1" placeholder="Amount" inputmode="decimal"><button class="btn btn-primary" data-add>Add balance</button></div>
-    <div class="ad-btns"><button class="btn btn-ghost" data-rst>Reset demo balance</button>${u.role === "admin" ? "" : `<button class="btn ${u.blocked ? "btn-primary" : "btn-down"}" data-blk>${u.blocked ? "Unblock user" : "Block user"}</button>`}</div>
-    <p class="pm-s" style="margin-top:10px">Balances come from this device's data. Per-user wallets arrive with the backend.</p>`;
-  U.sheet("User details", body, el => {
-    el.querySelector("[data-add]").onclick = () => { const v = parseFloat(el.querySelector("#adAmt").value); if (!(v > 0)) return toast("Enter an amount", "bad"); store.addWallet("spot", v, "admin"); toast(`Added ${n2(v)} USDT`, "ok"); U.closeLayer(); setTimeout(() => App.route(), 320); };
-    el.querySelector("[data-rst]").onclick = async () => { if (await U.confirmBox("Reset demo balance?", `Balance returns to ${n2(CONFIG.START_BALANCE)} USDT. Positions and history are cleared.`, "Reset", true)){ store.reset(); toast("Demo balance reset", "ok"); App.route(); } };
-    const b = el.querySelector("[data-blk]"); if (b) b.onclick = () => { const l = accounts(), x = l.find(z => z.id === id); x.blocked = !x.blocked; saveAcc(l); toast(x.blocked ? "User blocked" : "User unblocked", "ok"); U.closeLayer(); setTimeout(() => App.route(), 320); };
-  });
-}
+/* admin panel: moved to js/admin2.js + js/admin3.js (v7.1); the old duplicate Pages.admin that used to live here was overridden by admin2.js and has been removed. */
 window.Auth = {isGuest, needAcct, logins, devName, me, isAdmin, logout, accounts, adminSettings: adm, saveAdmin: saveAdm, saveAccounts: saveAcc, hash, bypass, banner};
 })();

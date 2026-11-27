@@ -102,10 +102,11 @@ body.adm-mode,.a2{--a2:var(--brand,#3D8BFF);--a2-soft:var(--brand-soft,rgba(61,1
 .a2-b:disabled{opacity:.5}
 .a2-tg{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 0 12px;position:relative}
 .a2-tg b{display:block;font-size:14px;font-weight:600}.a2-tg small{display:block;font-size:12px;color:var(--muted)}
-.a2-tg input{position:absolute;opacity:0;width:44px;height:26px;right:0}
+.a2-sw{position:relative;flex:none;width:44px;height:26px;display:block}
+.a2-sw input{position:absolute;inset:0;width:100%;height:100%;opacity:0;margin:0;z-index:1;cursor:pointer}
 .a2-tg i{flex:none;width:44px;height:26px;border-radius:13px;background:var(--line-2);position:relative;transition:background .15s}
 .a2-tg i:after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:transform .15s}
-.a2-tg input:checked+i{background:var(--a2)}.a2-tg input:checked+i:after{transform:translateX(18px)}
+.a2-sw input:checked+i{background:var(--a2)}.a2-sw input:checked+i:after{transform:translateX(18px)}
 /* app-style choice chips (replace native radio lists / selects) */
 .a2-chips{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:10px}
 .a2-chips.c2{grid-template-columns:repeat(2,minmax(0,1fr))}.a2-chips.c4{grid-template-columns:repeat(4,minmax(0,1fr))}

@@ -89,7 +89,7 @@ Pages.pnl = (params) => {
       return {tot, n: arr.length, wr: dec ? w.length / dec * 100 : null, pf: gl > 0 ? gp / gl : (gp > 0 ? Infinity : null), aw: w.length ? gp / w.length : 0, al: l.length ? -gl / l.length : 0,
         best: arr.length ? arr.reduce((a, x) => x.pnl > a.pnl ? x : a) : null, worst: arr.length ? arr.reduce((a, x) => x.pnl < a.pnl ? x : a) : null};
     }
-    const trow = (x, big) => `<div class="pn-tr"><span class="pn-tag">${PN[x.prod]}</span>${x.tag ? `<span class="pn-tag2 t-${x.tag.toLowerCase()}">${x.tag}</span>` : ""}<div class="grow"><b>${esc(x.sym)}</b><span>${U.dateStr(x.t)}</span></div><b class="num ${cls(x.pnl)}">${signed(x.pnl)}</b></div>`;
+    const trow = (x, big) => `<div class="pn-tr"><span class="pn-tags"><span class="pn-tag">${PN[x.prod]}</span>${x.tag ? `<span class="pn-tag2 t-${x.tag.toLowerCase()}">${x.tag}</span>` : ""}</span><div class="grow"><b>${esc(x.sym)}</b><span>${U.dateStr(x.t)}</span></div><b class="num ${cls(x.pnl)}">${signed(x.pnl)}</b></div>`;
     function render(){
       const d = calc(), st = stats(d.cur), all = stats(d.inP), pctv = st.tot / C.START_BALANCE * 100;
       const kv = (l, v, c = "") => `<div><span>${l}</span><b class="num ${c}">${v}</b></div>`;
