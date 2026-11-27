@@ -175,3 +175,18 @@
 .fxr .fee-l{flex-wrap:nowrap;white-space:nowrap;gap:2px 4px;font-size:11px}
 .fxr .fee-l .fee-b{padding:0 5px;font-size:10px}
 @media(max-width:380px){.fxr .fee-l{font-size:10px;gap:2px 3px}.fxr .fee-l .fee-b{padding:0 4px;font-size:9.5px}.fxr .fee-l .fee-q{width:14px;height:14px;font-size:9px}}
+
+/* ===== v7.0 (agent O) ===== */
+/* O4: Futures + Binary header area uses exactly the same fixed page gradient as Spot (tabs strip, pair header) */
+html:root[data-theme] .fxr>.fx-head,html:root[data-theme] .bin-page>.fx-head{background:var(--bg-bot) linear-gradient(180deg,var(--bg-top) 0%,var(--bg-bot) 100%) fixed no-repeat;backdrop-filter:none;-webkit-backdrop-filter:none}
+/* O1: Off-Hours / Market closed label under the symbol (Binance TradFi perps) */
+.fx-off{font-size:13px;font-weight:500;color:var(--muted);white-space:nowrap}
+.fx-off.cl{color:var(--brand)}
+.fx-sub .fx-off:empty{display:none}
+.cp-price .fx-off{font-size:12px;margin-right:2px}
+/* O1: own open order sitting on an order-book row = small yellow dot */
+.fbook .r.me span:first-child::before{background:#F0B90B;box-shadow:0 0 0 2px rgba(240,185,11,.22)}
+.fbook .r.me{background:rgba(240,185,11,.08)}
+/* O2: 0% slippage chip (same class + text on Futures and Spot) */
+.slip0{display:flex;align-items:center;gap:6px;margin:0 0 8px;padding:6px 8px;border:1px solid color-mix(in srgb,var(--brand) 22%,transparent);border-radius:var(--r-ctl);background:color-mix(in srgb,var(--brand) 7%,transparent);color:var(--text-2);font-size:11.5px;line-height:1.35}
+.slip0 svg{flex:none;color:var(--brand)}

@@ -126,6 +126,7 @@ const BOTS = [
 function botPnl(id){
   const b = S().bots[id]; if (!b?.running) return b?.pnl || 0;
   const def = BOTS.find(x => x.id === id), p = M.get(def.pair);
+  if (def.kind === "ugrid") return window.BOTX && BOTX.ugPnl ? BOTX.ugPnl(b) : 0;   // USDC/USDT grid: live grid fills, 0 fee
   const px = p?.price || b.start;
   const move = (px - b.start) / b.start * def.mult * b.invest;
   const mins = (Date.now() - b.since) / 60000;

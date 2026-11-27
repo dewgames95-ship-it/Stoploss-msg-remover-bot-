@@ -579,6 +579,7 @@ function binFx(rec){
   host.appendChild(d); setTimeout(() => d.remove(), 2050);
 }
 /* ---- Position lines (axis labels) ---- */
+let extraSpec = [];
 function syncLines(){
   if (!S.main) return;
   const want = new Map(), s = store.s; lineSpec = new Map();
@@ -591,10 +592,12 @@ function syncLines(){
     if (p.sl){ want.set("s"+p.id, {price:p.sl, color:DN, lineStyle:2}); lineSpec.set("s"+p.id, {kind:"sl", pos:p}); }
   });
   if (ordOn) s.fut.orders.filter(x => x.sym === sym).forEach(o => want.set("o"+o.id, {price:o.price, color:"#0EA5E9", lineStyle:2}));
+  extraSpec.forEach(x => want.set("x"+x.id, {price:x.price, color:x.color, lineStyle:x.lineStyle ?? 0, ax:x}));   // CH.setExtra (e.g. options entry line)
   for (const [k, l] of lines){ if (!want.has(k)){ try { S.main.removePriceLine(l); } catch {} lines.delete(k); } }
   for (const [k, o] of want){
-    if (lines.has(k)){ const l = lines.get(k); l._c = o.color; l.applyOptions({price:o.price, color:o.color}); }
-    else lines.set(k, S.main.createPriceLine({price:o.price, color:o.color, lineStyle:o.lineStyle, lineWidth:1, axisLabelVisible:true, title:""}));
+    const ax = o.ax ? {axisLabelColor:o.ax.color, axisLabelTextColor:o.ax.text || "#000", title:o.ax.title || ""} : {};
+    if (lines.has(k)){ const l = lines.get(k); l._c = o.color; l.applyOptions({price:o.price, color:o.color, ...ax}); }
+    else lines.set(k, S.main.createPriceLine({price:o.price, color:o.color, lineStyle:o.lineStyle, lineWidth:o.ax ? 2 : 1, axisLabelVisible:true, title:"", ...ax}));
   }
 }
 /* ---- Time → x (works for future times too) ---- */
@@ -880,7 +883,7 @@ function setType(t){ type = t; store.s.settings.chartType = t; store.save(); bui
 function zoom(f){ if (!chart) return; const ts = chart.timeScale(), cur = ts.options().barSpacing; ts.applyOptions({barSpacing: U.clamp(cur * f, 1, 60)}); }
 function reset(){ chart?.timeScale().scrollToRealTime(); chart?.priceScale("right").applyOptions({autoScale:true}); checkAuto(); }
 function resize(){ if (chart && el) chart.applyOptions({width: el.clientWidth, height: el.clientHeight}); }
-function destroy(){ offs.forEach(f => f()); offs = []; ro?.disconnect(); cancelAnimationFrame(raf); if (chart) chart.remove(); chart = null; S = {}; lines.clear(); loadSeq++; bars = []; draw = {tool:null, temp:null}; ui.xlab?.remove(); }
+function destroy(){ extraSpec = []; offs.forEach(f => f()); offs = []; ro?.disconnect(); cancelAnimationFrame(raf); if (chart) chart.remove(); chart = null; S = {}; lines.clear(); loadSeq++; bars = []; draw = {tool:null, temp:null}; ui.xlab?.remove(); }
 async function perfStats(s){
   const out = {}; try {
     const d = await M.candles(s, "1d"); if (!d.length) return out; const last = d[d.length-1].close;
@@ -888,5 +891,5 @@ async function perfStats(s){
   } catch {} return out;
 }
 
-window.CH = {liqState: () => liqData, geo: () => chart && S.main && bars.length ? {sym, el, tf, sec, pw: chart.timeScale().width(), h: chart.panes()[0].getHeight(), t2x: timeToX, x2t: xToTime, p2y: p => S.main.priceToCoordinate(p), y2p: y => S.main.coordinateToPrice(y)} : null, IDEF, IS, refresh, MAXI, setBinExp: f => { binExpFn = f; }, mount, load, zoom, reset, destroy, setInds, setType, resize, syncLines, setTool, undoDraw, clearDraw, performance: perfStats, get tool(){ return draw.tool; }, get inds(){ return inds; }, get type(){ return type; }, fmtVol};
+window.CH = {setExtra: l => { extraSpec = Array.isArray(l) ? l : []; syncLines(); }, liqState: () => liqData, geo: () => chart && S.main && bars.length ? {sym, el, tf, sec, pw: chart.timeScale().width(), h: chart.panes()[0].getHeight(), t2x: timeToX, x2t: xToTime, p2y: p => S.main.priceToCoordinate(p), y2p: y => S.main.coordinateToPrice(y)} : null, IDEF, IS, refresh, MAXI, setBinExp: f => { binExpFn = f; }, mount, load, zoom, reset, destroy, setInds, setType, resize, syncLines, setTool, undoDraw, clearDraw, performance: perfStats, get tool(){ return draw.tool; }, get inds(){ return inds; }, get type(){ return type; }, fmtVol};
 })();

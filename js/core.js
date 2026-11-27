@@ -200,12 +200,39 @@ function closeLayer(){ if (!openLayer) return; const l = openLayer; openLayer = 
 function sheet(title, html, onMount, onClose){
   closeLayerNow();
   const el = $("#sheet");
-  el.innerHTML = `<div class="grab"></div><div class="sheet-h"><div class="title">${esc(title)}</div><button class="icon-btn" data-close aria-label="Close">${ic("close",18)}</button></div><div class="sheet-b">${html}</div>`;
-  el.querySelector("[data-close]").onclick = closeLayer;
+  /* v7.0: exchange-style sheet, no X; swipe down (or tap outside / Back) closes it */
+  el.innerHTML = `<div class="grab" role="button" tabindex="0" aria-label="Close"></div><div class="sheet-h"><div class="title">${esc(title)}</div></div><div class="sheet-b">${html}</div>`;
+  const gb = el.querySelector(".grab"); gb.onclick = closeLayer; gb.onkeydown = e => { if (e.key === "Enter" || e.key === " ") closeLayer(); };
+  sheetDrag(el);
   openLayer = {el, onClose}; scrim(true, closeLayer); document.body.style.overflow="hidden";
   requestAnimationFrame(() => el.classList.add("show"));
   onMount?.(el);
   return el;
+}
+/* swipe-down-to-close for bottom sheets: drags from the handle/header always, from the body only when it is scrolled to the top */
+function sheetDrag(el){
+  if (el.__drag) return; el.__drag = true;
+  let y0 = 0, dy = 0, t0 = 0, on = false, live = false;
+  const scroller = t => { for (let n = t; n && n !== el; n = n.parentElement){ if (n.scrollHeight > n.clientHeight + 2 && /(auto|scroll)/.test(getComputedStyle(n).overflowY)) return n; } return null; };
+  el.addEventListener("touchstart", e => {
+    if (!el.classList.contains("show") || e.touches.length !== 1) return;
+    const t = e.target; if (t.closest && t.closest("input,textarea,select,[type=range],.no-drag,canvas")) return;
+    const sc = scroller(t); if (sc && sc.scrollTop > 0) return;
+    y0 = e.touches[0].clientY; dy = 0; t0 = Date.now(); on = true; live = false;
+  }, {passive: true});
+  el.addEventListener("touchmove", e => {
+    if (!on) return; dy = e.touches[0].clientY - y0;
+    if (!live){ if (dy < -4){ on = false; return; } if (dy < 8) return; live = true; el.style.transition = "none"; }
+    if (e.cancelable) e.preventDefault();
+    el.style.transform = `translateY(${Math.max(0, dy - 8)}px)`;
+  }, {passive: false});
+  const end = () => {
+    if (!on) return; on = false; if (!live) return;
+    el.style.transition = ""; const fast = dy > 50 && Date.now() - t0 < 250;
+    if (dy > Math.min(140, el.offsetHeight * .28) || fast){ el.style.transform = ""; closeLayer(); }
+    else el.style.transform = "";
+  };
+  el.addEventListener("touchend", end); el.addEventListener("touchcancel", end);
 }
 function closeLayerNow(){ if (openLayer){ openLayer.el.classList.remove("show"); openLayer.el.innerHTML=""; openLayer=null; } }
 function drawer(html, onMount){

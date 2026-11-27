@@ -2202,7 +2202,7 @@
     for (const f of oncRig.flames) f.visible = false;
 
     // ---------- taunt bubbles: situation-based car chat, one bubble at a time (reads the simulation, never writes to it) ----------
-    const BUB_LIFE = 2, BUB_IN = 0.2, BUB_OUT = 0.6, BUB_MAX = 0.75, BUB_MAXCAR = 7;
+    const BUB_LIFE = 3, BUB_IN = 0.2, BUB_OUT = 0.6, BUB_MAX = 1, BUB_MAXCAR = 7, BUB_MAXME = 4; // v7.0: bubbles stay 1 s longer, fully opaque at their peak
     // every line from the design list, tagged by situation: win (leading / boasting), lose (behind / self-deprecating), hit (crash / attack / mistake), close (near miss / close finish / comeback), neutral
     const CHAT_SRC = "Hehe, I'm winning 😁 | I am the king | Catch me if you can 😂 | Not bad at all | Easy win bro 🏆 | That was close | Nobody can stop me 😎 | I'm just warming up | Boom! Got you 💥 | Nice try buddy | I'm on fire 🔥 | What a lucky shot | Too easy bro 😂 | That was unexpected | Victory is mine 👑 | I need more practice | Let's gooo 🚀 | This game is amazing | Haha, skill issue 🤣 | I almost had it | I'm unstoppable 😎 | Don't underestimate me | What a comeback 🔥 | I was so close | Bro, I'm too good 😂 | That was pure luck | One more win 🏆 | Okay, you got me | King of this game 👑 | I need a rematch | Watch me win 😏 | That was embarrassing | Mission accomplished ✅ | I got absolutely destroyed | What a champion 🥇 | I'm getting better | Haha, nice one 😂 | My luck is gone | Too strong today 💪 | I messed that up | Let's play again 🎮 | I need some luck | This is my moment ✨ | I wasn't ready | What a beast 🔥 | I got completely stuck | Winning feels amazing 😁 | Losing builds character | Bro, watch out 😂 | I'm coming for you | Haha, easy money 💰 | That was a disaster | Unbelievable comeback 🤯 | I can't believe it | I'm built different 😎 | My game is over | Let's get this win 🚀 | I made a mistake | Nobody saw that coming 😱 | I knew it already | Too lucky today 🍀 | My luck ran out | That's how it's done 👑 | Teach me your skills | I'm feeling unstoppable 🔥 | I need a break | GG, well played 🤝 | Not my best game | Boom, another victory 💥 | I got nothing left | This is too funny 😂 | Why does this happen | I'm the final boss 👹 | That was a tough one | Let's go, baby 🏆 | I'm out of luck | Gotcha, my friend 😜 | You almost got me | I'm winning today 😁 | I deserve that loss | What a crazy game 🤯 | This game hates me | My strategy worked 🧠 | I need a new plan | Haha, I'm rich now 💸 | There goes my money | Best game ever ❤️ | That was frustrating | I came to win 🏆 | I came to suffer | Feeling lucky today 🍀 | Luck is not on my side | I'm a legend 😎 | I need some training | That was beautiful ✨ | What did I just do | Nobody beats me 😂 | I got beaten badly | One step closer 🚀 | Back to the beginning | I'm flying today 🕊️ | That was a bad move | Hahaha, unbelievable 🤣 | I can't win today | I got the jackpot 💰 | Maybe next time | This is too easy 😏 | Don't celebrate yet | What a perfect round 🎯 | I missed everything | I'm feeling powerful 💪 | That was painful | Straight to the top 🥇 | Straight to the bottom | My best move ever 🧠 | My worst move ever | Haha, I'm laughing 😂 | I'm crying inside | The king returns 👑 | The king needs help | What a lucky day 🌟 | What an unlucky day | I am the winner 🏆 | I was the loser | Don't blink now 😉 | I blinked and lost | This is pure madness 🤪 | I have no words | I'm coming back 🔥 | I'm going offline | That was a masterstroke 🎯 | I made a silly mistake | You're too good bro 😅 | I need your luck | Let's make history 🚀 | I just made history | My fingers are too fast ⚡ | My brain is too slow | I'm enjoying this 😁 | I'm questioning my choices | What a stunning win 🤩 | What a shocking loss | I did it again 🥳 | I failed again | Bro, spare me 😂 | Please stop attacking me | I'm the lucky one 🍀 | I'm the unlucky one | Absolute cinema 🎬 | What a ridiculous match | Don't test my skills 😎 | I'm still learning | I feel like a pro 🎮 | I feel like a beginner | That was insane 🤯 | I need more time | Winning streak activated 🔥 | Losing streak activated | Haha, I'm too smooth 😏 | I slipped again | My heart is racing ❤️ | My patience is gone | That was legendary 👑 | That was terrible | I came, I played, I won 🏆 | I came, I lost | Nobody expects this 😂 | I expected better | This is my playground 🎮 | I'm completely lost | I'm taking the crown 👑 | Keep the crown for now | What a fantastic round ✨ | I need another chance | I'm a lucky machine 🍀 | My luck needs repair | Let's get serious 😎 | I was never serious | Another one bites the dust 💀 | Another one got away | I'm in beast mode 🐺 | I'm in panic mode";
     const CHAT_HIT = /Boom|Gotcha|watch out|destroyed|stuck|messed|mistake|disaster|slipped|bad move|dust|embarrassing|painful|frustrating|attacking|worst move|silly|What did I just do|Why does this happen/i;
@@ -2223,22 +2223,31 @@
       lose2: ['Unlucky, bro 😅', 'Nice try though', 'Next time maybe 🙏', 'Respect, well driven 🤝', 'Tough luck, friend 🫶']
     };
     for (const k in CHAT_NEW) for (const t of CHAT_NEW[k]) { if (/\d/.test(t)) { console.warn('[race3d] chat line has a digit, skipped: ' + t); continue; } CHAT[k === 'lose2' ? 'lose' : k].push(t); }
-    const chatShuffle = () => { for (const k in CHAT) { const a = CHAT[k]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); const t = a[i]; a[i] = a[j]; a[j] = t; } } };
+    // v7.0: short reactions for the player's own car (win, lose, crash, overtake, being overtaken), no digits
+    const CHAT_ME = {
+      win: ['Yesss, I won! 🏆', 'Champion! 🥇', 'Easy money 💰', 'That is how it is done 😎', 'Victory is mine 👑'],
+      lose: ['So close... 😭', 'Next race is mine', 'Unlucky 😩', 'I will be back 🔥', 'Well played 🤝'],
+      hit: ['Ouch! 😵', 'Who put that there?!', 'My car! 😭', 'Crash! 💥', 'That hurt 😬', 'Not again! 😤'],
+      over: ['Overtake! 😎', 'See you later 👋', 'Passing by 🚀', 'Too slow, bro 😏', 'Gotcha! 🏎️'],
+      passed: ['Hey, wait! 😤', 'Not so fast! 👀', 'I will catch you!', 'Here we go again 😬', 'No way! 😱']
+    };
+    const chatShuffle = () => { for (const k in CHAT) { const a = CHAT[k]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); const t = a[i]; a[i] = a[j]; a[j] = t; } } for (const k in CHAT_ME) { const a = CHAT_ME[k]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); const t = a[i]; a[i] = a[j]; a[j] = t; } } };
     chatShuffle();
     const bubMat = new T.SpriteMaterial({ transparent: true, depthTest: false, depthWrite: false, fog: false, opacity: 0 });
     const bubSprite = new T.Sprite(bubMat); bubSprite.center.set(0.5, 0); bubSprite.renderOrder = 21; bubSprite.visible = false; scene.add(bubSprite);
     const bubCache = new Map(), bubV = new T.Vector3();
-    const bubbleTex = (text) => {
-      let e = bubCache.get(text); if (e) return e;
-      const font = '800 34px system-ui, "Segoe UI", "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", Arial, sans-serif';
+    const bubbleTex = (text, me) => {
+      const ck = (me ? 'me|' : '') + text;
+      let e = bubCache.get(ck); if (e) return e;
+      const font = '900 38px system-ui, "Segoe UI", "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", Arial, sans-serif';
       const m = makeCanvas(8, 8).getContext('2d'); m.font = font;
       const tw = Math.ceil(m.measureText(text).width), W = tw + 44, H = 78, c = makeCanvas(W, H), g = c.getContext('2d');
-      g.fillStyle = 'rgba(255,255,255,0.97)'; g.strokeStyle = 'rgba(15,23,42,0.18)'; g.lineWidth = 3;
+      g.fillStyle = '#ffffff'; g.strokeStyle = me ? 'rgba(22,163,74,0.95)' : 'rgba(15,23,42,0.55)'; g.lineWidth = 4;
       rr(g, 3, 3, W - 6, 58, 22); g.fill(); g.stroke();
       g.beginPath(); g.moveTo(W / 2 - 10, 60); g.lineTo(W / 2 + 10, 60); g.lineTo(W / 2, 76); g.closePath(); g.fill();
       g.fillStyle = '#ffffff'; g.fillRect(W / 2 - 9, 57, 18, 5);
-      g.fillStyle = '#161b26'; g.font = font; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, W / 2, 33);
-      e = { tex: canvasTex(c), aspect: W / H }; bubCache.set(text, e);
+      g.fillStyle = '#05080f'; g.font = font; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, W / 2, 33);
+      e = { tex: canvasTex(c), aspect: W / H }; bubCache.set(ck, e);
       return e;
     };
     const bub = { on: false, t: 0, car: -1, e: null, last: 0, start: -99, nextAt: 0, ev: null, fin: 0, finWin: false, finLose: false, used: new Set(), count: [0, 0, 0, 0, 0, 0, 0, 0], init: false, manual: false, say: -99 };
@@ -2246,12 +2255,13 @@
     window._trBubble = ''; window._trBubbleLog = [];
     const bubReset = () => { bub.used.clear(); bub.count.fill(0); bub.ev = null; bub.fin = 0; bub.finWin = bub.finLose = false; bub.init = false; bub.start = -99; bub.nextAt = performance.now() / 1000 + 4 + Math.random() * 3; window._trBubbleLog = []; chatShuffle(); };
     const bubOff = () => { if (bub.on) { bub.on = false; bubSprite.visible = false; window._trBubble = ''; } };
-    const bubPick = (tag) => {
+    const bubPick = (tag, me) => {
+      if (me) { const a = CHAT_ME[tag] || CHAT_ME.hit, t = a.find((s) => !bub.used.has(s)) || a[Math.floor(Math.random() * a.length)]; return t ? { tag, text: t } : null; }
       for (const k of [tag, 'neutral', tag === 'win' ? 'lose' : 'win']) { const t = CHAT[k].find((s) => !bub.used.has(s)); if (t) return { tag: k, text: t }; }
       return null;
     };
     const bubShow = (i, text, tag, manual) => {
-      bub.on = true; bub.t = 0; bub.car = i; bub.manual = !!manual; bub.e = bubbleTex(text); bubMat.map = bub.e.tex; bubMat.needsUpdate = true;
+      bub.on = true; bub.t = 0; bub.car = i; bub.manual = !!manual; bub.e = bubbleTex(text, !!(cars[i] && cars[i].isPlayer)); bubMat.map = bub.e.tex; bubMat.needsUpdate = true;
       bubSprite.visible = true; window._trBubble = text; bub.start = performance.now() / 1000;
       if (!manual) { bub.used.add(text); bub.count[i]++; }
       window._trBubbleLog.push({ car: i, tag: manual ? 'manual' : tag, text });
@@ -2268,11 +2278,11 @@
     };
     const bubEligible = (i, camZ) => {
       const car = cars[i], rig = rigs[i];
-      if (!car || !rig || car.isPlayer || bub.count[i] >= BUB_MAXCAR || !rig.group.visible || !rig.tag.visible) return false;
+      if (!car || !rig || bub.count[i] >= (car.isPlayer ? BUB_MAXME : BUB_MAXCAR) || !rig.group.visible || !rig.tag.visible) return false;
       const ahead = camZ - rig.group.position.z; // metres in front of the camera
       if (!(ahead > (car.isPlayer ? 1 : 4) && ahead < 90)) return false;
       bubV.copy(rig.tag.position).project(camera); // keep clear of the HUD (top) and the screen edges
-      if (car.isPlayer) return bubV.z < 1 && Math.abs(bubV.x) < 0.8 && bubV.y < 0.4 && bubV.y > -0.7;
+      if (car.isPlayer) return bubV.z < 1 && Math.abs(bubV.x) < 0.9 && bubV.y < 0.4 && bubV.y > -0.92;
       return bubV.z < 1 && Math.abs(bubV.x) < 0.8 && bubV.y < 0.4 && bubV.y > -0.55;
     };
     const updateBubbles = (frameDt, racing, fppOn, player, camZ) => {
@@ -2281,11 +2291,11 @@
       if (!racing && !fin) { bubOff(); if (gameState !== 'IDLE') bubReset(); else bub.init = false; return; }
       const n = Math.min(cars.length, rigs.length, 8);
       if (racing) { // events: a bot hit something, or somebody overtook somebody
-        for (let i = 0; i < n; i++) { const c = cars[i], hit = c.hitSlowTimer > 0; if (bub.init && hit && !bPrevHit[i]) bub.ev = { car: i, tag: 'hit', at: nowS }; bPrevHit[i] = hit; }
+        for (let i = 0; i < n; i++) { const c = cars[i], hit = c.hitSlowTimer > 0; if (bub.init && hit && !bPrevHit[i] && (!c.isPlayer || Math.random() < 0.7)) bub.ev = { car: i, tag: 'hit', at: nowS }; bPrevHit[i] = hit; }
         for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
           if (i === j) continue;
           const d = cars[i].z - cars[j].z, k = i * 8 + j;
-          if (d > 1.5) { if (bPair[k] === -1 && bub.init && (!bub.ev || bub.ev.tag !== 'hit')) { const pl = cars.findIndex((c) => c.isPlayer), me = Math.random() < 0.4; if (!cars[i].isPlayer) bub.ev = me && cars[j].isPlayer ? { car: j, tag: 'lose', at: nowS } : { car: i, tag: 'win', at: nowS }; else if (!cars[j].isPlayer) bub.ev = me && pl >= 0 ? { car: pl, tag: 'win', at: nowS } : { car: j, tag: 'lose', at: nowS }; } bPair[k] = 1; }
+          if (d > 1.5) { if (bPair[k] === -1 && bub.init && (!bub.ev || bub.ev.tag !== 'hit')) { const pl = cars.findIndex((c) => c.isPlayer), me = Math.random() < (cars[i].isPlayer || cars[j].isPlayer ? 0.65 : 0.4); if (!cars[i].isPlayer) bub.ev = me && cars[j].isPlayer ? { car: j, tag: 'passed', at: nowS } : { car: i, tag: 'win', at: nowS }; else if (!cars[j].isPlayer) bub.ev = me && pl >= 0 ? { car: pl, tag: 'over', at: nowS } : { car: j, tag: 'lose', at: nowS }; } bPair[k] = 1; }
           else if (d < -1.5) bPair[k] = -1;
         }
         bub.init = true;
@@ -2296,13 +2306,13 @@
         if (fin) { // after the finish: one winner line and one loser line
           if (!bub.fin) bub.fin = nowS;
           const order = cars.map((c, i) => i).sort((a, b) => cars[b].z - cars[a].z), w = order[0];
-          if (!bub.finWin && nowS - bub.fin > 0.6 && nowS - bub.start > 1.2) { bub.finWin = true; if (!cars[w].isPlayer && bub.count[w] < BUB_MAXCAR) { car = w; tag = 'win'; } }
-          else if (!bub.finLose && bub.finWin && nowS - bub.fin > 3 && nowS - bub.start > 1.2) { bub.finLose = true; const l = order.slice(1).filter((i) => !cars[i].isPlayer && bub.count[i] < BUB_MAXCAR); if (l.length) { car = l[Math.floor(Math.random() * l.length)]; tag = 'lose'; } }
-        } else if (nowS - bub.start >= 3.5) {
-          if (bub.ev && nowS - bub.ev.at < 1.5) { if (bubEligible(bub.ev.car, camZ)) { car = bub.ev.car; tag = bub.ev.tag; } bub.ev = null; }
+          if (!bub.finWin && nowS - bub.fin > 0.6 && nowS - bub.start > 1.2) { bub.finWin = true; if (bub.count[w] < (cars[w].isPlayer ? BUB_MAXME : BUB_MAXCAR)) { car = w; tag = 'win'; } }
+          else if (!bub.finLose && bub.finWin && nowS - bub.fin > 3 && nowS - bub.start > 1.2) { bub.finLose = true; const l = order.slice(1).filter((i) => bub.count[i] < (cars[i].isPlayer ? BUB_MAXME : BUB_MAXCAR)), pli = l.findIndex((i) => cars[i].isPlayer); if (l.length) { car = pli >= 0 && Math.random() < 0.7 ? l[pli] : l[Math.floor(Math.random() * l.length)]; tag = 'lose'; } }
+        } else if (nowS - bub.start >= 3.4) {
+          if (bub.ev && nowS - bub.ev.at < 3.2) { if (bubEligible(bub.ev.car, camZ)) { car = bub.ev.car; tag = bub.ev.tag; } bub.ev = null; }
           else if (nowS >= bub.nextAt) {
             const order = cars.map((c, i) => i).sort((a, b) => cars[b].z - cars[a].z), lead = cars[order[0]].z;
-            const cand = []; for (let i = 0; i < n; i++) if (bubEligible(i, camZ)) cand.push(i);
+            const cand = []; for (let i = 0; i < n; i++) if (!cars[i].isPlayer && bubEligible(i, camZ)) cand.push(i);
             if (cand.length) {
               car = cand[Math.floor(Math.random() * cand.length)];
               const rank = order.indexOf(car), gap = order.length > 1 ? lead - cars[order[1]].z : 99;
@@ -2311,14 +2321,14 @@
             } else bub.nextAt = nowS + 1;
           }
         }
-        if (car >= 0) { const pk = bubPick(tag); if (pk) { bubShow(car, pk.text, pk.tag, false); bub.nextAt = nowS + 5 + Math.random() * 3; } }
+        if (car >= 0) { const pk = bubPick(tag, !!cars[car].isPlayer); if (pk) { bubShow(car, pk.text, pk.tag, false); bub.nextAt = nowS + 5 + Math.random() * 3; } }
       }
       if (bub.on) {
         const rig = rigs[bub.car], ts = rig.ts || 1.3;
         if (!rig.tag.visible) { bubSprite.visible = false; return; }
-        if (!bub.manual) { bubV.copy(rig.tag.position).project(camera); if (bubV.z >= 1 || Math.abs(bubV.x) > 0.9 || bubV.y > 0.45 || bubV.y < -0.7) { bubSprite.visible = false; return; } }
+        if (!bub.manual) { bubV.copy(rig.tag.position).project(camera); if (bubV.z >= 1 || Math.abs(bubV.x) > 0.95 || bubV.y > 0.45 || bubV.y < (cars[bub.car] && cars[bub.car].isPlayer ? -0.95 : -0.7)) { bubSprite.visible = false; return; } }
         bubSprite.visible = true;
-        let h = ts * 0.5, w = h * bub.e.aspect; if (w > ts * 2.8) { w = ts * 2.8; h = w / bub.e.aspect; }
+        let h = ts * 0.58, w = h * bub.e.aspect; if (w > ts * 2.8) { w = ts * 2.8; h = w / bub.e.aspect; }
         bubSprite.scale.set(w, h, 1);
         bubSprite.position.set(rig.tag.position.x, rig.tag.position.y + ts / 3 + ts * 0.04, rig.tag.position.z);
         bubMat.opacity = Math.max(0, BUB_MAX * Math.min(1, bub.t / BUB_IN, (BUB_LIFE - bub.t) / BUB_OUT));

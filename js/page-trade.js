@@ -7,6 +7,12 @@ const INDS_MAIN = ["MA","EMA","BOLL","SAR","VWAP","SUPER"], INDS_SUB = ["VOL","R
 const S = () => store.s;
 const usdPx = p => M.fmtPx(p, p.price != null && M.usdtUsd ? p.price * M.usdtUsd() : p.price);
 const fsym = p => p.type === "crypto" ? p.base + "USDT" : p.sym;
+/* v7.0: fees are always shown in USDT, en-US commas, 2 / 4 / 6 decimals by size */
+const feeU = v => { v = +v; if (!isFinite(v)) return "-- USDT"; const a = Math.abs(v); return fmt(v, a === 0 || a >= 0.01 ? 2 : a >= 0.0001 ? 4 : 6) + " USDT"; };
+/* v7.0: Binance session label for TradFi perps: Off-Hours (still trades) / Market closed (Binance closed) */
+const sessLbl = p => p.closed ? "Market closed" : p.offHours ? "Off-Hours" : "";
+const mkBdg = p => { const h = UI.mktBadges(p); return sessLbl(p) ? h.replace(/<span class="mk-st[^"]*">.*?<\/span>/, "") : h; };
+const SLIP0 = `<div class="slip0">${ic("info",12)}<span>0% slippage · Market orders fill at the shown price</span></div>`;
 
 /* ---------------- Coin info (CoinGecko, cached per session) ---------------- */
 const CG = "https://api.coingecko.com/api/v3";
@@ -145,9 +151,9 @@ function indGuide(cb){
 }
 function pickSheet(cur, onPick, binaryOnly){
   const spot = !binaryOnly && /^#\/spot/.test(location.hash);
-  const SPT = [["fav","Favorites"],["usdt","USDT"],["usdc","USDC"],["stock","Stocks"],["forex","Forex"],["metal","Metals"],["other","Indices"]];
-  const spotOf = (p, k) => k === "usdt" || k === "usdc" ? p.type === "crypto" : k === "stock" ? p.type === "stock" : k === "forex" ? p.type === "forex" : k === "metal" ? p.type === "metal" : (p.type === "index" || p.type === "commodity");
-  let q = "", m = binaryOnly ? "binary" : spot ? (sessionStorage.getItem("pkTabSpot") || "usdt") : (sessionStorage.getItem("pkTab") || "all"), sk = sessionStorage.getItem("pkSort") || "";
+  const SPT = [["fav","Favorites"],["usdt","USDT"],["stock","Stocks"],["forex","Forex"],["metal","Metals"],["other","Indices"]];
+  const spotOf = (p, k) => k === "usdt" ? p.type === "crypto" : k === "stock" ? p.type === "stock" : k === "forex" ? p.type === "forex" : k === "metal" ? p.type === "metal" : (p.type === "index" || p.type === "commodity");
+  let q = "", m = binaryOnly ? "binary" : spot ? (sessionStorage.getItem("pkTabSpot") === "usdc" ? "usdt" : sessionStorage.getItem("pkTabSpot") || "usdt") : (sessionStorage.getItem("pkTab") || "all"), sk = sessionStorage.getItem("pkSort") || "";
   const body = () => {
     const qq = q.toUpperCase();
     const favs = S().favs || [];
@@ -162,7 +168,7 @@ function pickSheet(cur, onPick, binaryOnly){
     if (k === "chg") list.sort((a,b) => f * ((a.chg||0) - (b.chg||0)));
     list = list.slice(0, 200);
     const vol = p => p.qv ? CH.fmtVol(p.qv) : "";
-    return list.map(p => `<button class="pk-row" data-s="${m === "usdc" && p.type === "crypto" ? p.base + "USDC" : p.sym}">${UI.pairIcon(p,30)}<div class="pk-n"><b>${esc(m === "usdc" && p.type === "crypto" ? p.base + "USDC" : fsym(p))}</b><small><span class="pk-fn">${esc(UI.fullName(p))}</span> ${vol(p) ? `<span class="num">${vol(p)}</span>` : ""} ${m === "binary" ? `<span class="pk-pp">${Math.round(E.payoutOf(p.sym) * 100)}%</span>` : spot ? (p.type === "crypto" || p.type === "stock" ? "" : `<span class="perp">${p.h247 ? "24/7" : "24/5"}</span>`) : `<span class="perp">${p.type === "crypto" ? "Perp" : p.h247 || p.synthetic ? "24/7" : "24/5"}</span>`}</small></div>
+    return list.map(p => `<button class="pk-row" data-s="${p.sym}">${UI.pairIcon(p,30)}<div class="pk-n"><b>${esc(fsym(p))}</b><small><span class="pk-fn">${esc(UI.fullName(p))}</span> ${vol(p) ? `<span class="num">${vol(p)}</span>` : ""} ${m === "binary" ? `<span class="pk-pp">${Math.round(E.payoutOf(p.sym) * 100)}%</span>` : spot ? (p.type === "crypto" || p.type === "stock" ? "" : `<span class="perp">${p.h247 ? "24/7" : "24/5"}</span>`) : `<span class="perp">${p.type === "crypto" ? "Perp" : p.h247 || p.synthetic ? "24/7" : "24/5"}</span>`}</small></div>
       <div class="pk-p"><b class="num">${M.fmtPx(p)}</b><small class="num">$${usdPx(p)}</small></div><span class="pk-c ${p.closed ? "cl" : (p.chg||0) < 0 ? "dn" : ""}">${p.closed ? "Closed" : p.chg == null ? "--" : pct(p.chg)}</span></button>`).join("") || UI.emptyState(m === "fav" ? "star" : "search", m === "fav" ? "No favorites yet" : "No results");
   };
   U.sheet("", `<label class="search" style="margin-bottom:6px">${ic("search",16)}<input id="ps" placeholder="Search" autocomplete="off"></label>
@@ -210,7 +216,7 @@ Pages.chart = (params) => {
     <button class="icon-btn" data-star aria-label="Favorite"></button><button class="icon-btn" data-alert aria-label="Price alert">${ic("bell",19)}</button></header>
   <div class="cp-tabs"><button class="on" data-cpt="price">Price</button><button data-cpt="info">Info</button><button data-cpt="data">Data</button><button data-cpt="binary">Binary</button></div>
   <div id="cpPrice">
-    <div class="cp-price"><div class="pl"><button class="mk-l" data-info="mark">Mark Price ${ic("chevd",9)}</button><div class="lp" id="lp">--</div><div class="row num pl-s"><b id="lusd"></b><span id="lc"></span></div><div class="pl-l">Last Price <b class="num" id="mk"></b>${p.closed ? ` <span class="brand-c">Market closed</span>` : ""}</div></div>
+    <div class="cp-price"><div class="pl"><button class="mk-l" data-info="mark">Mark Price ${ic("chevd",9)}</button><div class="lp" id="lp">--</div><div class="row num pl-s"><b id="lusd"></b><span id="lc"></span></div><div class="pl-l">Last Price <b class="num" id="mk"></b></div></div>
       <div class="k"><span>24h Vol(${esc(p.base)})</span><b id="vb"></b><span>24h Vol(USDT)</span><b id="vq"></b><span>24h High</span><b id="hi"></b><span>24h Low</span><b id="lo"></b></div></div>
     ${chartBlock()}
     <div class="perf" id="perf">${["Today","7 Days","30 Days","90 Days","180 Days","1 Year"].map(k => `<div>${k}<b>--</b></div>`).join("")}</div>
@@ -224,7 +230,7 @@ Pages.chart = (params) => {
     const p = M.get(sym), lp = root.querySelector("#lp"); if (!lp) return;
     lp.textContent = M.fmtPx(p); lp.className = "lp " + (p.dir >= 0 ? "up" : "down");
     root.querySelector("#lusd").textContent = "$" + usdPx(p);
-    const lc = root.querySelector("#lc"); lc.className = "num " + ((p.chg||0) < 0 ? "down" : "up"); lc.textContent = p.closed || p.chg == null ? "" : pct(p.chg);
+    const lc = root.querySelector("#lc"); lc.className = "num " + ((p.chg||0) < 0 ? "down" : "up"); lc.innerHTML = (sessLbl(p) ? `<span class="fx-off${p.closed ? " cl" : ""}">${sessLbl(p)}</span> ` : "") + (p.closed || p.chg == null ? "" : pct(p.chg));
     root.querySelector("#mk").textContent = M.fmtPx(p);
     root.querySelector("#hi").textContent = M.fmtPx(p, p.high); root.querySelector("#lo").textContent = M.fmtPx(p, p.low);
     root.querySelector("#vb").textContent = p.qv && p.price ? CH.fmtVol(p.qv / p.price) : "--"; root.querySelector("#vq").textContent = p.qv ? CH.fmtVol(p.qv) : "--";
@@ -300,7 +306,7 @@ Pages.futures = (params) => {
   const $ = q => root.querySelector(q);
   const html = `<div class="fxr o-${LY.order === "right" ? "r" : "l"} k-${kl}${LY.bstab === false ? " nobs" : ""}">
   <div class="tabs" style="gap:20px;margin:0 -16px;padding:4px 16px 0;border:0"><button class="tab on" style="font-size:17px">USDⓈ-M</button><a class="tab" href="#/spot/${sym}" style="font-size:17px">Spot</a><a class="tab" href="#/trade/${sym}" style="font-size:17px">Binary</a><a class="tab tab-hot" href="#/predict" style="font-size:17px">Prediction</a><a class="tab tab-hot" href="#/racer" style="font-size:17px">Money Game</a><a class="tab" href="#/options" style="font-size:17px">Options</a><a class="tab" href="#/copy" style="font-size:17px">Copy</a><a class="tab" href="#/bots" style="font-size:17px">Bots</a></div>
-  <header class="fx-head"><div class="grow"><button class="nm" data-pick>${esc(fsym(P()))} <span class="perp">Perp</span>${ic("chevd",16)}</button><div class="fx-sub"><span class="num" id="fchg" style="font-size:13px"></span><span class="fx-nm">${esc(UI.fullName(P()))}</span><span id="fbdg">${UI.mktBadges(P())}</span></div></div>
+  <header class="fx-head"><div class="grow"><button class="nm" data-pick>${esc(fsym(P()))} <span class="perp">Perp</span>${ic("chevd",16)}</button><div class="fx-sub"><span class="fx-off" id="foff"></span><span class="num" id="fchg" style="font-size:13px"></span><span class="fx-nm">${esc(UI.fullName(P()))}</span><span id="fbdg">${mkBdg(P())}</span></div></div>
     <a class="icon-btn" href="#/chart/${sym}" aria-label="Chart">${ic("candle",22,1.6)}</a><button class="icon-btn" data-menu aria-label="More">${ic("dots",22)}</button></header>
   ${kl === "top" ? `<section class="fxc-top" id="cch-top">${miniChartBlock(sym)}</section>` : ""}
   <div class="fx-grid">
@@ -308,6 +314,7 @@ Pages.futures = (params) => {
       <div class="oc"><button class="on" data-oc="open">Open</button><button data-oc="close">Close</button></div>
       <div class="fx-row"><button data-mode></button><button data-lev></button><button data-asset aria-label="Asset mode"></button></div>
       <button class="fsel" data-otype><span id="otl">Market</span><span class="fsel-r"><i class="fi" data-info="otype">${ic("info",13)}</i>${ic("chevd",14)}</span></button>
+      ${SLIP0}
       <div class="famt hide" id="lpf"><input id="lp" type="number" inputmode="decimal" placeholder="Price"><button class="bbo" data-bbo type="button">BBO</button></div>
       <div class="famt" id="af"><input id="amt" type="number" inputmode="decimal" placeholder="Amount"><button class="unl" id="unl" data-unit type="button"><span id="unt">USDT</span>${ic("chevd",11)}</button></div>
       <div class="dslider"><div class="tr"></div><div class="fl" id="sfl"></div>${[0,25,50,75,100].map(v => `<i class="nd" style="left:${v}%" data-nd="${v}"></i>`).join("")}<div class="th" id="sth"></div><input type="range" min="0" max="100" step="1" value="0" id="sl" aria-label="Amount percent"></div>
@@ -368,7 +375,7 @@ Pages.futures = (params) => {
     $("#openBox").classList.toggle("hide", oc !== "open"); $("#closeBox").classList.toggle("hide", oc !== "close");
     $("#amt").placeholder = oc === "open" ? "Amount" : "Close %";
     $("#unt").textContent = oc === "open" ? unitLbl() : "%"; $("#unl").classList.toggle("fixed", oc !== "open");
-    { const rate = C.FEE * (otype === "limit" ? 0.4 : 1); $("#efee").textContent = amt ? fmt(amt * rate, amt * rate < 0.01 ? 4 : 2) + " USDT" : "-- USDT"; }
+    { const rate = C.FEE * (otype === "limit" ? 0.4 : 1); $("#efee").textContent = amt ? feeU(amt * rate) : "-- USDT"; }
     if (tpsl) tsHint();
     renderSlider();
   }
@@ -384,7 +391,7 @@ Pages.futures = (params) => {
     const px = lp || p.price, q = amt / px, liq = E.liqPrice(side, px, lev, mode, q, amt / lev);
     const ok = await U.confirmTrade({kind: otype, title: `${fsym(p)} Perp · ${side === "long" ? "Open Long" : "Open Short"}`, tone: side === "long" ? "up" : "down", okText: side === "long" ? "Confirm Long" : "Confirm Short",
       sub: `<span class="perp">${mode === "cross" ? "Cross" : "Isolated"} ${lev}x</span> <span class="perp">${otype === "market" ? "Market" : "Limit"}</span>`,
-      rows: [["Price", otype === "market" ? "Market" : M.fmtPx(p, lp)], ["Amount", money(amt) + " USDT"], ["Quantity", fmt(q, q < 1 ? 5 : 3) + " " + esc(p.base || "")], ["Margin", money(amt / lev) + " USDT"], ["Fee (est.)", money(amt * C.FEE * (otype === "limit" ? 0.4 : 1)) + " USDT"], ["Est. liq. price", liq > 0 ? M.fmtPx(p, liq) : "--"], ...(tp || sl ? [["TP / SL", `${tp ? M.fmtPx(p, tp) : "--"} / ${sl ? M.fmtPx(p, sl) : "--"}`]] : [])]});
+      rows: [["Price", otype === "market" ? "Market" : M.fmtPx(p, lp)], ["Amount", money(amt) + " USDT"], ["Quantity", fmt(q, q < 1 ? 5 : 3) + " " + esc(p.base || "")], ["Margin", money(amt / lev) + " USDT"], ["Fee (est.)", feeU(amt * C.FEE * (otype === "limit" ? 0.4 : 1))], ["Est. liq. price", liq > 0 ? M.fmtPx(p, liq) : "--"], ...(tp || sl ? [["TP / SL", `${tp ? M.fmtPx(p, tp) : "--"} / ${sl ? M.fmtPx(p, sl) : "--"}`]] : [])]});
     if (!ok) return;
     const r = E.openFut({sym, side, margin: amt / lev, lev, type:otype, price:lp, tp, sl, mode});
     if (r.err){ err.textContent = r.err; $("#af").classList.toggle("err", /amount|balance|value/i.test(r.err)); toast(r.err, "bad"); UI.walletErr(r.err); return; }
@@ -461,11 +468,12 @@ Pages.futures = (params) => {
     const tb = bids.reduce((a,b) => a + val(b), 0), ta = asks.reduce((a,b) => a + val(b), 0), bp = tb + ta ? tb/(tb+ta)*100 : 50;
     box.innerHTML = `<div class="fund" data-info="funding"><u>Funding (8h) / Countdown</u><br><b class="num">0.0100%/${String(Math.floor(left/3600)).padStart(2,"0")}:${String(Math.floor(left%3600/60)).padStart(2,"0")}:${String(Math.floor(left%60)).padStart(2,"0")}</b></div>
       <div class="fh"><span>Price<br>(USDT)</span><span>Amount<br>(USDT)</span></div>
-      ${asks.some(Boolean) ? asks.map((a, i) => !a ? em("down") : `<div class="r${mine(a) ? " me" : ""}" data-bp="${+a[0]}"><i style="width:${val(a)/mx*100}%;background:var(--down)"></i><span class="down">${M.fmtPx(p,+a[0])}</span><span>${v(val(a))}</span></div>`).join("") : '<div class="skel" style="height:110px"></div>'}
+      ${asks.some(Boolean) ? asks.map((a, i) => !a ? em("down") : `<div class="r${mine(a) ? " me" : ""}"${mine(a) ? ' title="Your open order"' : ""} data-bp="${+a[0]}"><i style="width:${val(a)/mx*100}%;background:var(--down)"></i><span class="down">${M.fmtPx(p,+a[0])}</span><span>${v(val(a))}</span></div>`).join("") : '<div class="skel" style="height:110px"></div>'}
       <div class="mid" data-bp="${p.price}"><b class="num ${p.dir>=0?"up":"down"}">${M.fmtPx(p)}</b><small class="num">${M.fmtPx(p)}</small></div>
-      ${bids.map((b, i) => !b ? em("up") : `<div class="r${mine(b) ? " me" : ""}" data-bp="${+b[0]}"><i style="width:${val(b)/mx*100}%;background:var(--up)"></i><span class="up">${M.fmtPx(p,+b[0])}</span><span>${v(val(b))}</span></div>`).join("")}${outside ? `<div class="ob-out">${ic("info",11)} ${outside} of your orders outside the visible book</div>` : ""}<div class="ob-foot"><button class="ob-prec" data-prec><span class="num">${M.fmtPx(p, prec || Math.pow(10, -(p.dp ?? 2)))}</span>${ic("chevd",13)}</button><span class="ob-src">${p.type === "crypto" ? "Binance" : "Indicative"}</span></div>
+      ${bids.map((b, i) => !b ? em("up") : `<div class="r${mine(b) ? " me" : ""}"${mine(b) ? ' title="Your open order"' : ""} data-bp="${+b[0]}"><i style="width:${val(b)/mx*100}%;background:var(--up)"></i><span class="up">${M.fmtPx(p,+b[0])}</span><span>${v(val(b))}</span></div>`).join("")}${outside ? `<div class="ob-out">${ic("info",11)} ${outside} of your orders outside the visible book</div>` : ""}<div class="ob-foot"><button class="ob-prec" data-prec><span class="num">${M.fmtPx(p, prec || Math.pow(10, -(p.dp ?? 2)))}</span>${ic("chevd",13)}</button><span class="ob-src">${p.type === "crypto" ? "Binance" : "Indicative"}</span></div>
       <div class="ratio num" style="margin:8px 0 0;font-size:11.5px"><span class="up">${bp.toFixed(2)}%</span><div class="bar" style="height:4px"><i style="width:${bp}%;background:var(--up)"></i><i style="flex:1;background:var(--down)"></i></div><span class="down">${(100-bp).toFixed(2)}%</span></div>`;
-    const bd = $("#fbdg"); if (bd){ const h = UI.mktBadges(p); if (bd.innerHTML !== h) bd.innerHTML = h; } const ch = $("#fchg"); ch.textContent = p.closed ? "" : p.chg == null ? "" : pct(p.chg); ch.className = "num " + (p.closed ? "brand-c" : (p.chg||0) < 0 ? "down" : "up");
+    const bd = $("#fbdg"); if (bd){ const h = mkBdg(p); if (bd.innerHTML !== h) bd.innerHTML = h; } const ch = $("#fchg"), fo = $("#foff"), sl = sessLbl(p); if (fo){ fo.textContent = sl; fo.className = "fx-off" + (p.closed ? " cl" : ""); }
+    ch.textContent = p.closed ? "" : p.chg == null ? "" : pct(p.chg); ch.className = "num " + (p.closed ? "brand-c" : (p.chg||0) < 0 ? "down" : "up");
   }
   /* --- positions --- */
   function setPtab(k){ ptab = k; sessionStorage.setItem("fx_ptab", k); root.querySelectorAll("[data-pt]").forEach(b => b.classList.toggle("on", b.dataset.pt === k)); $("#ptools").classList.toggle("hide", k === "hist"); renderPositions(); }
@@ -622,13 +630,13 @@ Pages.futures = (params) => {
   function rzSheet(id){
     const pos = s.fut.positions.find(x => x.id === id) || s.fut.history.find(x => x.id === id); if (!pos) return;
     const rz = pos.rz || {openFee: pos.fee || 0, closeFee:0, closePnl:0, funding:0}, total = pos.realized ?? pos.profit ?? 0;
-    const row = (k, v, cls) => `<div class="rz-r"><span>${k}</span><b class="num ${cls || ""}">${signed(v)} USDT</b></div>`;
+    const row = (k, v, cls) => `<div class="rz-r"><span>${k}</span><b class="num ${cls || ""}">${signed(v)} USDT</b></div>`, feeRow = (k, v) => `<div class="rz-r"><span>${k}</span><b class="num">${v ? "-" : ""}${feeU(Math.abs(v))}</b></div>`;
     const fee = rz.openFee + rz.closeFee, qty = pos.qty ?? pos.maxQty ?? pos.closedVol ?? 0, px = pos.exit ?? M.get(pos.sym)?.price ?? pos.entry, vol = pos.closeNotional > 0 ? pos.closeNotional : (pos.margin * pos.lev || qty * px), tf = C.FEE * 100;
     const pc = n => (+n).toFixed(3).replace(/0$/, "");
     const cmp = [["Binance", 0.05, 0.02], ["Bybit", 0.055, 0.02], ["OKX", 0.05, 0.02]].map(([n, tk, mk]) => [n, tk, mk, vol * 2 * tk / 100]);
     U.sheet("Realized PNL", `<div class="rz-r big"><span>Realized PNL</span><b class="num ${total >= 0 ? "up" : "down"}">${signed(total)} USDT</b></div>
-      ${row("Closing PNL", rz.closePnl)}${row("Funding Fee", rz.funding)}${row("Trading Fee", -fee)}${row("Insurance Clear Fee", 0)}
-      <div class="rz-fee"><b>Fee applied</b><p>Trading Fee ${tf.toFixed(2)}% taker on ${money(vol)} size = <b class="num down">${signed(-fee)} USDT</b></p><small>${tf.toFixed(2)}% is charged on the notional value at open and again at close.</small></div>
+      ${row("Closing PNL", rz.closePnl)}${row("Funding Fee", rz.funding)}${feeRow("Trading Fee", fee)}${row("Insurance Clear Fee", 0)}
+      <div class="rz-fee"><b>Fee applied</b><p>Trading Fee ${tf.toFixed(2)}% taker on ${money(vol)} size = <b class="num down">-${feeU(fee)}</b></p><small>${tf.toFixed(2)}% is charged on the notional value at open and again at close.</small></div>
       <div class="rz-cmp"><b>Fee comparison</b><small>Same round trip (open + close) of ${money(vol)} USDT, taker orders</small>
         <div class="rz-ch"><span>Exchange</span><span>Taker / Maker</span><span>Fee</span></div>
         <div class="rz-cr me"><span>${esc(C.APP_NAME || "NovaTrade")}</span><span class="num">${tf.toFixed(2)}% / 0.02%</span><b class="num">${money(vol * 2 * tf / 100)}</b></div>
@@ -712,7 +720,7 @@ function historyHtml(list){
     return `<div class="pc"><div class="pc-h"><span class="side-b ${x.side==="long"?"l":"s"}">${x.side==="long"?"B":"S"}</span><span class="sym">${esc(fsym(p))}</span><span class="perp">Perp</span><span class="perp">${x.mode === "isolated" ? "Isolated" : "Cross"} ${x.lev}x</span><span class="grow"></span><span class="label" style="font-size:13px">${x.reason === "liquidated" ? "Liquidated" : "Closed"}</span></div>
       <div class="ph-g"><div data-rz="${x.id}" class="rz-link"><span>Realized PNL (USDT) ${ic("chev",11)}</span><b class="num ${x.profit>=0?"up":"down"}">${signed(x.profit)}</b></div><div><span>ROI</span><b class="num ${roi>=0?"up":"down"}">${roi.toFixed(2)}%</b></div><div><span>Closed Vol.${base ? ` (${esc(base)})` : ""}</span><b class="num">${fmt(x.closedVol ?? x.qty ?? 0, 3)}</b></div>
         <div><span>Avg. Entry Price</span><b class="num">${M.fmtPx(p, x.entry)}</b></div><div><span>Avg. Close Price</span><b class="num">${M.fmtPx(p, x.exit)}</b></div><div><span>Max OI${base ? ` (${esc(base)})` : ""}</span><b class="num">${fmt(x.maxQty ?? x.qty ?? 0, 3)}</b></div></div>
-      <div class="ph-t"><span>Opened</span><b class="num">${ds(x.open)}</b></div><div class="ph-t" style="margin-top:4px"><span>Closed (Lasting ${dur(x.closed - x.open)})</span><b class="num">${ds(x.closed)}</b></div></div>`; }).join("");
+      <div class="ph-t"><span>Fee (USDT)</span><b class="num">${feeU(x.rz ? (x.rz.openFee || 0) + (x.rz.closeFee || 0) : x.fee || 0)}</b></div><div class="ph-t" style="margin-top:4px"><span>Opened</span><b class="num">${ds(x.open)}</b></div><div class="ph-t" style="margin-top:4px"><span>Closed (Lasting ${dur(x.closed - x.open)})</span><b class="num">${ds(x.closed)}</b></div></div>`; }).join("");
 }
 window.UI.historyHtml = historyHtml;
 Object.assign(window.UI, {bindChart, miniChartBlock, pickSheet, alertSheet, candleDetail, MINI_TFS});
@@ -772,7 +780,7 @@ Pages.trade = (params) => {
   function renderPx(){
     const p = P(), el = $("#lp"); if (!el) return;
     el.textContent = M.fmtPx(p); el.className = "lp " + (p.dir >= 0 ? "up" : "down"); $("#lusd").textContent = "$" + usdPx(p);
-    const lc = $("#lc"); lc.className = "num " + ((p.chg||0) < 0 ? "down" : "up"); lc.textContent = p.closed ? t("Market closed") : p.chg == null ? "" : pct(p.chg);
+    const lc = $("#lc"); lc.className = "num " + ((p.chg||0) < 0 ? "down" : "up"); lc.innerHTML = (sessLbl(p) ? `<span class="fx-off${p.closed ? " cl" : ""}">${t(sessLbl(p))}</span> ` : "") + (p.closed || p.chg == null ? "" : pct(p.chg));
     $("#hi").textContent = M.fmtPx(p, p.high); $("#lo").textContent = M.fmtPx(p, p.low);
     const m = M.momentum(sym, 60000), up = Math.round(U.clamp(50 + m*30 + U.clamp(p.chg||0,-5,5)*2, 6, 94)); $("#sen").innerHTML = `<span class="up">${up}%</span> / <span class="down">${100-up}%</span>`;
     const fs = $("#fsp"); if (fs){ fs.textContent = M.fmtPx(p); $("#fsl").textContent = M.label(p); }
@@ -910,7 +918,7 @@ Pages.history = () => {
       if (tab === "pos") box.innerHTML = historyHtml(f.history);
       else if (tab === "bin") box.innerHTML = S().history.length ? S().history.slice(0,100).map(x => { const p = M.get(x.sym) || {dp:2,type:"crypto",base:x.sym,quote:""}; return `<div class="pc"><div class="pc-h"><span class="side-b ${x.dir==="up"?"l":"s"}">${x.dir==="up"?"▲":"▼"}</span><span class="sym">${esc(M.label(p))}</span><span class="perp">Binary ${UI.expLabel ? UI.expLabel(x.expiry) : x.expiry + "s"}</span>${UI.botTag ? UI.botTag(x) : ""}<span class="grow"></span><b class="num ${x.profit>0?"up":x.profit<0?"down":""}">${signed(x.profit)}</b></div><div class="ph-t"><span>${M.fmtPx(p,x.entry)} → ${M.fmtPx(p,x.exit)}</span><b>${U.dateStr(x.closed)}</b></div></div>`; }).join("") : UI.emptyState("history","No records");
       else box.innerHTML = log.filter(x => tab === "ord" || x.status === "Filled").length ? log.filter(x => tab === "ord" || x.status === "Filled").slice(0,100).map(x => { const p = M.get(x.sym) || {dp:2,type:"crypto",base:x.sym}; return `<div class="pc"><div class="pc-h"><span class="side-b ${x.side==="long"?"l":"s"}">${x.side==="long"?"B":"S"}</span><span class="sym">${esc(fsym(p))}</span><span class="perp">${x.type}</span><span class="grow"></span><span class="label">${x.status}</span></div>
-        <div class="ph-g"><div><span>Price</span><b class="num">${M.fmtPx(p,x.price)}</b></div><div><span>Qty</span><b class="num">${fmt(x.qty,4)}</b></div><div><span>${x.pnl != null ? "Realized PNL" : "Fee"}</span><b class="num ${x.pnl != null ? (x.pnl>=0?"up":"down") : ""}">${x.pnl != null ? signed(x.pnl) : fmt(x.fee||0,4)}</b></div></div><div class="ph-t"><span>Time</span><b>${new Date(x.t).toLocaleString("en-US")}</b></div></div>`; }).join("") : UI.emptyState("history","No records");
+        <div class="ph-g"><div><span>Price</span><b class="num">${M.fmtPx(p,x.price)}</b></div><div><span>Qty</span><b class="num">${fmt(x.qty,4)}</b></div><div><span>Fee (USDT)</span><b class="num">${feeU(x.fee || 0)}</b></div>${x.pnl != null ? `<div><span>Realized PNL (USDT)</span><b class="num ${x.pnl>=0?"up":"down"}">${signed(x.pnl)}</b></div>` : ""}</div><div class="ph-t"><span>Time</span><b>${new Date(x.t).toLocaleString("en-US")}</b></div></div>`; }).join("") : UI.emptyState("history","No records");
     };
     render();
     r.querySelectorAll("[data-ht]").forEach(b => b.onclick = () => { tab = b.dataset.ht; r.querySelectorAll("[data-ht]").forEach(x => x.classList.toggle("on", x===b)); render(); });

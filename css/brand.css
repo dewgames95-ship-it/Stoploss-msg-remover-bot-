@@ -146,3 +146,81 @@ html:root[data-theme] .nt-empty,html:root[data-theme] .pd-err{background:none;ba
 html:root[data-theme] .bin-page .bx-time .exp-chip.on,html:root[data-theme] .bb-chips button.on,html:root[data-theme] .op-amts button.on,
 html:root[data-theme] .op-exp.on,html:root[data-theme] .op-tg.on,html:root[data-theme] .op-und.on,html:root[data-theme] .px-strip>div.now{
   background:var(--sel-bg);box-shadow:inset 0 0 0 1px var(--focus-bd),var(--glow);color:var(--text)}
+
+/* =====================================================================
+   v7.0 (lead): defined cards. Page a touch deeper, cards a touch lifted (dark) / greyer (light),
+   every card gets a hairline definition border + same-hue gradient. No shadows.
+   ===================================================================== */
+:root{
+  --bg-top:#F6F8FB; --bg-bot:#FFFFFF;
+  --card-g1:#F7F8FA; --card-g2:#F0F2F5; --card-bd:#E3E7ED;
+  --surf-g1:#F7F8FA; --surf-g2:#F0F2F5; --surface:#F3F5F8;
+  --tile-g1:#FFFFFF; --tile-g2:#F1F3F7;
+  --ig-1:#2B3139; --ig-2:#2F7BFF;
+  --vip-bronze:#C9824A;
+}
+html[data-theme="dark"]{
+  --bg-top:#212832; --bg-bot:#171C23;
+  --card-g1:#2A323E; --card-g2:#232A35; --card-bd:#333C49;
+  --surf-g1:#2A323E; --surf-g2:#232A35; --surface:#262E39;
+  --tile-g1:#323B48; --tile-g2:#29313D;
+  --ig-1:#EAECEF; --ig-2:#5FA8FF;
+  --vip-bronze:#E0A070;
+}
+html:root[data-theme="dark"] .sheet{background:#1F252E}
+html:root[data-theme="light"] .sheet{background:#FFFFFF}
+
+/* the card family (filled surfaces from flat.css + the gradient set above + common generic cards) */
+html:root[data-theme] .card,html:root[data-theme] .hm-assets,html:root[data-theme] .au-card,html:root[data-theme] .ad-card,html:root[data-theme] .px-ah,
+html:root[data-theme] .pm-strip,html:root[data-theme] .pm-stats,html:root[data-theme] .pn-kpis,html:root[data-theme] .px-kpis,html:root[data-theme] .sc-hero,
+html:root[data-theme] .px-notice,html:root[data-theme] .pf-vou,html:root[data-theme] .hm-ev,html:root[data-theme] .hm-ban,html:root[data-theme] .px-promo,
+html:root[data-theme] .px-hero,html:root[data-theme] .hm-cp,html:root[data-theme] .hm-bots .hm-bot,html:root[data-theme] .hm-bot,html:root[data-theme] .px-nt,
+html:root[data-theme] .bx-bet,html:root[data-theme] .bx-pay,html:root[data-theme] .pnl-mini,html:root[data-theme] .rf-hero,
+html:root[data-theme] .pr-prev,html:root[data-theme] .pr-card,html:root[data-theme] .wl-pair,html:root[data-theme] .pf-tiles>.pf-tile,
+html:root[data-theme] .bt-card,html:root[data-theme] .pn-card,html:root[data-theme] .vp-hero,html:root[data-theme] .fm-bt,html:root[data-theme] .px-lc,
+html:root[data-theme] .px-sum,html:root[data-theme] .px-opn,html:root[data-theme] .kpi,html:root[data-theme] .mover,html:root[data-theme] .stats-row,
+html:root[data-theme] .pf-card,html:root[data-theme] .pf-list,html:root[data-theme] .hm-mi,html:root[data-theme] .vp-t,html:root[data-theme] .dep-card{
+  background:linear-gradient(180deg,var(--card-g1),var(--card-g2));border:1px solid var(--card-bd);box-shadow:none}
+html:root[data-theme] .hm-kp div,html:root[data-theme] .fm-est div,html:root[data-theme] .px-xrow{border:1px solid var(--card-bd)}
+/* small icon tiles (Binance "Features" style): lifted rounded square inside cards / sheets */
+html:root[data-theme] .px-acts a:not(.pri) span,html:root[data-theme] .px-acts button span,html:root[data-theme] .as-acts a:not(.pri)>span,
+html:root[data-theme] .as-acts button>span,html:root[data-theme] .tile .ic,html:root[data-theme] .px-ico,html:root[data-theme] .hm-mi span{
+  background-image:linear-gradient(160deg,var(--tile-g1),var(--tile-g2));border:1px solid var(--card-bd)}
+
+/* neutral icons: line icon in the text colour, last stretch fades into the brand blue (see #ntIg stops) */
+html:root[data-theme] .hm-sc a svg,html:root[data-theme] .pf-gi svg,html:root[data-theme] .pf-tile svg,html:root[data-theme] .hm-mi span svg{color:var(--ig-1)}
+
+/* profile: Binance "Recommend"-style cards for the grids and the lists */
+.pf-card{border-radius:var(--r-card);padding:12px 8px 6px;margin:12px 0 0}
+.pf-card .pf-h{margin:0 8px 2px;font-size:15px;font-weight:700;color:var(--text-2)}
+.pf-card .pf-grid{margin:0}
+html:root[data-theme] .pf-list{border-radius:var(--r-card);padding:2px 12px;overflow:hidden}
+.pf-id .pf-r2{flex-wrap:wrap;row-gap:6px}
+.pf-id .pf-uid{flex:none}
+
+/* VIP level pill: metal colour per level with a soft glow of the same colour (VIP0 bronze → VIP5 obsidian) */
+.pf-lv[class*="vip-l"],.vp-badge[class*="vip-l"]{--vc:var(--vip-bronze);color:var(--vc);background:color-mix(in srgb,var(--vc) 14%,transparent);border:1px solid color-mix(in srgb,var(--vc) 55%,transparent);box-shadow:0 0 8px color-mix(in srgb,var(--vc) 28%,transparent);font-weight:700;opacity:1}
+.pf-lv[class*="vip-l"] svg{color:var(--vc)}
+.vip-l1{--vc:#9AA6B6!important}.vip-l2{--vc:#E2B33C!important}.vip-l3{--vc:#39C3C1!important}.vip-l4{--vc:#6E8BFF!important}.vip-l5{--vc:#B67CFF!important}
+html[data-theme="light"] .vip-l1{--vc:#6F7B8C!important}html[data-theme="light"] .vip-l2{--vc:#C08F12!important}html[data-theme="light"] .vip-l3{--vc:#169C9A!important}
+.vip-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:1px;background:var(--vc,var(--vip-bronze));box-shadow:0 0 6px var(--vc,var(--vip-bronze))}
+
+/* sheet header without X: title only; small header chips (e.g. notifications "Read all") sit in the corner */
+.sheet-h{min-height:40px}
+.sheet .grab{cursor:grab;touch-action:none;padding:0;margin:8px auto 4px}
+.sheet .grab::before{content:"";position:absolute;left:50%;transform:translateX(-50%);width:120px;height:26px;margin-top:-11px}
+.sheet .grab{position:relative}
+.nt-ra{display:inline-flex;align-items:center;gap:4px;height:26px;padding:0 10px;border-radius:999px;font-size:12px;font-weight:600;color:var(--text-2);border:1px solid var(--card-bd);background:linear-gradient(180deg,var(--card-g1),var(--card-g2))}
+.nt-ra svg{color:var(--brand)}
+.nt-tabs{overflow-x:auto;scrollbar-width:none;gap:16px}.nt-tabs::-webkit-scrollbar{display:none}.nt-tabs button{white-space:nowrap;flex:none}
+
+/* one empty state everywhere (Binance style): document + "!" illustration, muted text, flat on the page */
+html:root[data-theme] .empty,html:root[data-theme] .px-empty,html:root[data-theme] .pm-empty,html:root[data-theme] .pn-empty,html:root[data-theme] .nt-empty{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;text-align:center;min-height:170px;padding:28px 16px;color:var(--muted);background:none;border:0;box-shadow:none}
+html:root[data-theme] .empty>svg,html:root[data-theme] .px-empty>svg,html:root[data-theme] .nt-empty>svg{display:none}
+html:root[data-theme] .empty::before,html:root[data-theme] .px-empty::before,html:root[data-theme] .pm-empty::before,html:root[data-theme] .pn-empty::before,html:root[data-theme] .nt-empty::before{
+  content:"";width:64px;height:64px;margin-bottom:6px;background:no-repeat center/contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' fill='none'%3E%3Crect x='14' y='6' width='30' height='44' rx='3' stroke='%23A3ABB8' stroke-width='2'/%3E%3Crect x='20' y='13' width='18' height='12' rx='1' stroke='%23A3ABB8' stroke-width='2'/%3E%3Cpath d='M20 31h18' stroke='%23A3ABB8' stroke-width='2' stroke-linecap='round'/%3E%3Ccircle cx='45' cy='45' r='9' fill='%23A3ABB8'/%3E%3Cpath d='M45 40v6' stroke='%23fff' stroke-width='2.4' stroke-linecap='round'/%3E%3Ccircle cx='45' cy='50' r='1.4' fill='%23fff'/%3E%3C/svg%3E")}
+html:root[data-theme="dark"] .empty::before,html:root[data-theme="dark"] .px-empty::before,html:root[data-theme="dark"] .pm-empty::before,html:root[data-theme="dark"] .pn-empty::before,html:root[data-theme="dark"] .nt-empty::before{
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64' fill='none'%3E%3Crect x='14' y='6' width='30' height='44' rx='3' stroke='%235E6673' stroke-width='2'/%3E%3Crect x='20' y='13' width='18' height='12' rx='1' stroke='%235E6673' stroke-width='2'/%3E%3Cpath d='M20 31h18' stroke='%235E6673' stroke-width='2' stroke-linecap='round'/%3E%3Ccircle cx='45' cy='45' r='9' fill='%235E6673'/%3E%3Cpath d='M45 40v6' stroke='%231F252E' stroke-width='2.4' stroke-linecap='round'/%3E%3Ccircle cx='45' cy='50' r='1.4' fill='%231F252E'/%3E%3C/svg%3E")}
+html:root[data-theme] .empty p,html:root[data-theme] .px-empty p,html:root[data-theme] .nt-empty b,html:root[data-theme] .pm-empty b,html:root[data-theme] .pn-empty b{margin:0;font-size:14px;font-weight:500;color:var(--muted)}
+html:root[data-theme] .nt-empty span{font-size:12px;color:var(--muted);opacity:.85;max-width:260px}

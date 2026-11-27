@@ -5,6 +5,9 @@ const NAMES = {spot:"Spot", funding:"Funding", futures:"Futures", binary:"Binary
 const LONG = {spot:"Spot Wallet", funding:"Funding Wallet", futures:"Futures", binary:"Binary", options:"Options", earn:"Earn", games:"Money Game", predict:"Prediction"};
 const ORDER = ["spot","funding","futures","binary","options","earn","games","predict"];
 const nm = k => NAMES[k] || k;
+/* same icon names the Home screen uses for each product (Spot "chart", Futures "layers", Options "target", Earn "earn", Money Game "car", Prediction "predict"; Binary "clock", Funding "wallet" from the all-shortcuts sheet) */
+const WIC = {spot:"chart", funding:"wallet", futures:"layers", binary:"clock", options:"target", earn:"earn", games:"car", predict:"predict"};
+const wi = (k, z = 18) => `<span class="wl-ic" aria-hidden="true">${ic(WIC[k] || "wallet", z, 1.8)}</span>`;
 const floor2 = v => Math.floor((v + 1e-9) * 100) / 100;
 
 /* v6.6: Funding wallet. store.WALLETS is the same array core.js sums over, so pushing is enough. */
@@ -22,7 +25,7 @@ function pickFrom(to){
   return others[0];
 }
 function walletPicker(title, cur, other, onPick, back){
-  U.sheet(title, `<div class="wl-pk">${ORDER.map(k => `<button class="wl-pi ${k === cur ? "on" : ""}" data-k="${k}"><span><b>${LONG[k]}</b><small>${k === other ? "Selected on the other side" : ""}</small></span><em class="num">${money(store.wb(k))} USDT</em>${k === cur ? ic("check", 18, 2.4) : ""}</button>`).join("")}</div>`, el => {
+  U.sheet(title, `<div class="wl-pk">${ORDER.map(k => `<button class="wl-pi ${k === cur ? "on" : ""}" data-k="${k}"><span class="wl-pn">${wi(k, 20)}<span><b>${LONG[k]}</b><small>${k === other ? "Selected on the other side" : ""}</small></span></span><em class="num">${money(store.wb(k))} USDT</em>${k === cur ? ic("check", 18, 2.4) : ""}</button>`).join("")}</div>`, el => {
     el.querySelectorAll("[data-k]").forEach(b => b.onclick = () => onPick(b.dataset.k));
   }, back);
 }
@@ -46,7 +49,7 @@ function transferSheet(o = {}){
       const $ = q => el.querySelector(q), A = $("#wa");
       const av = () => Math.max(0, floor2(store.wb(st.from)));
       const upd = () => {
-        $("#wfn").textContent = LONG[st.from]; $("#wtn").textContent = LONG[st.to];
+        $("#wfn").innerHTML = wi(st.from) + `<span>${esc(LONG[st.from])}</span>`; $("#wtn").innerHTML = wi(st.to) + `<span>${esc(LONG[st.to])}</span>`;
         $("#wav").innerHTML = `Available <b class="num">${money(av())}</b> USDT`;
         $("#wer").textContent = av() > 0 ? "" : "No amount available to transfer, please select another coin.";
         $("#wok").classList.toggle("dis", !(av() > 0));

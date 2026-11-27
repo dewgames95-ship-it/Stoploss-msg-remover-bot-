@@ -5,6 +5,9 @@ const UNDERS = ["BTC","ETH","BNB","SOL","XRP","DOGE"];
 const IV0 = {BTC:.50, ETH:.60, BNB:.55, SOL:.75, XRP:.80, DOGE:.90};
 const MINQ = {BTC:.01, ETH:.1, BNB:.1, SOL:1, XRP:100, DOGE:1000};
 const STEP_PCT = {"15m":.005, "1h":.006, "4h":.0075, "d":.009, "w":.01};
+/* K5: sensible % distances per expiry, so a fresh trade is not deep out of the money */
+const DIST = {"15m":[.001,.002,.003,.005], "1h":[.002,.005,.01,.015], "4h":[.003,.006,.01,.02], "d":[.005,.01,.02,.03], "w":[.01,.02,.04,.06]};
+const ENTRY_C = "#F0B90B";
 const EXPS = [["15m","15m"],["1h","1H"],["4h","4H"],["d","Daily"],["w","Weekly"]];
 const SPREAD = 1.01, FEE = .0003, YEAR = 365*24*3600*1000, CLOSE_HAIRCUT = .99;
 const st = () => { const s = U.store.s; s.opt ||= {positions:[], history:[]}; return s.opt; };
@@ -107,6 +110,8 @@ UI.help ||= function(title, html){
   U.sheet(title, `<div class="hp">${html}</div><button class="btn btn-primary btn-block hp-ok" data-ok>Got it</button>`, el => { const b = el.querySelector("[data-ok]"); if (b) b.onclick = () => U.closeLayer(); });
 };
 const hq = k => `<i class="hq" role="button" tabindex="0" data-help="${k}" aria-label="Help">?</i>`;
+const hqx = (k, a) => `<i class="hq" role="button" tabindex="0" data-help="${k}" data-ha="${a}" aria-label="Help">?</i>`;
+const sizeTxt = pos => `${money(pos.qty*(pos.entrySpot || pos.strike))} USDT / ${fq(pos.qty, pos.base)} ${pos.base}`;
 const hsv = (vb, inner, label) => `<svg class="hp-svg" viewBox="${vb}" role="img" aria-label="${label}">${inner}</svg>`;
 const HELP = {
   strike: ["Strike (target price)", () => `<p>The <b>strike</b> is the price you are betting on. It is the line the market price must cross by the expiry time.</p>
@@ -135,7 +140,56 @@ const HELP = {
     <p>The small <b>≈ %</b> under each chip is the estimated probability of finishing in profit. A bigger distance costs less but is less likely to win.</p>`],
   amount: ["Amount and quick trade", () => `<p>Type the amount in USDT, or drag the slider from 0% to 100% of your Options wallet. Then tap <b>Up</b> or <b>Down</b> to buy with the expiry and strike currently selected.</p><p>The amount you enter is your <b>maximum loss</b>. The quantity of coins bought is worked out from it automatically.</p>`]
 };
-const helpOpen = k => { const h = HELP[k]; if (h) UI.help(h[0], h[1]()); };
+/* K3: payoff picture for the Size help (call: wins above strike + premium, put: the mirror case) */
+function sizeSvg(type){
+  const put = type === "put", X = x => put ? 320 - x : x, A = put ? "end" : "start", B = put ? "start" : "end";
+  return hsv("0 0 320 150", `<rect class="hp-lose" x="${put ? X(196) : 8}" y="74" width="188" height="46" rx="4"/><rect class="hp-win" x="${put ? 8 : 196}" y="26" width="116" height="48" rx="4"/>
+    <line class="hp-ln" x1="8" y1="74" x2="312" y2="74"/>
+    <path class="hp-pld" d="M${X(12)} 112 L${X(120)} 112"/><path class="hp-plu" d="M${X(120)} 112 L${X(300)} 22"/>
+    <line class="hp-dash" x1="${X(120)}" y1="22" x2="${X(120)}" y2="126"/><line class="hp-dash" x1="${X(196)}" y1="22" x2="${X(196)}" y2="126"/>
+    <circle class="hp-dot" cx="${X(120)}" cy="112" r="4"/><circle class="hp-dot3" cx="${X(196)}" cy="74" r="4"/>
+    <text class="hp-t hp-b" x="${X(120)}" y="140" text-anchor="middle">Strike</text><text class="hp-t hp-b" x="${X(196)}" y="140" text-anchor="middle">Breakeven</text>
+    <text class="hp-t hp-dn" x="${X(14)}" y="104" text-anchor="${A}">LOSS: premium only</text>
+    <text class="hp-t hp-up" x="${X(306)}" y="42" text-anchor="${B}">PROFIT grows</text>
+    <text class="hp-t" x="${X(14)}" y="68" text-anchor="${A}">0</text>`, put ? "Put payoff at expiry" : "Call payoff at expiry");
+}
+/* the live numbers of the Simple-mode order form, used in the worked example of the "Profit if price reaches" help */
+let hctx = null;
+const reachLv = isC => (isC ? [.5, 1, 2, 5, 10] : [-.5, -1, -2, -5, -10]);
+function reachSvg(rows){
+  const mx = Math.max(...rows.map(r => Math.max(0, r.pr)), 1e-9), mn = Math.min(...rows.map(r => Math.min(0, r.pr)), 0), top = 22, bot = 104, z = top + (mx/(mx - mn || 1))*(bot - top), k = (bot - top)/(mx - mn || 1);
+  const bars = rows.map((r, i) => { const x = 22 + i*58, h = Math.max(2, Math.abs(r.pr)*k), y = r.pr >= 0 ? z - h : z, c = r.pr > 0 ? "hp-bu" : "hp-bd";
+    return `<rect class="${c}" x="${x}" y="${y.toFixed(1)}" width="34" height="${h.toFixed(1)}" rx="3"/><text class="hp-t ${r.pr > 0 ? "hp-up" : "hp-dn"}" x="${x + 17}" y="${(r.pr >= 0 ? y - 4 : y + h + 11).toFixed(1)}" text-anchor="middle">${signed(r.pr)}</text><text class="hp-t hp-b" x="${x + 17}" y="128" text-anchor="middle">${r.l}</text>`; }).join("");
+  return hsv("0 0 320 136", `<line class="hp-ln" x1="8" y1="${z.toFixed(1)}" x2="312" y2="${z.toFixed(1)}"/>${bars}`, "Profit or loss at each price level");
+}
+const HELP2 = {
+  size: [type => `Size (${type === "put" ? "Put" : "Call"})`, type => { const put = type === "put"; return `<p><b>Size</b> shows how big your position is: the <b>USDT value</b> of the coins it covers, then the <b>quantity</b> of coins. Example: <b>1,234.56 USDT / 0.02 BTC</b>.</p>
+    ${sizeSvg(type)}
+    <p><b>1. Filled.</b> Your order is filled the moment you buy. You pay the premium once and the position opens straight away.</p>
+    <p><b>2. Expires.</b> At the expiry time the market price is compared with your strike. It settles automatically in USDT. You can also close early at the current value.</p>
+    <p><b>3. Profit or loss.</b> ${put ? "A <b>put</b> profits when the price ends <b>below</b> the strike minus the premium paid (the breakeven)." : "A <b>call</b> profits when the price ends <b>above</b> the strike plus the premium paid (the breakeven)."} ${put ? "Above the strike" : "Below the strike"} it expires worthless and you lose the premium, never more. Between the strike and breakeven you get some money back but still lose a little.</p>`; }],
+  reach: ["Profit if price reaches", () => {
+    const c0 = hctx && hctx(), d = c0 && c0.d, isC = c0 ? c0.side === "call" : true;
+    let ex = "", gr = "";
+    if (d){
+      const qty = d.qty > 0 ? d.qty : d.min, cq = quote(c0.side, d.K, d.exp, qty);
+      if (cq){
+        const rows = reachLv(isC).map(pc => { const T = d.S*(1 + pc/100), pr = intrinsic(c0.side, T, d.K)*qty - cq.cost; return {l: (pc > 0 ? "+" : "") + pc + "%", pr}; });
+        gr = reachSvg(rows);
+        const pc = isC ? 2 : -2, T = d.S*(1 + pc/100), val = intrinsic(c0.side, T, d.K)*qty, pr = val - cq.cost, roi = pr/cq.cost*100;
+        ex = `<div class="hp-ex"><b>Worked example (live numbers)</b><ol>
+          <li>${base} is now <b>${px(base, d.S)}</b>. You buy a <b>${isC ? "Call" : "Put"}</b> with strike <b>${px(base, d.K)}</b> for <b>${fq(qty, base)} ${base}</b>. You pay <b>${money(cq.cost)} USDT</b>. This is the most you can lose.</li>
+          <li>Price moves ${pc > 0 ? "up" : "down"} 2% to <b>${px(base, T)}</b>.</li>
+          <li>The option is then worth ${isC ? "(price - strike)" : "(strike - price)"} x quantity = <b>${money(val)} USDT</b>.</li>
+          <li>Profit = ${money(val)} - ${money(cq.cost)} = <b class="${pr > 0 ? "up" : "down"}">${signed(pr)} USDT</b>. ROI = <b class="${pr > 0 ? "up" : "down"}">${pct(roi)}</b>.</li></ol></div>`;
+      }
+    }
+    return `<p>This table shows what you would make <b>if the price is at that level when the option expires</b>. Each row gives the price, the profit or loss in USDT, and the return on what you paid (ROI).</p>
+      ${gr}<p><b class="up">Green</b> = profit. <b class="down">Red</b> = loss. Small moves such as +0.5% or +1% often show a loss, because the price must first pass your strike <b>and</b> cover the premium you paid. The bar beside each price shows how big the result is compared with the other rows.</p>${ex}
+      <p>This is an estimate at expiry. Selling early gives the current value, which can be lower or higher.</p>`;
+  }]
+};
+const helpOpen = (k, a) => { const h2 = HELP2[k]; if (h2) return UI.help(h2[0](a), h2[1](a)); const h = HELP[k]; if (h) UI.help(h[0], h[1]()); };
 
 /* ---------- page ---------- */
 Pages.options = (params) => {
@@ -200,18 +254,22 @@ Pages.options = (params) => {
   }
   function setPtab(k){ ptab = k; root.querySelectorAll("[data-pt]").forEach(b => b.classList.toggle("on", b.dataset.pt === k)); renderList(); }
   function renderList(){
-    const o = st(), list = $("#opList"); if (!list) return; $("#opPc").textContent = o.positions.length;
+    const o = st(), list = $("#opList"); if (!list) return; $("#opPc").textContent = o.positions.length; syncEntry();
     if (ptab === "pos"){
       list.innerHTML = o.positions.length ? o.positions.slice().reverse().map(pos => `<div class="pc op-pc" data-id="${pos.id}">
         <div class="pc-h"><span class="sym op-sym">${esc(symName(pos))}</span><span class="perp op-${pos.type}">${pos.type === "call" ? "Call" : "Put"}</span><span class="grow"></span><b class="num brand-c" data-cd></b></div>
         <div class="op-hero"><div><span>Unrealized PNL (USDT)</span><b class="num" data-pnl>--</b></div><div class="op-r"><span>ROI</span><b class="num" data-roi>--</b></div></div>
+        <div class="op-size"><span>Size ${hqx("size", pos.type)}</span><b class="num">${sizeTxt(pos)}</b></div>
         <div class="pc-g"><div><span>Quantity</span><b class="num">${fq(pos.qty, pos.base)} ${pos.base}</b></div><div><span>Strike</span><b class="num">${px(pos.base, pos.strike)}</b></div><div><span>Cost (USDT)</span><b class="num">${money(pos.cost)}</b></div><div><span>Mark value</span><b class="num" data-val></b></div></div>
         <div class="op-act"><span class="op-exl">Expires ${expLabel(pos.exp)}</span><button class="btn btn-ghost btn-sm" data-close="${pos.id}">Close</button></div></div>`).join("") : UI.emptyState("file", "No open options");
       tickList();
     } else {
       const h = o.history.slice(0, 60);
       list.innerHTML = h.length ? h.map(x => `<div class="pc op-pc"><div class="pc-h"><span class="sym op-sym">${esc(symName(x))}</span><span class="perp op-${x.type}">${x.type === "call" ? "Call" : "Put"}</span><span class="grow"></span><span class="label">${esc(x.result)}</span></div>
-        <div class="ph-g"><div><span>PNL (USDT)</span><b class="num ${x.pnl > 0 ? "up" : x.pnl < 0 ? "down" : ""}">${signed(x.pnl)}</b></div><div><span>Payout</span><b class="num">${money(x.payout)}</b></div><div><span>Settle price</span><b class="num">${px(x.base, x.settle)}</b></div></div>
+        <div class="ph-g"><div><span>Invested (USDT)</span><b class="num">${money(x.cost)}</b></div><div class="op-hc"><span>Side</span><b>${x.type === "call" ? "Call" : "Put"} · Buy</b></div><div><span>Margin (USDT)</span><b class="num">${money(x.cost)}</b></div>
+          <div><span>PNL (USDT)</span><b class="num ${x.pnl > 0 ? "up" : x.pnl < 0 ? "down" : ""}">${signed(x.pnl)}</b></div><div class="op-hc"><span>ROI</span><b class="num ${x.pnl > 0 ? "up" : x.pnl < 0 ? "down" : ""}">${x.cost > 0 ? pct(x.pnl/x.cost*100) : "--"}</b></div><div><span>Payout</span><b class="num">${money(x.payout)}</b></div></div>
+        <div class="op-size"><span>Size ${hqx("size", x.type)}</span><b class="num">${sizeTxt(x)}</b></div>
+        <div class="ph-t"><span>Settle price</span><b class="num">${px(x.base, x.settle)}</b></div>
         <div class="ph-t"><span>Closed</span><b>${dtStr(x.closed)}</b></div></div>`).join("") : UI.emptyState("history", "No history");
     }
   }
@@ -230,7 +288,7 @@ Pages.options = (params) => {
   function commit(K, exp, qty, c){
     const cost = Math.round(c.cost*100)/100; if (cost > store.wb("options") + 1e-9) return false;
     store.addWallet("options", -cost, "option");
-    st().positions.push({id: U.uid(), base, type: side, strike: K, exp, qty, cost, entryMark: c.g.price, iv: c.g.iv, open: Date.now()});
+    st().positions.push({id: U.uid(), base, type: side, strike: K, exp, qty, cost, entryMark: c.g.price, entrySpot: c.S, iv: c.g.iv, open: Date.now()});
     store.save(); U.fx("open"); toast("Option bought", "ok");
     store.notify("Option bought", `${qty} ${base} ${side} ${px(base, K)} for ${money(cost)} USDT`, "ok");
     setPtab("pos"); renderList(); return true;
@@ -242,7 +300,7 @@ Pages.options = (params) => {
   /* ---- Simple mode ---- */
   const tgtStrikes = S => { const step = stepOf(S), atm = Math.round(S/step)*step;
     return TGTS.map(([nm, sub, k]) => { const K = +(atm + (side === "call" ? k : -k)*step).toPrecision(10); return {nm, sub, K}; }); };
-  const PCTS = [.005, .01, .02, .05];
+  const pctsOf = () => DIST[expKey] || DIST.d;
   const pctK = (S, p) => +(S*(1 + (side === "call" ? p : -p))).toPrecision(4);
   const selK = S => pctSel != null ? pctK(S, pctSel) : tgtStrikes(S)[tgt].K;
   const pctLbl = p => +(p*100).toFixed(1) + "%";
@@ -277,6 +335,7 @@ Pages.options = (params) => {
       <div class="op-sec"><span>Expiry ${hq("expiry")}</span></div>
       <div class="op-exps op-sexps" id="sExps"></div>
       <div class="op-sec"><span>Target price (strike) ${hq("strike")}</span></div>
+      <div class="op-learn" aria-label="Learn the terms"><span>Learn:</span>${[["strike","Strike"],["premium","Premium"],["prob","Probability"],["atm","ATM"],["steps","Steps"]].map(([k, l]) => `<button type="button" class="op-lk" data-help="${k}">${l}<i class="hq" aria-hidden="true">?</i></button>`).join("")}</div>
       <div class="op-tgts" id="sTgts"></div>
       <div class="op-sec op-sec2"><span>Or pick a distance from the price ${hq("chips")} <small id="sPdir"></small></span></div>
       <div class="op-pcts" id="sPcts"></div><div class="op-tgts" id="sPres"></div>
@@ -327,28 +386,29 @@ Pages.options = (params) => {
         <span class="op-tg-k"><b class="num">${fp(g.price*SPREAD)}</b><small>Premium / ${base}</small></span>
         <span class="op-tg-p op-tg-k"><b class="num">${Math.round(Math.abs(g.delta)*100)}%</b><small>Probability ≈</small></span></button>`; };
     $("#sPdir").textContent = isC ? "(above)" : "(below)";
-    $("#sPcts").innerHTML = PCTS.map(p => { const K = pctK(S, p), pr = Math.round(Math.abs(quote(side, K, exp, 1).g.delta)*100);
+    $("#sPcts").innerHTML = pctsOf().map(p => { const K = pctK(S, p), pr = Math.round(Math.abs(quote(side, K, exp, 1).g.delta)*100);
       return `<button class="op-pch ${pctSel === p ? "on" : ""}" data-pct="${p}"><b>${isC ? "+" : "-"}${pctLbl(p)}</b><small>≈ ${pr}%</small></button>`; }).join("");
     $("#sPres").innerHTML = pctSel != null ? tgCard(`${pctLbl(pctSel)} ${isC ? "above" : "below"}`, "Your pick", pctK(S, pctSel), true, 'data-pct-card="1"') : "";
     $("#sTgts").innerHTML = ts.map((t, i) => { const g = quote(side, t.K, exp, 1).g;
       const h = i === 0;
-      return `<button class="op-tg ${pctSel == null && i === tgt ? "on" : ""}" data-t="${i}"><span class="op-tg-n"><b>${t.nm}</b><small>${t.sub === "ATM" ? "ATM" + (h ? hq("atm") : "") : t.sub + (h && i === 1 ? hq("steps") : "")}</small></span>
-        <span class="op-tg-k"><b class="num">${px(base, t.K)}</b><small>Strike${h ? hq("strike") : ""}</small></span>
-        <span class="op-tg-k"><b class="num">${fp(g.price*SPREAD)}</b><small>Premium / ${base}${h ? hq("premium") : ""}</small></span>
-        <span class="op-tg-k op-tg-p"><b class="num">${Math.round(Math.abs(g.delta)*100)}%</b><small>Probability ≈${h ? hq("prob") : ""}</small></span></button>`; }).join("");
+      return `<button class="op-tg ${pctSel == null && i === tgt ? "on" : ""}" data-t="${i}"><span class="op-tg-n"><b>${t.nm}</b><small>${t.sub}</small></span>
+        <span class="op-tg-k"><b class="num">${px(base, t.K)}</b><small>Strike</small></span>
+        <span class="op-tg-k"><b class="num">${fp(g.price*SPREAD)}</b><small>Premium / ${base}</small></span>
+        <span class="op-tg-k op-tg-p"><b class="num">${Math.round(Math.abs(g.delta)*100)}%</b><small>Probability ≈</small></span></button>`; }).join("");
     const d = simpleCalc(); if (!d) return;
     const aEl = $("#sAmt"); if (amtMax && document.activeElement !== aEl) aEl.value = "";
     $("#sBal").textContent = money(d.bal);
     const q = $("#sQty");
     if (!d.c){ q.innerHTML = `<span>Quantity</span><b class="num">Min ${fq(d.min, base)} ${base} ≈ ${money(d.unit*d.min)} USDT</b>`; $("#sSum").innerHTML = ""; return; }
     const c = d.c; q.innerHTML = `<span>Quantity</span><b class="num">${fq(d.qty, base)} ${base}</b>`;
-    const rowsT = (isC ? [2, 5, 10] : [-2, -5, -10]).map(pc => { const T = d.S*(1 + pc/100), pr = intrinsic(side, T, d.K)*d.qty - c.cost, roi = pr/c.cost*100;
-      return `<div><span class="num">${pc > 0 ? "+" : ""}${pc}% · ${px(base, T)}</span><b class="num ${pr > 0 ? "up" : "down"}">${signed(pr)}</b><em class="num ${pr > 0 ? "up" : "down"}">${pct(roi)}</em></div>`; }).join("");
+    const rd = reachLv(isC).map(pc => { const T = d.S*(1 + pc/100), pr = intrinsic(side, T, d.K)*d.qty - c.cost; return {pc, T, pr, roi: pr/c.cost*100}; }), rmx = Math.max(...rd.map(r => Math.abs(r.pr)), 1e-9);
+    const rowsT = rd.map(({pc, T, pr, roi}) =>
+      `<div><span class="num">${pc > 0 ? "+" : ""}${pc}% · ${px(base, T)}<i class="op-pbar ${pr > 0 ? "up" : "dn"}"><s style="width:${Math.max(3, Math.abs(pr)/rmx*100).toFixed(1)}%"></s></i></span><b class="num ${pr > 0 ? "up" : "down"}">${signed(pr)}</b><em class="num ${pr > 0 ? "up" : "down"}">${pct(roi)}</em></div>`).join("");
     $("#sSum").innerHTML = `
       <div class="op-sum-big"><div><span>You pay (max loss)</span><b class="num">${money(c.cost)} <small>USDT</small></b></div><div class="op-r"><span>Breakeven</span><b class="num">${px(base, c.be)}</b></div></div>
       <div class="op-sum-mid"><span>Max profit</span><b class="num ${""}">${isC ? "Unlimited" : "up to " + money(Math.max(0, d.K*d.qty - c.cost)) + " USDT"}</b></div>
       <div class="op-pw">${payoffSvg(side, d.K, d.S, c.cost, d.qty)}</div>
-      <div class="op-sec" style="margin:14px 0 6px">Profit if price reaches</div><div class="op-pi">${rowsT}</div>`;
+      <div class="op-sec" style="margin:14px 0 6px"><span>Profit if price reaches ${hq("reach")}</span></div><div class="op-pi">${rowsT}</div>`;
   }
   async function simpleBuy(){
     const d = simpleCalc(); if (!d) return toast("Waiting for live price", "bad");
@@ -388,9 +448,14 @@ Pages.options = (params) => {
   function ensureChart(){
     if (chartLive || !chartEl || !chartOpen || !window.CH || !P(base)) return;
     try {
-      CH.mount(chartEl.querySelector("#chart"), {legend: chartEl.querySelector("#lg"), msg: chartEl.querySelector("#cmsg"), mode: "fut"});
-      chartLive = true; chInds(); CH.load(base + "USDT", chTf); setTimeout(() => CH.resize && CH.resize(), 80);
+      CH.mount(chartEl.querySelector("#chart"), {legend: chartEl.querySelector("#lg"), msg: chartEl.querySelector("#cmsg"), mode: "none"});   // "none" = no futures/binary lines or markers on the options chart
+      chartLive = true; syncEntry(); chInds(); CH.load(base + "USDT", chTf); setTimeout(() => CH.resize && CH.resize(), 80);
     } catch (e) { console.warn("options chart", e); }
+  }
+  /* K1: entry line (yellow) + yellow price box on the axis for every open option on this underlying */
+  function syncEntry(){
+    if (!chartLive || !window.CH || !CH.setExtra) return;
+    try { CH.setExtra(st().positions.filter(x => x.base === base).map(x => ({id: x.id, price: x.entrySpot || x.strike, color: ENTRY_C, text: "#000", title: (x.type === "call" ? "Call" : "Put") + " entry"}))); } catch {}
   }
   function placeChart(){
     if (!chartEl || !root) return;
@@ -504,9 +569,36 @@ Pages.options = (params) => {
       off = () => { t(); sc(); };
     }, () => off?.());
   }
+  /* K7: confirmation sheet with the exact amount received, updating live while it is open */
+  function closeCalc(pos){
+    const S = spotOf(pos.base); if (S == null) return null;
+    const mark = markNow(pos, S)*pos.qty, payout = mark*CLOSE_HAIRCUT, pnl = payout - pos.cost;
+    return {mark, fee: mark - payout, payout, pnl, roi: pos.cost > 0 ? pnl/pos.cost*100 : 0};
+  }
   function closePos(id){
-    const o = st(), pos = o.positions.find(x => x.id === id), S = pos && spotOf(pos.base); if (!pos || S == null) return;
-    const mark = markNow(pos, S), payout = mark*pos.qty*CLOSE_HAIRCUT, pnl = payout - pos.cost;
+    const pos = st().positions.find(x => x.id === id); if (!pos || !closeCalc(pos)) return;
+    let tm = 0, done = false, ask = null; const stop = () => { clearInterval(tm); tm = 0; };
+    U.sheet("Close option", `<div class="cf-sub"><span class="perp op-${pos.type}">${pos.type === "call" ? "Call" : "Put"}</span><b class="num">${esc(symName(pos))}</b></div>
+      <div class="cf-rows op-cf">
+        <div><span>Quantity</span><b class="num">${fq(pos.qty, pos.base)} ${pos.base}</b></div>
+        <div><span>Cost</span><b class="num">${money(pos.cost)} USDT</b></div>
+        <div><span>Mark value</span><b class="num" data-l="mark"></b></div>
+        <div><span>Close fee (1%)</span><b class="num" data-l="fee"></b></div>
+        <div class="op-cf-r"><span>You receive</span><b class="num" data-l="payout"></b></div>
+        <div><span>PNL</span><b class="num" data-l="pnl"></b></div>
+        <div><span>ROI</span><b class="num" data-l="roi"></b></div></div>
+      <div class="cf-btns"><button class="btn btn-ghost" data-no>Cancel</button><button class="btn btn-primary" data-yes>Close position</button></div>`, el => {
+      const upd = () => { const c = closeCalc(pos); if (!c || !el.isConnected) return; const set = (k, v, cls) => { const n = el.querySelector(`[data-l="${k}"]`); if (n){ n.textContent = v; if (cls != null) n.className = "num " + cls; } }, sg = c.pnl > 0 ? "up" : c.pnl < 0 ? "down" : "";
+        set("mark", money(c.mark) + " USDT"); set("fee", "-" + money(c.fee) + " USDT"); set("payout", money(c.payout) + " USDT"); set("pnl", signed(c.pnl) + " USDT", sg); set("roi", pct(c.roi), sg); };
+      upd(); tm = setInterval(upd, 400);
+      const off = bus.on("tick", x => { if (x === pos.base) upd(); }); ask = off;
+      el.querySelector("[data-no]").onclick = () => U.closeLayer();
+      el.querySelector("[data-yes]").onclick = () => { if (done) return; done = true; upd(); const c = closeCalc(pos); stop(); off(); U.closeLayer(); if (c) doClose(pos.id, c); };
+    }, () => { stop(); ask && ask(); });
+  }
+  function doClose(id, c){
+    const o = st(), pos = o.positions.find(x => x.id === id), S = pos && spotOf(pos.base); if (!pos || S == null) return toast("Position already closed", "info");
+    const payout = c.payout, pnl = payout - pos.cost;
     o.positions = o.positions.filter(x => x.id !== id);
     o.history.unshift({...pos, result: "Closed", payout, pnl, settle: S, closed: Date.now()}); o.history = o.history.slice(0, 100);
     store.addWallet("options", payout, "option"); U.fx("close");
@@ -530,15 +622,15 @@ Pages.options = (params) => {
     sm.onclick = e => { const x = e.target;
       if (x.closest("[data-pick2]")) return pickSheet();
       let b;
-      if ((b = x.closest("[data-help]"))){ e.stopPropagation(); return helpOpen(b.dataset.help); }
+      if ((b = x.closest("[data-help]"))){ e.stopPropagation(); return helpOpen(b.dataset.help, b.dataset.ha); }
       if ((b = x.closest("[data-qside]"))){ side = b.dataset.qside; root.querySelectorAll("#sDir button").forEach(y => y.classList.toggle("on", y.dataset.side === side)); renderSDyn(); return simpleBuy(); }
       if ((b = x.closest("#sDir [data-side]"))){ side = b.dataset.side; root.querySelectorAll("#sDir button").forEach(y => y.classList.toggle("on", y === b)); return renderSDyn(); }
-      if ((b = x.closest("[data-exp]"))){ expKey = b.dataset.exp; renderSExps(); return renderSDyn(); }
+      if ((b = x.closest("[data-exp]"))){ expKey = b.dataset.exp; if (pctSel != null && !pctsOf().includes(pctSel)) pctSel = null; renderSExps(); return renderSDyn(); }
       if ((b = x.closest("[data-t]"))){ tgt = +b.dataset.t; pctSel = null; return renderSDyn(); }
       if ((b = x.closest("[data-pct]"))){ const v = +b.dataset.pct; pctSel = pctSel === v ? null : v; return renderSDyn(); }
       if ((b = x.closest("#sAmts [data-a]"))){ if (b.dataset.a === "max"){ amtMax = true; } else { amtMax = false; amt = +b.dataset.a; $("#sAmt").value = amt; } $("#sF").classList.remove("err"); return renderSDyn(); }
       if (x.closest("#sGo")) simpleBuy(); };
-    sm.addEventListener("keydown", e => { const h = e.target.closest && e.target.closest("[data-help]"); if (h && (e.key === "Enter" || e.key === " ")){ e.preventDefault(); helpOpen(h.dataset.help); } });
+    sm.addEventListener("keydown", e => { const h = e.target.closest && e.target.closest("[data-help]"); if (h && (e.key === "Enter" || e.key === " ")){ e.preventDefault(); helpOpen(h.dataset.help, h.dataset.ha); } });
     sm.addEventListener("input", e => {
       if (e.target.id === "qAmt"){ const q = e.target, pos = q.selectionStart, digs = q.value.slice(0, pos).replace(/[^\d.]/g, "").length;
         let raw = q.value.replace(/[^\d.]/g, ""); const dot = raw.indexOf("."); if (dot >= 0) raw = raw.slice(0, dot + 1) + raw.slice(dot + 1).replace(/\./g, "").slice(0, 2);
@@ -548,16 +640,18 @@ Pages.options = (params) => {
       if (e.target.id === "qRng"){ const p = +e.target.value, bal = store.wb("options"); if (p >= 100) return setAmt(bal, true); return setAmt(Math.floor(bal*p) / 100, false); }
       if (e.target.id !== "sAmt") return; amtMax = false; amt = parseFloat(e.target.value) || 0; $("#sF").classList.remove("err"); renderSDyn(); });
     setMode(mode);
-    $("#opExps").onclick = e => { const b = e.target.closest("[data-exp]"); if (!b) return; expKey = b.dataset.exp; renderExps(); renderChain(); };
+    $("#opExps").onclick = e => { const b = e.target.closest("[data-exp]"); if (!b) return; expKey = b.dataset.exp; if (pctSel != null && !pctsOf().includes(pctSel)) pctSel = null; renderExps(); renderChain(); };
     $("#opSide").onclick = e => { const b = e.target.closest("[data-side]"); if (!b) return; side = b.dataset.side; root.querySelectorAll("#opSide button").forEach(x => x.classList.toggle("on", x === b)); renderChain(); };
     $("#opChain").onclick = e => { const b = e.target.closest("[data-buy]"); if (b) buySheet(+b.dataset.buy); };
-    $("#opList").onclick = e => { const b = e.target.closest("[data-close]"); if (b) closePos(b.dataset.close); };
+    $("#opList").onclick = e => { let b = e.target.closest("[data-help]"); if (b) return helpOpen(b.dataset.help, b.dataset.ha); b = e.target.closest("[data-close]"); if (b) closePos(b.dataset.close); };
+    $("#opList").addEventListener("keydown", e => { const h = e.target.closest && e.target.closest("[data-help]"); if (h && (e.key === "Enter" || e.key === " ")){ e.preventDefault(); helpOpen(h.dataset.help, h.dataset.ha); } });
+    hctx = () => ({d: simpleCalc(), side});
     root.querySelectorAll("[data-pt]").forEach(b => b.onclick = () => setPtab(b.dataset.pt));
     const onTick = x => { if (x !== base) return; renderHead(); if (tTimer) return;
       const wait = Math.max(0, 250 - (performance.now() - tT)); tTimer = setTimeout(() => { tTimer = 0; tT = performance.now(); if (!root) return; if (mode === "simple"){ renderSLive(); renderSDyn(); } else renderChain(); tickList(); }, wait); };
     let lastExp = EXPS.map(([k]) => expOf(k)).join();
     offs.push(bus.on("tick", onTick), bus.on("list", () => { renderAll(); if (mode === "simple") renderSimple(); ensureChart(); }), bus.on("meta", x => x === base && renderHead()), bus.on("balance", () => { if (mode === "simple" && amtMax) renderSDyn(); }),
       bus.on("sec", () => { const cur = EXPS.map(([k]) => expOf(k)).join(); if (cur !== lastExp){ lastExp = cur; renderExps(); renderSExps(); renderChain(); renderSDyn(); } else tickExps(); if (mode === "simple") renderSLive(); tickList(); }));
-  }, unmount(){ offs.forEach(f => f()); offs = []; if (chartLive){ try { CH.destroy(); } catch {} } chartLive = false; chartEl = null; clearTimeout(tTimer); tTimer = 0; refresh = null; root = null; }};
+  }, unmount(){ hctx = null; offs.forEach(f => f()); offs = []; if (chartLive){ try { CH.destroy(); } catch {} } chartLive = false; chartEl = null; clearTimeout(tTimer); tTimer = 0; refresh = null; root = null; }};
 };
 })();
