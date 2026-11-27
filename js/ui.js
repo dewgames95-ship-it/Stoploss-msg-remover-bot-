@@ -124,6 +124,7 @@ function emptyState(icon, text){ return `<div class="empty">${ic(icon,32,1.5)}<p
 function notifCat(n){
   if (n.kind === "game" || n.cat === "game") return "game";
   if (n.kind === "predict" || n.cat === "predict") return "predict";
+  if (n.cat === "trade") return "trade";
   const x = (n.title + " " + (n.body || "")).toLowerCase();
   if (/order|trade|position|liquidat|option|spot|copy trading|bot|settled|limit|tp\/sl|funding/.test(x)) return "trade";
   return "system";
@@ -169,5 +170,11 @@ function openMenu(){
     <div style="height:24px"></div>`, el => el.querySelectorAll("a").forEach(a => a.addEventListener("click", () => U.closeLayer())));
 }
 
-window.UI = {pairIcon, coinImg, icoErr, flagErr, stErr, stockImg, mktBadges, mktTag, letter, usdt, logo, endcap, footer: () => "", fullName: p => p.type === "crypto" ? (window.COIN_NAMES[p.base] || p.base) : (p.name || p.base), pageHead, emptyState, openNotifs, openLang, openMenu};
+/* v7.1: small centred info popup with an X (for every "?" icon). html may contain inline SVG. */
+function tip(title, html){
+  const el = U.modal(`<div class="uitip" role="dialog" aria-label="${esc(title)}"><div class="uitip-h"><b>${esc(title)}</b><button class="uitip-x" data-tipx aria-label="Close">${ic("close",16)}</button></div><div class="uitip-b">${html}</div></div>`);
+  el.querySelector("[data-tipx]").onclick = () => U.closeLayer();
+  return el;
+}
+window.UI = {tip, pairIcon, coinImg, icoErr, flagErr, stErr, stockImg, mktBadges, mktTag, letter, usdt, logo, endcap, footer: () => "", fullName: p => p.type === "crypto" ? (window.COIN_NAMES[p.base] || p.base) : (p.name || p.base), pageHead, emptyState, openNotifs, openLang, openMenu};
 })();
