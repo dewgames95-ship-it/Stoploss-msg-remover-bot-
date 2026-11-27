@@ -283,7 +283,7 @@ function openFut({sym, side, margin, lev, type="market", price=null, tp=null, sl
       const e2 = tpslCheck(side, price, tp, sl, null); if (e2) return {err:e2};
       const o = {id:uid(), sym, side, margin, lev, price, tp, sl, fee, mode, tif, t:Date.now()};
       F().orders.push(o); store.addWallet("futures", -margin - fee, "order");
-      F().log = (F().log || []).concat({t:Date.now(), sym, side, type:"Limit", price, qty: margin*lev/price, status:"New"}).slice(-200);
+      F().log = (F().log || []).concat({t:Date.now(), sym, side, type:"Limit", price, qty: margin*lev/price, fee, status:"New"}).slice(-200);
       bus.emit("positions"); store.save(); return {order:o};
     }
   }

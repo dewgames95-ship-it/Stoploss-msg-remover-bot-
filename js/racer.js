@@ -73,13 +73,51 @@ const HOST = {
   transfer(done){ UI.transferSheet({to: "games", done: (v, from, to) => { done && done(v, from, to); }}); },
   switchMode(){ window.ACCT ? ACCT.sheet() : U.toast("Demo mode", "info"); },
   onBalance(fn){ const off = bus.on("balance", () => { try { fn(); } catch {} }); subs.push(off); return off; },
-  lock(on){                           // freeze the app page while a race runs
+  lock(on){                           // v7.0: a race runs: the page stays put, the top tab strip + bottom nav dim and lock (a tap shows a short toast), no full screen
     lockOn = !!on;
     document.documentElement.classList.toggle("rc-lock", lockOn);
     if (lockOn) window.scrollTo(0, 0);
-    if (HOST._relayout) HOST._relayout();   // header + bottom nav hide while a race runs and the game fills the screen; back to normal after
-  }
+    paintLocks();
+    if (HOST._relayout) HOST._relayout();
+  },
+  popLock(on){ document.documentElement.classList.toggle("rc-pop", !!on); },   // a popup is open inside the game: the app page behind it does not scroll either
+  notifs: () => notifPayload(),
+  notifsRead(){ const s = store.s; if (!s.unread && !(s.notifs || []).some(n => n.t > (s.notifSeen || 0))) return; s.unread = 0; s.notifSeen = Date.now(); store.save(); bus.emit("notifs"); }
 };
+
+/* ---- v7.0: the app's notifications (trade win / loss, transfers, Money Game, ...) inside the game's bell popup ---- */
+function notifPayload(){
+  const s = store.s, seen = s.notifSeen || 0, out = [];
+  (s.notifs || []).slice(0, 40).forEach(n => out.push({id: n.id, t: n.t, title: String(n.title || ""), body: String(n.body || ""), kind: n.kind === "ok" || n.kind === "bad" ? n.kind : "info", cat: n.cat || "", fresh: n.t > seen}));
+  const nm = k => { try { return UI.walletName(k); } catch { return k; } };
+  const f2 = v => (+v || 0).toLocaleString("en-US", {minimumFractionDigits: 2, maximumFractionDigits: 2});
+  (s.tx || []).filter(x => x && x.type === "transfer").slice(0, 20).forEach(x => out.push({id: "tx" + x.t, t: x.t, title: "Transfer", body: nm(x.from) + " to " + nm(x.to) + " · " + f2(x.amt) + " USDT", kind: "info", cat: "transfer", fresh: x.t > seen}));
+  out.sort((a, b) => b.t - a.t);
+  return {type: "nt-notifs", list: out.slice(0, 40), unread: s.unread || 0};
+}
+
+/* top tab strip + bottom nav: dimmed, locked, small transparent lock icon on each; any tap shows a 2-second toast and does nothing else */
+let lockEls = null, lockToastT = 0;
+const LOCK_SVG = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2.200"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
+function paintLocks(){
+  const tabs = document.querySelector(".rc-tabs"), nav = document.getElementById("bnav");
+  if (!lockOn){ if (lockEls){ lockEls.forEach(e => e.remove()); lockEls = null; } clearTimeout(lockToastT); const t = document.getElementById("rcLockToast"); if (t) t.remove(); return; }
+  if (!lockEls){ lockEls = [0, 1].map(() => { const e = document.createElement("span"); e.className = "rc-lockic"; e.innerHTML = LOCK_SVG; document.body.appendChild(e); return e; }); }
+  [[tabs, lockEls[0]], [nav, lockEls[1]]].forEach(([bar, ic]) => {
+    if (!bar || getComputedStyle(bar).display === "none"){ ic.style.display = "none"; return; }
+    const r = bar.getBoundingClientRect(); ic.style.display = ""; ic.style.left = Math.round(r.left + r.width / 2 - 14) + "px"; ic.style.top = Math.round(r.top + r.height / 2 - 14) + "px";
+  });
+}
+function lockedTap(e){
+  if (!lockOn) return;
+  const t = e.target && e.target.closest ? e.target.closest("#bnav, .rc-tabs") : null;
+  if (!t) return;
+  e.preventDefault(); e.stopImmediatePropagation();
+  let el = document.getElementById("rcLockToast");
+  if (!el){ el = document.createElement("div"); el.id = "rcLockToast"; el.className = "rc-lock-toast"; el.setAttribute("role", "status"); el.textContent = "Locked during the race"; document.body.appendChild(el); }
+  el.classList.add("show"); clearTimeout(lockToastT);
+  lockToastT = setTimeout(() => { el.classList.remove("show"); setTimeout(() => { if (!el.classList.contains("show")) el.remove(); }, 250); }, 2000);
+}
 window.MoneyRacerHost = HOST;
 
 let srvP = null;
@@ -89,7 +127,7 @@ function ensureServer(){
     const done = () => { try { MoneyRacerServer.create(HOST).install(API); res(); } catch (e) { rej(e); } };
     if (window.MoneyRacerServer) return done();
     const s = document.createElement("script");
-    s.src = "racer/local-server.js?v=6.9"; s.async = true;
+    s.src = "racer/local-server.js?v=7.0"; s.async = true;
     s.onload = done; s.onerror = () => { srvP = null; rej(new Error("Money Game failed to load")); };
     document.head.appendChild(s);
   });
@@ -111,11 +149,11 @@ Pages.racer = () => {
   </div>`;
   function size(){
     const st = root && root.querySelector("#rcStage"); if (!st) return;
-    if (lockOn) { st.style.height = ""; return; }   // running race: CSS makes the stage fill the screen
     const nav = document.getElementById("bnav");
     const top = st.getBoundingClientRect().top + window.scrollY;
     const bottom = nav && getComputedStyle(nav).display !== "none" ? nav.getBoundingClientRect().top : window.innerHeight;
     st.style.height = Math.max(320, Math.round(bottom - top)) + "px";
+    paintLocks();
   }
   function setProg(p, tx){
     const b = root && root.querySelector("#rcBar"); if (b) b.style.width = Math.round(p) + "%";
@@ -138,6 +176,15 @@ Pages.racer = () => {
       document.addEventListener("visibilitychange", onVis); addEventListener("native-pause", onP); addEventListener("native-resume", onR);
       offBg = [() => document.removeEventListener("visibilitychange", onVis), () => removeEventListener("native-pause", onP), () => removeEventListener("native-resume", onR)];
       root._pushBg = pushBg;
+      // v7.0: locked bars (capture phase, before the router / nav handlers) + notification bridge into the game frame
+      const onTap = e => lockedTap(e);
+      document.addEventListener("click", onTap, true);
+      const pushN = () => { try { const w = frame && frame.contentWindow; if (w) w.postMessage(notifPayload(), location.origin); } catch {} };
+      const onMsg = e => { if (frame && e.source === frame.contentWindow && e.origin === location.origin && e.data && e.data.type === "nt-notifs-req") pushN(); };
+      addEventListener("message", onMsg);
+      const offN = bus.on("notifs", pushN), offT = bus.on("balance", (b, reason) => { if (reason === "transfer") pushN(); });
+      root._pushN = pushN;
+      offBg.push(() => document.removeEventListener("click", onTap, true), () => removeEventListener("message", onMsg), () => { try { offN && offN(); offT && offT(); } catch {} });
       onRz = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(size); };
       addEventListener("resize", onRz);
       // light progress while the game page itself loads (the game shows its own asset progress after that)
@@ -149,9 +196,9 @@ Pages.racer = () => {
         frame.className = "rc-frame";
         frame.title = "Money Game";
         frame.setAttribute("allow", "autoplay; fullscreen");
-        frame.src = "racer/index.html?v=6.9";
+        frame.src = "racer/index.html?v=7.0";
         frame.addEventListener("load", () => {
-          clearInterval(tick); setProg(100); try { root._pushBg && root._pushBg(); } catch {}
+          clearInterval(tick); setProg(100); try { root._pushBg && root._pushBg(); root._pushN && root._pushN(); } catch {}
           setTimeout(() => { const l = root && root.querySelector("#rcLoad"); if (l) l.classList.add("hide"); }, 180);
         }, {once: true});
         root.querySelector("#rcStage").appendChild(frame);
@@ -165,7 +212,7 @@ Pages.racer = () => {
       if (frame){ try { frame.contentWindow && frame.contentWindow.MR_STOP && frame.contentWindow.MR_STOP(); } catch {} try { frame.src = "about:blank"; } catch {} frame.remove(); frame = null; }
       HOST._relayout = null; if (offGuard) { offGuard(); offGuard = null; }
       offBg.forEach(f => { try { f(); } catch {} }); offBg = [];
-      HOST.lock(false);
+      HOST.lock(false); HOST.popLock(false);
       document.body.classList.remove("rc-on");
       root = null;
     }

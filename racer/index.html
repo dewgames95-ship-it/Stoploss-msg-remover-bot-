@@ -44,6 +44,7 @@
       locked = !!on;
       document.documentElement.classList.toggle('mr-lock', locked);
       if (locked) { try { window.scrollTo(0, 0); } catch (e) {} }
+      try { window.MR_duck && window.MR_duck(locked); } catch (e) {}
       if (H) { try { H.lock(locked); } catch (e) {} }
     },
     isLocked: () => locked,
@@ -4827,6 +4828,65 @@ html.mr-lock .mr-hist, html.mr-lock .mr-up { display: none !important; }   /* on
 .g69-uid { font-variant-numeric: tabular-nums; letter-spacing: .04em; color: #fff; font-size: 13px; user-select: text; -webkit-user-select: text; }
 .mr-hint { display: flex; align-items: center; justify-content: center; gap: 4px; padding: 2px 0 10px; font-size: 11px; color: #5e6673; }
 </style>
+<style id="mr70">
+/* ===== v7.0 (L): online + how-it-works cards, popup scroll lock, notification list ===== */
+#howItWorksBtn, #mrOnlineCard { zoom: 0.77; }
+.hud-pill.hud-mini { width: 78px; min-height: 0; flex-direction: row; gap: 4px; padding: 6px 5px; }
+.hud-pill.hud-mini > svg.ic { width: 14px; height: 14px; flex: none; }
+.hud-pill.hud-mini .hud-pill-label { font-size: 8.6px; white-space: nowrap; text-align: left; }
+#howItWorksBtn { color: #8ec5ff; border-color: rgba(96,165,250,.55); }
+.hud-pill.hud-online { cursor: default; pointer-events: none; border-color: rgba(40,224,102,.55); color: #eafff2; }
+.hud-online i { width: 7px; height: 7px; border-radius: 50%; background: #28e066; flex: none; animation: mrOnPulse 2.2s ease-in-out infinite; }
+.hud-online b { font-size: 12px; font-weight: 900; line-height: 1; font-variant-numeric: tabular-nums; color: #fff; }
+.hud-online span { font-size: 8.6px; font-weight: 800; color: #b9f5d0; }
+@keyframes mrOnPulse { 0%,100% { opacity: 1; } 50% { opacity: .45; } }
+body.v17-racing #howItWorksBtn, body.v17-racing #mrOnlineCard { opacity: .45 !important; }
+#headerNotifBtn.nt-quiet circle { display: none; }
+/* a popup is open: the page behind never scrolls, only the popup content does */
+html.mr-pop, html.mr-pop body { overflow: hidden !important; overscroll-behavior: none; }
+.modal-backdrop, .ui-pop { overscroll-behavior: contain; }
+.modal-backdrop > *, .ui-pop-card, .hr-list, .nt-list, .hiw-body { overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+.hiw-card { max-width: 392px; max-height: 100%; display: flex; flex-direction: column; text-align: left; overflow: hidden !important; }
+.hiw-card .ui-pop-head { flex: none; }
+.hiw-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 0 2px 4px; }
+.hiw-shots { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.hiw-shot { margin: 0; text-align: center; }
+.hiw-shot svg { display: block; width: 100%; height: auto; border-radius: 12px; }
+.hiw-shot figcaption { margin-top: 4px; font-size: 10.5px; font-weight: 900; font-style: italic; letter-spacing: .4px; text-transform: uppercase; color: #b9c6dd; }
+.hiw-shot figcaption b { display: inline-grid; place-items: center; width: 16px; height: 16px; margin-right: 4px; border-radius: 50%; background: #2F7BFF; color: #fff; font-size: 10px; font-style: normal; }
+.hiw-sec { margin: 14px 2px 6px; font-size: 10px; font-weight: 900; font-style: italic; letter-spacing: .5px; text-transform: uppercase; color: #9fb1cf; }
+.hiw-flow { display: flex; align-items: center; justify-content: center; gap: 5px; flex-wrap: wrap; margin: 2px 0 8px; }
+.hiw-chip { padding: 5px 9px; border-radius: 999px; font-size: 10.5px; font-weight: 900; font-style: italic; color: #fff; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.16); }
+.hiw-chip.g { color: #22E07A; border-color: rgba(34,224,122,.5); background: rgba(34,224,122,.1); }
+.hiw-chip.r { color: #ff5d6c; border-color: rgba(255,93,108,.5); background: rgba(255,93,108,.1); }
+.hiw-arrow { color: #7f9ccc; font-weight: 900; }
+.hiw-res { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.hiw-res > div { padding: 9px 10px; border-radius: 12px; background: rgba(255,255,255,.045); border: 1px solid rgba(255,255,255,.1); }
+.hiw-res .w { border-color: rgba(34,224,122,.45); } .hiw-res .l { border-color: rgba(255,93,108,.45); }
+.hiw-res h4 { margin: 0 0 3px; font-size: 11.5px; font-weight: 900; font-style: italic; text-transform: uppercase; }
+.hiw-res .w h4 { color: #22E07A; } .hiw-res .l h4 { color: #ff5d6c; }
+.hiw-res p { margin: 0; font-size: 11px; line-height: 1.4; font-weight: 600; color: #d4deef; }
+.hiw-res p b { color: #fff; font-variant-numeric: tabular-nums; }
+.hiw-res .big { display: block; margin-top: 4px; font-size: 16px; font-weight: 900; font-style: italic; font-variant-numeric: tabular-nums; }
+.hiw-res .w .big { color: #22E07A; } .hiw-res .l .big { color: #ff5d6c; }
+.hiw-note { margin: 10px 2px 2px; font-size: 10.5px; line-height: 1.4; color: #94a3b8; font-weight: 600; text-align: center; }
+.hiw-go { display: block; width: 100%; margin-top: 12px; min-height: 44px; border-radius: 12px; border: 1px solid #6aa0ff; background: linear-gradient(180deg, #2F7BFF, #1B54C9); color: #fff; font: 900 italic 13px inherit; font-family: inherit; letter-spacing: .4px; cursor: pointer; }
+/* notifications from the app inside the game's popup */
+.notif-modal-card { max-height: 100%; display: flex; flex-direction: column; overflow: hidden !important; }
+.nt-list { display: none; flex-direction: column; gap: 6px; margin-top: 10px; overflow-y: auto; min-height: 0; max-height: min(58vh, 430px); padding-right: 2px; text-align: left; }
+.notif-modal-card.has-items .nt-list { display: flex; }
+.notif-modal-card.has-items .notif-modal-empty { display: none; }
+.nt-row { display: flex; gap: 9px; align-items: flex-start; padding: 8px 9px; border-radius: 12px; background: rgba(255,255,255,.045); border: 1px solid rgba(255,255,255,.09); }
+.nt-row.unread { border-color: rgba(96,165,250,.45); background: rgba(47,123,255,.1); }
+.nt-ic { flex: 0 0 26px; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: rgba(96,165,250,.14); border: 1px solid rgba(96,165,250,.4); color: #8ec5ff; }
+.nt-ic svg { width: 14px; height: 14px; display: block; }
+.nt-ic.ok { background: rgba(34,224,122,.13); border-color: rgba(34,224,122,.4); color: #22E07A; }
+.nt-ic.bad { background: rgba(255,93,108,.13); border-color: rgba(255,93,108,.4); color: #ff5d6c; }
+.nt-bd { flex: 1; min-width: 0; }
+.nt-t { font-size: 12px; font-weight: 800; color: #fff; line-height: 1.25; overflow-wrap: anywhere; }
+.nt-s { margin-top: 1px; font-size: 11px; font-weight: 600; color: #aab6cc; line-height: 1.3; overflow-wrap: anywhere; }
+.nt-tm { flex: none; font-size: 9.5px; font-weight: 700; color: #7f8da6; white-space: nowrap; padding-top: 2px; }
+</style>
 </head>
 <body>
 <!-- ICON SET v17 (shared sprite). Usage: <svg class="ic"><use href="#ic-name"/></svg>
@@ -5002,6 +5062,13 @@ html.mr-lock .mr-hist, html.mr-lock .mr-up { display: none !important; }   /* on
     <div class="final-five" id="finalFive" aria-hidden="true"><div class="ff-label">FINAL 5s</div><div class="ff-num" id="finalFiveNum">5</div></div>
 
     <div class="left-hud-stack">
+      <div class="hud-pill hud-mini" id="howItWorksBtn" role="button" tabindex="0" aria-label="How it works">
+        <svg class="ic"><use href="#ic-info"/></svg>
+        <span class="hud-pill-label">How it works</span>
+      </div>
+      <div class="hud-pill hud-mini hud-online" id="mrOnlineCard" role="status" aria-label="Players online">
+        <i></i><b id="mrOnlineN">0</b><span>Online</span>
+      </div>
       <div class="hud-pill" id="modeSelectHudBtn">
         <svg class="ic"><use href="#ic-car"/></svg>
         <span class="hud-pill-label">MODE / CAR</span>
@@ -5777,7 +5844,8 @@ html.mr-lock .mr-hist, html.mr-lock .mr-up { display: none !important; }   /* on
     <div class="notif-modal-card">
       <button class="modal-close" id="closeNotifModalBtn" aria-label="Close">✕</button>
       <div class="notif-modal-title">NOTIFICATIONS</div>
-      <div class="notif-modal-empty">
+      <div class="nt-list" id="ntList"></div>
+      <div class="notif-modal-empty" id="ntEmpty">
         <svg width="34" height="34" viewBox="0 0 24 24" fill="none"><path d="M12 3a6 6 0 0 0-6 6v3.600L4.300 16a1 1 0 0 0 .900 1.500h13.600a1 1 0 0 0 .900-1.500L18 12.600V9a6 6 0 0 0-6-6z" fill="#5b6b86"/><path d="M9.800 19.200a2.300 2.300 0 0 0 4.400 0z" fill="#5b6b86"/></svg>
         <span>No notifications</span>
       </div>
@@ -5893,6 +5961,13 @@ html.mr-lock .mr-hist, html.mr-lock .mr-up { display: none !important; }   /* on
       <div class="ui-pop-head"><div class="ui-pop-title">HISTORY</div><div class="ui-pop-sub">Your latest activity</div></div>
       <div class="hr-tabs" role="tablist"><button type="button" data-t="bets" class="on">BETS</button><button type="button" data-t="races">RACES</button><button type="button" data-t="tx">TRANSACTIONS</button></div>
       <div class="hr-list" id="hrHistList"></div>
+    </div>
+  </div>
+  <div class="ui-pop" id="hiwPop" role="dialog" aria-modal="true" aria-label="How it works">
+    <div class="ui-pop-card hiw-card">
+      <button class="ui-pop-close" id="hiwClose" type="button" aria-label="Close"></button>
+      <div class="ui-pop-head"><div class="ui-pop-title">HOW IT WORKS</div><div class="ui-pop-sub">Bet, race, get paid</div></div>
+      <div class="hiw-body" id="hiwBody"></div>
     </div>
   </div>
   <div class="hr-tip" id="hrAccelTip" aria-hidden="true"></div>
@@ -6148,7 +6223,7 @@ window.dispatchEvent(new Event('tr-three'));
   let _lastHapticMs = 0;
   // light tap feedback on every HUD / console control
   document.addEventListener('click', (e) => {
-    const t = e.target && e.target.closest ? e.target.closest('#closeNotifModalBtn, #notifModalBackdrop, .hud-pill, .icon-toggle-btn, .console-car-card, #centerStartCircle, .step-btn, .preset-pill, .console-mode-pill, .deposit-btn, .header-sfx-btn, .tr-chev, .nav-tab, #betAmountText, .hud-players-card') : null;
+    const t = e.target && e.target.closest ? e.target.closest('#closeNotifModalBtn, #notifModalBackdrop, #howItWorksBtn, .hud-pill, .icon-toggle-btn, .console-car-card, #centerStartCircle, .step-btn, .preset-pill, .console-mode-pill, .deposit-btn, .header-sfx-btn, .tr-chev, .nav-tab, #betAmountText, .hud-players-card') : null;
     if (!t) return;
     _lastHapticMs = 0; triggerHaptic(40);
     try { playTone(880, 1180, 0.04, 'sine', 0.07); } catch (err) {}
@@ -6193,11 +6268,13 @@ window.dispatchEvent(new Event('tr-three'));
   // v6.9: ONE vibration per deliberate action. src: 'press' = one finger-down on a control (never while it is held),
   // 'hit' = the player's own car crashed (max once per 0.7 s), 'go' = race start, 'result' = win / loss.
   // While a race is running anything else (gear changes, steering, other cars, boosts, horns, ticks) stays silent.
-  function triggerHaptic(pattern, src) {
+  let _lastHitW = 0;
+  function triggerHaptic(pattern, src, w) {
     if (window._trFastForwarding || !hapticEnabled || isBgNow()) return;
     if ((gameState === 'MATCHMAKING' || gameState === 'COUNTDOWN' || gameState === 'RACING') && src !== 'press' && src !== 'hit' && src !== 'go' && src !== 'result') return;
     const now = performance.now();
-    if (src === 'hit') { if (now - _lastHitMs < 700) return; _lastHitMs = now; }
+    // v7.0: a hit never repeats within 350 ms unless the new one is stronger (a crash right after a cone still gets through)
+    if (src === 'hit') { if (now - _lastHitMs < 350 && !((w || 0) > _lastHitW)) return; _lastHitMs = now; _lastHitW = w || 0; }
     else { if (now - _lastHapticMs < (src === 'press' ? 30 : 80)) return; _lastHapticMs = now; }
     try { if (window.MR && MR.buzz(pattern)) return; } catch (e) {} // NovaTrade: U.buzz (honours the app's haptic setting)
     if (navigator.vibrate) {
@@ -6213,28 +6290,51 @@ window.dispatchEvent(new Event('tr-three'));
   }
 
   function sfxSteer() { playTone(420, 240, 0.08, 'triangle', 0.11); }
-  // Layered impacts: body thump + crunching metal + scatter/tinkle, each a little apart like a real crash.
-  function sfxCrash(w, haptic) { // w: 0 (light) .. 1 (heavy)
-    playTone(150 - w * 60, 42 - w * 14, 0.2 + w * 0.3, 'sine', 0.3 + w * 0.08);            // low body thump
-    playNoiseImpact(0.12 + w * 0.2, 320 + (1 - w) * 260, 0.26 + w * 0.1);                    // dull panel hit
-    playTone(240 - w * 90, 60, 0.14 + w * 0.2, 'sawtooth', 0.12 + w * 0.08);                 // metal crunch
-    setTimeout(() => playNoiseImpact(0.1 + w * 0.12, 2600 - w * 700, 0.14 + w * 0.06), 28);  // bright scrape
-    setTimeout(() => playNoiseImpact(0.16 + w * 0.2, 5200, 0.07 + w * 0.05), 70 + w * 50);   // debris tinkle
-    if (w > 0.55) setTimeout(() => playTone(70, 30, 0.34, 'triangle', 0.2), 60);             // heavy after-shake
-    // vibrate only when it is the player's own car that crashed, and then once with a single short pulse
-    try { const me = cars.find(c => c.isPlayer); if (me && (me.hitSlowTimer > 0.25 || me.scrapeTimer > 0.25 || me.bumpCooldown > 0.25)) triggerHaptic(w > 0.5 ? 60 : 40, 'hit'); } catch (e) {}
+  // v7.0: every collision type has its own soft sound and its own short, light vibration (one pulse pattern per hit, never continuous).
+  // Vibration happens only when the player's own car is involved (and the haptic setting is on, see triggerHaptic).
+  const HIT_PATTERN = {
+    cone: [10],                         // tiny tap
+    land: [16, 30, 8],                  // jump landing: soft thump
+    barrel: [20, 24, 12],
+    barrier: [26, 40, 18, 40, 12],
+    bump: [14, 34, 14],                 // car-to-car rear bump
+    slam: [20, 30, 20, 30, 14],         // car-to-car side hit
+    scrape: [8, 20, 8, 20, 8],          // guard rail
+    crash: [60, 40, 45, 40, 90]         // heavy crash: the strongest one
+  };
+  const HIT_W = { cone: 1, scrape: 1, land: 2, bump: 3, barrel: 3, slam: 4, barrier: 4, crash: 6 };
+  window._trHitPatterns = HIT_PATTERN;
+  const meInvolved = () => { try { const me = cars.find(c => c.isPlayer); return !!(me && (me.hitSlowTimer > 0.25 || me.scrapeTimer > 0.25 || me.bumpCooldown > 0.25)); } catch (e) { return false; } };
+  function hitHaptic(kind, mine) {
+    if (!(mine === undefined ? meInvolved() : mine)) return;
+    triggerHaptic(HIT_PATTERN[kind], 'hit', HIT_W[kind] || 1);
+  }
+  function sfxCrash(w) { // heavy crash only (broken truck / wrong-way car): layered body thump + crunch + debris
+    playTone(150 - w * 60, 42 - w * 14, 0.2 + w * 0.3, 'sine', 0.3 + w * 0.08);
+    playNoiseImpact(0.12 + w * 0.2, 320 + (1 - w) * 260, 0.26 + w * 0.1);
+    playTone(240 - w * 90, 60, 0.14 + w * 0.2, 'sawtooth', 0.12 + w * 0.08);
+    setTimeout(() => playNoiseImpact(0.1 + w * 0.12, 2600 - w * 700, 0.14 + w * 0.06), 28);
+    setTimeout(() => playNoiseImpact(0.16 + w * 0.2, 5200, 0.07 + w * 0.05), 70 + w * 50);
+    if (w > 0.55) setTimeout(() => playTone(70, 30, 0.34, 'triangle', 0.2), 60);
   }
   function sfxBoost() {
     playTone(360, 1080, 0.28, 'sawtooth', 0.15); playTone(180, 620, 0.34, 'triangle', 0.12);
     playNoiseImpact(0.42, 1900, 0.12); setTimeout(() => playNoiseImpact(0.3, 4200, 0.07), 60);
   }
-  function sfxHitCone() { sfxCrash(0.1, [100, 30, 130]); }
-  function sfxHitBarrel() { sfxCrash(0.4, [140, 35, 175]); }
-  function sfxHitBarrier() { sfxCrash(0.7, [190, 45, 240, 40, 160]); }
-  function sfxHitHeavyVehicle() { sfxCrash(1, [250, 50, 300, 50, 210]); }
-  function sfxCarSlam() {
-    sfxCrash(0.55, [160, 35, 210]);
-    setTimeout(() => playTone(900, 520, 0.16, 'square', 0.035), 20); // tyre chirp
+  function sfxHitCone() { playTone(560, 320, 0.07, 'triangle', 0.1); playNoiseImpact(0.05, 2400, 0.07); hitHaptic('cone'); }            // soft "tok"
+  function sfxHitBarrel() { playTone(210, 95, 0.16, 'sine', 0.17); playNoiseImpact(0.1, 500, 0.1); hitHaptic('barrel'); }                  // hollow "dunk"
+  function sfxHitBarrier() {                                                                                                                // light metal "clank"
+    playTone(300, 170, 0.13, 'square', 0.045); playTone(620, 380, 0.11, 'triangle', 0.07);
+    setTimeout(() => playNoiseImpact(0.12, 1800, 0.09), 20); hitHaptic('barrier');
+  }
+  function sfxHitHeavyVehicle() { sfxCrash(1); hitHaptic('crash'); }
+  function sfxScrape(mine) { playNoiseImpact(0.16, 3200, 0.09); playTone(900, 600, 0.1, 'sawtooth', 0.03); hitHaptic('scrape', mine); }       // guard rail
+  function sfxLand(mine) { playTone(120, 52, 0.15, 'sine', 0.17); playNoiseImpact(0.07, 300, 0.08); hitHaptic('land', mine); }             // jump landing "whump"
+  function sfxCarSlam() {                                                                                                                  // car-to-car: low thud + a little tyre chirp
+    playTone(180, 70, 0.2, 'sine', 0.22); playNoiseImpact(0.14, 900, 0.14);
+    setTimeout(() => playTone(900, 520, 0.16, 'square', 0.03), 20);
+    const me = (() => { try { return cars.find(c => c.isPlayer); } catch (e) { return null; } })();
+    hitHaptic(me && me.hitSlowTimer > 0.25 ? 'slam' : 'bump');
   }
   function sfxCountdown(isGo) {
     if (isGo) { playTone(880, 1175, 0.32, 'triangle', 0.22); triggerHaptic(70, 'go'); }
@@ -6622,7 +6722,7 @@ window.dispatchEvent(new Event('tr-three'));
     car.speed = Math.max(105, car.speed * (wall ? 0.92 : 0.84)); car.boostTimer = 0; car.hitRoll = -side * 0.14;
     spawnShatterDebris(car.x + side * 0.1, car.z + 6, 'spark');
     if (!wall && typeof R3D_FX !== 'undefined' && R3D_FX.railHits.length < 6) R3D_FX.railHits.push({ side, z: car.z + (car._vz || 0) / 0.29 });
-    if (car.isPlayer || Math.abs(car.z - player0().z) < 25) { cameraShake = Math.max(cameraShake, 8); sfxHitCone(); }
+    if (car.isPlayer || Math.abs(car.z - player0().z) < 25) { cameraShake = Math.max(cameraShake, 8); sfxScrape(car.isPlayer); }
   }
   const player0 = () => cars.find(c => c.isPlayer) || cars[0]; // world-unit arc height; small speed kick on landing
   const WORLD_SPEED_SCALE = 0.375;
@@ -6863,6 +6963,7 @@ window.dispatchEvent(new Event('tr-three'));
 
   function resetToIdleState() {
     gameState = 'IDLE';
+    try { window.MR_duck && window.MR_duck(false); } catch (e) {}
     restoreLocalRaceSettings();
     updateFinalFive();
     cameraShake = 0;
@@ -7304,14 +7405,14 @@ window.dispatchEvent(new Event('tr-three'));
     if (gameState === 'IDLE') {
       showCrToast('Tap the middle green circle to start the race!');
     }
-    triggerHaptic(25, 'press');
+    triggerHaptic(18, 'press');
   });
   const stopAccel = () => { btnAccel.classList.remove('pressed'); keys.accel = false; };
   btnAccel.addEventListener('pointerup', stopAccel);
   btnAccel.addEventListener('pointerleave', stopAccel);
   btnAccel.addEventListener('pointercancel', stopAccel);
 
-  btnBrake.addEventListener('pointerdown', (e) => { e.preventDefault(); btnBrake.classList.add('pressed'); keys.brake = true; triggerHaptic(25, 'press'); });
+  btnBrake.addEventListener('pointerdown', (e) => { e.preventDefault(); btnBrake.classList.add('pressed'); keys.brake = true; triggerHaptic(18, 'press'); });
   const stopBrake = () => { btnBrake.classList.remove('pressed'); keys.brake = false; };
   btnBrake.addEventListener('pointerup', stopBrake);
   btnBrake.addEventListener('pointerleave', stopBrake);
@@ -7334,19 +7435,20 @@ window.dispatchEvent(new Event('tr-three'));
       if (y < a.top - pad || y > b.bottom + pad) return null;
       return y < mid ? 'accel' : 'brake';
     };
+    let padTap = false;   // true only while a fresh finger-down is being applied (sliding between pedals or holding never vibrates)
     const apply = () => {
       const on = new Set(fingers.values());
       const set = (z, el, fn) => { const v = on.has(z); if (el.classList.contains('pressed') !== v) { el.classList.toggle('pressed', v); fn(v); } };
-      set('left', btnLeft, (v) => { setSteer(-1, v); if (v) triggerHaptic(25, 'press'); });
-      set('right', btnRight, (v) => { setSteer(1, v); if (v) triggerHaptic(25, 'press'); });
-      set('accel', btnAccel, (v) => { keys.accel = v; if (v) { triggerHaptic(25, 'press'); if (gameState === 'IDLE') showCrToast('Tap the middle green circle to start the race!'); } });
-      set('brake', btnBrake, (v) => { keys.brake = v; if (v) triggerHaptic(25, 'press'); });
+      set('left', btnLeft, (v) => { setSteer(-1, v); });   // v7.0: steering never vibrates
+      set('right', btnRight, (v) => { setSteer(1, v); });
+      set('accel', btnAccel, (v) => { keys.accel = v; if (v) { if (padTap) triggerHaptic(18, 'press'); if (gameState === 'IDLE') showCrToast('Tap the middle green circle to start the race!'); } });   // one light tap on finger-down only
+      set('brake', btnBrake, (v) => { keys.brake = v; if (v && padTap) triggerHaptic(18, 'press'); });
     };
     const down = (e) => {
       const z = zoneAt(e.clientX, e.clientY, null); if (!z) return;
       e.preventDefault(); e.stopImmediatePropagation();
       fingers.set(e.pointerId, z); try { grid.setPointerCapture(e.pointerId); } catch (err) {}
-      apply();
+      padTap = true; apply(); padTap = false;
     };
     const move = (e) => { if (!fingers.has(e.pointerId)) return; const z = zoneAt(e.clientX, e.clientY, fingers.get(e.pointerId)); if (z && z !== fingers.get(e.pointerId)) { fingers.set(e.pointerId, z); apply(); } };
     const up = (e) => { if (fingers.delete(e.pointerId)) apply(); };
@@ -8447,6 +8549,84 @@ window.dispatchEvent(new Event('tr-three'));
   });
 
   // =========================================================================
+  // v7.0: "How it works" card + popup (steps, worked example, mini mock screens drawn as inline SVG)
+  // =========================================================================
+  (function hiw() {
+    const btn = document.getElementById('howItWorksBtn'), pop = document.getElementById('hiwPop'), body = document.getElementById('hiwBody');
+    if (!btn || !pop || !body) return;
+    const scr = (id, inner) => `<svg viewBox="0 0 120 150" role="img" aria-hidden="true"><defs>
+      <clipPath id="${id}c"><rect x="6" y="6" width="108" height="170" rx="13"/></clipPath>
+      <linearGradient id="${id}s" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3f95ff"/><stop offset="1" stop-color="#cfe9ff"/></linearGradient>
+      <linearGradient id="${id}f" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0b1220" stop-opacity="0"/><stop offset="1" stop-color="#0b1220" stop-opacity=".92"/></linearGradient>
+      <linearGradient id="${id}g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#34e07d"/><stop offset="1" stop-color="#119c4a"/></linearGradient></defs>
+      <rect x="2" y="2" width="116" height="180" rx="16" fill="#0b1220" stroke="#4a5b7a" stroke-width="2"/>
+      <g clip-path="url(#${id}c)">${inner}</g>
+      <rect x="44" y="9" width="32" height="5" rx="2.5" fill="#05080f"/>
+      <rect x="3" y="118" width="114" height="32" fill="url(#${id}f)"/></svg>`;
+    const car = (x, y, w, c, c2) => { const h = w * 1.45; return `<g transform="translate(${x - w / 2} ${y})"><rect width="${w}" height="${h}" rx="${w * 0.3}" fill="${c}"/><rect x="${w * 0.14}" y="${h * 0.18}" width="${w * 0.72}" height="${h * 0.26}" rx="${w * 0.1}" fill="#0b1424" opacity=".85"/><rect x="${w * 0.1}" y="${h * 0.8}" width="${w * 0.8}" height="${h * 0.1}" rx="1" fill="${c2}"/></g>`; };
+    const road = `<rect x="6" y="6" width="108" height="170" fill="#3f8f3a"/><rect x="6" y="6" width="108" height="56" fill="url(#IDs)"/><polygon points="47,62 73,62 112,176 8,176" fill="#3a4252"/><polygon points="45,62 47,62 8,176 4,176" fill="#e5e9f0"/><polygon points="73,62 75,62 116,176 112,176" fill="#e5e9f0"/><path d="M60 62V176" stroke="#f5f7fb" stroke-width="1.6" stroke-dasharray="6 7"/><path d="M53.5 62L34 176M66.5 62L86 176" stroke="#f5f7fb" stroke-width="1" stroke-dasharray="5 8" opacity=".7"/>`;
+    const txt = (x, y, t, sz, fill, wt, anchor) => `<text x="${x}" y="${y}" font-size="${sz}" fill="${fill}" font-weight="${wt || 800}" text-anchor="${anchor || 'middle'}" font-family="system-ui,Segoe UI,Arial,sans-serif" font-style="italic">${t}</text>`;
+    const bar = `<rect x="10" y="12" width="100" height="14" rx="7" fill="#0f1c33" stroke="#2d4670" stroke-width=".8"/>${txt(36, 22, 'BALANCE 1,000', 5.6, '#fff', 800)}<circle cx="102" cy="19" r="4.6" fill="#ffc83d"/>${txt(102, 21, 'D', 5.4, '#4a3200', 900)}`;
+    const SC = {
+      bet: () => scr('hb', road.replace('IDs', 'hbs') + bar +
+        `<circle cx="60" cy="72" r="19" fill="url(#hbg)" stroke="#fff" stroke-width="2"/>` + txt(60, 76, '10', 15, '#fff', 900) + txt(60, 84, 'SEC', 5, '#d8ffe8', 800) +
+        car(34, 112, 17, '#e53a45', '#7a1620') + car(60, 112, 17, '#2f7bff', '#123e9a') + car(86, 112, 17, '#f2b52a', '#8a5f08') +
+        `<rect x="10" y="142" width="100" height="34" rx="8" fill="#101a2e" stroke="#2d4670" stroke-width=".8"/>` + txt(36, 152, 'BET AMOUNT', 5.4, '#9fb1cf', 800) + txt(60, 164, '10 USDT', 10, '#ffd34d', 900)),
+      race: () => scr('hr', road.replace('IDs', 'hrs') + bar +
+        `<rect x="45" y="60" width="30" height="4" fill="#fff"/><path d="M45 60h5v2h-5zM55 60h5v2h-5zM65 60h5v2h-5z" fill="#111"/>` +
+        car(53, 70, 9, '#f2b52a', '#8a5f08') + car(71, 82, 12, '#e53a45', '#7a1620') +
+        `<g transform="translate(46 56)"><rect width="46" height="13" rx="6.5" fill="#fff"/><path d="M20 13l4 5 4-5z" fill="#fff"/></g>` + txt(69, 65.5, 'Catch me!', 5.8, '#05080f', 900) +
+        car(40, 100, 22, '#2f7bff', '#123e9a') +
+        `<rect x="29" y="92" width="22" height="9" rx="4.5" fill="url(#hrg)" stroke="#fff" stroke-width=".8"/>` + txt(40, 98.8, 'YOU', 5.6, '#fff', 900) +
+        `<rect x="10" y="30" width="30" height="12" rx="6" fill="url(#hrg)"/>` + txt(25, 38.6, '1ST', 7, '#fff', 900) + `<rect x="78" y="30" width="32" height="12" rx="6" fill="#0f1c33" stroke="#2d4670" stroke-width=".8"/>` + txt(94, 38.6, '00:42', 6.6, '#fff', 800) +
+        `<rect x="10" y="132" width="42" height="14" rx="7" fill="#0f1c33" stroke="#22e07a" stroke-width=".8"/>` + txt(31, 141.5, '187 KM/H', 6, '#22e07a', 900)),
+      win: () => scr('hw', `<rect x="6" y="6" width="108" height="170" fill="#0e1a33"/><circle cx="60" cy="52" r="46" fill="#17c964" opacity=".16"/>` +
+        [[18, 30, '#ffc83d'], [96, 26, '#2f7bff'], [28, 62, '#ff5c8a'], [90, 70, '#22e07a'], [48, 20, '#fff'], [74, 18, '#ffc83d'], [14, 84, '#2f7bff'], [104, 50, '#ff5c8a']].map(([x, y, c], i) => `<rect x="${x}" y="${y}" width="5" height="3" rx="1" fill="${c}" transform="rotate(${i * 37} ${x} ${y})"/>`).join('') +
+        `<path d="M44 32h32v20a16 16 0 0 1-32 0z" fill="#ffc83d" stroke="#b87400" stroke-width="1.4"/><path d="M44 36h-8v6a9 9 0 0 0 9 9M76 36h8v6a9 9 0 0 1-9 9" fill="none" stroke="#f2a81d" stroke-width="3" stroke-linecap="round"/><rect x="55" y="68" width="10" height="9" fill="#f2a81d"/><rect x="47" y="77" width="26" height="6" rx="2" fill="#ffc83d" stroke="#b87400" stroke-width="1"/>` +
+        txt(60, 100, 'YOU WON!', 11, '#fff', 900) + txt(60, 116, '+25 USDT', 13, '#ffd34d', 900) + txt(60, 126, 'Bet 10 x 2.5', 5.8, '#9fb1cf', 700) +
+        `<rect x="22" y="134" width="76" height="20" rx="8" fill="url(#hwg)"/>` + txt(60, 147.5, 'CLAIM', 9, '#fff', 900)),
+      lose: () => scr('hl', `<rect x="6" y="6" width="108" height="170" fill="#161225"/><circle cx="60" cy="52" r="46" fill="#ff5d6c" opacity=".12"/>` +
+        `<circle cx="60" cy="50" r="22" fill="#e23447" stroke="#ffb3ba" stroke-width="1.6"/><circle cx="52" cy="46" r="3" fill="#fff"/><circle cx="68" cy="46" r="3" fill="#fff"/><path d="M50 62c4-6 16-6 20 0" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/>` +
+        txt(60, 92, 'YOU LOST', 11, '#fff', 900) + txt(60, 108, '-10 USDT', 13, '#ff5d6c', 900) + txt(60, 120, '2nd place', 6.4, '#9fb1cf', 700) + txt(60, 128, 'Next race is yours', 5.6, '#9fb1cf', 700) +
+        `<rect x="22" y="134" width="76" height="20" rx="8" fill="#2f7bff"/>` + txt(60, 147.5, 'TRY AGAIN', 8.6, '#fff', 900))
+    };
+    const build = () => {
+      const o2 = vcOdds(2), o3 = vcOdds(3), pay = 10 * o3, prof = pay - 10;
+      body.innerHTML = `
+      <div class="hiw-shots">
+        <figure class="hiw-shot">${SC.bet()}<figcaption><b>1</b>Pick and bet</figcaption></figure>
+        <figure class="hiw-shot">${SC.race()}<figcaption><b>2</b>Race</figcaption></figure>
+        <figure class="hiw-shot">${SC.win()}<figcaption><b>3</b>Win</figcaption></figure>
+        <figure class="hiw-shot">${SC.lose()}<figcaption><b>4</b>Lose</figcaption></figure>
+      </div>
+      <div class="hiw-sec">Step by step</div>
+      <div class="ui-list">
+        <div class="ui-step" style="--c:#22E07A"><span class="ui-num">1</span><div><b>Pick a car and set your bet</b><p>Choose the Red, Blue or Gold Ferrari, set your bet in USDT, then tap the green circle.</p></div></div>
+        <div class="ui-step" style="--c:#38bdf8"><span class="ui-num">2</span><div><b>Wait for the start</b><p>Other players join within 10 seconds, bots fill empty seats. Then 3, 2, 1, GO!</p></div></div>
+        <div class="ui-step" style="--c:#FFC83D"><span class="ui-num">3</span><div><b>Race to the finish</b><p>The first car over the finish line wins. Obstacles slow cars down, boost pads speed them up. In Manual Drive you steer your own car.</p></div></div>
+        <div class="ui-step" style="--c:#a855f7"><span class="ui-num">4</span><div><b>Get paid</b><p>If your car wins, the payout is added to your Money Game wallet right away. If it does not, the bet is lost.</p></div></div>
+      </div>
+      <div class="hiw-sec">Worked example</div>
+      <div class="hiw-flow"><span class="hiw-chip">Bet 10 USDT on Blue</span><span class="hiw-arrow">&rarr;</span><span class="hiw-chip">3-car race</span><span class="hiw-arrow">&rarr;</span><span class="hiw-chip g">Win</span><span class="hiw-chip r">or Lose</span></div>
+      <div class="hiw-res">
+        <div class="w"><h4>If Blue finishes 1st</h4><p>Payout = <b>10 &times; ${vcFmt(o3)}</b></p><span class="big">+${vcFmt(prof)} USDT</span><p>You receive <b>${vcFmt(pay)} USDT</b> (your 10 back plus ${vcFmt(prof)} profit).</p></div>
+        <div class="l"><h4>If Blue finishes 2nd or 3rd</h4><p>The bet is not returned.</p><span class="big">-10 USDT</span><p>You lose the <b>10 USDT</b> you bet.</p></div>
+      </div>
+      <p class="hiw-note">A 2-car race pays ${vcFmt(o2)}x, a 3-car race pays ${vcFmt(o3)}x. Tap TRANSFER to add funds to Money Game.</p>
+      <button class="hiw-go" id="hiwGo" type="button">GOT IT</button>`;
+      const go = body.querySelector('#hiwGo'); if (go) go.addEventListener('click', close);
+    };
+    const open = () => { if (!body.firstChild) build(); body.scrollTop = 0; window.uiPop.open(pop); };
+    const close = () => window.uiPop.close(pop);
+    btn.addEventListener('click', open);
+    btn.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
+    document.getElementById('hiwClose').addEventListener('click', close);
+    pop.addEventListener('click', (e) => { if (e.target === pop) close(); });
+    window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && pop.classList.contains('open')) close(); });
+    window.MR_openHow = open;
+  })();
+
+  // =========================================================================
   // 5. DETAILED RACE RESULT MODAL (NO LOSS CASHBACK! WINNER CAR IMAGE,
   //    EXACT TIME GAP MISSED BY, FULL RANKINGS & WIN/LOSS SUMMARY)
   // =========================================================================
@@ -8728,6 +8908,7 @@ window.dispatchEvent(new Event('tr-three'));
           car.jumpTimer = 0; car.jumpY = 0; car.landTimer = 0.9;
           car.speed = Math.min(BOOST_TOP_SPEED, car.speed + JUMP_LAND_BOOST);
           spawnTireSmoke(car.x, car.z);
+          if (car.isPlayer) sfxLand(true);
         } else {
           const a = 1 - car.jumpTimer / JUMP_DUR;
           car.jumpDur = JUMP_DUR;
@@ -11634,7 +11815,7 @@ window.dispatchEvent(new Event('tr-three'));
     for (const f of oncRig.flames) f.visible = false;
 
     // ---------- taunt bubbles: situation-based car chat, one bubble at a time (reads the simulation, never writes to it) ----------
-    const BUB_LIFE = 2, BUB_IN = 0.2, BUB_OUT = 0.6, BUB_MAX = 0.75, BUB_MAXCAR = 7;
+    const BUB_LIFE = 3, BUB_IN = 0.2, BUB_OUT = 0.6, BUB_MAX = 1, BUB_MAXCAR = 7, BUB_MAXME = 4; // v7.0: bubbles stay 1 s longer, fully opaque at their peak
     // every line from the design list, tagged by situation: win (leading / boasting), lose (behind / self-deprecating), hit (crash / attack / mistake), close (near miss / close finish / comeback), neutral
     const CHAT_SRC = "Hehe, I'm winning 😁 | I am the king | Catch me if you can 😂 | Not bad at all | Easy win bro 🏆 | That was close | Nobody can stop me 😎 | I'm just warming up | Boom! Got you 💥 | Nice try buddy | I'm on fire 🔥 | What a lucky shot | Too easy bro 😂 | That was unexpected | Victory is mine 👑 | I need more practice | Let's gooo 🚀 | This game is amazing | Haha, skill issue 🤣 | I almost had it | I'm unstoppable 😎 | Don't underestimate me | What a comeback 🔥 | I was so close | Bro, I'm too good 😂 | That was pure luck | One more win 🏆 | Okay, you got me | King of this game 👑 | I need a rematch | Watch me win 😏 | That was embarrassing | Mission accomplished ✅ | I got absolutely destroyed | What a champion 🥇 | I'm getting better | Haha, nice one 😂 | My luck is gone | Too strong today 💪 | I messed that up | Let's play again 🎮 | I need some luck | This is my moment ✨ | I wasn't ready | What a beast 🔥 | I got completely stuck | Winning feels amazing 😁 | Losing builds character | Bro, watch out 😂 | I'm coming for you | Haha, easy money 💰 | That was a disaster | Unbelievable comeback 🤯 | I can't believe it | I'm built different 😎 | My game is over | Let's get this win 🚀 | I made a mistake | Nobody saw that coming 😱 | I knew it already | Too lucky today 🍀 | My luck ran out | That's how it's done 👑 | Teach me your skills | I'm feeling unstoppable 🔥 | I need a break | GG, well played 🤝 | Not my best game | Boom, another victory 💥 | I got nothing left | This is too funny 😂 | Why does this happen | I'm the final boss 👹 | That was a tough one | Let's go, baby 🏆 | I'm out of luck | Gotcha, my friend 😜 | You almost got me | I'm winning today 😁 | I deserve that loss | What a crazy game 🤯 | This game hates me | My strategy worked 🧠 | I need a new plan | Haha, I'm rich now 💸 | There goes my money | Best game ever ❤️ | That was frustrating | I came to win 🏆 | I came to suffer | Feeling lucky today 🍀 | Luck is not on my side | I'm a legend 😎 | I need some training | That was beautiful ✨ | What did I just do | Nobody beats me 😂 | I got beaten badly | One step closer 🚀 | Back to the beginning | I'm flying today 🕊️ | That was a bad move | Hahaha, unbelievable 🤣 | I can't win today | I got the jackpot 💰 | Maybe next time | This is too easy 😏 | Don't celebrate yet | What a perfect round 🎯 | I missed everything | I'm feeling powerful 💪 | That was painful | Straight to the top 🥇 | Straight to the bottom | My best move ever 🧠 | My worst move ever | Haha, I'm laughing 😂 | I'm crying inside | The king returns 👑 | The king needs help | What a lucky day 🌟 | What an unlucky day | I am the winner 🏆 | I was the loser | Don't blink now 😉 | I blinked and lost | This is pure madness 🤪 | I have no words | I'm coming back 🔥 | I'm going offline | That was a masterstroke 🎯 | I made a silly mistake | You're too good bro 😅 | I need your luck | Let's make history 🚀 | I just made history | My fingers are too fast ⚡ | My brain is too slow | I'm enjoying this 😁 | I'm questioning my choices | What a stunning win 🤩 | What a shocking loss | I did it again 🥳 | I failed again | Bro, spare me 😂 | Please stop attacking me | I'm the lucky one 🍀 | I'm the unlucky one | Absolute cinema 🎬 | What a ridiculous match | Don't test my skills 😎 | I'm still learning | I feel like a pro 🎮 | I feel like a beginner | That was insane 🤯 | I need more time | Winning streak activated 🔥 | Losing streak activated | Haha, I'm too smooth 😏 | I slipped again | My heart is racing ❤️ | My patience is gone | That was legendary 👑 | That was terrible | I came, I played, I won 🏆 | I came, I lost | Nobody expects this 😂 | I expected better | This is my playground 🎮 | I'm completely lost | I'm taking the crown 👑 | Keep the crown for now | What a fantastic round ✨ | I need another chance | I'm a lucky machine 🍀 | My luck needs repair | Let's get serious 😎 | I was never serious | Another one bites the dust 💀 | Another one got away | I'm in beast mode 🐺 | I'm in panic mode";
     const CHAT_HIT = /Boom|Gotcha|watch out|destroyed|stuck|messed|mistake|disaster|slipped|bad move|dust|embarrassing|painful|frustrating|attacking|worst move|silly|What did I just do|Why does this happen/i;
@@ -11655,22 +11836,31 @@ window.dispatchEvent(new Event('tr-three'));
       lose2: ['Unlucky, bro 😅', 'Nice try though', 'Next time maybe 🙏', 'Respect, well driven 🤝', 'Tough luck, friend 🫶']
     };
     for (const k in CHAT_NEW) for (const t of CHAT_NEW[k]) { if (/\d/.test(t)) { console.warn('[race3d] chat line has a digit, skipped: ' + t); continue; } CHAT[k === 'lose2' ? 'lose' : k].push(t); }
-    const chatShuffle = () => { for (const k in CHAT) { const a = CHAT[k]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); const t = a[i]; a[i] = a[j]; a[j] = t; } } };
+    // v7.0: short reactions for the player's own car (win, lose, crash, overtake, being overtaken), no digits
+    const CHAT_ME = {
+      win: ['Yesss, I won! 🏆', 'Champion! 🥇', 'Easy money 💰', 'That is how it is done 😎', 'Victory is mine 👑'],
+      lose: ['So close... 😭', 'Next race is mine', 'Unlucky 😩', 'I will be back 🔥', 'Well played 🤝'],
+      hit: ['Ouch! 😵', 'Who put that there?!', 'My car! 😭', 'Crash! 💥', 'That hurt 😬', 'Not again! 😤'],
+      over: ['Overtake! 😎', 'See you later 👋', 'Passing by 🚀', 'Too slow, bro 😏', 'Gotcha! 🏎️'],
+      passed: ['Hey, wait! 😤', 'Not so fast! 👀', 'I will catch you!', 'Here we go again 😬', 'No way! 😱']
+    };
+    const chatShuffle = () => { for (const k in CHAT) { const a = CHAT[k]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); const t = a[i]; a[i] = a[j]; a[j] = t; } } for (const k in CHAT_ME) { const a = CHAT_ME[k]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); const t = a[i]; a[i] = a[j]; a[j] = t; } } };
     chatShuffle();
     const bubMat = new T.SpriteMaterial({ transparent: true, depthTest: false, depthWrite: false, fog: false, opacity: 0 });
     const bubSprite = new T.Sprite(bubMat); bubSprite.center.set(0.5, 0); bubSprite.renderOrder = 21; bubSprite.visible = false; scene.add(bubSprite);
     const bubCache = new Map(), bubV = new T.Vector3();
-    const bubbleTex = (text) => {
-      let e = bubCache.get(text); if (e) return e;
-      const font = '800 34px system-ui, "Segoe UI", "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", Arial, sans-serif';
+    const bubbleTex = (text, me) => {
+      const ck = (me ? 'me|' : '') + text;
+      let e = bubCache.get(ck); if (e) return e;
+      const font = '900 38px system-ui, "Segoe UI", "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", Arial, sans-serif';
       const m = makeCanvas(8, 8).getContext('2d'); m.font = font;
       const tw = Math.ceil(m.measureText(text).width), W = tw + 44, H = 78, c = makeCanvas(W, H), g = c.getContext('2d');
-      g.fillStyle = 'rgba(255,255,255,0.97)'; g.strokeStyle = 'rgba(15,23,42,0.18)'; g.lineWidth = 3;
+      g.fillStyle = '#ffffff'; g.strokeStyle = me ? 'rgba(22,163,74,0.95)' : 'rgba(15,23,42,0.55)'; g.lineWidth = 4;
       rr(g, 3, 3, W - 6, 58, 22); g.fill(); g.stroke();
       g.beginPath(); g.moveTo(W / 2 - 10, 60); g.lineTo(W / 2 + 10, 60); g.lineTo(W / 2, 76); g.closePath(); g.fill();
       g.fillStyle = '#ffffff'; g.fillRect(W / 2 - 9, 57, 18, 5);
-      g.fillStyle = '#161b26'; g.font = font; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, W / 2, 33);
-      e = { tex: canvasTex(c), aspect: W / H }; bubCache.set(text, e);
+      g.fillStyle = '#05080f'; g.font = font; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(text, W / 2, 33);
+      e = { tex: canvasTex(c), aspect: W / H }; bubCache.set(ck, e);
       return e;
     };
     const bub = { on: false, t: 0, car: -1, e: null, last: 0, start: -99, nextAt: 0, ev: null, fin: 0, finWin: false, finLose: false, used: new Set(), count: [0, 0, 0, 0, 0, 0, 0, 0], init: false, manual: false, say: -99 };
@@ -11678,12 +11868,13 @@ window.dispatchEvent(new Event('tr-three'));
     window._trBubble = ''; window._trBubbleLog = [];
     const bubReset = () => { bub.used.clear(); bub.count.fill(0); bub.ev = null; bub.fin = 0; bub.finWin = bub.finLose = false; bub.init = false; bub.start = -99; bub.nextAt = performance.now() / 1000 + 4 + Math.random() * 3; window._trBubbleLog = []; chatShuffle(); };
     const bubOff = () => { if (bub.on) { bub.on = false; bubSprite.visible = false; window._trBubble = ''; } };
-    const bubPick = (tag) => {
+    const bubPick = (tag, me) => {
+      if (me) { const a = CHAT_ME[tag] || CHAT_ME.hit, t = a.find((s) => !bub.used.has(s)) || a[Math.floor(Math.random() * a.length)]; return t ? { tag, text: t } : null; }
       for (const k of [tag, 'neutral', tag === 'win' ? 'lose' : 'win']) { const t = CHAT[k].find((s) => !bub.used.has(s)); if (t) return { tag: k, text: t }; }
       return null;
     };
     const bubShow = (i, text, tag, manual) => {
-      bub.on = true; bub.t = 0; bub.car = i; bub.manual = !!manual; bub.e = bubbleTex(text); bubMat.map = bub.e.tex; bubMat.needsUpdate = true;
+      bub.on = true; bub.t = 0; bub.car = i; bub.manual = !!manual; bub.e = bubbleTex(text, !!(cars[i] && cars[i].isPlayer)); bubMat.map = bub.e.tex; bubMat.needsUpdate = true;
       bubSprite.visible = true; window._trBubble = text; bub.start = performance.now() / 1000;
       if (!manual) { bub.used.add(text); bub.count[i]++; }
       window._trBubbleLog.push({ car: i, tag: manual ? 'manual' : tag, text });
@@ -11700,11 +11891,11 @@ window.dispatchEvent(new Event('tr-three'));
     };
     const bubEligible = (i, camZ) => {
       const car = cars[i], rig = rigs[i];
-      if (!car || !rig || car.isPlayer || bub.count[i] >= BUB_MAXCAR || !rig.group.visible || !rig.tag.visible) return false;
+      if (!car || !rig || bub.count[i] >= (car.isPlayer ? BUB_MAXME : BUB_MAXCAR) || !rig.group.visible || !rig.tag.visible) return false;
       const ahead = camZ - rig.group.position.z; // metres in front of the camera
       if (!(ahead > (car.isPlayer ? 1 : 4) && ahead < 90)) return false;
       bubV.copy(rig.tag.position).project(camera); // keep clear of the HUD (top) and the screen edges
-      if (car.isPlayer) return bubV.z < 1 && Math.abs(bubV.x) < 0.8 && bubV.y < 0.4 && bubV.y > -0.7;
+      if (car.isPlayer) return bubV.z < 1 && Math.abs(bubV.x) < 0.9 && bubV.y < 0.4 && bubV.y > -0.92;
       return bubV.z < 1 && Math.abs(bubV.x) < 0.8 && bubV.y < 0.4 && bubV.y > -0.55;
     };
     const updateBubbles = (frameDt, racing, fppOn, player, camZ) => {
@@ -11713,11 +11904,11 @@ window.dispatchEvent(new Event('tr-three'));
       if (!racing && !fin) { bubOff(); if (gameState !== 'IDLE') bubReset(); else bub.init = false; return; }
       const n = Math.min(cars.length, rigs.length, 8);
       if (racing) { // events: a bot hit something, or somebody overtook somebody
-        for (let i = 0; i < n; i++) { const c = cars[i], hit = c.hitSlowTimer > 0; if (bub.init && hit && !bPrevHit[i]) bub.ev = { car: i, tag: 'hit', at: nowS }; bPrevHit[i] = hit; }
+        for (let i = 0; i < n; i++) { const c = cars[i], hit = c.hitSlowTimer > 0; if (bub.init && hit && !bPrevHit[i] && (!c.isPlayer || Math.random() < 0.7)) bub.ev = { car: i, tag: 'hit', at: nowS }; bPrevHit[i] = hit; }
         for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
           if (i === j) continue;
           const d = cars[i].z - cars[j].z, k = i * 8 + j;
-          if (d > 1.5) { if (bPair[k] === -1 && bub.init && (!bub.ev || bub.ev.tag !== 'hit')) { const pl = cars.findIndex((c) => c.isPlayer), me = Math.random() < 0.4; if (!cars[i].isPlayer) bub.ev = me && cars[j].isPlayer ? { car: j, tag: 'lose', at: nowS } : { car: i, tag: 'win', at: nowS }; else if (!cars[j].isPlayer) bub.ev = me && pl >= 0 ? { car: pl, tag: 'win', at: nowS } : { car: j, tag: 'lose', at: nowS }; } bPair[k] = 1; }
+          if (d > 1.5) { if (bPair[k] === -1 && bub.init && (!bub.ev || bub.ev.tag !== 'hit')) { const pl = cars.findIndex((c) => c.isPlayer), me = Math.random() < (cars[i].isPlayer || cars[j].isPlayer ? 0.65 : 0.4); if (!cars[i].isPlayer) bub.ev = me && cars[j].isPlayer ? { car: j, tag: 'passed', at: nowS } : { car: i, tag: 'win', at: nowS }; else if (!cars[j].isPlayer) bub.ev = me && pl >= 0 ? { car: pl, tag: 'over', at: nowS } : { car: j, tag: 'lose', at: nowS }; } bPair[k] = 1; }
           else if (d < -1.5) bPair[k] = -1;
         }
         bub.init = true;
@@ -11728,13 +11919,13 @@ window.dispatchEvent(new Event('tr-three'));
         if (fin) { // after the finish: one winner line and one loser line
           if (!bub.fin) bub.fin = nowS;
           const order = cars.map((c, i) => i).sort((a, b) => cars[b].z - cars[a].z), w = order[0];
-          if (!bub.finWin && nowS - bub.fin > 0.6 && nowS - bub.start > 1.2) { bub.finWin = true; if (!cars[w].isPlayer && bub.count[w] < BUB_MAXCAR) { car = w; tag = 'win'; } }
-          else if (!bub.finLose && bub.finWin && nowS - bub.fin > 3 && nowS - bub.start > 1.2) { bub.finLose = true; const l = order.slice(1).filter((i) => !cars[i].isPlayer && bub.count[i] < BUB_MAXCAR); if (l.length) { car = l[Math.floor(Math.random() * l.length)]; tag = 'lose'; } }
-        } else if (nowS - bub.start >= 3.5) {
-          if (bub.ev && nowS - bub.ev.at < 1.5) { if (bubEligible(bub.ev.car, camZ)) { car = bub.ev.car; tag = bub.ev.tag; } bub.ev = null; }
+          if (!bub.finWin && nowS - bub.fin > 0.6 && nowS - bub.start > 1.2) { bub.finWin = true; if (bub.count[w] < (cars[w].isPlayer ? BUB_MAXME : BUB_MAXCAR)) { car = w; tag = 'win'; } }
+          else if (!bub.finLose && bub.finWin && nowS - bub.fin > 3 && nowS - bub.start > 1.2) { bub.finLose = true; const l = order.slice(1).filter((i) => bub.count[i] < (cars[i].isPlayer ? BUB_MAXME : BUB_MAXCAR)), pli = l.findIndex((i) => cars[i].isPlayer); if (l.length) { car = pli >= 0 && Math.random() < 0.7 ? l[pli] : l[Math.floor(Math.random() * l.length)]; tag = 'lose'; } }
+        } else if (nowS - bub.start >= 3.4) {
+          if (bub.ev && nowS - bub.ev.at < 3.2) { if (bubEligible(bub.ev.car, camZ)) { car = bub.ev.car; tag = bub.ev.tag; } bub.ev = null; }
           else if (nowS >= bub.nextAt) {
             const order = cars.map((c, i) => i).sort((a, b) => cars[b].z - cars[a].z), lead = cars[order[0]].z;
-            const cand = []; for (let i = 0; i < n; i++) if (bubEligible(i, camZ)) cand.push(i);
+            const cand = []; for (let i = 0; i < n; i++) if (!cars[i].isPlayer && bubEligible(i, camZ)) cand.push(i);
             if (cand.length) {
               car = cand[Math.floor(Math.random() * cand.length)];
               const rank = order.indexOf(car), gap = order.length > 1 ? lead - cars[order[1]].z : 99;
@@ -11743,14 +11934,14 @@ window.dispatchEvent(new Event('tr-three'));
             } else bub.nextAt = nowS + 1;
           }
         }
-        if (car >= 0) { const pk = bubPick(tag); if (pk) { bubShow(car, pk.text, pk.tag, false); bub.nextAt = nowS + 5 + Math.random() * 3; } }
+        if (car >= 0) { const pk = bubPick(tag, !!cars[car].isPlayer); if (pk) { bubShow(car, pk.text, pk.tag, false); bub.nextAt = nowS + 5 + Math.random() * 3; } }
       }
       if (bub.on) {
         const rig = rigs[bub.car], ts = rig.ts || 1.3;
         if (!rig.tag.visible) { bubSprite.visible = false; return; }
-        if (!bub.manual) { bubV.copy(rig.tag.position).project(camera); if (bubV.z >= 1 || Math.abs(bubV.x) > 0.9 || bubV.y > 0.45 || bubV.y < -0.7) { bubSprite.visible = false; return; } }
+        if (!bub.manual) { bubV.copy(rig.tag.position).project(camera); if (bubV.z >= 1 || Math.abs(bubV.x) > 0.95 || bubV.y > 0.45 || bubV.y < (cars[bub.car] && cars[bub.car].isPlayer ? -0.95 : -0.7)) { bubSprite.visible = false; return; } }
         bubSprite.visible = true;
-        let h = ts * 0.5, w = h * bub.e.aspect; if (w > ts * 2.8) { w = ts * 2.8; h = w / bub.e.aspect; }
+        let h = ts * 0.58, w = h * bub.e.aspect; if (w > ts * 2.8) { w = ts * 2.8; h = w / bub.e.aspect; }
         bubSprite.scale.set(w, h, 1);
         bubSprite.position.set(rig.tag.position.x, rig.tag.position.y + ts / 3 + ts * 0.04, rig.tag.position.z);
         bubMat.opacity = Math.max(0, BUB_MAX * Math.min(1, bub.t / BUB_IN, (BUB_LIFE - bub.t) / BUB_OUT));
@@ -13254,12 +13445,24 @@ window.dispatchEvent(new Event('tr-three'));
   let musicOn = true, sfxOn = true;
   try { musicOn = localStorage.getItem('tr_music') !== '0'; sfxOn = localStorage.getItem('tr_sfx') !== '0'; } catch (e) {}
   let bgAudio = null;
+  // v7.0: while a race runs the music drops to 20 % of its normal level (a soft 0.5 s ramp); it comes back after the race
+  let musicDuck = 1, _duckTo = 1, _duckTimer = 0;
+  window.MR_duck = function (on) {
+    _duckTo = on ? 0.2 : 1;
+    clearInterval(_duckTimer);
+    _duckTimer = setInterval(() => {
+      musicDuck += (_duckTo - musicDuck) * 0.3;
+      if (Math.abs(_duckTo - musicDuck) < 0.01) { musicDuck = _duckTo; clearInterval(_duckTimer); }
+      try { if (bgAudio) bgAudio.volume = Math.max(0, Math.min(1, 0.45 * musicVol * musicDuck)); } catch (e) {}
+    }, 50);
+  };
+  window.MR_musicInfo = () => ({ duck: musicDuck, target: _duckTo, vol: bgAudio ? bgAudio.volume : null, base: 0.45 * musicVol });
   function getBgAudio() {
     if (!bgAudio) {
       bgAudio = new Audio('bgm.mp3');
       bgAudio.loop = true;
       bgAudio.preload = 'auto';
-      bgAudio.volume = 0.45 * musicVol;
+      bgAudio.volume = 0.45 * musicVol * musicDuck;
       try { bgAudio.preservesPitch = true; bgAudio.playbackRate = _bgmRate; } catch (e) {}
     }
     return bgAudio;
@@ -13348,7 +13551,7 @@ window.dispatchEvent(new Event('tr-three'));
     const lsSet = (k, v) => { try { localStorage.setItem(k, String(v)); } catch (e) {} };
     mus.addEventListener('input', () => {
       musicVol = mus.value / 100; lsSet('tr_vol_music', musicVol);
-      try { if (bgAudio) bgAudio.volume = 0.45 * musicVol; } catch (e) {}
+      try { if (bgAudio) bgAudio.volume = 0.45 * musicVol * musicDuck; } catch (e) {}
       if (musicVol <= 0) stopMusic(); else if (musicOn) startMusic();
       sync();
     });
@@ -13386,17 +13589,96 @@ window.dispatchEvent(new Event('tr-three'));
       return Math.round(Math.max(50, Math.min(979, 55 + c * 800 + smooth(2, 1, 600000, t, 30 + c * 85) + smooth(7, 3, 60000, t, 5))));
     };
     window.MR_onlineAt = onlineAt;
-    const pill = document.getElementById('modeSelectHudBtn');
-    if (pill) {
-      const b = document.createElement('span'); b.className = 'g69-online'; b.setAttribute('aria-label', 'Players online');
-      b.innerHTML = '<i></i><b></b>'; pill.appendChild(b);
-      const nEl = b.querySelector('b');
+    {
+      const nEl = document.getElementById('mrOnlineN');   // v7.0: its own card above MODE / CAR
+      if (nEl) {
       const tick = () => { if (document.hidden) return; const v = String(onlineAt(Math.floor(Date.now() / 5000) * 5000)); if (nEl.textContent !== v) nEl.textContent = v; };
       tick(); setInterval(tick, 5000);
       document.addEventListener('visibilitychange', tick);
+      }
     }
   })();
   
+
+  // ---- v7.0: while a popup is open the page behind it does not scroll; only the popup's own content does ----
+  (function popScrollLock() {
+    const root = document.documentElement;
+    const sel = '.modal-backdrop.open, .ui-pop.open, .g69-set:not([hidden])';
+    let last = null;
+    const check = () => {
+      const on = !!document.querySelector(sel);
+      if (on === last) return; last = on;
+      root.classList.toggle('mr-pop', on);
+      try { if (window.MR && MR.host && MR.host.popLock) MR.host.popLock(on); } catch (e) {}   // the app page around the game frame stays still too
+    };
+    let queued = false;
+    const mo = new MutationObserver((ms) => {
+      if (queued) return;
+      for (const m of ms) { const t = m.target; if (t && t.matches && (t.matches('.modal-backdrop, .ui-pop, .g69-set'))) { queued = true; Promise.resolve().then(() => { queued = false; check(); }); break; } }
+    });
+    mo.observe(document.body, { attributes: true, attributeFilter: ['class', 'hidden'], subtree: true });
+    window.MR_popCheck = check;
+    // touch / wheel: block anything that is not scrolling the popup's own content (and stop it chaining out at the ends)
+    const scroller = (el) => {
+      for (; el && el !== document.body; el = el.parentElement) {
+        if (el.scrollHeight > el.clientHeight + 1) { const o = getComputedStyle(el).overflowY; if (o === 'auto' || o === 'scroll') return el; }
+        if (el.matches && el.matches('.modal-backdrop, .ui-pop, .g69-set')) break;
+      }
+      return null;
+    };
+    let ty = 0;
+    document.addEventListener('touchstart', (e) => { if (e.touches[0]) ty = e.touches[0].clientY; }, { passive: true, capture: true });
+    document.addEventListener('touchmove', (e) => {
+      if (!root.classList.contains('mr-pop')) return;
+      const sc = scroller(e.target), dy = (e.touches[0] ? e.touches[0].clientY : ty) - ty;
+      if (!sc) { if (e.cancelable) e.preventDefault(); return; }
+      const top = sc.scrollTop <= 0, bot = sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 1;
+      if ((top && dy > 0) || (bot && dy < 0)) { if (e.cancelable) e.preventDefault(); }
+    }, { passive: false, capture: true });
+    document.addEventListener('wheel', (e) => {
+      if (!root.classList.contains('mr-pop')) return;
+      const sc = scroller(e.target);
+      if (!sc) { e.preventDefault(); return; }
+      const top = sc.scrollTop <= 0, bot = sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 1;
+      if ((top && e.deltaY < 0) || (bot && e.deltaY > 0)) e.preventDefault();
+    }, { passive: false, capture: true });
+    check();
+  })();
+
+  // ---- v7.0: the game's notification popup also lists the app's notifications (trade win / loss, transfers, Money Game, ...) ----
+  (function appNotifs() {
+    const card = document.querySelector('#notifModalBackdrop .notif-modal-card'), list = document.getElementById('ntList'), btn = document.getElementById('headerNotifBtn');
+    if (!card || !list) return;
+    let items = [], unread = 0;
+    const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const rel = (t) => { const d = Date.now() - t; if (d < 60e3) return 'Just now'; if (d < 3600e3) return Math.floor(d / 60e3) + 'm ago'; if (d < 86400e3) return Math.floor(d / 3600e3) + 'h ago'; return new Date(t).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); };
+    const ICON = {
+      ok: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.500"/></svg>',
+      bad: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+      info: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 11v6"/><circle cx="12" cy="7.200" r="1.100" fill="currentColor"/></svg>',
+      swap: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h14l-3-3M20 16H6l3 3"/></svg>'
+    };
+    const render = () => {
+      const rows = items.slice(0, 40);
+      card.classList.toggle('has-items', rows.length > 0);
+      list.innerHTML = rows.map((n) => {
+        const k = n.kind === 'ok' || n.kind === 'bad' ? n.kind : 'info', ic = n.cat === 'transfer' ? ICON.swap : ICON[k];
+        return `<div class="nt-row${n.fresh ? ' unread' : ''}"><span class="nt-ic ${k}">${ic}</span><div class="nt-bd"><div class="nt-t">${esc(n.title)}</div>${n.body ? `<div class="nt-s">${esc(n.body)}</div>` : ''}</div><div class="nt-tm">${esc(rel(n.t))}</div></div>`;
+      }).join('');
+      if (btn) btn.classList.toggle('nt-quiet', MR.embedded && unread <= 0);
+    };
+    const take = (d) => { if (!d) return; items = Array.isArray(d.list) ? d.list : []; unread = +d.unread || 0; render(); };
+    const pull = () => { try { if (MR.host && MR.host.notifs) take(MR.host.notifs()); } catch (e) {} };
+    window.addEventListener('message', (e) => {
+      if (e.origin !== location.origin || !e.data || e.data.type !== 'nt-notifs') return;   // from js/racer.js in the app page
+      take(e.data);
+    });
+    if (btn) btn.addEventListener('click', () => { pull(); setTimeout(() => { try { if (MR.host && MR.host.notifsRead) MR.host.notifsRead(); } catch (e) {} }, 600); });
+    try { window.parent !== window && window.parent.postMessage({ type: 'nt-notifs-req' }, location.origin); } catch (e) {}
+    pull();
+    window.MR_notifsRender = render;
+  })();
+
   // ---- Safe area / TG viewport ----
   function applySafe() {
     const sa = (TG && (TG.safeAreaInset || TG.contentSafeAreaInset)) || {};

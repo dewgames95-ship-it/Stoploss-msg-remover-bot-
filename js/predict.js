@@ -477,13 +477,57 @@ function loadRound(a, iv){
 const roundEnded = ev => { const r = roundOf(ev); return !!r && now() >= r.t1 * 1000; };
 /* round start price: Binance 1-minute candle open at the round start (reference for the chart line) */
 const SP = {};
-async function startPrice(r){
-  const k = r.sym + r.t0; if (SP[k] != null) return SP[k];
+async function priceAt(sym, t){
+  const k = sym + t; if (SP[k] != null) return SP[k];
   const hosts = (window.CONFIG && CONFIG.BINANCE_REST) || ["https://data-api.binance.vision"];
   for (const h of hosts){
-    try { const d = await getJ(`${h}/api/v3/klines?symbol=${r.sym}&interval=1m&startTime=${r.t0 * 1000}&limit=1`, {}, 6000); if (d && d[0] && +d[0][1] > 0 && Math.abs(d[0][0] - r.t0 * 1000) < 120e3){ SP[k] = +d[0][1]; return SP[k]; } } catch {}
+    try { const d = await getJ(`${h}/api/v3/klines?symbol=${sym}&interval=1m&startTime=${t * 1000}&limit=1`, {}, 6000); if (d && d[0] && +d[0][1] > 0 && Math.abs(d[0][0] - t * 1000) < 120e3){ SP[k] = +d[0][1]; return SP[k]; } } catch {}
   }
   return null;
+}
+const startPrice = r => priceAt(r.sym, r.t0);
+/* 1-minute closes between the round start and end (for the result chart of a finished round) */
+async function roundCloses(r){
+  const hosts = (window.CONFIG && CONFIG.BINANCE_REST) || ["https://data-api.binance.vision"];
+  for (const h of hosts){
+    try { const d = await getJ(`${h}/api/v3/klines?symbol=${r.sym}&interval=1m&startTime=${r.t0 * 1000}&endTime=${r.t1 * 1000}&limit=${r.iv + 2}`, {}, 6000); if (d && d.length) return d.map(k => [Math.max(k[0], r.t0 * 1000), +k[4], +k[1]]); } catch {}
+  }
+  return [];
+}
+/* a round of a series at an exact start time (cached; a finished round never changes, an unresolved one is re-read after 15s) */
+const RAT = {};
+const roundSlug = (a, iv, t0) => `${a.k}-updown-${iv}m-${t0}`;
+function loadRoundAt(a, iv, t0){
+  const k = roundSlug(a, iv, t0); if (RAT[k]) return RAT[k];
+  const p = fetchEvent(k).then(e => { e.round = true; if (!(e.markets[0] && e.markets[0].closed)) setTimeout(() => { if (RAT[k] === p) delete RAT[k]; }, 15000); return e; });
+  RAT[k] = p; p.catch(() => { if (RAT[k] === p) delete RAT[k]; }); return p;
+}
+/* winning side of a resolved round: 0 = Up, 1 = Down, null = not resolved yet */
+const winnerOf = ev => { const m = ev && ev.markets[0]; if (!m || !m.closed) return null; return m.prices[0] >= .99 ? 0 : m.prices[1] >= .99 ? 1 : null; };
+/* chart of a finished round: price line between start and end, start price as a dashed line, end price as a dot */
+function pastChartSvg(cl, sp, ep, r, W, fp){
+  W = Math.max(260, Math.round(W)); const H = 210, L = 10, R = 10, T = 22, B = 24, t0 = r.t0 * 1000, t1 = r.t1 * 1000;
+  const pts = [[t0, sp]].concat(cl.map(x => [Math.min(x[0] + 60e3, t1), x[1]])); if (ep != null) pts.push([t1, ep]);
+  const vals = pts.map(p => p[1]).concat([sp]), lo0 = Math.min(...vals), hi0 = Math.max(...vals), pad = Math.max((hi0 - lo0) * .18, sp * 1e-5), lo = lo0 - pad, hi = hi0 + pad;
+  const x = t => L + (t - t0) / (t1 - t0) * (W - L - R), y = v => T + (hi - v) / (hi - lo) * (H - T - B);
+  const d = pts.map((p, i) => (i ? "L" : "M") + x(p[0]).toFixed(1) + " " + y(p[1]).toFixed(1)).join(" "), last = pts[pts.length - 1], up = ep == null || ep >= sp, col = up ? "up" : "down";
+  const anchorR = x(last[0]) > W * .6;
+  return `<svg class="pd-pcs" viewBox="0 0 ${W} ${H}" width="100%" height="${H}" role="img" aria-label="Price during the round: from ${fp(sp)} to ${ep != null ? fp(ep) : "unknown"}">
+    <line class="pd-pc-s" x1="${L}" x2="${W - R}" y1="${y(sp).toFixed(1)}" y2="${y(sp).toFixed(1)}"/>
+    <text class="pd-pc-t" x="${L + 2}" y="${(y(sp) - 6).toFixed(1)}">Start ${fp(sp)}</text>
+    <path class="pd-pc-a ${col}" d="${d} L${x(last[0]).toFixed(1)} ${y(sp).toFixed(1)} L${x(t0).toFixed(1)} ${y(sp).toFixed(1)} Z"/>
+    <path class="pd-pc-l ${col}" d="${d}"/>
+    <circle class="pd-pc-d ${col}" cx="${x(last[0]).toFixed(1)}" cy="${y(last[1]).toFixed(1)}" r="4.5"/>
+    ${ep != null ? `<text class="pd-pc-t" x="${anchorR ? W - R - 2 : x(last[0]) + 8}" y="${Math.max(T - 6, y(ep) - 9).toFixed(1)}" text-anchor="${anchorR ? "end" : "start"}">End ${fp(ep)}</text>` : ""}
+    <text class="pd-pc-x" x="${L}" y="${H - 6}">${clockET(r.t0)}</text><text class="pd-pc-x" x="${W - R}" y="${H - 6}" text-anchor="end">${clockET(r.t1)} ET</text></svg>`;
+}
+/* time chips (past rounds, the live round, upcoming rounds) + series switch (asset and duration) */
+function roundStripHtml(r){
+  const live = rStart(r.iv), step = r.iv * 60, href = (a, iv, t) => `#/predict/m/${roundSlug(a, iv, t)}`;
+  const chips = []; for (let k = -4; k <= 4; k++){ const t = live + k * step, kind = k < 0 ? "past" : k === 0 ? "live" : "next", on = t === r.t0;
+    chips.push(`<a class="pd-rch ${kind}${on ? " on" : ""}" href="${href(r.a, r.iv, t)}" data-rc data-rt="${t}"${on ? ' aria-current="true"' : ""} aria-label="${clockET(t)} ET round, ${kind === "live" ? "live" : kind === "past" ? "finished" : "upcoming"}"><b class="num">${clockET(t)}</b><small data-rcs="${t}">${kind === "live" ? '<i class="pd-live"></i>Live' : kind === "past" ? "Ended" : "Upcoming"}</small></a>`); }
+  return `<div class="pd-rs" id="pdRs" data-live="${live}"><div class="pd-rs-sw"><div class="pd-seg" role="group" aria-label="Asset">${RA.map(a => `<a data-rc href="${href(a, r.iv, rStart(r.iv))}" class="${a.k === r.a.k ? "on" : ""}">${a.n}</a>`).join("")}</div><div class="pd-seg" role="group" aria-label="Round length">${RIV.map(v => `<a data-rc href="${href(r.a, v, rStart(v))}" class="${v === r.iv ? "on" : ""}">${v}m</a>`).join("")}</div></div>
+    <div class="pd-rs-c" role="list" aria-label="Rounds">${chips.join("")}</div></div>`;
 }
 const livePx = sym => { const q = window.M && M.get(sym); return q && q.price > 0 ? q.price : null; };
 /* faster settlement polling for rounds that just ended */
@@ -1104,7 +1148,9 @@ function simHolders(m){ return [0, 1].map(oi => SIMN.slice(oi * 6, oi * 6 + 8).m
 function detailScreen(key, mid){
   let root, ev = EV.get(key) || null, sel = 0, tf = sessionStorage.getItem("pd_tf") || "1d", tab = "book", panel = null, closeWS = null, offs = [], timers = [], loadErr = null;
   let trades = [], holders = null, related = null, chartTok = "", series = [], cmtOff = null, cmtBox = null;
-  let rd = null, roundDone = false, startPx = null, slEl = null, svEl = null, rPoll = 0;
+  let rd = null, roundDone = false, startPx = null, slEl = null, svEl = null, rPoll = 0, shown = "", endPx = null, fsx = null, rollT = 0, rtry = 0;
+  const keyRound = roundOf({slug: String(key)});
+  const phase = () => !rd ? "" : now() < rd.t0 * 1000 ? "next" : now() < rd.t1 * 1000 ? "live" : "past";
   const st = {ev, m: null, oi: 0, side: "buy", type: "market", unit: "usd", amt: "", sh: "", lp: null};
   const $ = s => root ? root.querySelector(s) : null;
   const html = `<div class="pd-page pd-det">${backHead("Market", `<button class="pd-ib" data-share aria-label="Share market">${ic("share", 20)}</button>`)}<div id="pdDet">${skelDet()}</div></div>`;
@@ -1117,13 +1163,15 @@ function detailScreen(key, mid){
   }
   function render(){
     const box = $("#pdDet"); if (!box) return;
+    if (!ev && loadErr && keyRound){ shellRound(box); return; }
     if (!ev){ box.innerHTML = loadErr ? `<div class="pd-err">${ic("info", 34, 1.4)}<b>Couldn't load this market</b><span>${esc(/fetch|network|abort/i.test(loadErr.message || "") ? "Network error. Check your connection and try again." : loadErr.message || "Network error")}</span><button type="button" class="btn btn-primary" data-retry>Retry</button></div>` : skelDet(); return; }
-    const m = selM(), multi = ev.markets.length > 1, c = chance(m); rd = roundOf(ev); roundDone = false;
+    const m = selM(), multi = ev.markets.length > 1, c = chance(m); rd = roundOf(ev); roundDone = false; shown = phase(); endPx = null; if (rd && shown !== "live") startPx = null;
     const hero = rd ? roundHeroHtml(m, c) : `<section class="pd-sec pd-hero"><div class="pd-chance">${multi ? `<span class="pd-chname">${esc(m.gt || m.q)}</span>` : ""}<b class="num" data-dch>${chancePct(c)}</b><span>chance</span><em class="num ${m.chg >= 0 ? "up" : "down"}" data-dchg>${m.chg ? (m.chg >= 0 ? "▲" : "▼") + " " + Math.abs(Math.round(m.chg * 100)) + "%" : ""}</em></div>
       <div class="pd-chart" id="pdChart"><div class="pd-ch-empty" style="height:190px"><span class="pd-spin"></span></div></div>
       ${multi ? `<div class="pd-legend" id="pdLeg"></div>` : ""}
       <div class="pd-tfs" role="tablist">${TFS.map(([k, l]) => `<button type="button" role="tab" data-tf="${k}" class="${k === tf ? "on" : ""}">${l}</button>`).join("")}</div></section>`;
-    box.innerHTML = `<div class="pd-dh">${img(ev.img, "pd-img lg")}<div><h2 class="pd-dt">${esc(rd ? rTitle(rd) : ev.title)}</h2>${rd ? `<div class="pd-dmeta"><span>${clockET(rd.t0)} – ${clockET(rd.t1)} ET</span><span class="pd-tag live" data-rtag><i class="pd-live"></i>Live</span></div>` : `<div class="pd-dmeta"><span class="num">$${cmp(ev.vol)} Vol.</span><span>${ic("clock", 12)}${esc(dShort(m.end || ev.end))}</span>${ev.closed || m.closed ? '<span class="pd-tag">Closed</span>' : '<span class="pd-tag live"><i class="pd-live"></i>Live</span>'}</div>`}</div></div>
+    box.innerHTML = `<div class="pd-dh">${img(ev.img, "pd-img lg")}<div><h2 class="pd-dt">${esc(rd ? rTitle(rd) : ev.title)}</h2>${rd ? `<div class="pd-dmeta"><span>${clockET(rd.t0)} – ${clockET(rd.t1)} ET</span>${tagHtml(shown)}</div>` : `<div class="pd-dmeta"><span class="num">$${cmp(ev.vol)} Vol.</span><span>${ic("clock", 12)}${esc(dShort(m.end || ev.end))}</span>${ev.closed || m.closed ? '<span class="pd-tag">Closed</span>' : '<span class="pd-tag live"><i class="pd-live"></i>Live</span>'}</div>`}</div></div>
+      ${rd ? roundStripHtml(rd) : ""}
       ${hero}
       ${multi ? `<section class="pd-sec"><h3 class="pd-h3">Outcomes <small>${ev.markets.length}</small></h3><div class="pd-outs" id="pdOuts">${outsHtml()}</div></section>` : ""}
       <section class="pd-sec pd-trade" id="pdTrade"></section>
@@ -1133,23 +1181,45 @@ function detailScreen(key, mid){
       <div class="pd-sticky" id="pdSticky">${[0, 1].map(i => `<button type="button" class="pd-ynb ${i ? "no" : "yes"}" data-stk="${i}"><span>Buy ${esc(short(m.outs[i]))}</span><b class="num" data-stp="${i}">${cents(buyPx(m, i))}</b></button>`).join("")}</div>`;
     panel = tradePanel($("#pdTrade"), st, {onOi: () => { renderTab(); }}); panel.render();
     renderMine(); renderTab(); renderRel();
-    if (rd) mountRoundChart(); else loadChart();
+    if (rd){ mountRoundChart(); stripInit(); } else loadChart();
   }
-  /* ---- live round hero: live price, start price, countdown, app chart (timeframes + indicators) ---- */
+  /* ---- round hero: live price, start price, countdown, app chart (timeframes + indicators); upcoming and finished rounds have their own states ---- */
+  const tagHtml = ph => ph === "live" ? `<span class="pd-tag live" data-rtag><i class="pd-live"></i>Live</span>` : ph === "next" ? `<span class="pd-tag" data-rtag>Upcoming</span>` : `<span class="pd-tag" data-rtag>${ev && winnerOf(ev) != null ? "Resolved" : "Ended"}</span>`;
   function roundHeroHtml(m, c){
-    return `<section class="pd-sec pd-rh"><div class="pd-rh-top"><div class="pd-rh-p"><span>${esc(rd.a.name)} price</span><b class="num" data-rpx>--</b><em class="num" data-rdl></em></div><div class="pd-rh-cd"><span data-rcl>Ends in</span><b class="num" data-rcd>${mmss(rd.t1 * 1000 - now())}</b></div></div>
+    const ph = phase(), cdT = (ph === "next" ? rd.t0 : rd.t1) * 1000 - now();
+    const top = ph === "past"
+      ? `<div class="pd-rh-p"><span>Final price</span><b class="num" data-rpx>--</b><em class="num" data-rdl></em></div><div class="pd-rh-cd"><span>Result</span><b class="num" data-rwin>--</b></div>`
+      : `<div class="pd-rh-p"><span>${esc(rd.a.name)} price</span><b class="num" data-rpx>--</b><em class="num" data-rdl></em></div><div class="pd-rh-cd"><span data-rcl>${ph === "next" ? "Starts in" : "Ends in"}</span><b class="num" data-rcd>${mmss(cdT)}</b></div>`;
+    const meta = ph === "past" ? `<span>Start price <b class="num" data-rsp>--</b></span><span>End price <b class="num" data-rep>--</b></span>` : `<span>Start price <b class="num" data-rsp>--</b></span><span>${esc(m.outs[0])} <b class="num up" data-dch>${chancePct(c)}</b></span>`;
+    const chart = ph === "past" ? `<div class="pd-rh-chart"><div id="pdRC" class="pd-pch"><div class="pd-ch-empty" style="height:210px"><span class="pd-spin"></span></div></div></div>` : `<div class="pd-rh-chart"><div id="pdRC" style="height:280px"></div></div>`;
+    return `<section class="pd-sec pd-rh"><div class="pd-rh-top">${top}</div>
       <div class="pd-rc-bar"><i data-rcbar="${rd.t0},${rd.t1}"></i></div>
-      <div class="pd-rh-meta"><span>Start price <b class="num" data-rsp>--</b></span><span>${esc(m.outs[0])} <b class="num up" data-dch>${chancePct(c)}</b></span></div>
-      <div class="pd-rh-chart"><div id="pdRC" style="height:280px"></div></div>
-      <div class="pd-fine" data-rres></div></section>`;
+      <div class="pd-rh-meta">${meta}</div>${chart}
+      <div class="pd-fine" data-rres>${ph === "next" ? "This round has not started yet. You can already buy; the start price is set when it begins." : ""}</div></section>`;
   }
   function mountRoundChart(){
-    const host = $("#pdRC"); if (!host || !window.CH) return;
+    const host = $("#pdRC"); if (!host) return;
+    if (phase() === "past"){ loadPast(); if (winnerOf(ev) == null){ rPoll = 0; pollRound(); } updateRound(); return; }
+    if (!window.CH) return;
     try { CH.mount(host, {sym: rd.sym, tf: sessionStorage.getItem("tf_ch3") || "1m", indicators: true, compact: true, tfbar: true, mode: "none", height: "280px", tfs: ["1s", "1m", "5m", "15m", "1h"]}); } catch (e){ console.warn(e); }
-    startPrice(rd).then(v => { startPx = v != null ? v : livePx(rd.sym); updateRound(); });
+    if (phase() === "live") startPrice(rd).then(v => { if (phase() === "live"){ startPx = v != null ? v : livePx(rd.sym); updateRound(); } });
     updateRound(); cancelAnimationFrame(fr); fr = requestAnimationFrame(frameLoop);
   }
-  const nextLink = txt => `${txt} <a class="pd-link" href="#/predict/m/${rd.a.k}-updown-${rd.iv}m-${rd.t1}">Go to the next round ${ic("chev", 14)}</a>`;
+  /* finished round: start and end price from 1-minute prices, plus a small chart of the round */
+  async function loadPast(){
+    const r = rd; if (!r) return;
+    const [sp, cl] = await Promise.all([startPrice(r), roundCloses(r)]); if (!root || rd !== r) return;
+    let ep = await priceAt(r.sym, r.t1); if (!root || rd !== r) return;
+    if (ep == null && cl.length) ep = cl[cl.length - 1][1];
+    startPx = sp != null ? sp : cl[0] ? cl[0][2] : null; endPx = ep;
+    const host = $("#pdRC"); if (host) host.innerHTML = cl.length && startPx != null ? pastChartSvg(cl, startPx, endPx, r, host.clientWidth || 340, fp) : `<div class="pd-ch-empty" style="height:120px">Price chart unavailable for this round</div>`;
+    updateRound();
+  }
+  function stripInit(){
+    const rs = $("#pdRs"); if (!rs || !rd) return; const r = rd, live = rStart(r.iv), step = r.iv * 60;
+    const c = rs.querySelector(".pd-rch.on"), sc = rs.querySelector(".pd-rs-c"); if (c && sc) sc.scrollLeft = Math.max(0, c.offsetLeft - (sc.clientWidth - c.offsetWidth) / 2);
+    for (let k = -4; k < 0; k++){ const t = live + k * step; loadRoundAt(r.a, r.iv, t).then(e => { const el = root && root.querySelector(`[data-rcs="${t}"]`); if (!el) return; const w = winnerOf(e); el.innerHTML = w == null ? "Resolving" : `<span class="${w ? "down" : "up"}">${w ? "\u25BC" : "\u25B2"} ${esc(e.markets[0].outs[w])}</span>`; }).catch(() => {}); }
+  }
   const fp = v => v == null ? "--" : window.M && M.fmtPx ? M.fmtPx(M.get(rd.sym), v) : fmt(v, 2);
   /* v7.0: the Start line / label and the start-time marker are HTML overlays, so they are re-placed on EVERY animation frame
      (right after the chart repaints) from the chart's own price-to-y mapping. They cannot drift when the chart autoscales, pans or resizes. */
@@ -1172,27 +1242,91 @@ function detailScreen(key, mid){
     if (x == null || isNaN(x) || x < 0 || x > g.pw){ svEl.style.display = "none"; slX = NaN; } else { if (svEl.style.display === "none") svEl.style.display = ""; if (!(Math.abs(x - slX) <= .04)){ svEl.style.transform = "translateX(" + x.toFixed(2) + "px)"; slX = x; } }
   }
   const frameLoop = () => { fr = requestAnimationFrame(frameLoop); if (root && rd && !document.hidden) placeLines(); };
+  const resText = () => {
+    const w = winnerOf(ev), est = w == null && startPx != null && endPx != null ? (endPx >= startPx ? 0 : 1) : null, side = w != null ? w : est, d = startPx != null && endPx != null ? ` The price went from ${fp(startPx)} to ${fp(endPx)}.` : "";
+    if (side == null) return "Waiting for the final result.";
+    return w != null ? `Result: <b class="${w ? "down" : "up"}">${esc(ev.markets[0].outs[w])}</b> won. Winning shares pay $1 each.${d}` : `The price ended ${est ? "below" : "at or above"} the start, so <b class="${est ? "down" : "up"}">${esc(ev.markets[0].outs[est])}</b> looks like the winner. The official result is confirmed shortly, so the round can still change.${d}`;
+  };
   function updateRound(){
-    if (!rd || !root) return; const t = now(), left = rd.t1 * 1000 - t, px = livePx(rd.sym);
+    if (!rd || !root) return; const t = now(), ph = phase();
+    if (ph !== shown){
+      if (shown === "next" && ph === "live"){ shown = ph; try { CH.destroy(); } catch {} render(); return; }
+      shown = ph; if (ph === "past"){ onRoundEnd(); return; }
+    }
+    const px = livePx(rd.sym);
+    if (ph === "past"){
+      const w = winnerOf(ev), est = w == null && startPx != null && endPx != null ? (endPx >= startPx ? 0 : 1) : null, side = w != null ? w : est;
+      setTxt2($("[data-rpx]"), fp(endPx)); setTxt2($("[data-rsp]"), fp(startPx)); setTxt2($("[data-rep]"), fp(endPx));
+      const we = $("[data-rwin]"); if (we){ setTxt2(we, side == null ? "--" : ev.markets[0].outs[side] + (w == null ? "?" : " won")); we.className = "num " + (side == null ? "" : side ? "down" : "up"); }
+      if (startPx != null && endPx != null){ const d = endPx - startPx, e = $("[data-rdl]"); if (e){ e.textContent = (d >= 0 ? "+" : "-") + fp(Math.abs(d)) + " (" + (d >= 0 ? "+" : "-") + fmt(Math.abs(d / startPx * 100), 3) + "%)"; e.className = "num " + (d >= 0 ? "up" : "down"); } }
+      const bar = $("[data-rcbar]"); if (bar) bar.style.width = "100%";
+      const rs = $("[data-rres]"); if (rs){ const h = resText(); if (rs.dataset.h !== h){ rs.dataset.h = h; rs.innerHTML = h; } }
+      const tg = $("[data-rtag]"); if (tg && w != null && tg.textContent !== "Resolved") tg.textContent = "Resolved";
+      return;
+    }
+    const left = (ph === "next" ? rd.t0 : rd.t1) * 1000 - t;
     setTxt2($("[data-rcd]"), mmss(left));
     const bar = $("[data-rcbar]"); if (bar) bar.style.width = Math.max(0, Math.min(100, (t / 1000 - rd.t0) / (rd.t1 - rd.t0) * 100)).toFixed(1) + "%";
-    if (px != null){ setTxt($("[data-rpx]"), fp(px)); if (startPx != null){ const d = px - startPx, e = $("[data-rdl]"); if (e){ e.textContent = (d >= 0 ? "+" : "-") + fp(Math.abs(d)) + " (" + (d >= 0 ? "+" : "-") + fmt(Math.abs(d / startPx * 100), 3) + "%)"; e.className = "num " + (d >= 0 ? "up" : "down"); } } }
-    setTxt2($("[data-rsp]"), fp(startPx));
+    if (px != null){ setTxt($("[data-rpx]"), fp(px)); if (ph === "live" && startPx != null){ const d = px - startPx, e = $("[data-rdl]"); if (e){ e.textContent = (d >= 0 ? "+" : "-") + fp(Math.abs(d)) + " (" + (d >= 0 ? "+" : "-") + fmt(Math.abs(d / startPx * 100), 3) + "%)"; e.className = "num " + (d >= 0 ? "up" : "down"); } } }
+    setTxt2($("[data-rsp]"), ph === "next" ? "At start" : fp(startPx));
     placeLines();
-    if (left <= 0 && !roundDone){ roundDone = true; const l = $("[data-rcl]"); if (l) l.textContent = "Round ended"; const tg = $("[data-rtag]"); if (tg){ tg.classList.remove("live"); tg.textContent = "Resolving"; } panel && panel.render(); rPoll = 0; const rs = $("[data-rres]"); if (rs) rs.innerHTML = nextLink("Waiting for the final result."); pollRound(); }
-    if (roundDone) { const l = $("[data-rcl]"); if (l && ev.markets[0].closed) l.textContent = "Result"; }
+    const sr = $("#pdRs"); if (sr && +sr.dataset.live !== rStart(rd.iv)){ const n = document.createElement("div"); n.innerHTML = roundStripHtml(rd); sr.replaceWith(n.firstElementChild); stripInit(); }
   }
+  /* the live round just ended: roll straight into the next round of the same length (same series) */
+  function onRoundEnd(){
+    roundDone = true; closeFS(true);
+    const l = $("[data-rcl]"); if (l) l.textContent = "Round ended"; setTxt2($("[data-rcd]"), "00:00");
+    const tg = $("[data-rtag]"); if (tg){ tg.classList.remove("live"); tg.textContent = "Ended"; }
+    const rs = $("[data-rres]"); if (rs) rs.textContent = "Round ended. Starting the next round...";
+    panel && panel.render();
+    const had = data().positions.some(p => p.slug === ev.slug) || data().orders.some(o => o.slug === ev.slug), nx = `#/predict/m/${roundSlug(rd.a, rd.iv, rd.t1)}`;
+    clearTimeout(rollT); rollT = setTimeout(() => { if (!root) return; toast(had ? "Round ended. Your result settles automatically. The next round is live." : "The next round has started", "info", had ? 3600 : 2000); location.replace(nx); }, 1500);
+  }
+  /* past round whose result is not confirmed yet */
   async function pollRound(){
-    if (!root || !rd || !roundDone) return;
+    if (!root || !rd || phase() !== "past") return;
     try {
       const e = await fetchEvent(ev.slug), nm0 = e.markets[0], m = ev.markets[0];
       if (nm0 && nm0.closed){ Object.assign(m, {closed: true, prices: nm0.prices, active: nm0.active, accepting: false});
-        const up = nm0.prices[0] >= .99, dn = nm0.prices[1] >= .99, tg = $("[data-rtag]");
-        if (tg) tg.textContent = "Resolved"; const rs = $("[data-rres]"); if (rs) rs.innerHTML = up || dn ? nextLink(`Result: <b class="${up ? "up" : "down"}">${esc(m.outs[up ? 0 : 1])}</b>. Winning shares pay $1 each.`) : nextLink("Round resolved.");
-        panel && panel.render(); renderMine(); checkSettle().catch(() => {}); return; }
+        updateRound(); panel && panel.render(); renderMine(); checkSettle().catch(() => {}); return; }
     } catch {}
     rPoll++; if (root && rPoll < 90) setTimeout(pollRound, 4000);
   }
+  /* ---- full screen chart: fixed overlay + the Fullscreen API where it exists; Back (top left) and X (top right) both close it ---- */
+  function openFS(){
+    if (fsx || !rd) return; const host = $("#pdRC"), box = host && host.closest(".ch3-box"); if (!box) return;
+    const mk = document.createElement("span"); mk.hidden = true; box.before(mk);
+    const ov = document.createElement("div"); ov.className = "fs3 pd-fsc"; ov.setAttribute("role", "dialog"); ov.setAttribute("aria-modal", "true"); ov.setAttribute("aria-label", "Chart full screen");
+    ov.innerHTML = `<div class="pd-fsc-h"><button type="button" class="pd-fsc-b" data-fsb aria-label="Back">${ic("back", 22)}</button><div class="pd-fsc-t"><b>${esc(rTitle(rd))}</b><span class="num" data-fsp></span></div><button type="button" class="pd-fsc-b" data-fsx aria-label="Close full screen">${ic("close", 20)}</button></div>`;
+    ov.appendChild(box); document.body.appendChild(ov); document.body.classList.add("fs-on");
+    const F = fsx = {ov, box, mk, entered: false, pushed: false, off: []};
+    const on = (t, ev2, fn, o) => { t.addEventListener(ev2, fn, o); F.off.push(() => t.removeEventListener(ev2, fn, o)); };
+    ov.querySelector("[data-fsb]").onclick = () => closeFS(); ov.querySelector("[data-fsx]").onclick = () => closeFS();
+    const upd = () => { const e = ov.querySelector("[data-fsp]"), q = livePx(rd.sym); if (e && q != null) e.textContent = fp(q); }; upd(); F.tm = setInterval(upd, 1000);
+    on(document, "keydown", e => { if (e.key === "Escape") closeFS(); });
+    on(window, "hashchange", () => closeFS(true)); on(window, "popstate", () => closeFS(true));
+    on(document, "fullscreenchange", () => { if (fsx === F && F.entered && !document.fullscreenElement) closeFS(); });
+    on(window, "resize", () => { try { CH.resize(); } catch {} }); on(window, "orientationchange", () => setTimeout(() => { try { CH.resize(); } catch {} }, 200));
+    try { history.pushState({pdfs: 1}, "", location.href); F.pushed = true; } catch {}
+    try { const r = document.documentElement.requestFullscreen && document.documentElement.requestFullscreen(); if (r && r.then) r.then(() => { F.entered = true; setTimeout(() => { try { CH.resize(); } catch {} }, 120); }).catch(() => {}); } catch {}
+    hap(8); setTimeout(() => { try { CH.resize(); } catch {} }, 60);
+  }
+  function closeFS(noBack){
+    const F = fsx; if (!F) return; fsx = null; clearInterval(F.tm); F.off.forEach(f => f());
+    if (F.mk.isConnected) F.mk.replaceWith(F.box); else F.box.remove();
+    F.ov.remove(); document.body.classList.remove("fs-on");
+    if (F.entered && document.fullscreenElement){ try { document.exitFullscreen(); } catch {} }
+    if (F.pushed && !noBack){ try { if (history.state && history.state.pdfs) history.back(); } catch {} }
+    setTimeout(() => { try { CH.resize(); } catch {} }, 60); setTimeout(() => { try { CH.resize(); } catch {} }, 350);
+  }
+  /* round page whose event could not be loaded (an upcoming round that is not open yet, or a network problem): keep the time chips usable */
+  function shellRound(box){
+    const r = keyRound, ph = now() < r.t0 * 1000 ? "next" : now() < r.t1 * 1000 ? "live" : "past", soon = ph === "next";
+    box.innerHTML = `<div class="pd-dh">${img("", "pd-img lg")}<div><h2 class="pd-dt">${esc(rTitle(r))}</h2><div class="pd-dmeta"><span>${clockET(r.t0)} \u2013 ${clockET(r.t1)} ET</span><span class="pd-tag">${soon ? "Upcoming" : ph === "live" ? "Live" : "Ended"}</span></div></div></div>${roundStripHtml(r)}
+      <div class="pd-err">${ic(soon ? "clock" : "info", 34, 1.4)}<b>${soon ? "This round is not open yet" : "Couldn't load this round"}</b><span>${soon ? "Rounds open a few minutes before they start. This page keeps checking." : "Check your connection and try again."}</span><button type="button" class="btn btn-primary" data-retry>Retry</button></div>`;
+    setTimeout(() => { if (root) stripInit0(r); }, 0);
+  }
+  function stripInit0(r){ const rs = $("#pdRs"), c = rs && rs.querySelector(".pd-rch.on"), sc = rs && rs.querySelector(".pd-rs-c"); if (c && sc) sc.scrollLeft = Math.max(0, c.offsetLeft - (sc.clientWidth - c.offsetWidth) / 2); }
   function outsHtml(){
     return ev.markets.map((m, i) => `<div class="pd-out ${i === sel ? "on" : ""}" data-sel="${i}" role="button" tabindex="0"><div class="pd-out-l">${ev.markets.length > 1 && m.img && m.img !== ev.img ? img(m.img, "pd-img xs") : ""}<div><b>${esc(m.gt || m.q)}</b><small class="num">$${cmp(m.vol)} Vol.</small></div></div>
       <b class="num pd-out-c" data-och="${m.id}">${chancePct(chance(m))}</b><div class="pd-out-b"><button type="button" class="pd-mini yes" data-ob="${i}" data-oi="0"><span>${esc(short(m.outs[0]))}</span> <b class="num" data-oyb="${m.id}">${cents(buyPx(m, 0))}</b></button><button type="button" class="pd-mini no" data-ob="${i}" data-oi="1"><span>${esc(short(m.outs[1]))}</span> <b class="num" data-onb="${m.id}">${cents(buyPx(m, 1))}</b></button></div></div>`).join("");
@@ -1303,15 +1437,19 @@ function detailScreen(key, mid){
       closeWS && closeWS(); closeWS = openWS(toks);
       loadTabData();
       if (ev.markets.some(m => m.closed)) checkSettle().catch(() => {});
-    } catch (e){ loadErr = e; if (!ev) render(); else { pickInitial(); render(); } }
+    } catch (e){ loadErr = e; if (!ev) render(); else { pickInitial(); render(); } if (!ev && keyRound && rtry++ < 40) timers.push(setTimeout(() => { if (root && !ev) boot(); }, 5000)); }
   }
   function mount(r){
     root = r; curScreen = "detail"; bindCommon(root, offs);
     pxListeners.add(onPx); tradeListeners.add(onTrade); offs.push(() => { pxListeners.delete(onPx); tradeListeners.delete(onTrade); });
+    /* the chart tool row's expand arrow: our own full screen (runs before the chart's built-in handler) */
+    const onFsClick = e => { const b = rd && e.target.closest && e.target.closest("[data-fs]"); if (!b || !((root && root.contains(b)) || (fsx && fsx.ov.contains(b)))) return; e.stopImmediatePropagation(); e.preventDefault(); if (fsx) closeFS(); else openFS(); };
+    window.addEventListener("click", onFsClick, true); offs.push(() => window.removeEventListener("click", onFsClick, true));
     offs.push(bus.on("predict", () => { renderMine(); panel && panel.render(); }));
     if (ev){ pickInitial(); render(); }
     root.addEventListener("click", e => {
       const t = e.target;
+      const rc = t.closest("[data-rc]"); if (rc){ e.preventDefault(); hap(6); location.replace(rc.getAttribute("href")); return; }
       if (t.closest("[data-retry]")){ ev = null; render(); boot(); return; }
       if (t.closest("[data-chretry]")){ loadChart(true); return; }
       if (t.closest("[data-share]")){ const url = location.href.split("#")[0] + `#/predict/m/${encodeURIComponent(ev ? ev.slug : key)}`; if (navigator.share) navigator.share({title: ev ? ev.title : "Prediction", url}).catch(() => {}); else U.copyText(url, "Link copied"); return; }
@@ -1334,7 +1472,7 @@ function detailScreen(key, mid){
     let rz = 0; const onRz = () => { clearTimeout(rz); rz = setTimeout(() => series.length && drawSeries(), 200); }; addEventListener("resize", onRz); offs.push(() => removeEventListener("resize", onRz));
     boot();
   }
-  function unmount(){ curScreen = null; root = null; cancelAnimationFrame(fr); cmtOff && cmtOff(); cmtOff = null; closeWS && closeWS(); timers.forEach(clearInterval); offs.forEach(f => f()); closeAllOvl(); if (rd){ try { CH.destroy(); } catch {} } }
+  function unmount(){ curScreen = null; root = null; cancelAnimationFrame(fr); clearTimeout(rollT); closeFS(true); cmtOff && cmtOff(); cmtOff = null; closeWS && closeWS(); timers.forEach(clearInterval); offs.forEach(f => f()); closeAllOvl(); if (rd){ try { CH.destroy(); } catch {} } }
   return {html: cfg().enabled ? html : backHead("Market") + maint(), title: ev ? ev.title : "Prediction market", mount: cfg().enabled ? mount : () => {}, unmount};
 }
 async function cancelOrder(id){

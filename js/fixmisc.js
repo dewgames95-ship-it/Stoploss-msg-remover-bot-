@@ -347,7 +347,7 @@ function ugCardFill(el){
     el.innerHTML = `<span>30D ROI</span><b class="num ${c}">${r.roi >= 0 ? "+" : ""}${num(r.roi)}%</b><span>APY</span><b class="num ${c}">${r.apy >= 0 ? "+" : ""}${num(r.apy, 0)}%</b>`; }).catch(() => {});
 }
 function openUgrid(onStart){
-  const st = {B: null, R: null, lo: 0, hi: 0, N: UG.N, r: null, token: 0};
+  let ugOff = null; const st = {B: null, R: null, lo: 0, hi: 0, N: UG.N, r: null, token: 0};
   const p0 = () => { const p = M.get(UG.pair); return p && p.price || 1; };
   const body = `<div class="fm-bot"><div class="ug-top"><span class="ug-pair">${M.get(UG.pair) ? UI.pairIcon(M.get(UG.pair), 24) : ""}<b>USDC/USDT</b></span><span class="ug-0">0 trading fee</span></div>
     <p class="fm-cap" style="margin:6px 0 0">Buys USDC low and sells high between your grid lines. Orders fill the moment the live Binance USDC/USDT price touches a grid level. No order-book matching and no fee.</p>
@@ -359,16 +359,16 @@ function openUgrid(onStart){
     <p class="fm-cap">Backtest on the last 720 hourly Binance USDC/USDT candles, 0 trading fee, ${UG.N} grids by default; each candle is walked open to low/high to close. Daily ROI is the 30-day return divided by 30; Monthly is Daily x 30; APY is Daily x 365 (not compounded). Past performance does not guarantee future results.</p>
     <div class="pm-err" id="ugErr"></div><button class="btn btn-primary pm-cta" data-ok>Start bot</button></div>`;
   U.sheet("USDC ⇄ USDT Grid", body, el => {
-    const $ = q => el.querySelector(q); let timer = 0, dead = false;
+    const $ = q => el.querySelector(q); let timer = 0, dead = false, off = null;
     const read = () => { st.lo = parseFloat($("#ugLo").value); st.hi = parseFloat($("#ugHi").value); st.N = Math.round(Math.min(100, Math.max(2, parseFloat($("#ugN").value) || UG.N))); };
     const valid = () => st.lo > 0 && st.hi > st.lo ? "" : "Upper price must be higher than lower price.";
-    const px = () => { const p = M.get(UG.pair); $("#ugPx").textContent = p && p.price ? M.fmtPx(p) : "--"; };
+    const px = () => { const p = M.get(UG.pair), n = $("#ugPx"); if (!n){ dead = true; off && off(); return; } n.textContent = p && p.price ? M.fmtPx(p) : "--"; };
     const compute = () => { if (!st.B) return; const err = valid(); $("#ugErr").textContent = err; if (err){ $("#ugEst").innerHTML = '<div class="ug-est"><div><span>Daily ROI</span><b>--</b></div><div><span>Monthly ROI</span><b>--</b></div><div><span>APY (yearly)</span><b>--</b></div></div>'; $("#ugRs").innerHTML = ""; st.r = null; return; }
       const r = st.r = ugBacktest(st.B, 1000, st.lo, st.hi, st.N); $("#ugEst").innerHTML = ugStats(r); $("#ugCh").innerHTML = ugSvg(r.eq);
       $("#ugRs").innerHTML = `<div><span>Final value</span><b class="num">${money(r.end)} USDT</b></div><div><span>Return (30d)</span><b class="num ${r.roi >= 0 ? "up" : "down"}">${r.roi >= 0 ? "+" : ""}${num(r.roi)}%</b></div><div><span>Grid fills</span><b class="num">${r.trades}</b></div><div><span>Fees paid</span><b class="num up">0 USDT</b></div>`; };
     const sched = () => { clearTimeout(timer); timer = setTimeout(() => { read(); compute(); }, 200); };
     ["#ugLo", "#ugHi", "#ugN"].forEach(i => $(i).addEventListener("input", sched));
-    px(); const off = U.bus.on("tick", sym => { if (sym === UG.pair && el.isConnected) px(); });
+    px(); off = U.bus.on("tick", sym => { if (sym === UG.pair && !dead) px(); }); ugOff = () => { dead = true; clearTimeout(timer); off && off(); };
     ugBars().then(B => { if (dead) return; st.B = B; const R = ugRange(p0(), B); st.R = R; st.lo = R.lo; st.hi = R.hi; $("#ugLo").value = R.lo; $("#ugHi").value = R.hi; compute(); }).catch(() => { if (!dead) $("#ugCh").innerHTML = '<div class="fm-sk">Backtest data is unavailable right now. Check your connection and try again.</div>'; });
     $("[data-max]").onclick = () => { $("#ugInv").value = Math.floor(store.wb("spot") * 100) / 100; };
     $("[data-ok]").onclick = () => {
@@ -381,7 +381,7 @@ function openUgrid(onStart){
       const b = S().bots[UG.id]; b.def = def; b.g = ugNew(inv, st.lo, st.hi, st.N, p && p.price || st.lo); store.save(); U.closeLayer(); toast("Bot started", "ok"); onStart && onStart();
     };
     el._fmDispose = () => { dead = true; clearTimeout(timer); off && off(); };
-  }, () => {});
+  }, () => { ugOff && ugOff(); });
 }
 try { if (window.E && E.BOTS && !E.BOTS.find(x => x.id === UG.id)) E.BOTS.push(ugDef()); } catch {}
 window.BOTX = {open: openBot, run: runSim, fill: fillCards, ai: aiFor, openUgrid, ugPnl, ugCardFill};

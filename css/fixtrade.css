@@ -185,8 +185,8 @@ html:root[data-theme] .fxr>.fx-head,html:root[data-theme] .bin-page>.fx-head{bac
 .fx-sub .fx-off:empty{display:none}
 .cp-price .fx-off{font-size:12px;margin-right:2px}
 /* O1: own open order sitting on an order-book row = small yellow dot */
-.fbook .r.me span:first-child::before{background:#F0B90B;box-shadow:0 0 0 2px rgba(240,185,11,.22)}
+.fbook .r.me>span:first-of-type::after{content:"";display:inline-block;width:6px;height:6px;margin-left:6px;border-radius:50%;background:#F0B90B;vertical-align:middle;box-shadow:0 0 0 2px rgba(240,185,11,.28)}
 .fbook .r.me{background:rgba(240,185,11,.08)}
 /* O2: 0% slippage chip (same class + text on Futures and Spot) */
-.slip0{display:flex;align-items:center;gap:6px;margin:0 0 8px;padding:6px 8px;border:1px solid color-mix(in srgb,var(--brand) 22%,transparent);border-radius:var(--r-ctl);background:color-mix(in srgb,var(--brand) 7%,transparent);color:var(--text-2);font-size:11.5px;line-height:1.35}
+.slip0{display:flex;align-items:center;gap:5px;margin:0 0 8px;padding:5px 7px;border:1px solid color-mix(in srgb,var(--brand) 22%,transparent);border-radius:var(--r-ctl);background:color-mix(in srgb,var(--brand) 7%,transparent);color:var(--text-2);font-size:10.5px;line-height:1.35}
 .slip0 svg{flex:none;color:var(--brand)}

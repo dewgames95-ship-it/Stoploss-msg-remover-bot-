@@ -51,3 +51,5 @@ button.wl-row b>span:last-child{overflow:hidden;text-overflow:ellipsis;white-spa
 .wl-pn>span:last-child{min-width:0}
 .wl-pi .wl-ic{width:34px;height:34px}
 .wl-pi .wl-ic svg{width:20px;height:20px}
+.wl-pi .wl-ic{flex:none}
+.wl-pi .wl-pn{flex:1;min-width:0}
