@@ -539,39 +539,34 @@ setInterval(() => { try {
 /* =====================================================================================================
    Quick guide (4 steps) + data-source info popup
    ===================================================================================================== */
-const TUT_KEY = "nt_pd_tut";
-const tutOff = () => { try { return localStorage.getItem(TUT_KEY) === "1"; } catch { return false; } };
-const G = (b) => `<svg viewBox="0 0 220 84" width="100%" height="84" role="img" aria-hidden="true" class="pd-tg">${b}</svg>`;
-const TUT = [
-  {k: "Transfer", t: "Move funds in", d: "Transfer USDT from Spot or Funding into your Prediction wallet. Your balance is available instantly.", cta: "Transfer now", a: "xf",
-    g: G(`<rect x="12" y="20" width="72" height="44" rx="9" class="g-box"/><text x="48" y="40" text-anchor="middle" class="g-t">Spot</text><text x="48" y="55" text-anchor="middle" class="g-s">USDT</text><rect x="136" y="20" width="72" height="44" rx="9" class="g-box on"/><text x="172" y="40" text-anchor="middle" class="g-t">Prediction</text><text x="172" y="55" text-anchor="middle" class="g-s">wallet</text><path d="M92 42h36m-8-7 8 7-8 7" class="g-ar"/>`)},
-  {k: "Trade", t: "Open a trade", d: "Pick a market, tap Yes or No, enter an amount and confirm. Price in cents = chance of that outcome; each share pays $1 if it wins.", cta: "Browse markets", a: "list",
-    g: G(`<rect x="10" y="8" width="200" height="68" rx="10" class="g-box"/><text x="22" y="28" class="g-t">Will BTC close above 60K?</text><rect x="22" y="40" width="82" height="26" rx="7" class="g-yes"/><text x="63" y="57" text-anchor="middle" class="g-yt">Yes 42¢</text><rect x="116" y="40" width="82" height="26" rx="7" class="g-no"/><text x="157" y="57" text-anchor="middle" class="g-nt">No 60¢</text>`)},
-  {k: "Position", t: "Watch your position", d: "Portfolio shows how much you invested, what it is worth right now and your profit or loss, updating live.", cta: "Open portfolio", a: "portfolio",
-    g: G(`<rect x="10" y="8" width="200" height="68" rx="10" class="g-box"/><text x="24" y="30" class="g-s">Invested</text><text x="24" y="52" class="g-t big">$50.00</text><text x="116" y="30" class="g-s">Value now</text><text x="116" y="52" class="g-t big up">$62.40</text><path d="M24 66l24-8 22 4 26-12" class="g-ln"/>`)},
-  {k: "Close", t: "Cash out or sell", d: "Cash out sells your whole position at the current price in one tap. Or sell part of it, or hold to the end: winning shares pay $1 each.", cta: "", a: "",
-    g: G(`<rect x="14" y="18" width="86" height="48" rx="10" class="g-box"/><text x="57" y="39" text-anchor="middle" class="g-t">120 shares</text><text x="57" y="55" text-anchor="middle" class="g-s">Cash out</text><path d="M108 42h28m-8-7 8 7-8 7" class="g-ar"/><rect x="144" y="18" width="62" height="48" rx="10" class="g-box on"/><text x="175" y="47" text-anchor="middle" class="g-t big up">$62.40</text>`)}
+/* v7.0 "How it works": step-by-step popup with a worked example and small graphics (replaces the old 1-2-3-4 strip) */
+const SV = (vb, label, b) => `<svg viewBox="${vb}" class="pd-hwg" role="img" aria-label="${esc(label)}">${b}</svg>`;
+const HW = [
+  {t: "Pick Up or Down", d: "Every round has a start price, set when the round begins, and an end price, taken when it ends. Buy Up if you think the end price will be at or above the start price. Buy Down if you think it will be lower.",
+    g: SV("0 0 300 112", "Price line above the start price means Up wins, below means Down wins", `<rect x="8" y="8" width="284" height="48" rx="8" class="hw-up"/><rect x="8" y="56" width="284" height="48" rx="8" class="hw-dn"/><line x1="8" y1="56" x2="292" y2="56" class="hw-st"/><text x="16" y="23" class="hw-t up">UP wins: end at or above start</text><text x="16" y="98" class="hw-t down">DOWN wins: end below start</text><path d="M26 56C52 49 70 68 100 60S150 44 182 48S236 34 262 30" class="hw-ln"/><circle cx="26" cy="56" r="4" class="hw-dot"/><circle cx="262" cy="30" r="5" class="hw-dot up"/><text x="30" y="72" class="hw-s">Start</text><text x="262" y="46" text-anchor="middle" class="hw-s">End</text>`)},
+  {t: "Price in cents = chance", d: "A share costs between 1¢ and 99¢. The price is what traders think the chance is. At 60¢, the crowd thinks that outcome is about 60% likely. The Up price and the Down price add up to about $1.",
+    g: SV("0 0 300 112", "Bar split 60 percent Up and 40 percent Down", `<text x="150" y="20" text-anchor="middle" class="hw-s">Up costs 60¢, Down costs 40¢</text><rect x="10" y="30" width="170" height="34" rx="8" class="hw-fup"/><rect x="180" y="30" width="110" height="34" rx="8" class="hw-fdn"/><text x="95" y="52" text-anchor="middle" class="hw-w">Up 60¢</text><text x="235" y="52" text-anchor="middle" class="hw-w">Down 40¢</text><text x="10" y="82" class="hw-s">0¢</text><text x="290" y="82" text-anchor="end" class="hw-s">$1.00</text><text x="150" y="102" text-anchor="middle" class="hw-t">60¢ + 40¢ = $1.00</text>`)},
+  {t: "How much you can win", d: "Each share pays $1.00 if you are right and $0 if you are wrong. So buying 10 shares at 40¢ costs $4.00. If you are right, you get back $10.00. That is a $6.00 profit. If you are wrong, you lose the $4.00.",
+    g: SV("0 0 300 128", "Paying 4 dollars to receive 10 dollars", `<line x1="10" y1="104" x2="290" y2="104" class="hw-ax"/><rect x="50" y="64" width="70" height="40" rx="6" class="hw-fst"/><text x="85" y="89" text-anchor="middle" class="hw-w">$4.00</text><rect x="170" y="64" width="70" height="40" rx="6" class="hw-fst"/><rect x="170" y="4" width="70" height="60" rx="6" class="hw-fup"/><text x="205" y="39" text-anchor="middle" class="hw-w">+$6.00</text><text x="205" y="89" text-anchor="middle" class="hw-w">$4.00</text><text x="85" y="120" text-anchor="middle" class="hw-s">You pay</text><text x="205" y="120" text-anchor="middle" class="hw-s">You get if right: $10.00</text><path d="M126 84h38m-7-6 7 6-7 6" class="hw-ar"/>`)},
+  {t: "When the round ends", d: "At the end time the end price is compared with the start price. Up wins if the end price is at or above the start price. Down wins if it is lower. Each winning share is paid $1.00 into your Prediction wallet, and each losing share is worth $0. When a 5-minute or 15-minute round ends, the next one of the same length starts.",
+    g: SV("0 0 300 100", "Timeline: round starts, live, round ends, paid out", `<line x1="34" y1="38" x2="266" y2="38" class="hw-ln"/><circle cx="34" cy="38" r="8" class="hw-dot"/><circle cx="112" cy="38" r="8" class="hw-dot"/><circle cx="190" cy="38" r="8" class="hw-dot"/><circle cx="266" cy="38" r="8" class="hw-dot up"/><text x="34" y="42" text-anchor="middle" class="hw-w">1</text><text x="112" y="42" text-anchor="middle" class="hw-w">2</text><text x="190" y="42" text-anchor="middle" class="hw-w">3</text><text x="266" y="42" text-anchor="middle" class="hw-w">4</text><text x="34" y="66" text-anchor="middle" class="hw-s">Starts</text><text x="112" y="66" text-anchor="middle" class="hw-s">You trade</text><text x="190" y="66" text-anchor="middle" class="hw-s">Ends</text><text x="266" y="66" text-anchor="middle" class="hw-s">Paid $1</text><text x="34" y="82" text-anchor="middle" class="hw-s2">start price</text><text x="190" y="82" text-anchor="middle" class="hw-s2">end price</text><text x="266" y="82" text-anchor="middle" class="hw-s2">per win</text>`)},
+  {t: "Sell before the end", d: "You do not have to wait. While a round is live you can sell your shares at the current price with Cashout or Sell. If the price of your shares went up, you take a profit now. If it went down, you can sell and keep what is left instead of risking all of it.",
+    g: SV("0 0 300 112", "Share price rising from 40 cents to 70 cents", `<line x1="10" y1="76" x2="290" y2="76" class="hw-st"/><text x="14" y="90" class="hw-s">Bought at 40¢</text><path d="M24 76C60 78 80 62 112 64S160 44 196 40S250 26 272 22" class="hw-ln"/><circle cx="24" cy="76" r="4" class="hw-dot"/><circle cx="272" cy="22" r="5" class="hw-dot up"/><text x="266" y="14" text-anchor="end" class="hw-t up">Sell at 70¢</text><text x="150" y="106" text-anchor="middle" class="hw-s">10 shares × 70¢ = $7.00 (profit $3.00)</text>`)}
 ];
-function tutPop(i){
-  const T = TUT[i];
-  pdPop("Quick guide", "", (el, close) => {
-    const b = el.querySelector(".pd-pop-b");
-    const draw = n => { const x = TUT[n];
-      b.innerHTML = `<div class="pd-tut-steps">${TUT.map((y, j) => `<button type="button" class="${j === n ? "on" : j < n ? "done" : ""}" data-ts="${j}" aria-label="Step ${j + 1}: ${esc(y.k)}">${j + 1}</button>`).join("<i></i>")}</div>
-        <div class="pd-tut-g">${x.g}</div><h4>${n + 1}. ${esc(x.t)}</h4><p>${esc(x.d)}</p>
-        <div class="pd-pop-btns">${n > 0 ? `<button type="button" class="pd-pb" data-pv>Back</button>` : ""}${x.cta ? `<button type="button" class="pd-pb" data-cta>${esc(x.cta)}</button>` : ""}<button type="button" class="pd-pb pri" data-nx>${n < TUT.length - 1 ? "Next" : "Done"}</button></div>`;
-      b.querySelectorAll("[data-ts]").forEach(z => z.onclick = () => { hap(6); draw(+z.dataset.ts); });
-      b.querySelector("[data-pv]") && (b.querySelector("[data-pv]").onclick = () => { hap(6); draw(n - 1); });
-      b.querySelector("[data-nx]").onclick = () => { if (n < TUT.length - 1){ hap(6); draw(n + 1); } else close(); };
-      const c = b.querySelector("[data-cta]"); if (c) c.onclick = () => { close(); hap(8); if (x.a === "xf") UI.transferSheet({to: W}); else location.hash = "#/predict" + (x.a === "portfolio" ? "/portfolio" : ""); };
-    };
-    draw(i);
-  });
+function hiwBody(){
+  const fee = cfg().feePct;
+  return `<p class="pd-hw-lead">A prediction round asks one question about the future, for example: <b>will Bitcoin be higher in 5 minutes than it is right now?</b> You buy shares in the answer you believe in.</p>
+    <ol class="pd-hws">${HW.map((x, i) => `<li><div class="pd-hws-h"><em>${i + 1}</em><b>${esc(x.t)}</b></div><p>${esc(x.d)}</p><div class="pd-hws-g">${x.g}</div></li>`).join("")}</ol>
+    <div class="pd-hwx"><div class="pd-hwx-h"><b>Worked example</b><span>BTC Up or Down · 5m</span></div>
+      <p>The start price is <b class="num">60,000.00</b>. You think Bitcoin will go up, so you buy <b class="up">10 Up shares at 40¢</b> and pay <b class="num">$4.00</b>.</p>
+      <div class="pd-hwx-r"><span>End price <b class="num">60,010.00</b> (above start)</span><b class="up">Up wins: you get $10.00, profit +$6.00</b></div>
+      <div class="pd-hwx-r"><span>End price <b class="num">59,990.00</b> (below start)</span><b class="down">Down wins: your shares are worth $0, loss -$4.00</b></div>
+      <div class="pd-hwx-r"><span>Sell early when your Up shares reach <b class="num">70¢</b></span><b class="up">You get $7.00, profit +$3.00</b></div></div>
+    <p class="pd-fine">${fee > 0 ? `A trading fee of ${fmt(fee, fee < 1 ? 2 : 1)}% applies and is shown before you confirm. ` : ""}You can lose the whole amount you pay, so only trade what you can afford to lose. A low price such as 5¢ pays a lot if it wins, but that outcome is unlikely. The official result follows each market's resolution source; the chart on this page uses Binance prices as a reference.</p>`;
 }
-function tutHtml(){
-  if (tutOff()) return "";
-  return `<div class="pd-tut" id="pdTut"><span class="pd-tut-l" role="img" aria-label="Quick guide">${ic("zap", 15, 2.2)}</span><div class="pd-tut-s">${TUT.map((x, i) => `<button type="button" data-tut="${i}"><b>${i + 1}</b>${esc(x.k)}</button>`).join("")}</div><button type="button" class="pd-tut-x" data-tutx aria-label="Dismiss quick guide">${ic("close", 14)}</button></div>`;
-}
+function hiwPop(){ pdPop("How it works", hiwBody(), el => { const b = el.querySelector(".pd-pop"); if (b) b.classList.add("pd-hiw-pop"); }); }
+const hiwBtn = `<button type="button" class="pd-hiw" data-hiw aria-haspopup="dialog">${ic("info", 16)}<span>How it works</span></button>`;
+const tutHtml = () => `<div class="pd-hiw-r" id="pdTut">${hiwBtn}</div>`;
 function infoPop(){
   pdPop("Where the data comes from", `<div class="pd-flow" aria-hidden="true"><span><b>Polymarket</b><small>markets &amp; order books</small></span><i>&rarr;</i><span class="on"><b>NovaTrade</b><small>live feed</small></span><i>&rarr;</i><span><b>You</b><small>${WSN > 0 ? "live now" : "connecting"}</small></span></div>
     <ul class="pd-info">
@@ -580,9 +575,7 @@ function infoPop(){
       <li><b>Your fills</b> walk the live order book: best asks first when you buy, best bids first when you sell.</li>
       <li><b>BTC and ETH Up or Down</b> rounds are Polymarket's real 5-minute and 15-minute markets. The chart uses Binance spot prices.</li>
       <li><b>Settlement</b> follows each market's Polymarket resolution source. Winning shares pay $1, losing shares $0, credited to your Prediction wallet automatically.</li>
-    </ul>${tutOff() ? `<div class="pd-pop-btns"><button type="button" class="pd-pb" data-tutshow>Show quick guide again</button></div>` : ""}`, (el, close) => {
-    const b = el.querySelector("[data-tutshow]"); if (b) b.onclick = () => { try { localStorage.removeItem(TUT_KEY); } catch {} close(); if (curScreen === "list") location.reload ? (location.hash = "#/predict", bus.emit("pd-tut")) : 0; };
-  });
+    </ul>`);
 }
 
 /* =====================================================================================================
