@@ -296,7 +296,7 @@ function pageFactory(params){
     const li = q$("[data-lotinfo]"); if (li) li.textContent = lots ? "= " + unitsTxt(d, lots) : "0.01 to 100 lots";
     const pl = q$('[data-s="pipl"]'); if (pl && pl.dataset.k !== d.cat){ pl.dataset.k = d.cat; pl.innerHTML = (d.cat === "forex" ? "Pip value " : "Point value ") + hq("pip"); }
     if (!q || !lots){ ["size", "margin", "scost", "pip", "free"].forEach(k => set(k, "--")); return; }
-    const mid = q.mid, margin = r2(notionalOf(d, lots, mid) / st.lev), free = a.free - margin, sc = spreadCost(d, lots, mid), tc = typCost(d, lots, mid);
+    const mid = q.ask, margin = r2(notionalOf(d, lots, mid) / st.lev), free = a.free - margin, sc = spreadCost(d, lots, mid), tc = typCost(d, lots, mid);
     set("size", `${unitsTxt(d, lots)} · ${fmt(notionalOf(d, lots, mid), 2)} USDT`);
     set("margin", fmt(margin, 2) + " USDT"); set("scost", `${fmt(sc, sc < .1 ? 4 : 2)} USDT (typical ${fmt(tc, tc < .1 ? 4 : 2)})`, "up");
     set("pip", `1 ${d.cat === "forex" ? "pip" : "point"} = ${fmt(pipVal(d, lots, mid), 2)} USDT`);

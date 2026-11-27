@@ -979,7 +979,7 @@ Pages.copy = (params) => {
           cstate().active.unshift(newCopy(l, {mk, amt: inv, mode: mk === "binary" ? "binary" : mode, sizing: mode, modeVal: mv, maxOrder: mo, sl, tp}));
           store.addWallet(mk === "binary" ? "binary" : "futures", -inv, "copy"); store.save();
           store.notify("Copy trading started", `Copying ${l.name} with ${money(inv)} USDT`, "ok"); U.fx("open"); toast("Copy trading started", "ok");
-          view = "my"; show();
+          U.closeLayer(); view = "my"; show(); window.scrollTo(0, 0);
         };
       }, stopLive);
     }
