@@ -271,7 +271,7 @@ function pageFactory(params){
   }
   function qhHTML(){
     const d = SP[st.sym];
-    return `<div class="cf-qt"><span class="cf-ic">${icon(st.sym, 34)}</span><div class="cf-qn"><b>${d.sym}</b><small>${esc(d.name)}</small></div><div class="cf-qs"><span class="cf-st" data-st>--</span><span class="cf-chg" data-chg></span></div></div>
+    return `<div class="cf-qt"><span class="cf-ic">${icon(st.sym, 34)}</span><div class="cf-qn"><b>${d.sym}</b><small>${esc(d.name)}</small></div><div class="cf-qs"><span class="cf-st" data-mst>--</span><span class="cf-chg" data-chg></span></div></div>
     <div class="cf-qp"><div class="cf-pb sell"><small>Sell</small><b class="num" data-qb>--</b></div><div class="cf-spr"><span>Spread ${hq("spread")}</span><b class="num">${spTxt(d, d.sp)}</b></div><div class="cf-pb buy"><small>Buy</small><b class="num" data-qa>--</b></div></div>
     <div class="cf-tag"><span class="cf-80">${ic("check", 11, 3)}80% tighter than typical brokers</span><small>Typical ${typTxt(d)}</small></div>`;
   }
@@ -286,7 +286,7 @@ function pageFactory(params){
   function updQuote(){
     const d = SP[st.sym], q = quote(st.sym);
     flash(q$("[data-qb]"), q ? px(q.bid, d.dp) : "--"); flash(q$("[data-qa]"), q ? px(q.ask, d.dp) : "--");
-    const s = q$("[data-st]"); if (s){ const t = !q ? "No price" : q.live ? "Live" : q.closed ? "Market closed" : "Waiting for price"; s.textContent = t; s.className = "cf-st " + (q && q.live ? "on" : "off"); }
+    const s = q$("[data-mst]"); if (s){ const t = !q ? "No price" : q.live ? "Live" : q.closed ? "Market closed" : "Waiting for price"; s.textContent = t; s.className = "cf-st " + (q && q.live ? "on" : "off"); }
     const c = q$("[data-chg]"); if (c){ const v = q && q.chg; c.textContent = v == null || isNaN(v) ? "" : (v > 0 ? "+" : "") + fmt(v, 2) + "%"; c.className = "cf-chg " + cls(v || 0); }
     flash(q$('[data-px="bid"]'), q ? px(q.bid, d.dp) : "--"); flash(q$('[data-px="ask"]'), q ? px(q.ask, d.dp) : "--");
     root.querySelectorAll(".cf-go").forEach(b => b.classList.toggle("off", !q || !q.live));

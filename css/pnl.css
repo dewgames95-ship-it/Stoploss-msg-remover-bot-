@@ -63,3 +63,7 @@
 .pn-cg{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
 .pn-cg span{display:block;font-size:11px;color:var(--muted)}.pn-cg b{font-size:14px}
 .pn-cf{font-size:11px;color:var(--muted);margin-top:14px}
+/* v7.1: Bot / Auto / Copy source tags next to the product chip */
+.pn-tag2{font-size:10px;font-weight:700;padding:0 6px;line-height:18px;border-radius:4px;flex-shrink:0;margin-left:-4px;margin-right:2px;background:var(--grad-brand-soft,var(--input));color:var(--brand);text-transform:uppercase;letter-spacing:.03em}
+.pn-tag2.t-auto{background:var(--up-bg);color:var(--up)}
+.pn-tag2.t-perp,.pn-tag2.t-binary,.pn-tag2.t-copy{background:var(--input);color:var(--text-2)}
