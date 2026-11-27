@@ -1,22 +1,25 @@
 /* ===== Wallets: Binance-style Transfer sheet + insufficient-balance helper (v6.3) ===== */
 (function(){
 const {esc, ic, store, money, toast} = U;
-const NAMES = {spot:"Spot", funding:"Funding", futures:"Futures", binary:"Binary", options:"Options", earn:"Earn", games:"Money Game", predict:"Prediction"};
-const LONG = {spot:"Spot Wallet", funding:"Funding Wallet", futures:"Futures", binary:"Binary", options:"Options", earn:"Earn", games:"Money Game", predict:"Prediction"};
-const ORDER = ["spot","funding","futures","binary","options","earn","games","predict"];
+const NAMES = {spot:"Spot", funding:"Funding", futures:"Futures", binary:"Binary", options:"Options", earn:"Earn", games:"Money Game", predict:"Prediction", cfd:"CFD Trade"};
+const LONG = {spot:"Spot Wallet", funding:"Funding Wallet", futures:"Futures", binary:"Binary", options:"Options", earn:"Earn", games:"Money Game", predict:"Prediction", cfd:"CFD Trade"};
+const ORDER = ["spot","funding","futures","binary","options","earn","games","predict","cfd"];
 const nm = k => NAMES[k] || k;
 /* same icon names the Home screen uses for each product (Spot "chart", Futures "layers", Options "target", Earn "earn", Money Game "car", Prediction "predict"; Binary "clock", Funding "wallet" from the all-shortcuts sheet) */
-const WIC = {spot:"chart", funding:"wallet", futures:"layers", binary:"clock", options:"target", earn:"earn", games:"car", predict:"predict"};
+const WIC = {spot:"chart", funding:"wallet", futures:"layers", binary:"clock", options:"target", earn:"earn", games:"car", predict:"predict", cfd:"candle"};
 const wi = (k, z = 18) => `<span class="wl-ic" aria-hidden="true">${ic(WIC[k] || "wallet", z, 1.8)}</span>`;
 const floor2 = v => Math.floor((v + 1e-9) * 100) / 100;
 
 /* v6.6: Funding wallet. store.WALLETS is the same array core.js sums over, so pushing is enough. */
 (function(){
   const S0 = () => store.s;
-  ["funding","games","predict"].forEach(k => { if (!store.WALLETS.includes(k)) store.WALLETS.push(k); });   // v6.8: games = Money Racer, predict = Prediction market
-  const fix = () => { const S = S0(); if (S.wallets) ["funding","games","predict"].forEach(k => { if (!(S.wallets[k] >= 0)) S.wallets[k] = 0; }); S.balance = Math.round(store.WALLETS.reduce((a, k) => a + (S.wallets[k] || 0), 0) * 100) / 100; };
-  fix();
-  const rs = store.reset; store.reset = function(){ const r = rs.apply(this, arguments); fix(); return r; };
+  ["funding","games","predict","cfd"].forEach(k => { if (!store.WALLETS.includes(k)) store.WALLETS.push(k); });   // v6.8: games = Money Racer, predict = Prediction market
+  const fix = () => { const S = S0(); if (S.wallets) ["funding","games","predict","cfd"].forEach(k => { if (!(S.wallets[k] >= 0)) S.wallets[k] = 0; }); S.balance = Math.round(store.WALLETS.reduce((a, k) => a + (S.wallets[k] || 0), 0) * 100) / 100; };
+  /* v7.0: demo account = 1,000 USDT in every wallet (new accounts, resets, and a one-time top-up of existing demo accounts) */
+  const isDemo = () => { try { return (localStorage.getItem("nt_mode") || "demo") !== "real"; } catch { return true; } };
+  const fill = force => { const S = S0(); if (!isDemo() || !S.wallets || (S.w1000 && !force)) return; store.WALLETS.forEach(k => { if (force || !(S.wallets[k] >= 1000)) S.wallets[k] = 1000; }); S.w1000 = 1; };
+  fix(); fill(false); fix(); try { store.save(); } catch {}
+  const rs = store.reset; store.reset = function(){ const r = rs.apply(this, arguments); fix(); fill(true); fix(); try { store.save(); } catch {} return r; };
 })();
 
 function pickFrom(to){

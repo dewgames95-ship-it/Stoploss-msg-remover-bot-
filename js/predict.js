@@ -43,6 +43,8 @@ const shr = v => fmt(v, 2);
 const dShort = iso => { const t = Date.parse(iso); return isNaN(t) ? "" : new Date(t).toLocaleDateString("en-US", {month:"short", day:"numeric", year:"numeric"}); };
 const ago = t => { const d = (now() - t) / 1000; if (d < 60) return Math.max(1, Math.floor(d)) + "s ago"; if (d < 3600) return Math.floor(d/60) + "m ago"; if (d < 86400) return Math.floor(d/3600) + "h ago"; return Math.floor(d/86400) + "d ago"; };
 const endsIn = iso => { const t = Date.parse(iso); if (isNaN(t)) return ""; const d = t - now(); if (d <= 0) return "Ended"; if (d < 3600e3) return Math.ceil(d/60e3) + "m left"; if (d < 86400e3) return Math.floor(d/3600e3) + "h left"; return dShort(iso); };
+/* v7.1: small countdown under the end date: "3d 7h 3m left" / "7h 3m left" / "12m left" (refreshed every minute) */
+const leftTxt = iso => { const t = Date.parse(iso); if (isNaN(t)) return ""; let m = Math.ceil((t - now()) / 60e3); if (m <= 0) return "Ended"; const d = Math.floor(m / 1440), h = Math.floor(m % 1440 / 60), mm = m % 60; return (d ? d + "d " : "") + (d || h ? h + "h " : "") + mm + "m left"; };
 const img = (src, cls = "pd-img", alt = "") => src ? `<img class="${cls}" src="${esc(src)}" alt="${esc(alt)}" loading="lazy" decoding="async" onerror="this.style.visibility='hidden'">` : `<span class="${cls} pd-img-ph">${ic("target", 18)}</span>`;
 const raf = fn => { let q = false; return () => { if (q) return; q = true; requestAnimationFrame(() => { q = false; fn(); }); }; };
 const hap = (p = 8) => U.buzz && U.buzz(p);
@@ -949,7 +951,7 @@ function quickTrade(ev, m, oi, side = "buy"){
 function ynBtn(m, i){ return `<button type="button" class="pd-ynb ${i ? "no" : "yes"}" data-buy="${m.id}" data-oi="${i}"><span>${esc(short(m.outs[i]))}</span><b class="num" data-${i ? "nb" : "yb"}="${m.id}">${cents(buyPx(m, i))}</b></button>`; }
 function card(e){
   const href = `#/predict/m/${encodeURIComponent(e.slug)}`, live = Date.parse(e.end) - now() < 86400e3 && Date.parse(e.end) > now();
-  const foot = `<div class="pd-card-f"><span class="num">${live ? '<i class="pd-live"></i>' : ""}$${cmp(e.vol)} Vol.</span><span>${ic("clock", 12)}${esc(endsIn(e.end))}</span></div>`;
+  const foot = `<div class="pd-card-f"><span class="num">${live ? '<i class="pd-live"></i>' : ""}$${cmp(e.vol)} Vol.</span><span class="pd-endc"><span class="pd-endd">${ic("clock", 12)}${esc(dShort(e.end) || endsIn(e.end))}</span>${Date.parse(e.end) > now() ? `<small class="num" data-left="${esc(e.end)}">${leftTxt(e.end)}</small>` : ""}</span></div>`;
   if (e.markets.length === 1){
     const m = e.markets[0];
     return `<article class="pd-card" data-ev="${esc(e.slug)}"><div class="pd-card-h">${img(e.img)}<a class="pd-card-q" href="${href}">${esc(e.title)}</a>${gauge(chance(m), m.id)}</div>
@@ -1109,6 +1111,8 @@ function listScreen(){
     if ("IntersectionObserver" in window){ io = new IntersectionObserver(es => { if (es.some(x => x.isIntersecting) && events.length && !loading && !done && !err) load(false); }, {rootMargin: "600px"}); io.observe($("#pdMore")); }
     if (!cfg().enabled) return;
     timers.push(setInterval(() => { if (!document.hidden) tickRounds(); }, 1000));
+    const tickLeft = () => { if (document.hidden || !root) return; root.querySelectorAll("[data-left]").forEach(el => { const t = leftTxt(el.dataset.left); if (el.textContent !== t) el.textContent = t; }); };
+    timers.push(setInterval(tickLeft, 15000)); document.addEventListener("visibilitychange", tickLeft); offs.push(() => document.removeEventListener("visibilitychange", tickLeft));
     renderRounds(); if (showRounds()) loadRounds();
     showCached(); if (!events.length && !(cat === "live" && !qs)){ loading = true; renderList(); loading = false; }
     load(true);
@@ -1181,17 +1185,18 @@ function detailScreen(key, mid){
       ? `<div class="pd-rh-p"><span>Final price</span><b class="num" data-rpx>--</b><em class="num" data-rdl></em></div><div class="pd-rh-cd"><span>Result</span><b class="num" data-rwin>--</b></div>`
       : `<div class="pd-rh-p"><span>${esc(rd.a.name)} price</span><b class="num" data-rpx>--</b><em class="num" data-rdl></em></div><div class="pd-rh-cd"><span data-rcl>${ph === "next" ? "Starts in" : "Ends in"}</span><b class="num" data-rcd>${mmss(cdT)}</b></div>`;
     const meta = ph === "past" ? `<span>Start price <b class="num" data-rsp>--</b></span><span>End price <b class="num" data-rep>--</b></span>` : `<span>Start price <b class="num" data-rsp>--</b></span><span>${esc(m.outs[0])} <b class="num up" data-dch>${chancePct(c)}</b></span>`;
-    const chart = ph === "past" ? `<div class="pd-rh-chart"><div id="pdRC" class="pd-pch"><div class="pd-ch-empty" style="height:210px"><span class="pd-spin"></span></div></div></div>` : `<div class="pd-rh-chart"><div id="pdRC" style="height:280px"></div></div>`;
+    /* v7.1: the chart (interval row + indicator bar) lives in its own card under the compact price card */
+    const chart = ph === "past" ? `<section class="pd-sec pd-chc"><div id="pdRC" class="pd-pch"><div class="pd-ch-empty" style="height:210px"><span class="pd-spin"></span></div></div></section>` : `<section class="pd-sec pd-chc"><div id="pdRC" style="height:280px"></div></section>`;
     return `<section class="pd-sec pd-rh"><div class="pd-rh-top">${top}</div>
       <div class="pd-rc-bar"><i data-rcbar="${rd.t0},${rd.t1}"></i></div>
-      <div class="pd-rh-meta">${meta}</div>${chart}
-      <div class="pd-fine" data-rres>${ph === "next" ? "This round has not started yet. You can already buy; the start price is set when it begins." : ""}</div></section>`;
+      <div class="pd-rh-meta">${meta}</div>
+      <div class="pd-fine" data-rres>${ph === "next" ? "This round has not started yet. You can already buy; the start price is set when it begins." : ""}</div></section>${chart}`;
   }
   function mountRoundChart(){
     const host = $("#pdRC"); if (!host) return;
     if (phase() === "past"){ loadPast(); if (winnerOf(ev) == null){ rPoll = 0; pollRound(); } updateRound(); return; }
     if (!window.CH) return;
-    try { CH.mount(host, {sym: rd.sym, tf: sessionStorage.getItem("tf_ch3") || "1m", indicators: true, compact: true, tfbar: true, mode: "none", height: "280px", tfs: ["1s", "1m", "5m", "15m", "1h"]}); } catch (e){ console.warn(e); }
+    try { CH.mount(host, {sym: rd.sym, tf: sessionStorage.getItem("tf_ch3") || "1m", indicators: true, compact: true, tfbar: true, mode: "none", height: "280px", tfs: ["1s", "1m", "5m", "15m", "1h", "4h", "1d"]}); } catch (e){ console.warn(e); }
     if (phase() === "live") startPrice(rd).then(v => { if (phase() === "live"){ startPx = v != null ? v : livePx(rd.sym); updateRound(); } });
     updateRound(); cancelAnimationFrame(fr); fr = requestAnimationFrame(frameLoop);
   }

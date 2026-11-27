@@ -75,6 +75,9 @@
 .pd-ynb:active{transform:scale(.97);filter:brightness(1.08)}
 .pd-card-f{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
 .pd-card-f span{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.pd-card-f{align-items:flex-start}
+.pd-card-f .pd-endc{flex-direction:column;align-items:flex-end;gap:1px}
+.pd-card-f .pd-endc small{font-size:11px;font-weight:600;color:var(--muted);opacity:.85;line-height:1.2}
 .pd-live{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--down);box-shadow:0 0 0 0 var(--down);animation:pdlive 1.6s infinite}
 @keyframes pdlive{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--down) 60%,transparent)}70%{box-shadow:0 0 0 6px transparent}100%{box-shadow:0 0 0 0 transparent}}
 .pd-orows{display:flex;flex-direction:column;gap:8px}
@@ -524,18 +527,29 @@ html[data-theme="dark"]{--pd-g1:color-mix(in srgb,var(--brand) 8%,var(--pd-box))
 .pd-rc-bar i{display:block;height:100%;width:0;background:var(--grad);transition:width .5s linear}
 .pd-rc .pd-ynb{height:40px}
 
-/* round detail hero */
+/* round detail hero (v7.1: compact price card; chart in its own card below) */
+.pd-rh.pd-sec{padding:10px 14px 11px}
 .pd-rh-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
-.pd-rh-p span,.pd-rh-cd span{display:block;font-size:12px;color:var(--muted)}
-.pd-rh-p b{display:block;font-size:26px;font-weight:800;letter-spacing:-.02em;line-height:1.15}
-.pd-rh-p em{font-style:normal;font-size:12.5px;font-weight:700}
+.pd-rh-p span,.pd-rh-cd span{display:block;font-size:11.5px;color:var(--muted);line-height:1.3}
+.pd-rh-p b{display:block;font-size:22px;font-weight:800;letter-spacing:-.02em;line-height:1.15}
+.pd-rh-p em{display:block;font-style:normal;font-size:11.5px;font-weight:700;line-height:1.3}
 .pd-rh-cd{text-align:right}
-.pd-rh-cd b{display:block;font-size:26px;font-weight:800;color:var(--brand);letter-spacing:.01em;line-height:1.15}
-.pd-rh .pd-rc-bar{margin:10px 0 8px}
-.pd-rh-meta{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;color:var(--muted);margin-bottom:8px}
+.pd-rh-cd b{display:block;font-size:22px;font-weight:800;color:var(--brand);letter-spacing:.01em;line-height:1.15}
+.pd-rh .pd-rc-bar{margin:7px 0 6px;height:3px}
+.pd-rh-meta{display:flex;justify-content:space-between;gap:10px;font-size:12px;color:var(--muted);margin:0}
 .pd-rh-meta b{color:var(--text);margin-left:4px}.pd-rh-meta b.up{color:var(--up)}
-.pd-rh-chart{margin:0 -6px}
-.pd-rh .ch3-box{border-radius:0}
+.pd-rh .pd-fine{margin-top:8px}.pd-rh .pd-fine:empty{display:none}
+.pd-chc.pd-sec{padding:0;overflow:hidden;margin-top:10px}
+.pd-chc .pd-pch{padding:12px 10px}
+.pd-chc .ch3-box{border-radius:0;padding-top:2px}
+.pd-chc .ch3-box .indbar.x3{margin:0;padding:0 6px 0 12px;border-bottom:0}
+.pd-chc .tfbar .tfs{min-width:0;overflow-x:auto;scrollbar-width:none}
+.pd-chc .tfbar .tfs::-webkit-scrollbar{display:none}
+.pd-chc .ch3-box .tfbar .tfs button{padding:0 7px}
+/* vertical / horizontal drags inside the chart move the chart only, never the page */
+.pd-chc .chart-wrap,.pd-chc .chart-wrap *{touch-action:none}
+.pd-chc .chart-wrap,.pd-fsc .chart-wrap{overscroll-behavior:contain;-webkit-user-select:none;user-select:none}
+.pd-fsc .chart-wrap,.pd-fsc .chart-wrap *{touch-action:none}
 .pd-sl{position:absolute;left:0;right:0;top:0;height:0;border-top:1.5px dashed var(--warn);z-index:5;pointer-events:none;will-change:transform}
 .pd-sl span{position:absolute;left:6px;top:-17px;padding:0 5px;border-radius:3px;font-size:10px;font-weight:700;line-height:15px;color:#fff;background:var(--warn)}
 .pd-sv{position:absolute;top:0;bottom:0;left:0;width:0;will-change:transform;border-left:1px dashed color-mix(in srgb,var(--warn) 70%,transparent);z-index:5;pointer-events:none}

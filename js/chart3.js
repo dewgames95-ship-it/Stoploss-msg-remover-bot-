@@ -348,9 +348,9 @@ document.addEventListener("click", e => {
 
 /* ================= quick order sheet (the "+" on the live price tag): Long/Short on futures, Buy/Sell on spot ================= */
 const FEE_F = () => (window.C && C.FEE) || 0.0001;
-function qoOpen(sym){
+function qoOpen(sym, side){
   sym = sym || (CH.geo() && CH.geo().sym); const p = sym && M.get(sym); if (!p || !p.price) return U.toast("Price unavailable", "bad");
-  (/^#\/spot\b/.test(location.hash) ? qoSpot : qoFut)(sym, p);
+  (/^#\/spot\b/.test(location.hash) || /^#\/chart\b.*[?&]spot\b/.test(location.hash) ? qoSpot : qoFut)(sym, p, side);
 }
 const SEG = (attr, items, cur) => `<div class="oc qo-seg">${items.map(([v, l]) => `<button ${attr}="${v}" class="${v === cur ? "on" : ""}">${l}</button>`).join("")}</div>`;
 function qoFut(sym, p){
@@ -394,9 +394,9 @@ function qoFut(sym, p){
     upd();
   });
 }
-function qoSpot(sym, p){
+function qoSpot(sym, p, side0){
   if (!store.s.spot) store.s.spot = {hold:{}, orders:[], history:[]}; const sp0 = store.s.spot; sp0.hold ||= {}; sp0.orders ||= []; sp0.history ||= [];
-  let side = "buy", ot = "market";
+  let side = side0 === "sell" ? "sell" : "buy", ot = "market";
   const key = (p.type === "crypto" || p.type === "stock") ? p.base : p.sym, unit = key;
   const avail = () => Math.max(0, ((store.s.spot.hold || {})[key]?.qty || 0) - (store.s.spot.orders || []).filter(o => o.side === "sell" && o.sym === sym).reduce((a, o) => a + o.qty, 0));
   const qd = px => p.type !== "crypto" ? (p.type === "stock" ? 3 : 2) : (px >= 1000 ? 5 : px >= 10 ? 4 : px >= 1 ? 2 : 0);

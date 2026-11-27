@@ -64,15 +64,15 @@ UI.coinSheet = function(coin, t, rerender){
 /* ---------- Withdrawal flow ---------- */
 const EVM = /^0x[a-fA-F0-9]{40}$/, B58 = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 const NETS = [
-  {k:"BSC", n:"BNB Smart Chain (BEP20)", fee:0.15, min:3, eta:1, re:EVM, ex:"0x…"},
-  {k:"TRX", n:"Tron (TRC20)", fee:1.5, min:1.5, eta:1, re:/^T[1-9A-HJ-NP-Za-km-z]{33}$/, ex:"T…"},
-  {k:"ETH", n:"Ethereum (ERC20)", fee:1, min:5, eta:3, re:EVM, ex:"0x…"},
-  {k:"APT", n:"Aptos", fee:0.01, min:5, eta:1, re:/^0x[a-fA-F0-9]{1,64}$/, ex:"0x…"},
-  {k:"TON", n:"TON", fee:0.15, min:5, eta:1, re:/^[UE]Q[A-Za-z0-9_-]{46}$/, ex:"UQ…"},
-  {k:"POL", n:"Polygon", fee:0.8, min:10, eta:5, re:EVM, ex:"0x…"},
-  {k:"SOL", n:"Solana", fee:1, min:1, eta:1, re:B58, ex:"base58"},
-  {k:"ARB", n:"Arbitrum One", fee:0.5, min:0.5, eta:2, re:EVM, ex:"0x…"},
-  {k:"OP", n:"Optimism", fee:0.5, min:1, eta:2, re:EVM, ex:"0x…"}
+  {k:"BSC", n:"BNB Smart Chain (BEP20)", fee:0.15, min:1, eta:1, re:EVM, ex:"0x…"},
+  {k:"TRX", n:"Tron (TRC20)", fee:0.5, min:1, eta:1, re:/^T[1-9A-HJ-NP-Za-km-z]{33}$/, ex:"T…"},
+  {k:"ETH", n:"Ethereum (ERC20)", fee:0.8, min:1, eta:3, re:EVM, ex:"0x…"},
+  {k:"APT", n:"Aptos", fee:0.01, min:1, eta:1, re:/^0x[a-fA-F0-9]{1,64}$/, ex:"0x…"},
+  {k:"TON", n:"TON", fee:0.15, min:1, eta:1, re:/^[UE]Q[A-Za-z0-9_-]{46}$/, ex:"UQ…"},
+  {k:"POL", n:"Polygon", fee:0.5, min:1, eta:5, re:EVM, ex:"0x…"},
+  {k:"SOL", n:"Solana", fee:0.5, min:1, eta:1, re:B58, ex:"base58"},
+  {k:"ARB", n:"Arbitrum One", fee:0.3, min:1, eta:2, re:EVM, ex:"0x…"},
+  {k:"OP", n:"Optimism", fee:0.3, min:1, eta:2, re:EVM, ex:"0x…"}
 ];
 const fnum = v => fmt(v, v > 0 && v < 1 ? 6 : 2).replace(/\.?0+$/, m => m.includes(".") ? "" : m);
 const head = (title, right) => `<header class="page-head"><button class="icon-btn" data-back aria-label="Go back">${ic("back",22)}</button><h1 class="h1 ellipsis" style="text-align:center">${esc(title)}</h1>${right || `<span style="width:40px"></span>`}</header>`;
@@ -225,6 +225,7 @@ function pickPage(){
 function chainPage(coin){
   const isU = coin === "USDT", nets = netsOf(coin), DP = dpOf(coin), K = Math.pow(10, DP), st = {net:null, from:{funding:isU, spot:true}};
   const fundB = () => isU ? fundBal() : 0, spotB = () => isU ? spotBal() : coinAvail(coin);
+  const minOf = n => { if (isU) return 1; const p = (window.M && M.get(coin + "USDT") || {}).price; return p > 0 ? Math.ceil(1 / p * Math.pow(10, DP)) / Math.pow(10, DP) : n.min; };   /* v7.1: minimum = 1 USDT value */
   const avail = () => (st.from.funding ? fundB() : 0) + (st.from.spot ? spotB() : 0);
   const html = head(coin + " On-chain", histBtn) + `<div class="wd-pg wd-ch">
     <label class="wd-l" for="wad">${coin} address</label>
@@ -247,14 +248,14 @@ function chainPage(coin){
     const $ = q => r.querySelector(q), A = $("#wam"), AD = $("#wad");
     const upd = () => {
       const n = st.net, v = +A.value || 0;
-      $("#wav").textContent = fmt(avail(), DP) + " " + coin; A.placeholder = "Min. " + (n ? fnum(n.min) : "--");
+      $("#wav").textContent = fmt(avail(), DP) + " " + coin; A.placeholder = "Min. " + (n ? fnum(minOf(n)) : "--");
       $("#wnn").textContent = n ? n.n : "Select Network"; $("#wnn").classList.toggle("ph", !n);
       $("#wrc").textContent = n && v > 0 ? fmt(Math.max(0, v - n.fee), DP) + " " + coin : "-- " + coin;
       $("#wfe").textContent = "Fee: " + (n ? fnum(n.fee) : "--") + " " + coin;
     };
     const setErr = (id, m) => { $(id).textContent = m || ""; };
     function netSheet(){
-      U.sheet("Select withdrawal network", `<div class="wd-warn">${ic("info",16,2)}<span>Please ensure you select the same network on ${esc(window.CONFIG.APP_NAME)} and the receiving platform to avoid loss of assets.</span></div>${nets.map(n => `<button class="wd-net ${st.net && st.net.k === n.k ? "on" : ""}" data-k="${n.k}"><b>${esc(n.n)}</b><span>Fee: ${fnum(n.fee)} ${coin} (&lt; $${Math.max(1, n.fee).toFixed(2)})</span><span>Minimum withdrawal: ${fnum(n.min)} ${coin}</span><span>Est. arrival time ≈ ${n.eta} min</span></button>`).join("")}`, el => {
+      U.sheet("Select withdrawal network", `<div class="wd-warn">${ic("info",16,2)}<span>Please ensure you select the same network on ${esc(window.CONFIG.APP_NAME)} and the receiving platform to avoid loss of assets.</span></div>${nets.map(n => `<button class="wd-net ${st.net && st.net.k === n.k ? "on" : ""}" data-k="${n.k}"><b>${esc(n.n)}</b><span>Fee: ${fnum(n.fee)} ${coin} (&lt; $${Math.max(1, n.fee).toFixed(2)})</span><span>Minimum withdrawal: ${fnum(minOf(n))} ${coin}${isU ? "" : " (≈ 1 USDT)"}</span><span>Est. arrival time ≈ ${n.eta} min</span></button>`).join("")}`, el => {
         el.querySelectorAll("[data-k]").forEach(b => b.onclick = () => { st.net = nets.find(x => x.k === b.dataset.k); U.closeLayer(); setErr("#e2"); upd(); });
       });
     }
@@ -285,7 +286,7 @@ function chainPage(coin){
       if (!n){ setErr("#e2", "Select a network"); bad = true; }
       else if (ad && !n.re.test(ad)){ setErr("#e1", `Invalid ${n.n} address format`); bad = true; }
       if (!(v > 0)){ setErr("#e3", "Enter an amount"); bad = true; }
-      else if (n && v < n.min){ setErr("#e3", `Minimum withdrawal is ${fnum(n.min)} ${coin}`); bad = true; }
+      else if (n && v < minOf(n) - 1e-9){ setErr("#e3", `Minimum withdrawal is ${fnum(minOf(n))} ${coin}` + (isU ? "" : " (≈ 1 USDT)")); bad = true; }
       else if (n && v <= n.fee){ setErr("#e3", "Amount must be greater than the fee"); bad = true; }
       else if (v > avail() + 1e-9){ setErr("#e3", "Insufficient balance in the selected accounts"); bad = true; }
       if (bad) return U.fx("err");
@@ -351,4 +352,139 @@ if (window.Pages && Pages.pnl){
     return pg;
   };
 }
+})();
+
+/* ===== v7.1 Assets extras: AI action icon, dust -> USDT sheet, Prediction / Money Game / CFD tabs ===== */
+(function(){
+const {esc, ic, store, bus, money, fmt, toast} = U;
+const S = () => store.s;
+const cls = v => v >= 0 ? "up" : "down";
+const sg = v => (v >= 0 ? "+$" : "-$") + money(Math.abs(v));
+const sp = v => (v >= 0 ? "+" : "") + v.toFixed(2) + "%";
+const z0 = v => Math.abs(v) < .005 ? 0 : v;
+const cents = p => { const v = (+p || 0) * 100; return (Math.abs(v - Math.round(v)) < 1e-6 ? String(Math.round(v)) : v.toFixed(1)) + "¢"; };
+
+UI.aiIcon = (z = 20) => `<svg width="${z}" height="${z}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3.5l1.9 5.4 5.4 1.9-5.4 1.9L10 18.1l-1.9-5.4L2.7 10.8l5.4-1.9z"/><path d="M18.5 3v4M16.5 5h4M18.5 15.5v4M16.5 17.5h4"/></svg>`;
+
+/* ---------- Convert crypto dust (< 1 USDT) into USDT ---------- */
+UI.dustSheet = function(done){
+  const dust = () => { try { return (window.SPOT && SPOT.holdings() || []).filter(h => h.price > 0 && h.value > 0 && h.value < 1 && h.avail > 0); } catch { return []; } };
+  let list = dust(); const sel = new Set(list.map(h => h.coin));
+  const FEE = .001;
+  U.sheet("Convert dust to USDT", `<div class="as-dust-sh" id="dsb"></div>`, el => {
+    const draw = () => {
+      const box = el.querySelector("#dsb"); if (!box) return;
+      if (!list.length){ box.innerHTML = `<div class="px-empty">${ic("check",28,1.5)}<p>No small balances to convert.<br>Coins worth less than 1 USDT show up here.</p></div>`; return; }
+      const tot = list.filter(h => sel.has(h.coin)).reduce((a, h) => a + h.avail * h.price * (1 - FEE), 0);
+      box.innerHTML = `<div class="ds-note">Balances under 1 USDT, converted at the live price (0.1% fee).</div>
+        ${list.map(h => `<label class="ds-r"><input type="checkbox" data-c="${esc(h.coin)}" ${sel.has(h.coin) ? "checked" : ""}><i></i>${UI.coinImg(h.coin, 30)}<div class="grow"><b>${esc(h.coin)}</b><span class="num">${fmt(h.avail, 6)}</span></div><div class="r"><b class="num">≈ ${money(h.avail * h.price)}</b><span>USDT</span></div></label>`).join("")}
+        <div class="ds-tot"><span>You receive</span><b class="num">≈ ${money(tot)} USDT</b></div>
+        <button class="px-btn pri blk lg" data-ok ${sel.size ? "" : "disabled"}>Convert ${sel.size ? sel.size + " coin" + (sel.size > 1 ? "s" : "") : ""}</button>`;
+      box.querySelectorAll("[data-c]").forEach(c => c.onchange = () => { c.checked ? sel.add(c.dataset.c) : sel.delete(c.dataset.c); draw(); });
+      box.querySelector("[data-ok]").onclick = () => {
+        const s = S(), spot = s.spot || (s.spot = {hold:{}, orders:[], history:[]}); spot.hold ||= {}; spot.history ||= [];
+        let got = 0, n = 0;
+        list.filter(h => sel.has(h.coin)).forEach(h => {
+          const hd = spot.hold[h.coin]; if (!hd) return;
+          const px = (window.M && M.get(h.sym)?.price) || h.price, q = Math.min(h.avail, hd.qty);
+          if (!(px > 0) || !(q > 0)) return;
+          const ac = hd.cost / hd.qty; hd.cost = Math.max(0, hd.cost - ac * q); hd.qty -= q; if (hd.qty < 1e-9) delete spot.hold[h.coin];
+          got += q * px * (1 - FEE); n++;
+          spot.history.unshift({id:U.uid(), sym:h.sym, side:"sell", price:px, qty:q, fee:q * px * FEE, ts:Date.now(), type:"dust"});
+        });
+        if (!n) return toast("Price unavailable, try again", "bad");
+        spot.history = spot.history.slice(0, 200);
+        store.addWallet("spot", Math.round(got * 1e6) / 1e6, "dust");
+        store.save(); bus.emit("spot"); U.fx("claim"); U.closeLayer();
+        toast(`Converted ${n} coin${n > 1 ? "s" : ""} to ${money(got)} USDT`, "ok"); done && done();
+      };
+    };
+    draw();
+  });
+};
+
+/* ---------- Prediction / Money Game / CFD tabs ---------- */
+const PRODS = {
+  pred:{label:"Prediction Account", wallet:"predict", name:"Prediction", href:"#/predict"},
+  game:{label:"Money Game Account", wallet:"games", name:"Money Game", href:"#/racer"},
+  cfd:{label:"CFD Trade Account", wallet:"cfd", name:"CFD Trade", href:"#/cfd"}
+};
+let lastBooks = 0;
+function predData(){ try { if (window.PRED){ PRED.stats(); return PRED._data(); } } catch {} return {positions:[], orders:[], history:[]}; }
+const pVal = p => (+p.shares || 0) * (+(p.last ?? p.avg) || 0);
+function cfdData(){
+  try {
+    const C = window.CFD; if (!C) return {positions:[], history:[]};
+    const d = (typeof C.data === "function" ? C.data() : null) || {};
+    const pos = typeof C.positions === "function" ? C.positions() : (d.positions || d.open || []);
+    const hist = typeof C.history === "function" ? C.history() : (d.history || d.closed || []);
+    return {positions: Array.isArray(pos) ? pos : [], history: Array.isArray(hist) ? hist : []};
+  } catch { return {positions:[], history:[]}; }
+}
+const cfdPnl = p => +(p.pnl ?? p.upnl ?? p.unrealized ?? 0) || 0;
+const racerData = () => { try { return window.RACER ? RACER.data() : {bets:[], pending:null}; } catch { return {bets:[], pending:null}; } };
+
+UI.assetsProdInfo = function(tab){
+  const P = PRODS[tab]; if (!P) return null;
+  const w = store.wb(P.wallet); let val = w, pnl = 0;
+  if (tab === "pred"){ const d = predData(); val += d.positions.reduce((a, p) => a + pVal(p), 0); pnl = d.positions.reduce((a, p) => a + pVal(p) - p.cost, 0); }
+  if (tab === "game"){ const pe = racerData().pending; if (pe && +pe.amount) val += +pe.amount; }
+  if (tab === "cfd"){ const d = cfdData(); pnl = d.positions.reduce((a, p) => a + cfdPnl(p), 0); val += pnl; }
+  return {label:P.label, val, pnl: tab === "game" ? null : pnl, cost: val - pnl};
+};
+
+UI.assetsProd = function(tab, H){
+  const P = PRODS[tab], w = store.wb(P.wallet);
+  const head = `<div class="as-pw"><div><span>${P.name} wallet</span><b class="num">${H(money(w))} <small>USDT</small></b></div><div class="as-pb"><button class="px-btn sm" data-wl="${P.wallet}">Transfer</button><a class="px-btn sm pri" href="${P.href}">Trade</a></div></div>`;
+  const sec = (t, right) => `<div class="px-sec-h" style="margin-top:16px"><h2>${t}</h2>${right || ""}</div>`;
+  const empty = (i, t) => `<div class="px-empty">${ic(i, 28, 1.5)}<p>${esc(t)}</p></div>`;
+  let body = "";
+  if (tab === "pred"){
+    const d = predData();
+    body = sec(`Live positions (${d.positions.length})`, `<a href="#/predict/portfolio">Portfolio</a>`) + (d.positions.length ? d.positions.map(p => {
+      const v = pVal(p), pn = z0(v - p.cost), pc = p.cost ? pn / p.cost * 100 : 0, free = Math.max(0, (p.shares || 0) - (p.locked || 0));
+      return `<div class="as-pc"><div class="t"><b>${esc(p.q || p.title || "Market")}</b><em class="${p.oi ? "no" : "yes"}">${esc(p.outcome || "")}</em></div>
+        <div class="g"><div><span>Shares</span><b class="num">${fmt(p.shares, 2)}</b></div><div><span>Avg / Now</span><b class="num">${cents(p.avg)} / ${cents(p.shares ? v / p.shares : 0)}</b></div><div><span>Value</span><b class="num">${H("$" + money(v))}</b></div><div><span>PnL</span><b class="num ${cls(pn)}">${H(sg(pn) + " (" + sp(pc) + ")")}</b></div></div>
+        <div class="b"><button class="px-btn sm dn" data-psell="${esc(p.token)}" ${free > 0 ? "" : "disabled"}>Sell</button><a class="px-btn sm" href="#/predict/m/${encodeURIComponent(p.slug || p.eid || "")}/${encodeURIComponent(p.mid || "")}">Modify</a></div></div>`; }).join("") : empty("predict", "No open positions"));
+    if (d.orders.length) body += sec(`Open orders (${d.orders.length})`) + d.orders.map(o => `<div class="as-pc"><div class="t"><b>${esc(o.q || o.title || "Market")}</b><em class="${o.oi ? "no" : "yes"}">${esc(o.side || "")} ${esc(o.outcome || "")}</em></div><div class="g"><div><span>Shares</span><b class="num">${fmt(o.shares, 2)}</b></div><div><span>Limit</span><b class="num">${cents(o.price)}</b></div></div><div class="b"><button class="px-btn sm" data-pcancel="${esc(o.id)}">Cancel</button></div></div>`).join("");
+    const hs = d.history.slice(0, 8);
+    body += sec("History", `<a href="#/predict/portfolio">All</a>`) + (hs.length ? hs.map(h => `<div class="px-row"><span class="px-ico n">${ic(h.kind === "won" ? "check" : "predict", 16)}</span><div class="grow"><b>${esc(String(h.kind || "").replace(/^./, c => c.toUpperCase()))} ${esc(h.outcome || "")}</b><div class="px-mut as-ell">${esc(h.q || h.title || "")}</div></div><div class="r"><b class="num ${h.pnl != null ? cls(h.pnl) : ""}">${h.pnl != null ? H(sg(h.pnl)) : H("$" + money(h.amount || 0))}</b><span class="px-mut">${U.dateStr ? U.dateStr(h.t) : ""}</span></div></div>`).join("") : empty("file", "No history yet"));
+  } else if (tab === "game"){
+    const d = racerData(), pe = d.pending, bets = (d.bets || []).slice().reverse().slice(0, 12);
+    body = sec("Active bet") + (pe && +pe.amount ? `<div class="as-pc"><div class="t"><b>Race in progress</b><em class="yes">Live</em></div><div class="g"><div><span>Stake</span><b class="num">${H("$" + money(+pe.amount))}</b></div><div><span>Multiplier</span><b class="num">${pe.mult ? "x" + (+pe.mult).toFixed(2) : "--"}</b></div></div><div class="b"><a class="px-btn sm pri" href="#/racer">Open Money Game</a></div></div>` : empty("car", "No active bet"));
+    body += sec("History", `<a href="#/racer">Open game</a>`) + (bets.length ? bets.map(b => { const pn = (b.win ? +b.payout || 0 : b.refunded ? 0 : 0) - (b.refunded ? 0 : +b.amount || 0);
+      return `<div class="px-row"><span class="px-ico n">${ic("car", 16)}</span><div class="grow"><b>${b.win ? "Won" : b.refunded ? "Refunded" : "Lost"}${b.mult ? " · x" + (+b.mult).toFixed(2) : ""}</b><div class="px-mut">Stake ${H("$" + money(+b.amount || 0))}</div></div><div class="r"><b class="num ${cls(pn)}">${H(sg(pn))}</b><span class="px-mut">${U.dateStr && b.t ? U.dateStr(b.t) : ""}</span></div></div>`; }).join("") : empty("file", "No bets yet"));
+  } else {
+    const d = cfdData();
+    body = sec(`Live positions (${d.positions.length})`) + (d.positions.length ? d.positions.map(p => { const pn = cfdPnl(p), sym = p.sym || p.symbol || p.pair || "CFD", side = String(p.side || p.dir || "").toLowerCase();
+      return `<div class="as-pc"><div class="t"><b>${esc(sym)}</b><em class="${/sell|short/.test(side) ? "no" : "yes"}">${esc(side || "position")}</em></div><div class="g"><div><span>Size</span><b class="num">${esc(String(p.size ?? p.qty ?? p.lots ?? p.units ?? "--"))}</b></div><div><span>Entry</span><b class="num">${esc(String(p.entry ?? p.open ?? p.price ?? "--"))}</b></div><div><span>PnL</span><b class="num ${cls(pn)}">${H(sg(pn))}</b></div></div><div class="b">${window.CFD && typeof CFD.close === "function" ? `<button class="px-btn sm dn" data-cclose="${esc(p.id)}">Close</button>` : ""}<a class="px-btn sm" href="#/cfd">Modify</a></div></div>`; }).join("") : empty("candle", "No open positions"));
+    const hs = d.history.slice(0, 8);
+    body += sec("History") + (hs.length ? hs.map(h => { const pn = +(h.pnl ?? h.profit ?? 0) || 0; return `<div class="px-row"><span class="px-ico n">${ic("candle", 16)}</span><div class="grow"><b>${esc(h.sym || h.symbol || "CFD")}</b><div class="px-mut">${esc(String(h.side || ""))}</div></div><div class="r"><b class="num ${cls(pn)}">${H(sg(pn))}</b><span class="px-mut">${U.dateStr && (h.closed || h.t) ? U.dateStr(h.closed || h.t) : ""}</span></div></div>`; }).join("") : empty("file", "No history yet"));
+  }
+  return head + body;
+};
+
+UI.assetsProdBind = function(box, tab, rerender){
+  if (tab === "pred"){
+    box.querySelectorAll("[data-psell]").forEach(b => b.onclick = async () => {
+      const p = (predData().positions || []).find(x => x.token === b.dataset.psell); if (!p) return;
+      const free = Math.max(0, (p.shares || 0) - (p.locked || 0)), px = +(p.last ?? p.avg) || .5;
+      const ok = await U.confirmBox("Sell position", `Sell ${fmt(free, 2)} ${p.outcome || ""} shares at about ${cents(px)}?`, "Sell"); if (!ok) return;
+      try { const r = await API.call("predict.sell", {token:p.token, shares:free, price:px}); U.fx("close"); toast(`Sold for $${money((r.fill || {}).amount || 0)}`, "ok"); }
+      catch (e) { toast(e.message || "Could not sell", "bad"); }
+      rerender();
+    });
+    box.querySelectorAll("[data-pcancel]").forEach(b => b.onclick = async () => {
+      try { const r = await API.call("predict.cancel", {id:b.dataset.pcancel}); U.fx("close"); toast("Order cancelled" + (r.refund ? ": $" + money(r.refund) + " returned" : ""), "ok"); }
+      catch (e) { toast(e.message || "Could not cancel", "bad"); }
+      rerender();
+    });
+    /* refresh live prices once in a while (order books of the held tokens) */
+    if (Date.now() - lastBooks > 20000){ lastBooks = Date.now(); try { const tk = predData().positions.map(p => p.token); if (tk.length) PRED._internal.loadBooks(tk).then(() => { if (box.isConnected) rerender(); }).catch(() => {}); } catch {} }
+  }
+  if (tab === "cfd") box.querySelectorAll("[data-cclose]").forEach(b => b.onclick = async () => {
+    try { await CFD.close(b.dataset.cclose); U.fx("close"); toast("Position closed", "ok"); } catch (e) { toast((e && e.message) || "Could not close", "bad"); }
+    rerender();
+  });
+};
 })();

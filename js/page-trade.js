@@ -210,9 +210,10 @@ Pages.chart = (params) => {
   if (!M.get(sym)) return M.cryptoOrder.length ? Pages.notfound() : loadingPage("Chart");
   sessionStorage.setItem("lastSym_futures", sym);
   const p = M.get(sym); let root, unChart, offs = [], obTab = "book", timers = [];
+  const spotMode = /[?&]spot\b/.test(location.hash);   // opened from the Spot page: Buy / Sell on the spot engine
   const html = `
   <header class="cp-head"><button class="icon-btn" data-back aria-label="Back">${ic("back",20)}</button>
-    <div class="grow"><button class="nm" data-pick>${UI.pairIcon(p, 18)}<span>${esc(fsym(p))}</span> <span class="perp">Perp</span>${ic("chevd",12)}</button><div class="cp-sub">${esc(UI.fullName(p))}</div></div>
+    <div class="grow"><button class="nm" data-pick>${UI.pairIcon(p, 18)}<span>${esc(fsym(p))}</span> <span class="perp">${spotMode ? "Spot" : "Perp"}</span>${ic("chevd",12)}</button><div class="cp-sub">${esc(UI.fullName(p))}</div></div>
     <button class="icon-btn" data-star aria-label="Favorite"></button><button class="icon-btn" data-alert aria-label="Price alert">${ic("bell",19)}</button></header>
   <div class="cp-tabs"><button class="on" data-cpt="price">Price</button><button data-cpt="info">Info</button><button data-cpt="data">Data</button><button data-cpt="binary">Binary</button></div>
   <div id="cpPrice">
@@ -224,7 +225,7 @@ Pages.chart = (params) => {
     <div id="obox"></div>
   </div>
   <div id="cpOther" class="hide" style="padding:14px 0"></div>
-  <div class="cp-bottom"><div class="in qt"><button class="ib" data-more aria-label="More">${ic("dots",19)}<span>More</span></button><a class="ib" href="#/futures/${sym}" aria-label="Futures">${ic("layers",19)}<span>Futures</span></a><button class="btn btn-up" data-qt="long">Long</button><button class="btn btn-down" data-qt="short">Short</button></div></div>`;
+  <div class="cp-bottom"><div class="in qt"><button class="ib" data-more aria-label="More">${ic("dots",19)}<span>More</span></button>${spotMode ? `<a class="ib" href="#/spot/${sym}" aria-label="Spot">${ic("layers",19)}<span>Spot</span></a><button class="btn btn-up" data-qt="buy">Buy</button><button class="btn btn-down" data-qt="sell">Sell</button>` : `<a class="ib" href="#/futures/${sym}" aria-label="Futures">${ic("layers",19)}<span>Futures</span></a><button class="btn btn-up" data-qt="long">Long</button><button class="btn btn-down" data-qt="short">Short</button>`}</div></div>`;
 
   function renderPx(){
     const p = M.get(sym), lp = root.querySelector("#lp"); if (!lp) return;
@@ -279,7 +280,7 @@ Pages.chart = (params) => {
     root.querySelector("[data-pick]").onclick = () => pickSheet(sym, s => location.hash = "#/chart/" + s);
     root.querySelector("[data-star]").onclick = () => { const i = S().favs.indexOf(sym); if (i >= 0) S().favs.splice(i,1); else S().favs.push(sym); store.save(); renderStar(); toast(i >= 0 ? "Removed from Favorites" : "Added to Favorites", "ok", 1200); };
     root.querySelector("[data-alert]").onclick = () => alertSheet(sym);
-    root.querySelectorAll("[data-qt]").forEach(b => b.onclick = () => quickTrade(sym, b.dataset.qt === "cost" ? "long" : b.dataset.qt));
+    root.querySelectorAll("[data-qt]").forEach(b => b.onclick = () => spotMode && CH.quickOrder ? CH.quickOrder(sym, b.dataset.qt) : quickTrade(sym, b.dataset.qt === "cost" ? "long" : b.dataset.qt));
     root.querySelector("[data-share]")?.addEventListener("click", () => U.copyText(location.href, "Link copied"));
     if (root.querySelector("[data-more]")) root.querySelector("[data-more]").onclick = () => U.sheet("More", [["ring","Price alerts","#/alerts"],["book","Academy","#/academy"],["users","Copy Trading","#/copy"],["crown","VIP Signals","#/vip"],["chart","Markets","#/markets"]].map(([i,n,h]) => `<a class="list-item" href="${h}"><span class="ic">${ic(i,18)}</span><span class="grow">${n}</span>${ic("chev",16)}</a>`).join(""));
     root.querySelectorAll("[data-ob]").forEach(b => b.onclick = () => { obTab = b.dataset.ob; root.querySelectorAll("[data-ob]").forEach(x => x.classList.toggle("on", x===b)); renderBook(); });
