@@ -526,7 +526,7 @@ function roundStripHtml(r){
   const live = rStart(r.iv), step = r.iv * 60, href = (a, iv, t) => `#/predict/m/${roundSlug(a, iv, t)}`;
   const chips = []; for (let k = -4; k <= 4; k++){ const t = live + k * step, kind = k < 0 ? "past" : k === 0 ? "live" : "next", on = t === r.t0;
     chips.push(`<a class="pd-rch ${kind}${on ? " on" : ""}" href="${href(r.a, r.iv, t)}" data-rc data-rt="${t}"${on ? ' aria-current="true"' : ""} aria-label="${clockET(t)} ET round, ${kind === "live" ? "live" : kind === "past" ? "finished" : "upcoming"}"><b class="num">${clockET(t)}</b><small data-rcs="${t}">${kind === "live" ? '<i class="pd-live"></i>Live' : kind === "past" ? "Ended" : "Upcoming"}</small></a>`); }
-  return `<div class="pd-rs" id="pdRs" data-live="${live}"><div class="pd-rs-sw"><div class="pd-seg" role="group" aria-label="Asset">${RA.map(a => `<a data-rc href="${href(a, r.iv, rStart(r.iv))}" class="${a.k === r.a.k ? "on" : ""}">${a.n}</a>`).join("")}</div><div class="pd-seg" role="group" aria-label="Round length">${RIV.map(v => `<a data-rc href="${href(r.a, v, rStart(v))}" class="${v === r.iv ? "on" : ""}">${v}m</a>`).join("")}</div></div>
+  return `<div class="pd-rs" id="pdRs" data-live="${live}"><div class="pd-rs-sw"><div class="pd-seg" role="group" aria-label="Asset">${RA.map(a => `<a data-rc href="${href(a, r.iv, rStart(r.iv))}" class="${a.k === r.a.k ? "on" : ""}">${a.n}</a>`).join("")}</div><div class="pd-seg" role="group" aria-label="Round length">${RIV.map(v => `<a data-rc href="${href(r.a, v, rStart(v))}" class="${v === r.iv ? "on" : ""}">${v}m</a>`).join("")}</div>${hiwBtn}</div>
     <div class="pd-rs-c" role="list" aria-label="Rounds">${chips.join("")}</div></div>`;
 }
 const livePx = sym => { const q = window.M && M.get(sym); return q && q.price > 0 ? q.price : null; };
@@ -596,7 +596,7 @@ function bindCommon(root, offs){
     window.NAV_GUARD = g; offs.push(() => { if (window.NAV_GUARD === g) window.NAV_GUARD = null; });
   }
   root.querySelectorAll("[data-acct]").forEach(b => b.onclick = e => { e.stopPropagation(); if (window.ACCT) ACCT.sheet(); else toast("Demo account", "info"); });
-  root.addEventListener("click", e => { if (e.target.closest("[data-pd-xf]")){ hap(10); UI.transferSheet({to: W}); } });
+  root.addEventListener("click", e => { if (e.target.closest("[data-pd-xf]")){ hap(10); UI.transferSheet({to: W}); } if (e.target.closest("[data-hiw]")){ hap(6); hiwPop(); } });
   const upd = () => root.querySelectorAll("[data-pd-bal]").forEach(b => b.textContent = usd(bal()));
   offs.push(bus.on("balance", upd)); upd();
   const lv = () => root.querySelectorAll("[data-lv]").forEach(b => b.classList.toggle("off", WSN <= 0)); lv();
@@ -1088,7 +1088,6 @@ function listScreen(){
   function mount(r){
     root = r; curScreen = "list"; seed(); bindCommon(root, offs);
     pxListeners.add(onPx); offs.push(() => pxListeners.delete(onPx));
-    offs.push(bus.on("pd-tut", () => { const b = $("#pdTutBox"); if (b) b.innerHTML = tutHtml(); }));
     const Q = $("#pdQ"), X = root.querySelector("[data-qx]"); filtDot();
     Q.oninput = () => { X.hidden = !Q.value; clearTimeout(st); st = setTimeout(() => { const v = Q.value.trim(); if (v === qs) return; qs = v; root.querySelectorAll("[data-cat]").forEach(b => b.classList.toggle("dim", !!qs)); events = []; renderRounds(); load(true); }, 380); };
     Q.onkeydown = e => { if (e.key === "Enter"){ Q.blur(); } };
@@ -1100,8 +1099,6 @@ function listScreen(){
       const T = e.target;
       if (T.closest("[data-filt]")){ filterSheet(); return; }
       if (T.closest("[data-info]")){ hap(6); infoPop(); return; }
-      const tb = T.closest("[data-tut]"); if (tb){ hap(6); tutPop(+tb.dataset.tut); return; }
-      if (T.closest("[data-tutx]")){ hap(6); try { localStorage.setItem(TUT_KEY, "1"); } catch {} const b = $("#pdTutBox"); if (b) b.innerHTML = ""; return; }
       if (T.closest("[data-rretry]")){ rLoaded = false; renderRounds(); loadRounds(); return; }
       if (T.closest("[data-retry]")){ hap(8); load(true); return; }
       if (T.closest("[data-more]")){ load(false); return; }
@@ -1547,7 +1544,7 @@ function histRow(h){
 function portfolioScreen(){
   let root, tab = sessionStorage.getItem("pd_ptab") || "pos", closeWS = null, offs = [], timers = [];
   const $ = s => root ? root.querySelector(s) : null;
-  const html = `${STRIP}${subnav("portfolio")}<div class="pd-page">${balBar()}<div class="pd-sum-card" id="pdPS"></div>
+  const html = `${STRIP}${subnav("portfolio")}<div class="pd-page">${balBar()}${tutHtml()}<div class="pd-sum-card" id="pdPS"></div>
     <section class="pd-sec"><div class="pd-tabs" role="tablist" id="pdPT"></div><div id="pdPL"></div></section></div>`;
   function totals(){ const d = data(), pv = d.positions.reduce((a, p) => a + posValue(p), 0), cost = d.positions.reduce((a, p) => a + p.cost, 0), res = d.orders.reduce((a, o) => a + (o.reserved || 0), 0);
     return {pv, cost, res, un: pv - cost, total: bal() + pv + res, real: d.realized || 0}; }
