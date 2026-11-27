@@ -276,7 +276,7 @@ function tfHeuristic(p, now){
 function tfSessionOf(p, lastTrade, now){
   let st = null;
   if (tfSched){
-    const key = p.tfType === "COMMODITY" ? "COMMODITY" : p.tfType === "FX" ? "FX" : "EQUITY", grp = tfSched[key] || (key === "FX" ? tfSched.COMMODITY : null);
+    const key = tfSched[p.tfType] ? p.tfType : (/EQUITY$/.test(p.tfType || "") || !p.tfType ? "EQUITY" : p.tfType), grp = tfSched[key] || (key === "FX" ? tfSched.COMMODITY : null);
     const ss = grp && (grp.sessions || grp);
     if (Array.isArray(ss)){
       const hit = ss.find(x => +x.startTime <= now && now < +x.endTime);
