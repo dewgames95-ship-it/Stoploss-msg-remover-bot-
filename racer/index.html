@@ -4846,6 +4846,7 @@ body.v17-racing #howItWorksBtn, body.v17-racing #mrOnlineCard { opacity: .45 !im
 html.mr-pop, html.mr-pop body { overflow: hidden !important; overscroll-behavior: none; }
 .modal-backdrop, .ui-pop { overscroll-behavior: contain; }
 .modal-backdrop > *, .ui-pop-card, .hr-list, .nt-list, .hiw-body { overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+#hiwPop { padding-top: calc(54px + var(--sa-top, 0px)); }   /* the game's own header (z-index 160) sits above popups */
 .hiw-card { max-width: 392px; max-height: 100%; display: flex; flex-direction: column; text-align: left; overflow: hidden !important; }
 .hiw-card .ui-pop-head { flex: none; }
 .hiw-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 0 2px 4px; }

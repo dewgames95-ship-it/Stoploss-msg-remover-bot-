@@ -1235,7 +1235,8 @@ function detailScreen(key, mid){
   const resText = () => {
     const w = winnerOf(ev), est = w == null && startPx != null && endPx != null ? (endPx >= startPx ? 0 : 1) : null, side = w != null ? w : est, d = startPx != null && endPx != null ? ` The price went from ${fp(startPx)} to ${fp(endPx)}.` : "";
     if (side == null) return "Waiting for the final result.";
-    return w != null ? `Result: <b class="${w ? "down" : "up"}">${esc(ev.markets[0].outs[w])}</b> won. Winning shares pay $1 each.${d}` : `The price ended ${est ? "below" : "at or above"} the start, so <b class="${est ? "down" : "up"}">${esc(ev.markets[0].outs[est])}</b> looks like the winner. The official result is confirmed shortly, so the round can still change.${d}`;
+    const px2 = startPx != null && endPx != null ? (endPx >= startPx ? 0 : 1) : null;
+    return w != null ? `Result: <b class="${w ? "down" : "up"}">${esc(ev.markets[0].outs[w])}</b> won. Winning shares pay $1 each.${d}${px2 != null && px2 !== w ? " The official source decided this round, and its price can differ slightly from the Binance prices shown here." : ""}` : `The price ended ${est ? "below" : "at or above"} the start, so <b class="${est ? "down" : "up"}">${esc(ev.markets[0].outs[est])}</b> looks like the winner. The official result is confirmed shortly, so the round can still change.${d}`;
   };
   function updateRound(){
     if (!rd || !root) return; const t = now(), ph = phase();
