@@ -1,0 +1,35 @@
+/* v7.1 admin part 2: user dashboard, product panels, HD wallet, AI */
+.a3-uh{display:flex;align-items:center;gap:12px}.a3-un{flex:1;min-width:0}.a3-un b{display:block;font-size:16px}.a3-un small{display:block;color:var(--muted);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.a3-tot{padding:14px}
+.a3-tt{display:flex;align-items:baseline;flex-wrap:wrap;gap:6px;margin-bottom:12px}.a3-tt small{flex:1 0 100%;color:var(--muted);font-size:12px}.a3-tt b{font-size:28px;font-weight:700}.a3-tt em{font-style:normal;color:var(--muted);font-size:13px}
+.a3-wts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.a3-wt{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:10px;border-radius:var(--r-ctl,8px);background:var(--input);text-align:left;min-width:0;border:1px solid transparent}
+.a3-wt:active{border-color:var(--line-2)}
+.a3-wt small{font-size:11px;color:var(--muted);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.a3-wt b{font-size:13px;font-weight:700;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.a3-strip{margin:0 -2px 10px;padding:0 2px}
+.a3-ti{display:inline-grid;place-items:center}
+.a3-wb{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--input);border-radius:var(--r-card,12px);margin-bottom:10px}.a3-wb>div{flex:1;min-width:0}.a3-wb b{display:block;font-size:13px}.a3-wb small{color:var(--muted);font-size:12px}
+.a3-sub{display:flex;gap:4px;margin-bottom:10px;border-bottom:1px solid var(--line)}
+.a3-sub button{padding:8px 12px;font-size:13px;font-weight:600;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px}
+.a3-sub button.on{color:var(--text);border-bottom-color:var(--a2)}.a3-sub em{font-style:normal;font-size:11px;margin-left:5px;padding:1px 6px;border-radius:9px;background:var(--input);color:var(--text-2)}
+.a3-pc{background:var(--input);border-radius:var(--r-card,12px);padding:12px;margin-bottom:10px;min-width:0}
+.a3-ph2{display:flex;align-items:center;gap:10px;min-width:0}
+.a3-ph{width:26px;height:26px;border-radius:50%;background:var(--a2-soft);color:var(--a2);display:grid;place-items:center;font-weight:700;font-size:12px}
+.a3-pt{flex:1;min-width:0}.a3-pt b{display:block;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.a3-pt span{font-size:11.5px;color:var(--muted);display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.a3-pp{text-align:right;flex:none}.a3-pp b{display:block;font-size:14px}.a3-pp small{font-size:11.5px}
+.a3-tag{font-style:normal;font-size:10.5px;font-weight:700;padding:1px 6px;border-radius:4px;background:var(--line);color:var(--text-2)}.a3-tag.up{background:var(--up-bg);color:var(--up)}.a3-tag.down{background:var(--down-bg);color:var(--down)}
+.a3-g{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px}
+.a3-g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:10px}
+.a3-g>div,.a3-g3>div{min-width:0}.a3-g small,.a3-g3 small{display:block;font-size:11px;color:var(--muted)}.a3-g b,.a3-g3 b{display:block;font-size:12.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.a3-g3>div{background:var(--input);border-radius:var(--r-ctl,8px);padding:9px 10px}
+.a3-ac{display:flex;gap:8px;margin-top:10px}
+.a3-btn{flex:1;height:36px;border-radius:var(--r-ctl,8px);background:var(--line);color:var(--text);font-size:13px;font-weight:600}.a3-btn.dn{background:var(--down-bg);color:var(--down)}
+.a3-kp{margin-bottom:12px}
+.a3-body .a2-ac{padding:9px 0}
+.a3-ad{padding:10px 0;border-bottom:1px solid var(--line)}.a3-ad:last-of-type{border-bottom:0}.a3-adh{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px}.a3-adh b{font-size:14px}.a3-adh small{color:var(--muted);font-size:12px}
+.a3-der{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:end}.a3-der .a2-f{margin:0}.a3-der .a2-b.sm{height:44px}
+.a3-warn{border-color:rgba(240,67,90,.45)}.a3-warn .a2-hi.dn{background:var(--down-bg);color:var(--down)}.a3-warn ul{margin:0;padding-left:18px;font-size:12.5px;color:var(--text-2);line-height:1.5}.a3-warn li+li{margin-top:6px}
+.a3-sec{-webkit-text-security:disc;text-security:disc;font-family:inherit}
+.a3-bar{height:8px;border-radius:4px;background:var(--input);overflow:hidden;margin-top:12px}.a3-bar i{display:block;height:100%;background:var(--a2);border-radius:4px}
+.a3-bl{font-size:12px;color:var(--muted);margin:6px 0 10px}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}

@@ -37,7 +37,7 @@ Pages.deposit = () => {
     r.querySelector("#df").onsubmit = async e => {
       e.preventDefault();
       const a = parseFloat(r.querySelector("#da").value), err = r.querySelector("#de");
-      let m = !(a > 0) ? "Enter a valid amount." : a < 10 ? "Minimum deposit is 10 USDT." : a > 100000 ? "Maximum is 100,000 USDT per deposit." : S().balance + a > 10000000 ? "Account limit is 10,000,000 USDT." : "";
+      let m = !(a > 0) ? "Enter a valid amount." : a < 1 ? "Minimum deposit is 1 USDT." : a > 100000 ? "Maximum is 100,000 USDT per deposit." : S().balance + a > 10000000 ? "Account limit is 10,000,000 USDT." : "";
       r.querySelector("#daf").classList.toggle("err", !!m); err.textContent = m;
       if (m) return toast(m, "bad");
       await processing(e.submitter || r.querySelector("[type=submit]"), 900);
@@ -587,7 +587,7 @@ Pages.profile = () => {
     <section class="pf-list">${L("shield","Verification",'<span class="pf-ok">Verified</span>',"data-ver")}${L("lock","Security Center","",'href="#/security"')}${L("history","Trade History","",'href="#/history"')}${L("gear","Settings & Preferences","",'href="#/settings"')}${L("grid","Practical Functions","","data-prac")}</section>
     <h3 class="pf-h">Help</h3>
     <section class="pf-list">${L("headset","Support","",'href="#/support"')}${L("users","Community","",'href="#/community"')}${L("chat","Feedback","","data-fb")}${L("info","About NovaTrade","",'href="#/about"')}</section>
-    <button class="pf-sw" data-switch>Switch Account</button></div>`;
+    <button class="pf-sw" data-switch>Switch Account</button><button class="pf-sw pf-adm" data-adm-switch>Switch to Admin Panel</button></div>`;
   return {html, title:"Profile", mount(r){
     const $ = q => r.querySelector(q);
     const render = () => { const p = S().profile; $("#pa").innerHTML = UserAvatar(64); $("#pn").textContent = p.name; $("#pu").textContent = p.uid; if (window.VIPX){ const t = VIPX.tier(); const lv = $("[data-lv]"); lv.className = "pf-lv vip-l" + t.i; lv.innerHTML = "VIP" + t.i + " " + ic("chev",12); } };
@@ -699,6 +699,7 @@ Pages.about = () => {
 Pages.support = () => {
   const tel = C.SUPPORT_PHONE.replace(/\s/g, "");
   const html = pwrap("Contact Support", `
+    ${window.AICHAT ? AICHAT.supportHtml() : ""}
     <section class="pm-sec"><h3 class="pm-st">Get in touch</h3>
       <a class="pm-row tap" href="tel:${tel}"><span class="pm-ico">${ic("phone", 18)}</span><span class="pm-main"><span class="pm-t">Call us</span><span class="pm-s" style="display:block">${esc(C.SUPPORT_PHONE)}</span></span><span class="chev">${ic("chev", 16)}</span></a>
       <a class="pm-row tap" href="mailto:${C.SUPPORT_EMAIL}?subject=${encodeURIComponent(C.APP_NAME + " support")}"><span class="pm-ico">${ic("mail", 18)}</span><span class="pm-main"><span class="pm-t">Email us</span><span class="pm-s" style="display:block">${esc(C.SUPPORT_EMAIL)}</span></span><span class="chev">${ic("chev", 16)}</span></a>
@@ -712,6 +713,7 @@ Pages.support = () => {
     ${psec("Quick help", faq([["My trade shows Market closed", "Forex and metals close on weekends. Trade top crypto pairs 24/7."], ["Up/Down buttons are disabled", "That pair is chart only or the market is closed. Pick a tradable pair."], ["I ran out of balance", "Use Deposit for an instant top-up, or reset the demo account in Settings."], ["Prices stopped updating", "The app reconnects automatically. Check your internet connection."]]))}`);
   return {html, title:"Contact Support", mount(r){
     const $ = q => r.querySelector(q);
+    try { window.AICHAT && AICHAT.supportMount(r); } catch (e) { console.error(e); }
     const render = () => { $("#tl").innerHTML = S().tickets.length ? S().tickets.map(x => `<div class="pm-row" style="padding:10px 0"><span class="pm-ico">${ic("file", 18)}</span><div class="pm-main"><div class="pm-t">#${x.id.slice(0, 6).toUpperCase()} · ${esc(x.topic)}</div><div class="pm-s ellipsis">${esc(x.msg)}</div><div class="pm-s">${U.dateStr(x.t)}</div></div><span class="pm-pill g">Received</span></div>`).join("") : pemp("No tickets yet"); };
     render();
     $("#tf").onsubmit = async e => {

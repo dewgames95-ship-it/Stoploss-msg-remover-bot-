@@ -128,3 +128,20 @@ body .fxc .indbar .il{padding:5px 0}
 .ovl2 .bin-card .bc-d{font-style:normal;font-weight:700;color:var(--text);opacity:.9}
 .ovl2 .bin-card .bc-d::after{content:" ·";color:var(--muted);font-weight:400}
 .ovl2 .bin-card.u .bc-d{color:var(--up);opacity:1}.ovl2 .bin-card.d .bc-d{color:var(--down);opacity:1}
+
+/* ===== v7.1 AI Forecast: corner badge on the chart + indicator chip + info graphic ===== */
+.aibox{position:absolute;left:6px;top:6px;z-index:6;display:flex;align-items:center;gap:6px;max-width:calc(100% - 78px);pointer-events:none}
+.aibox.hide{display:none}
+.aibox .ai-pill{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 9px 0 7px;border-radius:999px;white-space:nowrap;font-size:11px;font-weight:600;color:var(--text-2);
+  background:rgba(31,38,48,.78);background:color-mix(in srgb,var(--card) 78%,transparent);border:1px solid rgba(128,138,150,.30);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);min-width:0}
+.aibox .ai-pill b{font-weight:700;color:var(--text)}.aibox .ai-pill b.up{color:var(--up)}.aibox .ai-pill b.down{color:var(--down)}
+.aibox .ai-pill s{width:1px;height:12px;background:rgba(128,138,150,.45);flex:none}
+.aibox .ai-pill em{font-style:normal;font-size:10px;font-weight:700;color:var(--muted);padding-left:6px;border-left:1px solid rgba(128,138,150,.3)}
+.aibox .ai-ic{display:grid;place-items:center;flex:none}
+.aibox .ai-q{pointer-events:auto;position:relative;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font-size:12px;font-weight:800;line-height:1;padding:0;color:var(--text-2);
+  background:rgba(31,38,48,.78);background:color-mix(in srgb,var(--card) 78%,transparent);border:1px solid rgba(128,138,150,.30);touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.aibox .ai-q::after{content:"";position:absolute;inset:-4px;border-radius:50%}
+.aibox .ai-q:active{background:var(--hover)}
+.indbar .il button .aispark{width:12px;height:12px;flex:none}
+.indbar .il button[data-ind="AI"].hot{color:var(--muted)}.indbar .il button[data-ind="AI"].hot.on{color:var(--text);font-weight:700}
+.uitip .ai-svg{width:100%;height:auto;max-height:90px}

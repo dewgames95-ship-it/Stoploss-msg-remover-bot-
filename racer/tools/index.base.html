@@ -10713,7 +10713,7 @@ html.mr-pop, html.mr-pop body { overflow: hidden !important; overscroll-behavior
     const feel = () => { try { _lastHapticMs = 0; triggerHaptic(40); } catch (e) {} try { playTone(880, 1180, 0.04, 'sine', 0.07); } catch (e) {} };
     const setOpen = (on) => { tray.classList.toggle('open', !!on); btn.setAttribute('aria-expanded', on ? 'true' : 'false'); };
     const sync = () => {
-      const show = !isAutoBetMode && gameState === 'RACING' && RACE_DURATION_SEC > 30;
+      const show = gameState === 'RACING' && RACE_DURATION_SEC > 30; // v7.1: in bet mode too (YOU car bubbles come only from this button)
       wrap.classList.toggle('show', show);
       if (!show) setOpen(false);
       btn.classList.toggle('cd', performance.now() < cdUntil);

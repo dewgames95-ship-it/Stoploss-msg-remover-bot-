@@ -25,11 +25,11 @@ function spotTrades(){
 }
 function allTrades(){
   const s = S(), T = [];
-  (s.history || []).forEach(x => { if (x.closed) T.push({prod:"bin", sym:sym2(x.sym), t:x.closed, pnl:+x.profit || 0, inv:x.amount || 0}); });
+  (s.history || []).forEach(x => { if (x.closed) T.push({prod:"bin", sym:sym2(x.sym), t:x.closed, pnl:+x.profit || 0, inv:x.amount || 0, tag: x.botId === "auto" || (x.source === "auto" && !x.botId) ? "Auto" : x.botId || x.bot ? "Bot" : ""}); });
   ((s.fut || {}).history || []).forEach(x => T.push({prod:"fut", sym:sym2(x.sym) + " " + (x.side === "long" ? "Long" : "Short"), t:x.closed, pnl:+x.profit || 0, inv:x.margin || 0}));
   ((s.opt || {}).history || []).forEach(x => T.push({prod:"opt", sym:(x.base || "") + " " + (x.type || "") + (x.strike ? " " + x.strike : ""), t:x.closed, pnl:+x.pnl || 0, inv:x.cost || 0}));
   const sp = spotTrades(); sp.trades.forEach(x => T.push(x));
-  ((s.copies || {}).history || []).forEach(x => T.push({prod:"copy", sym:x.name || "Copy trader", t:x.end, pnl:+x.pnl || 0, inv:x.amt || 0}));
+  ((s.copies || {}).history || []).forEach(x => T.push({prod:"copy", sym:x.name || "Copy trader", t:x.end, pnl:+x.pnl || 0, inv:x.amt || 0, tag: x.mk === "binary" ? "Binary" : "Perp"}));
   Object.entries(s.bots || {}).forEach(([id, b]) => { if (b && !b.running && b.stopped){ T.push({prod:"bot", sym:(window.E && E.BOTS ? (E.BOTS.find(d => d.id === id) || {}).name : 0) || id + " bot", t:b.stopped, pnl:+b.pnl || 0, inv:b.invest || 0}); } });
   return {T: T.filter(x => x.t).sort((a, b) => b.t - a.t), spot: sp};
 }
@@ -89,7 +89,7 @@ Pages.pnl = (params) => {
       return {tot, n: arr.length, wr: dec ? w.length / dec * 100 : null, pf: gl > 0 ? gp / gl : (gp > 0 ? Infinity : null), aw: w.length ? gp / w.length : 0, al: l.length ? -gl / l.length : 0,
         best: arr.length ? arr.reduce((a, x) => x.pnl > a.pnl ? x : a) : null, worst: arr.length ? arr.reduce((a, x) => x.pnl < a.pnl ? x : a) : null};
     }
-    const trow = (x, big) => `<div class="pn-tr"><span class="pn-tag">${PN[x.prod]}</span><div class="grow"><b>${esc(x.sym)}</b><span>${U.dateStr(x.t)}</span></div><b class="num ${cls(x.pnl)}">${signed(x.pnl)}</b></div>`;
+    const trow = (x, big) => `<div class="pn-tr"><span class="pn-tags"><span class="pn-tag">${PN[x.prod]}</span>${x.tag ? `<span class="pn-tag2 t-${x.tag.toLowerCase()}">${x.tag}</span>` : ""}</span><div class="grow"><b>${esc(x.sym)}</b><span>${U.dateStr(x.t)}</span></div><b class="num ${cls(x.pnl)}">${signed(x.pnl)}</b></div>`;
     function render(){
       const d = calc(), st = stats(d.cur), all = stats(d.inP), pctv = st.tot / C.START_BALANCE * 100;
       const kv = (l, v, c = "") => `<div><span>${l}</span><b class="num ${c}">${v}</b></div>`;

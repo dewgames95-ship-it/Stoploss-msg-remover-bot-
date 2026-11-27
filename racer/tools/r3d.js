@@ -2278,7 +2278,7 @@
     };
     const bubEligible = (i, camZ) => {
       const car = cars[i], rig = rigs[i];
-      if (!car || !rig || bub.count[i] >= (car.isPlayer ? BUB_MAXME : BUB_MAXCAR) || !rig.group.visible || !rig.tag.visible) return false;
+      if (!car || !rig || car.isPlayer || bub.count[i] >= (car.isPlayer ? BUB_MAXME : BUB_MAXCAR) || !rig.group.visible || !rig.tag.visible) return false;
       const ahead = camZ - rig.group.position.z; // metres in front of the camera
       if (!(ahead > (car.isPlayer ? 1 : 4) && ahead < 90)) return false;
       bubV.copy(rig.tag.position).project(camera); // keep clear of the HUD (top) and the screen edges
@@ -2290,7 +2290,9 @@
       const fin = gameState === 'FINISHED'; bub.fpp = !!fppOn;
       if (!racing && !fin) { bubOff(); if (gameState !== 'IDLE') bubReset(); else bub.init = false; return; }
       const n = Math.min(cars.length, rigs.length, 8);
-      if (racing) { // events: a bot hit something, or somebody overtook somebody
+      const auto = racing && RACE_DURATION_SEC > 30; // v7.1: automatic bot bubbles only while a race is running (never in the 30 s mode); never over YOU
+      if (bub.on && !bub.manual && !auto) bubOff();
+      if (auto) { // events: a bot hit something, or somebody overtook somebody
         for (let i = 0; i < n; i++) { const c = cars[i], hit = c.hitSlowTimer > 0; if (bub.init && hit && !bPrevHit[i] && (!c.isPlayer || Math.random() < 0.7)) bub.ev = { car: i, tag: 'hit', at: nowS }; bPrevHit[i] = hit; }
         for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
           if (i === j) continue;
@@ -2301,7 +2303,7 @@
         bub.init = true;
       }
       if (bub.on) { bub.t += dt; if (bub.t >= BUB_LIFE) bubOff(); }
-      if (!bub.on) {
+      if (!bub.on && auto) {
         let car = -1, tag = '';
         if (fin) { // after the finish: one winner line and one loser line
           if (!bub.fin) bub.fin = nowS;

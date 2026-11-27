@@ -33,7 +33,7 @@ function route(){
   document.title = (page.title || "Page") + " · " + C.APP_NAME;
   document.querySelector('meta[name="description"]').content = DESC[name] || "Binary options and futures trading on live markets.";
   document.body.classList.remove("no-nav");
-  renderNav(["chart","options","spot","predict","racer"].includes(name) ? "futures" : name);
+  renderNav(["chart","options","spot","predict","racer","apitrade","cfd"].includes(name) ? "futures" : name);
   view.querySelectorAll("[data-back]").forEach(b => b.onclick = () => history.length > 1 ? history.back() : (location.hash = "#/home"));
   try { page.mount?.call(page, view); } catch(e){ console.error(e); toast("Something went wrong loading this page", "bad"); }
   window.scrollTo(0, 0);
@@ -81,4 +81,29 @@ M.start();
 if (S.auto.on) E.runAuto();
 route();
 window.App = {route, setTheme, guardNav};
+})();
+
+/* v7.1: one trade tab strip everywhere (USDⓈ-M / Spot / Binary / CFD Trade / Prediction / Money Game / Copy ✓ / Options / API Trade / Bots).
+   Pages keep their own strip markup; this rebuilds it in the canonical order whenever one appears in the view. */
+(function(){
+  const TABS = [["futures","USDⓈ-M"],["spot","Spot"],["trade","Binary"],["cfd","CFD Trade"],["predict","Prediction",1],["racer","Money Game",1],["copy","Copy",0,1],["options","Options"],["apitrade","API Trade"],["bots","Bots"]];
+  const tick = '<svg class="tab-vt" viewBox="0 0 24 24" width="14" height="14" aria-label="Verified"><path fill="#2F8BFF" d="M12 1.8l2.4 1.8 3-.2.9 2.9 2.5 1.7-.9 2.9.9 2.9-2.5 1.7-.9 2.9-3-.2L12 20.2l-2.4-1.8-3 .2-.9-2.9-2.5-1.7.9-2.9-.9-2.9 2.5-1.7.9-2.9 3 .2z"/><path d="M8 12.2l2.7 2.6L16.2 9" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  function norm(t){
+    if (t.dataset.nts) return;
+    const links = [...t.children]; if (!links.some(a => /USDⓈ-M/.test(a.textContent))) return;
+    t.dataset.nts = "1";
+    const symOf = k => { const a = links.find(x => (x.getAttribute("href") || "").startsWith("#/" + k + "/")); return a ? a.getAttribute("href").split("/")[2] : "BTCUSDT"; };
+    const sym = symOf("futures") || symOf("spot"), cur = (location.hash.split("/")[1] || "").split("?")[0];
+    const act = cur === "chart" ? "futures" : cur;
+    const st = (links[0] && links[0].getAttribute("style")) || "font-size:17px";
+    t.innerHTML = TABS.map(([k, n, hot, vt]) => {
+      const href = k === "futures" || k === "spot" || k === "trade" ? `#/${k}/${sym}` : `#/${k}`;
+      const cls = "tab" + (hot ? " tab-hot" : "") + (k === act ? " on" : "");
+      return k === act ? `<button class="${cls}" style="${st}" aria-current="page">${n}${vt ? tick : ""}</button>` : `<a class="${cls}" href="${href}" style="${st}">${n}${vt ? tick : ""}</a>`;
+    }).join("");
+    const on = t.querySelector(".on"); if (on && t.scrollWidth > t.clientWidth) t.scrollLeft = Math.max(0, on.offsetLeft - 16);
+  }
+  const scan = () => document.querySelectorAll("#view .tabs").forEach(norm);
+  new MutationObserver(scan).observe(document.getElementById("view"), {childList: true, subtree: true});
+  scan();
 })();

@@ -29,6 +29,7 @@ function mascot(k, F, D, A, W){
 }
 function avatar(seed, size){
   size = size || 40; seed = String(seed);
+  if (window.AIM){ const h = AIM.logoFor(seed, size); if (h) return h; }   /* AI model logo for p_/b_ leaders */
   const li = leadIdx(seed), n = li >= 0 ? li : hash(seed), r = rngFor("av7" + seed);
   const kind = n % 4, sub = li >= 0 ? Math.floor(li / 4) : hash(seed + "s") % 8;
   const h1 = li >= 0 ? (li * 137.508 + 18) % 360 : hash(seed) % 360, h2 = (h1 + 28 + r() * 52) % 360, ang = Math.floor(r() * 360);
@@ -65,7 +66,7 @@ const TP = {
   trend:{hold:[12 * HR, 72 * HR], gap:[60 * MIN, 180 * MIN], bgap:14 * HR, levs:[3, 5, 10, 15], alloc:.12, sl:.03, spd:.04, cap:3}
 };
 const LEV_OV = {l1:[3, 5, 8], l9:[1, 2, 3], l12:[2, 3, 5], l5:[10, 20, 30], l2:[10, 20, 25], l14:[10, 20, 30], l17:[3, 5], l15:[3, 5, 8], l4:[10, 20, 25]};
-const profOf = l => { const t = TYPE[l.id] || "swing"; return Object.assign({type:t}, TP[t], {levs: LEV_OV[l.id] || TP[t].levs}); };
+const profOf = l => { const t = TYPE[l.id] || l.sty || "swing"; return Object.assign({type:t}, TP[t], {levs: LEV_OV[l.id] || l.levs || TP[t].levs}); };
 const MAJ = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT"];
 const pickSym = (l, rng) => { const k = rng(); if (l.bin) return k < .75 ? l.sym : ["BTCUSDT", "ETHUSDT"][Math.floor(rng() * 2)];
   if (!/USDT$/.test(l.sym)) return l.sym;
@@ -270,8 +271,9 @@ function tick(){
     const cap = (l.bin ? 8 : pr.cap) + (hot ? 2 : 0);
     if (now >= tr.nextAt){ if (tr.open.length < cap) openLive(l, tr, now, hot);
       const g = hot ? [20e3, 90e3] : l.bin ? [Math.max(MIN, DAY / Math.max(4, l.tpd) * .5), DAY / Math.max(4, l.tpd) * 1.5] : pr.gap; tr.nextAt = now + g[0] + Math.random() * (g[1] - g[0]); }
-    if (now - tr.fa > 25e3){ tr.fa = now + Math.random() * 20e3; const r30 = (l.roi[1] || 0); if (Math.random() < .6) tr.f = clamp(tr.f + (Math.random() < .52 + clamp(r30 / 300, -.1, .15) ? 1 : -1), 20, 2000); dirty = true; }
+    if (now - tr.fa > 25e3){ tr.fa = now + Math.random() * 20e3; const r30 = (l.roi[1] || 0); if (Math.random() < .6) tr.f = clamp(tr.f + (Math.random() < .52 + clamp(r30 / 300, -.1, .15) ? 1 : -1), 20, 1e7); dirty = true; }
     tr.lastT = now; });
+  try { userTriggers(); } catch (e) { console.warn(e); }
   if (now - lastCurve > 5000){ lastCurve = now; try { mirrorCurve(now); } catch (e) { console.warn(e); } if (tickN % 3 === 0){ refresh(); emit("refresh"); } }
   save();
 }
@@ -291,6 +293,17 @@ on("open", (tid, p) => { const X = window.COPYX; if (!X) return; const l = BYID[
 on("close", (tid, p) => { const X = window.COPYX; if (!X) return;
   X.cstate().active.forEach(c => { if (c.lid !== tid || !c.mir) return; const i = c.mir.open.findIndex(x => x.pid === p.id); if (i < 0) return; const o = c.mir.open.splice(i, 1)[0], pnl = o.m * (p.pnl / p.margin);
     c.mir.realized += pnl; c.mir.closed.unshift({sym:o.sym, long:o.long, lev:o.lev, entry:o.entry, exit:p.exit, m:o.m, pnl:r2(pnl), t:o.t, ct:p.ct, bin:o.bin}); c.mir.closed.length = Math.min(c.mir.closed.length, 40); X.save(); }); });
+/* manual close / user TP-SL of a mirrored position (v7.1). Binary "sell early": winning keeps 60% of the payout, losing refunds 40% of the stake. */
+function mirEst(cid, pid){ const X = window.COPYX; if (!X) return 0; const c = X.cstate().active.find(x => x.id === cid), o = c && c.mir && c.mir.open.find(x => x.pid === pid); if (!o) return 0;
+  const mark = price(o.sym), s = o.long ? 1 : -1, tp = ST && ST.T[c.lid] && ST.T[c.lid].open.find(x => x.id === pid);
+  if (o.bin){ const win = (mark - o.entry) * s > 0, pay = tp ? tp.pay : 85; return win ? o.m * pay / 100 * .6 : -o.m * .6; }
+  return o.m * o.lev * ((mark / o.entry - 1) * s) - o.m * o.lev * FEE; }
+function closeMirPos(cid, pid, why){ const X = window.COPYX; if (!X) return null; const c = X.cstate().active.find(x => x.id === cid), i = c && c.mir ? c.mir.open.findIndex(x => x.pid === pid) : -1; if (i < 0) return null;
+  const o = c.mir.open[i], pnl = r2(mirEst(cid, pid)), mark = price(o.sym); c.mir.open.splice(i, 1); c.mir.realized += pnl;
+  c.mir.closed.unshift({sym:o.sym, long:o.long, lev:o.lev, entry:o.entry, exit:mark, m:o.m, pnl, t:o.t, ct:Date.now(), bin:o.bin, why:why || "Manual"}); c.mir.closed.length = Math.min(c.mir.closed.length, 40); dirty = true; X.save(); return {pnl}; }
+function userTriggers(){ const X = window.COPYX; if (!X) return; X.cstate().active.forEach(c => { if (!c.mir) return; c.mir.open.slice().forEach(o => { if (o.bin || !(o.utp || o.usl)) return; const mark = price(o.sym), s = o.long ? 1 : -1;
+  const hitTp = o.utp && (mark - o.utp) * s >= 0, hitSl = o.usl && (mark - o.usl) * s <= 0; if (!hitTp && !hitSl) return; const r = closeMirPos(c.id, o.pid, hitTp ? "Take profit" : "Stop loss");
+  if (r && U.store && U.store.notify) U.store.notify("Copy position closed", `${c.name}: ${o.sym} ${hitTp ? "take-profit" : "stop-loss"} ${r.pnl >= 0 ? "+" : "-"}${Math.abs(r.pnl).toFixed(2)} USDT`, r.pnl >= 0 ? "ok" : "bad"); }); }); }
 function mirrorPct(c){
   const m = c.mir, tr = ST && ST.T[c.lid]; let un = 0;
   if (tr) m.open.forEach(o => { const p = tr.open.find(x => x.id === o.pid); if (p && !p.bin) un += o.m * pnlOf(p).pnl / p.margin; });
@@ -307,7 +320,7 @@ const newMir = () => ({open:[], closed:[], realized:0, curve:[]});
 
 /* ============================ PUBLIC API ============================ */
 window.SIM = {
-  boot, on, stats, curve, refresh, copyPct, newMir, price, pnlOf, fmtPx,
+  boot, on, stats, curve, refresh, copyPct, newMir, price, pnlOf, fmtPx, closeMirPos, mirEst,
   get ready(){ return ready; }, get started(){ return booted; },
   whenReady(cb, ms){ if (ready) return cb(); let done = false; const f = () => { if (!done){ done = true; cb(); } }; readyCbs.push(f); setTimeout(f, ms || 4500); boot(); },
   open(id){ const tr = ST && ST.T[id]; return tr ? tr.open.map(p => Object.assign({mark: markOf(p), size: p.margin * p.lev / p.entry}, p)).sort((a, b) => b.t - a.t) : null; },
