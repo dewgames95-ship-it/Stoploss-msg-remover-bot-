@@ -118,7 +118,8 @@ function open(){
   });
 }
 window.TradeExport = {open, collect, csv, pdf};
-document.addEventListener("click", e => { if (e.target.closest("[data-exp]")) open(); });
+/* only the Export button (bare data-exp attribute); Expiry chips use data-exp="<key>" and must not open the export sheet */
+document.addEventListener("click", e => { const b = e.target.closest("[data-exp]"); if (b && !b.dataset.exp) open(); });
 })();
 
 /* ===== Display currency (USD / INR / EUR) ===== */

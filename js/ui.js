@@ -142,9 +142,10 @@ function openNotifs(){
   };
   // rows from before this opening count as unread only if newer than the last visit
   const seen = s.notifSeen || 0; s.notifs.forEach(n => { n.read = n.t <= seen; }); s.notifSeen = Date.now(); store.save();
-  const html = `<div class="nt-tabs">${TABS.map(([k, l]) => `<button class="${k === tab ? "on" : ""}" data-nt="${k}">${l}</button>`).join("")}<span class="grow"></span>${s.notifs.length ? `<button class="nt-act" data-allread>Mark all as read</button>` : ""}</div><div class="nt-list" id="ntl">${body()}</div>${s.notifs.length ? `<button class="nt-clear" data-clear>Clear all</button>` : ""}`;
+  const html = `<div class="nt-tabs">${TABS.map(([k, l]) => `<button class="${k === tab ? "on" : ""}" data-nt="${k}">${l}</button>`).join("")}</div><div class="nt-list" id="ntl">${body()}</div>${s.notifs.length ? `<button class="nt-clear" data-clear>Clear all</button>` : ""}`;
   U.sheet(t("Notifications"), html, el => {
     const list = el.querySelector("#ntl");
+    if (s.notifs.length) el.querySelector(".sheet-h")?.insertAdjacentHTML("beforeend", `<button class="nt-ra" data-allread aria-label="Mark all as read">${ic("check", 13, 2.4)}<span>Read all</span></button>`);
     el.querySelectorAll("[data-nt]").forEach(b => b.onclick = () => { tab = b.dataset.nt; el.querySelectorAll("[data-nt]").forEach(x => x.classList.toggle("on", x === b)); list.innerHTML = body(); });
     el.querySelector("[data-allread]")?.addEventListener("click", () => { s.notifs.forEach(n => n.read = true); list.innerHTML = body(); });
     el.querySelector("[data-clear]")?.addEventListener("click", () => { s.notifs = []; store.save(); U.closeLayer(); U.toast("Notifications cleared", "ok"); });

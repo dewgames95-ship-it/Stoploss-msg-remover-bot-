@@ -10,7 +10,7 @@ const DAY = 864e5;
 /* ================= VIP / account level ================= */
 const BASE = {spot: .020, fm: .010, ft: .010, opt: .030};          // matches the engine's real fee rates (%)
 const TIERS = [
-  {n: "Regular", vol: 0, dep: 0, off: 0},
+  {n: "VIP0", vol: 0, dep: 0, off: 0},
   {n: "VIP1", vol: 1e5, dep: 1e4, off: 10},
   {n: "VIP2", vol: 5e5, dep: 5e4, off: 20},
   {n: "VIP3", vol: 2e6, dep: 2e5, off: 30},
@@ -36,7 +36,7 @@ function tier(){
 const bar = (v, t) => `<div class="fm-bar"><i style="width:${Math.max(2, Math.min(100, v / t * 100))}%"></i></div>`;
 function openVip(){
   const c = tier(), lv = (window.E && E.level) ? E.level() : null, n = c.next;
-  const hero = `<div class="vp-hero"><div class="vp-cur"><span class="vp-badge">${esc(c.name)}</span><div><b>${c.i ? "VIP " + c.i : "Regular user"}</b><small>${n ? "Next: " + n.n : "Highest level reached"}</small></div></div>
+  const hero = `<div class="vp-hero"><div class="vp-cur"><span class="vp-badge vip-l${c.i}">${esc(c.name)}</span><div><b>${"VIP " + c.i}</b><small>${n ? "Next: " + n.n : "Highest level reached"}</small></div></div>
     <div class="vp-stats"><div><span>30-day volume</span><b class="num">${money(c.vol)} USDT</b></div><div><span>Total deposits</span><b class="num">${money(c.dep)} USDT</b></div></div>
     ${n ? `<div class="vp-prog"><div class="vp-pl"><span>30-day volume</span><b class="num">${compact(c.vol)} / ${compact(n.vol)}</b></div>${bar(c.vol, n.vol)}
       <div class="vp-pl"><span>Total deposits</span><b class="num">${compact(c.dep)} / ${compact(n.dep)}</b></div>${bar(c.dep, n.dep)}
@@ -46,8 +46,8 @@ function openVip(){
     <div><span>Futures maker / taker</span><b class="num">${feeP(BASE.fm, c.t.off)} / ${feeP(BASE.ft, c.t.off)}</b></div>
     <div><span>Options</span><b class="num">${feeP(BASE.opt, c.t.off)}</b></div>
     <div><span>Binary</span><b class="up">No fee</b></div></div>`;
-  const list = TIERS.map((t, k) => `<div class="vp-t ${k === c.i ? "on" : ""}"><div class="vp-th"><b>${t.n === "Regular" ? "Regular user" : t.n}</b>${k === c.i ? '<span class="pm-pill g">Current</span>' : ""}</div>
-    <p class="vp-rq">${k ? `30-day volume ≥ <b>${compact(t.vol)}</b> USDT <u>or</u> total deposits ≥ <b>${compact(t.dep)}</b> USDT` : "Default level for every new account"}</p>
+  const list = TIERS.map((t, k) => `<div class="vp-t ${k === c.i ? "on" : ""}"><div class="vp-th"><b><span class="vip-dot vip-l${k}"></span>${t.n}</b>${k === c.i ? '<span class="pm-pill g">Current</span>' : ""}</div>
+    <p class="vp-rq">${k ? `30-day volume ≥ <b>${compact(t.vol)}</b> USDT <u>or</u> total deposits ≥ <b>${compact(t.dep)}</b> USDT` : "Starting level for every new account"}</p>
     <div class="vp-g"><div><span>Spot</span><b class="num">${feeP(BASE.spot, t.off)}</b></div><div><span>Futures M/T</span><b class="num">${feeP(BASE.fm, t.off)}/${feeP(BASE.ft, t.off)}</b></div><div><span>Options</span><b class="num">${feeP(BASE.opt, t.off)}</b></div><div><span>Binary</span><b class="up">No fee</b></div></div></div>`).join("");
   U.sheet("Account level", hero + now + `<h4 class="vp-h">All levels</h4><div class="vp-list">${list}</div>` +
     (lv ? `<div class="pm-kv" style="margin-top:6px"><span>Activity level</span><b>Lv.${lv.lvl} · ${Math.max(0, lv.need - lv.cur)} XP to next</b></div>` : "") +
@@ -292,12 +292,99 @@ function openBot(s, onStart){
 const CARD_SYM = {fgrid: "BTCUSDT", fmart: "BTCUSDT", dcap: "ETHUSDT"};
 async function fillCards(root){
   for (const el of root.querySelectorAll("[data-roi]")){
-    const k = el.dataset.roi;
+    const k = el.dataset.roi; if (k === "ugrid"){ ugCardFill(el); continue; }
     try { const a = await aiFor(k, CARD_SYM[k], "Medium"); if (!el.isConnected) continue; const r = a.r, c = r.roi >= 0 ? "up" : "down";
       el.innerHTML = `<span>30D ROI</span><b class="num ${c}">${r.roi >= 0 ? "+" : ""}${num(r.roi)}%</b><span>APY</span><b class="num ${c}">${r.apy >= 0 ? "+" : ""}${num(r.apy, 0)}%</b>`; } catch {}
   }
 }
-window.BOTX = {open: openBot, run: runSim, fill: fillCards, ai: aiFor};
+
+/* ================= USDC ⇄ USDT Grid (0 fee): real USDCUSDT 1h klines backtest + live grid that fills when the live price touches a level ================= */
+const UG = {id: "usdcgrid", pair: "USDCUSDT", N: 20, half: .001};
+const ugDef = () => ({id: UG.id, wallet: "spot", name: "USDC ⇄ USDT Grid", tag: "Spot Grid", kind: "ugrid", pair: UG.pair, desc: "Buys USDC low and sells high inside a tight range. Fills the moment the live price touches a grid level. 0 trading fee.", mult: 0, grid: 0, risk: "Low", apy: "--"});
+let ugKl = null;
+async function ugBars(){
+  if (ugKl && Date.now() - ugKl.t < 300000) return ugKl.rows;
+  let rows = null;
+  for (const host of (window.CONFIG && CONFIG.BINANCE_REST) || []){ try { const r = await fetch(`${host}/api/v3/klines?symbol=${UG.pair}&interval=1h&limit=720`); if (r.ok){ rows = await r.json(); break; } } catch {} }
+  if (!rows || rows.length < 48) throw new Error("no data");
+  rows = rows.map(k => ({time: k[0], open: +k[1], high: +k[2], low: +k[3], close: +k[4]})); ugKl = {t: Date.now(), rows}; return rows;
+}
+const ugLv = (lo, hi, N) => { const L = []; for (let i = 0; i <= N; i++) L.push(lo + (hi - lo) * i / N); return L; };
+/* one price move a -> b on a long grid, 0 fee. g = {L, held, ent, q, real, fills, wins} */
+function ugSeg(g, a, b){
+  const N = g.L.length - 1;
+  if (b < a){ for (let i = 0; i < N; i++) if (g.L[i] < a && g.L[i] >= b && !g.held[i]){ g.held[i] = true; g.ent[i] = g.L[i]; g.fills++; } }
+  else if (b > a){ for (let i = 0; i < N; i++) if (g.L[i + 1] > a && g.L[i + 1] <= b && g.held[i]){ g.held[i] = false; g.real += g.q * (g.L[i + 1] - g.ent[i]); g.fills++; g.wins++; } }
+}
+function ugNew(inv, lo, hi, N, p0){
+  const L = ugLv(lo, hi, N), g = {L, held: [], ent: [], q: inv / N / ((lo + hi) / 2), real: 0, fills: 0, wins: 0, last: p0};
+  for (let i = 0; i < N; i++){ g.held[i] = L[i] >= p0; g.ent[i] = p0; }
+  return g;
+}
+const ugEq = (g, inv, px) => { let un = 0; for (let i = 0; i < g.held.length; i++) if (g.held[i]) un += g.q * (px - g.ent[i]); return inv + g.real + un; };
+function ugBacktest(B, inv, lo, hi, N){
+  const g = ugNew(inv, lo, hi, N, B[0].open), eq = [inv];
+  B.forEach(bar => { const P = path(bar); for (let k = 0; k < 3; k++) ugSeg(g, P[k], P[k + 1]); eq.push(ugEq(g, inv, bar.close)); });
+  const end = eq[eq.length - 1], roi = (end / inv - 1) * 100, days = B.length / 24;
+  return {eq, end, roi, daily: roi / days, monthly: roi / days * 30, apy: roi / days * 365, trades: g.fills, days};
+}
+const ugRange = (px, B) => { const cl = B.map(b => b.close).sort((a, b) => a - b), med = cl[cl.length >> 1], mid = Math.round((px > 0 ? px : med) * 1e4) / 1e4; return {lo: Math.round((mid - UG.half) * 1e5) / 1e5, hi: Math.round((mid + UG.half) * 1e5) / 1e5, med}; };
+/* live: the engine asks for the bot's PnL (realised + open grid legs at the live price) */
+function ugPnl(b){ const p = M.get(UG.pair); if (!b || !b.g) return 0; return ugEq(b.g, b.invest, p && p.price || b.g.last) - b.invest; }
+if (window.U && U.bus) U.bus.on("tick", (sym, px) => { try {
+  if (sym !== UG.pair) return; const b = S().bots && S().bots[UG.id]; if (!b || !b.running || !b.g || !(px > 0)) return;
+  const f0 = b.g.fills; ugSeg(b.g, b.g.last, px); b.g.last = px; if (b.g.fills !== f0){ store.save(); } } catch (e) { console.error(e); } });
+function ugSvg(eq){
+  const W = 340, H = 150, L = 6, R = 6, T = 12, Bt = 20, cw = W - L - R, ch = H - T - Bt, n = eq.length;
+  let mn = Math.min(...eq), mx = Math.max(...eq); if (mx - mn < 1e-6){ mn -= .5; mx += .5; } const pd = (mx - mn) * .15; mn -= pd; mx += pd;
+  const X = i => L + cw * i / (n - 1), Y = v => T + ch * (1 - (v - mn) / (mx - mn)), d = eq.map((v, i) => (i ? "L" : "M") + X(i).toFixed(1) + " " + Y(v).toFixed(1)).join(" "), up = eq[n - 1] >= eq[0], col = up ? "var(--up)" : "var(--down)";
+  const grid = [0, .5, 1].map(f => { const v = mn + (mx - mn) * (1 - f), y = T + ch * f; return `<line x1="${L}" x2="${W - R}" y1="${y}" y2="${y}" class="fm-gl"/><text x="${W - R}" y="${y - 3}" text-anchor="end" class="fm-gt">${num(v, 2)}</text>`; }).join("");
+  return `<svg viewBox="0 0 ${W} ${H}" class="fm-svg" role="img" aria-label="30-day USDC/USDT grid backtest on 1,000 USDT">${grid}<path d="${d} L${X(n - 1)} ${T + ch} L${X(0)} ${T + ch} Z" fill="${col}" opacity=".10"/><path d="${d}" fill="none" stroke="${col}" stroke-width="2" stroke-linejoin="round"/><circle cx="${X(n - 1)}" cy="${Y(eq[n - 1])}" r="3.4" fill="${col}"/><text x="${L}" y="${H - 5}" class="fm-gt">30d ago</text><text x="${W - R}" y="${H - 5}" text-anchor="end" class="fm-gt">Today</text></svg>`;
+}
+const ugStats = r => { const cl = r.roi >= 0 ? "up" : "down", c = (v, d) => (v >= 0 ? "+" : "") + num(v, d) + "%"; return `<div class="ug-est"><div><span>Daily ROI</span><b class="num ${cl}">${c(r.daily, 3)}</b></div><div><span>Monthly ROI</span><b class="num ${cl}">${c(r.monthly, 2)}</b></div><div><span>APY (yearly)</span><b class="num ${cl}">${c(r.apy, 1)}</b></div></div>`; };
+function ugCardFill(el){
+  ugBars().then(B => { if (!el.isConnected) return; const R = ugRange((M.get(UG.pair) || {}).price, B), r = ugBacktest(B, 1000, R.lo, R.hi, UG.N), c = r.roi >= 0 ? "up" : "down";
+    el.innerHTML = `<span>30D ROI</span><b class="num ${c}">${r.roi >= 0 ? "+" : ""}${num(r.roi)}%</b><span>APY</span><b class="num ${c}">${r.apy >= 0 ? "+" : ""}${num(r.apy, 0)}%</b>`; }).catch(() => {});
+}
+function openUgrid(onStart){
+  let ugOff = null; const st = {B: null, R: null, lo: 0, hi: 0, N: UG.N, r: null, token: 0};
+  const p0 = () => { const p = M.get(UG.pair); return p && p.price || 1; };
+  const body = `<div class="fm-bot"><div class="ug-top"><span class="ug-pair">${M.get(UG.pair) ? UI.pairIcon(M.get(UG.pair), 24) : ""}<b>USDC/USDT</b></span><span class="ug-0">0 trading fee</span></div>
+    <p class="fm-cap" style="margin:6px 0 0">Buys USDC low and sells high between your grid lines. Orders fill the moment the live Binance USDC/USDT price touches a grid level. No order-book matching and no fee.</p>
+    <div class="fm-g2"><label class="fm-f"><span>Lower price</span><div class="fm-in"><input id="ugLo" type="number" inputmode="decimal" aria-label="Lower price"></div></label><label class="fm-f"><span>Upper price</span><div class="fm-in"><input id="ugHi" type="number" inputmode="decimal" aria-label="Upper price"></div></label><label class="fm-f"><span>Grids (2-100)</span><div class="fm-in"><input id="ugN" type="number" inputmode="numeric" value="${UG.N}" aria-label="Grids"></div></label><div class="fm-f"><span>Live price</span><div class="fm-in"><b class="num" id="ugPx">--</b></div></div></div>
+    <span class="pm-lbl">Investment</span><div class="pm-fld" id="ugInvF"><input id="ugInv" type="number" inputmode="decimal" min="10" value="100" aria-label="Investment amount"><span class="u">USDT</span><button type="button" class="mx" data-max>Max</button></div>
+    <div class="pm-kv" style="margin-top:6px"><span>Avbl (Spot)</span><b class="num">${money(store.wb("spot"))} USDT <button class="wl-plus" data-wlto="spot" aria-label="Transfer in">${ic("plus", 13, 3)}</button></b></div><div class="pm-kv"><span>Minimum</span><b class="num">10 USDT</b></div><div class="pm-kv"><span>Trading fee</span><b class="up">0 Fee</b></div>
+    <div id="ugEst"><div class="ug-est"><div><span>Daily ROI</span><b>--</b></div><div><span>Monthly ROI</span><b>--</b></div><div><span>APY (yearly)</span><b>--</b></div></div></div>
+    <section class="fm-bt"><div class="fm-bth"><b>30-day backtest</b><span>on 1,000 USDT · real 1h candles</span></div><div class="fm-chart" id="ugCh"><div class="fm-sk">Loading real Binance candles...</div></div><div class="fm-rs" id="ugRs"></div></section>
+    <p class="fm-cap">Backtest on the last 720 hourly Binance USDC/USDT candles, 0 trading fee, ${UG.N} grids by default; each candle is walked open to low/high to close. Daily ROI is the 30-day return divided by 30; Monthly is Daily x 30; APY is Daily x 365 (not compounded). Past performance does not guarantee future results.</p>
+    <div class="pm-err" id="ugErr"></div><button class="btn btn-primary pm-cta" data-ok>Start bot</button></div>`;
+  U.sheet("USDC ⇄ USDT Grid", body, el => {
+    const $ = q => el.querySelector(q); let timer = 0, dead = false, off = null;
+    const read = () => { st.lo = parseFloat($("#ugLo").value); st.hi = parseFloat($("#ugHi").value); st.N = Math.round(Math.min(100, Math.max(2, parseFloat($("#ugN").value) || UG.N))); };
+    const valid = () => st.lo > 0 && st.hi > st.lo ? "" : "Upper price must be higher than lower price.";
+    const px = () => { const p = M.get(UG.pair), n = $("#ugPx"); if (!n){ dead = true; off && off(); return; } n.textContent = p && p.price ? M.fmtPx(p) : "--"; };
+    const compute = () => { if (!st.B) return; const err = valid(); $("#ugErr").textContent = err; if (err){ $("#ugEst").innerHTML = '<div class="ug-est"><div><span>Daily ROI</span><b>--</b></div><div><span>Monthly ROI</span><b>--</b></div><div><span>APY (yearly)</span><b>--</b></div></div>'; $("#ugRs").innerHTML = ""; st.r = null; return; }
+      const r = st.r = ugBacktest(st.B, 1000, st.lo, st.hi, st.N); $("#ugEst").innerHTML = ugStats(r); $("#ugCh").innerHTML = ugSvg(r.eq);
+      $("#ugRs").innerHTML = `<div><span>Final value</span><b class="num">${money(r.end)} USDT</b></div><div><span>Return (30d)</span><b class="num ${r.roi >= 0 ? "up" : "down"}">${r.roi >= 0 ? "+" : ""}${num(r.roi)}%</b></div><div><span>Grid fills</span><b class="num">${r.trades}</b></div><div><span>Fees paid</span><b class="num up">0 USDT</b></div>`; };
+    const sched = () => { clearTimeout(timer); timer = setTimeout(() => { read(); compute(); }, 200); };
+    ["#ugLo", "#ugHi", "#ugN"].forEach(i => $(i).addEventListener("input", sched));
+    px(); off = U.bus.on("tick", sym => { if (sym === UG.pair && !dead) px(); }); ugOff = () => { dead = true; clearTimeout(timer); off && off(); };
+    ugBars().then(B => { if (dead) return; st.B = B; const R = ugRange(p0(), B); st.R = R; st.lo = R.lo; st.hi = R.hi; $("#ugLo").value = R.lo; $("#ugHi").value = R.hi; compute(); }).catch(() => { if (!dead) $("#ugCh").innerHTML = '<div class="fm-sk">Backtest data is unavailable right now. Check your connection and try again.</div>'; });
+    $("[data-max]").onclick = () => { $("#ugInv").value = Math.floor(store.wb("spot") * 100) / 100; };
+    $("[data-ok]").onclick = () => {
+      read(); const inv = parseFloat($("#ugInv").value), e = $("#ugErr"), p = M.get(UG.pair), err0 = valid(), E_ = window.E;
+      if (err0){ e.textContent = err0; return; }
+      if (S().bots[UG.id] && S().bots[UG.id].running){ e.textContent = "A USDC ⇄ USDT Grid bot is already running."; return; }
+      const def = ugDef(); def.apy = st.r ? num(st.r.apy, 0) + "%" : "--";
+      const known = E_.BOTS.find(x => x.id === UG.id); if (known) Object.assign(known, def); else E_.BOTS.push(def);
+      const er = E_.startBot(UG.id, inv); e.textContent = er || ""; $("#ugInvF").classList.toggle("err", !!er); if (er){ if (UI.walletErr) UI.walletErr(er); return; }
+      const b = S().bots[UG.id]; b.def = def; b.g = ugNew(inv, st.lo, st.hi, st.N, p && p.price || st.lo); store.save(); U.closeLayer(); toast("Bot started", "ok"); onStart && onStart();
+    };
+    el._fmDispose = () => { dead = true; clearTimeout(timer); off && off(); };
+  }, () => { ugOff && ugOff(); });
+}
+try { if (window.E && E.BOTS && !E.BOTS.find(x => x.id === UG.id)) E.BOTS.push(ugDef()); } catch {}
+window.BOTX = {open: openBot, run: runSim, fill: fillCards, ai: aiFor, openUgrid, ugPnl, ugCardFill};
 /* re-register custom bot definitions saved with running/stopped bots (engine only knows its built-in list) */
 try { Object.entries(S().bots || {}).forEach(([id, b]) => { if (b && b.def && !E.BOTS.find(x => x.id === id)) E.BOTS.push(b.def); }); } catch {}
 

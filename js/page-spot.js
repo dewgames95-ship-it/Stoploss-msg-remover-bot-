@@ -2,6 +2,7 @@
 (function(){
 const {esc, ic, store, bus, money, signed, pct, toast, fmt} = U;
 const FEE = 0.0002, S = () => store.s;
+const UC = "USDCUSDT", feeR = sym => sym === UC ? 0 : FEE;   // USDC/USDT trades with 0 fee
 const spot = () => { const s = S(); if (!s.spot) s.spot = {hold:{}, orders:[], history:[]}; s.spot.hold ||= {}; s.spot.orders ||= []; s.spot.history ||= []; return s.spot; };
 const baseOf = sym => sym.replace(/USDT$/, "");
 /* holdings key: base for crypto/stock, full sym for forex/metal/index/commodity */
@@ -17,15 +18,15 @@ const avail = coin => Math.max(0, (spot().hold[coin]?.qty || 0) - locked(coin));
 
 /* ---------- engine ---------- */
 function applyFill(o, px, fromLimit){
-  const sp = spot(), coin = keyOf(o.sym), h = sp.hold[coin] ||= {qty:0, cost:0}, fee = o.qty * px * FEE;
+  const sp = spot(), coin = keyOf(o.sym), h = sp.hold[coin] ||= {qty:0, cost:0}, fr = feeR(o.sym), fee = o.qty * px * fr;
   if (o.side === "buy"){
-    h.sym = o.sym; h.qty += o.qty * (1 - FEE); h.cost += o.qty * px;
+    h.sym = o.sym; h.qty += o.qty * (1 - fr); h.cost += o.qty * px;
     if (o.tp) h.tp = o.tp; if (o.sl) h.sl = o.sl;
     if (!fromLimit) store.addWallet("spot", -o.qty * px, "spot");
   } else {
     const ac = h.qty > 0 ? h.cost / h.qty : 0;
     h.cost = Math.max(0, h.cost - ac * o.qty); h.qty = Math.max(0, h.qty - o.qty);
-    store.addWallet("spot", o.qty * px * (1 - FEE), "spot");
+    store.addWallet("spot", o.qty * px * (1 - fr), "spot");
   }
   if (h.qty < 1e-9){ delete sp.hold[coin]; }
   sp.history.unshift({id:U.uid(), sym:o.sym, side:o.side, price:px, qty:o.qty, fee, ts:Date.now(), type: fromLimit ? "limit" : "market"});
@@ -40,7 +41,10 @@ function applyFill(o, px, fromLimit){
 function checkOrders(sym, price){
   const sp = spot(), hit = sp.orders.filter(o => o.sym === sym && (o.side === "buy" ? price <= o.price : price >= o.price));
   if (!hit.length) return;
-  hit.forEach(o => { sp.orders = sp.orders.filter(x => x.id !== o.id); applyFill(o, o.price, true); });
+  hit.forEach(o => { sp.orders = sp.orders.filter(x => x.id !== o.id);
+    /* USDC/USDT: instant fill the moment the live price touches / crosses the limit, at the live price when that is better (no order-book matching) */
+    let fp = o.price; if (sym === UC && price > 0){ fp = o.side === "buy" ? Math.min(o.price, price) : Math.max(o.price, price); if (o.side === "buy" && fp < o.price) store.addWallet("spot", o.qty * (o.price - fp), "spot"); }
+    applyFill(o, fp, true); });
 }
 function place({sym, side, type, price, qty, tp, sl}){
   const p = M.get(sym), sp = spot(), coin = keyOf(sym);
@@ -122,7 +126,21 @@ function holdings(){
   }
   return out.sort((a, b) => b.value - a.value);
 }
-window.SPOT = {holdings, valueUSDT: () => holdings().reduce((a, x) => a + x.value, 0)};
+window.SPOT = {holdings, valueUSDT: () => holdings().reduce((a, x) => a + x.value, 0), place};
+
+/* ---- USDC/USDT: one dedicated spot pair on Binance's real USDCUSDT price (the crypto list skips stablecoins, so it is registered here) ---- */
+const UCP = {sym:UC, type:"crypto", base:"USDC", quote:"USDT", name:"USD Coin", price:null, chg:null, high:null, low:null, qv:null, closed:false, updated:0, dir:0, dp:5, rank:3, tradable:false, fdup:true, spotOnly:true, listed:Date.now()};
+const ucReg = () => { try { if (window.M && M.pairs && !M.pairs.has(UC)) M.pairs.set(UC, UCP); } catch {} };
+async function ucPoll(){
+  if (document.hidden) return;
+  for (const host of CONFIG.BINANCE_REST){ try{
+    const r = await fetch(`${host}/api/v3/ticker/24hr?symbol=${UC}`); if (!r.ok) continue; const t = await r.json(), px = +t.lastPrice; if (!(px > 0)) continue;
+    ucReg(); const prev = UCP.price; Object.assign(UCP, {chg:+t.priceChangePercent, high:+t.highPrice, low:+t.lowPrice, qv:+t.quoteVolume, bv:+t.volume, open:+t.openPrice});
+    if (prev == null || Date.now() - UCP.updated > 5000){ UCP.price = px; UCP.updated = Date.now(); if (prev != null && px !== prev) UCP.dir = px > prev ? 1 : -1; if (prev == null || px !== prev) bus.emit("tick", UC, px, prev); }
+    bus.emit("ucstats"); return; }catch{} }
+}
+ucReg(); bus.on("list", ucReg); ucPoll(); setInterval(ucPoll, 8000);
+["futures", "trade"].forEach(k => { const o = Pages[k]; if (!o) return; Pages[k] = function(params){ if (/^USDCUSDT$/i.test((params && params[0]) || "")) return {title:"Spot", html:'<div class="sub" style="padding:40px 16px;text-align:center">Opening Spot…</div>', mount(){ location.replace("#/spot/USDCUSDT"); }}; return o.apply(this, arguments); }; });
 
 /* ---------- screen ---------- */
 function loadingPage(){
@@ -130,15 +148,15 @@ function loadingPage(){
   return {title:"Loading", html: UI.pageHead("Spot") + `<div>${Array(8).fill('<div class="skel"></div>').join("")}</div>`, mount(){ off = bus.on("list", () => App.route()); }, unmount(){ off?.(); }};
 }
 Pages.spot = (params) => {
-  let sym = (params[0] || sessionStorage.getItem("lastSym_spot") || "BTCUSDT").toUpperCase(), quote = "USDT";
-  if (/USDC$/.test(sym) && M.get(sym.replace(/USDC$/, "USDT"))){ sym = sym.replace(/USDC$/, "USDT"); quote = "USDC"; }
-  else if (!params[0] && sessionStorage.getItem("spotQ") === "USDC") quote = "USDC";
+  let sym = (params[0] || sessionStorage.getItem("lastSym_spot") || "BTCUSDT").toUpperCase(); const quote = "USDT";
+  try{ sessionStorage.removeItem("spotQ"); }catch{}
+  /* old saved routes like #/spot/BTCUSDC now open the USDT pair */
+  if (/USDC$/.test(sym) && sym !== "USDC"){ const t = sym.replace(/USDC$/, "USDT"); try{ sessionStorage.setItem("lastSym_spot", t); }catch{} return {title:"Spot", html:'<div class="sub" style="padding:40px 16px;text-align:center">Opening Spot…</div>', mount(){ location.replace("#/spot/" + t); }}; }
   if (!M.get(sym) && M.get(sym + "USDT")) sym += "USDT";
-  try{ sessionStorage.setItem("spotQ", M.get(sym)?.type === "crypto" ? quote : "USDT"); }catch{}
-  if (M.get(sym)?.type !== "crypto") quote = "USDT";
   if (!M.get(sym)) return M.cryptoOrder.length ? Pages.notfound() : loadingPage();
+  if (sym === UC && !(M.get(sym).price > 0)){ let off; return {title:"Loading", html: UI.pageHead("Spot") + `<div>${Array(8).fill('<div class="skel"></div>').join("")}</div>`, mount(){ ucPoll(); off = bus.on("tick", x => { if (x === UC) App.route(); }); }, unmount(){ off?.(); }}; }
   try{ sessionStorage.setItem("lastSym_spot", sym); }catch{}
-  const P = () => M.get(sym), coin = keyOf(sym), unit = unitOf(M.get(sym), sym), isCrypto = M.get(sym).type === "crypto", label0 = M.label(M.get(sym)).replace(/\/USDT$/, "/" + quote), s = S(), Q = quote;
+  const P = () => M.get(sym), coin = keyOf(sym), unit = unitOf(M.get(sym), sym), isCrypto = M.get(sym).type === "crypto", label0 = M.label(M.get(sym)), s = S(), Q = quote, isUC = sym === UC;
   let unitMode = s.settings.spotUnit === "usdt" ? "usdt" : "coin", tsM = "price", lastStep = -1, root, offs = [], timers = [], side = "buy", otype = "limit", sliderPct = 0, ptab = "open", curOnly = false, chartOpen = false, unChart = null, prec = 0;
   const $ = q => root.querySelector(q);
   const side0 = () => unit;
@@ -146,6 +164,7 @@ Pages.spot = (params) => {
   <div class="tabs" style="gap:20px;margin:0 -16px;padding:4px 16px 0;border:0"><a class="tab" href="#/futures/${sym}" style="font-size:17px">USDⓈ-M</a><button class="tab on" style="font-size:17px">Spot</button><a class="tab" href="#/trade/${sym}" style="font-size:17px">Binary</a><a class="tab tab-hot" href="#/predict" style="font-size:17px">Prediction</a><a class="tab tab-hot" href="#/racer" style="font-size:17px">Money Game</a><a class="tab" href="#/options" style="font-size:17px">Options</a><a class="tab" href="#/copy" style="font-size:17px">Copy</a></div>
   <header class="sp-head"><div class="grow"><button class="sp-nm" data-pick>${esc(label0)}${ic("chevd",16)}</button><div class="num" id="spchg" style="font-size:13px"></div></div>
     <a class="icon-btn" href="#/chart/${sym}" aria-label="Chart">${ic("candle",22,1.6)}</a></header>
+  ${isUC ? `<section class="uc-hd" id="ucHd" aria-label="USDC/USDT price"></section>` : ""}
   <div class="sp-grid">
     <div class="sp-form">
       <div class="sp-seg"><button class="b on" data-side="buy">Buy</button><button class="s" data-side="sell">Sell</button></div>
@@ -160,9 +179,10 @@ Pages.spot = (params) => {
         <div class="sp-in"><input id="sptp" type="number" inputmode="decimal" placeholder="Take Profit"><em class="gh" id="sptpg"></em><span class="tpu">${Q}</span></div>
         <div class="sp-in"><input id="spsl2" type="number" inputmode="decimal" placeholder="Stop Loss"><em class="gh" id="spslg"></em><span class="tpu">${Q}</span></div></div>
       <div class="sp-kv"><span>Avbl${TX.hq("avbl")}</span><b><span id="spav"></span> <button class="wl-plus" data-wlto="spot" aria-label="Transfer in">${ic("plus",13,3)}</button></b></div>
-      <div class="sp-kv"><span data-info="fee"><u>Est. Fee</u></span><b id="spef">-- ${side0()}</b></div>
+      <div class="sp-kv"><span data-info="fee"><u>Est. Fee</u></span><b id="spef">-- USDT</b></div>
       <button class="sp-go b" id="spgo"></button>
-      ${TX.feeNote("0.02%", "0.10%")}
+      <div class="slip0">0% slippage · Market orders fill at the shown price</div>
+      ${isUC ? `<div class="fee-l uc-fee"><span class="uc-f0">0 Fee</span> <span>No trading fee on USDC/USDT</span></div>` : TX.feeNote("0.02%", "0.10%")}
       <div class="sp-closed hide" id="spclosed">Market closed — reopens with the next session</div>
       <div class="err-msg" id="sperr" role="alert"></div>
     </div>
@@ -197,7 +217,7 @@ Pages.spot = (params) => {
     { const buy = side === "buy"; $("#sptprow").classList.toggle("hide", !buy); if (!buy) $("#sptpsl").classList.add("hide"); else $("#sptpsl").classList.toggle("hide", !$("#sptpc").checked); $("#sptsm").classList.toggle("hide", !buy || !$("#sptpc").checked); if (buy && $("#sptpc").checked) spTsHint(); }
     $("#spf").classList.toggle("hide", otype !== "limit"); $("#spm").classList.toggle("hide", otype === "limit");
     $("#sptot").textContent = q && px ? (unitMode === "coin" ? money(q * px) + " " + Q : fmt(q, qd(px, p)) + " " + unit) : "-- " + (unitMode === "coin" ? Q : unit);
-    $("#spef").textContent = q && px ? (side === "buy" ? fmt(q * FEE, 8) + " " + unit : fmt(q * px * FEE, 4) + " " + Q) : "-- " + (side === "buy" ? unit : Q);
+    $("#spef").textContent = q && px ? (isUC ? "0 USDT" : fmt(q * px * FEE, 4) + " USDT") : "-- USDT";
     $("#spav").textContent = side === "buy" ? money(store.wb("spot")) + " " + Q : fmt(avail(coin), qd(p.price, p)) + " " + unit;
     const go = $("#spgo"); go.className = "sp-go " + (side === "buy" ? "b" : "s"); go.textContent = (side === "buy" ? "Buy " : "Sell ") + unit; go.disabled = !!p.closed; $("#spclosed").classList.toggle("hide", !p.closed);
     root.querySelectorAll("[data-side]").forEach(b => b.classList.toggle("on", b.dataset.side === side));
@@ -226,7 +246,7 @@ Pages.spot = (params) => {
     }
     const ok = await U.confirmTrade({kind: otype === "market" ? "market" : "limit", title: `${side === "buy" ? "Buy" : "Sell"} ${unit}`, tone: side === "buy" ? "up" : "down", okText: side === "buy" ? "Confirm Buy" : "Confirm Sell",
       sub: `<span class="perp">Spot</span> <span class="perp">${otype === "market" ? "Market" : "Limit"}</span>`,
-      rows: [["Pair", esc(label0)], ["Price", otype === "market" ? "Market" : M.fmtPx(p, lp)], ["Amount", fmt(q, qd(px, p)) + " " + esc(unit)], ["Total", money(q * px) + " " + Q], ["Fee (0.02%)", money(q * px * FEE) + " " + Q], ...(tp || sl ? [["TP / SL", `${tp ? M.fmtPx(p, tp) : "--"} / ${sl ? M.fmtPx(p, sl) : "--"}`]] : [])]});
+      rows: [["Pair", esc(label0)], ["Price", otype === "market" ? "Market" : M.fmtPx(p, lp)], ["Amount", fmt(q, qd(px, p)) + " " + esc(unit)], ["Total", money(q * px) + " " + Q], [isUC ? "Fee (0%)" : "Fee (0.02%)", isUC ? "0 USDT" : money(q * px * FEE) + " USDT"], ...(tp || sl ? [["TP / SL", `${tp ? M.fmtPx(p, tp) : "--"} / ${sl ? M.fmtPx(p, sl) : "--"}`]] : [])]});
     if (!ok) return;
     const r = place({sym, side, type: otype, price: lp, qty: q, tp, sl});
     if (r.err){ chk(r.err); UI.walletErr(r.err); return; }
@@ -271,6 +291,11 @@ Pages.spot = (params) => {
     const ch = $("#spchg"); ch.textContent = p.closed ? "Market closed" : p.chg == null ? "" : pct(p.chg); ch.className = "num " + ((p.chg || 0) < 0 ? "down" : "up");
   }
 
+  function renderUc(){
+    const box = $("#ucHd"); if (!box) return; const p = P(), up = (p.dir || 0) >= 0, ch = p.chg, vq = p.qv, vb = p.bv ?? (vq && p.price ? vq / p.price : null), f = v => p.price == null || v == null ? "--" : M.fmtPx(p, v), vf = v => v ? CH.fmtVol(v) : "--";
+    box.innerHTML = `<div class="uc-l"><b class="uc-px num ${up ? "up" : "down"}">${f(p.price)}</b><div class="uc-sub num"><span>$${money(p.price * (M.usdtUsd ? M.usdtUsd() : 1))}</span> <span class="${(ch || 0) < 0 ? "down" : "up"}">${ch == null ? "" : pct(ch)}</span></div><div class="uc-0">0 Fee</div></div>
+      <div class="uc-r num"><div><span>24h High</span><b>${f(p.high)}</b></div><div><span>24h Low</span><b>${f(p.low)}</b></div><div><span>24h Vol(USDC)</span><b>${vf(vb)}</b></div><div><span>24h Vol(USDT)</span><b>${vf(vq)}</b></div></div>`;
+  }
   function precSheet(){ const p = P(), PM = [1, 10, 100, 1000];
     U.sheet("Select Precision", PM.map((m, i) => `<button class="list-item prec-o" style="width:100%" data-pr="${i}"><span class="grow num">${M.fmtPx(p, stepOf() * m)}</span>${i === prec ? ic("check", 18) : ""}</button>`).join(""), el => el.querySelectorAll("[data-pr]").forEach(b => b.onclick = () => { prec = +b.dataset.pr; U.closeLayer(); renderBook(); })); }
   /* --- lists --- */
@@ -300,6 +325,7 @@ Pages.spot = (params) => {
       return `<div class="sp-card"><div class="h"><b class="sym">${esc(M.label(bp).replace(/\/USDT$/, "/" + (b.q || "USDT")))}</b><span class="perp">Spot Grid</span><span class="grow"></span><button class="oc-cancel" data-botstop="${b.id}">Stop</button></div>
         <div class="g"><div><span>Invested (USDT)</span><b class="num">${money(b.invest)}</b></div><div><span>Grid profit</span><b class="num up">${signed(pr)}</b></div><div><span>Grids</span><b class="num">${b.grids}</b></div><div><span>Range</span><b class="num">${M.fmtPx(bp, b.lower)} - ${M.fmtPx(bp, b.upper)}</b></div><div><span>Est. monthly ROI</span><b class="num up">${signed(b.roiM)}%</b></div><div><span>Running</span><b class="num">${U.mmss ? Math.max(1, Math.floor((Date.now() - b.since) / 60000)) + "m" : ""}</b></div></div></div>`; }).join("") : "";
     if (!isCrypto){ list.innerHTML = runHtml + UI.emptyState("info", "Auto Trade Bot is available for crypto pairs only."); return; }
+    if (isUC){ list.innerHTML = `<div class="bt-wrap"><div class="bt-t"><b>USDC ⇄ USDT Grid</b><span class="perp">0 Fee</span></div><p class="bt-n" style="margin:8px 0 12px">Grid-trades USDC/USDT inside a tight range: buys low, sells high, fills the moment the live price touches a grid level. 0 trading fee. See the 30-day backtest with Daily ROI, Monthly ROI and APY.</p><a class="btn btn-primary btn-block btn-lg" href="#/bots?t=spot" data-ucbot>Open USDC ⇄ USDT Grid</a></div>` + runHtml; return; }
     list.innerHTML = `<div class="bt-wrap"><div class="bt-skel"><div class="skel" style="height:18px;width:60%"></div><div class="skel" style="height:110px;margin:12px 0"></div><div class="skel" style="height:18px"></div></div></div>` + runHtml;
     const token = ++botBusy;
     klines30(sym).then(rows => {
@@ -338,7 +364,7 @@ Pages.spot = (params) => {
   return {html, title: label0 + " Spot", mount(r){
     root = r; if (isCrypto) M.watchTrades(sym); spot();
     $("#spp").value = +P().price.toFixed(P().dp ?? 2);
-    renderForm(); renderBook(); setPtab(ptab);
+    renderForm(); renderBook(); setPtab(ptab); renderUc();
     $("[data-pick]").onclick = () => UI.pickSheet(sym, x => location.hash = "#/spot/" + x);
     root.querySelectorAll("[data-side]").forEach(b => b.onclick = () => { side = b.dataset.side; $("#spq").value = ""; sliderPct = 0; $("#spsl").value = 0; $("#sperr").textContent = ""; renderForm(); });
     $("[data-otype]").onclick = () => U.sheet("Order type", [["limit","Limit","Executes at your price or better."],["market","Market","Executes immediately at the best available price."]].map(([k, n, d]) => `<button class="list-item" style="width:100%" data-ot="${k}"><div class="grow"><b>${n}</b><div class="label">${d}</div></div>${otype === k ? ic("check",18) : ""}</button>`).join(""), el => el.querySelectorAll("[data-ot]").forEach(b => b.onclick = () => { otype = b.dataset.ot; if (otype === "limit" && !$("#spp").value) $("#spp").value = +P().price.toFixed(P().dp ?? 2); U.closeLayer(); $("#spq").value = ""; sliderPct = 0; $("#spsl").value = 0; renderForm(); }));
@@ -364,9 +390,9 @@ Pages.spot = (params) => {
       if (e.target.closest("[data-botnew]")) return; const c = e.target.closest("[data-cancel]"); if (c){ cancel(c.dataset.cancel); toast("Order cancelled", "ok"); } });
     $("[data-cch]").onclick = toggleChart;
     let tT = 0, bT = 0;
-    offs.push(bus.on("tick", x => { if (x === sym && performance.now() - tT > 250){ tT = performance.now(); renderForm(); if (ptab === "hold") renderList(); if (!isCrypto) renderBook(); } }),
+    offs.push(bus.on("tick", x => { if (x === sym && performance.now() - tT > 250){ tT = performance.now(); renderForm(); renderUc(); if (ptab === "hold") renderList(); if (!isCrypto) renderBook(); } }),
       bus.on("depth", x => { if (x === sym && performance.now() - bT > 400){ bT = performance.now(); renderBook(); } }),
-      bus.on("spot", () => { renderForm(); renderBook(); renderList(); }), bus.on("balance", renderForm));
+      bus.on("spot", () => { renderForm(); renderBook(); renderList(); }), bus.on("balance", renderForm), bus.on("ucstats", renderUc));
   }, unmount(){ offs.forEach(f => f()); timers.forEach(f => f()); unChart?.(); if (isCrypto) M.unwatchTrades(); }};
 };
 })();

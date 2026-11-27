@@ -142,7 +142,7 @@ function normE(e){
   return {id: String(e.id), slug: e.slug || String(e.id), title: e.title || (ms[0] && ms[0].q) || "", img: e.icon || e.image || (ms[0] && ms[0].img) || "",
     vol: +e.volume || 0, vol24: +e.volume24hr || 0, liq: +e.liquidity || 0, end: e.endDate || (ms[0] && ms[0].end) || "", start: e.startDate || "",
     created: e.creationDate || e.createdAt || "", desc: e.description || (ms[0] && ms[0].desc) || "", res: e.resolutionSource || "",
-    tags: (e.tags || []).map(t => t.slug).filter(Boolean).slice(0, 6), closed: !!e.closed, markets: ms, full: !!e.description};
+    tags: (e.tags || []).map(t => t.slug).filter(Boolean).slice(0, 6), cc: e.commentCount != null ? +e.commentCount || 0 : null, closed: !!e.closed, markets: ms, full: !!e.description};
 }
 const slim = e => Object.assign({}, e, {desc: "", full: false, markets: e.markets.slice(0, 4).map(m => Object.assign({}, m, {desc: ""}))});
 function remember(e){ const old = EV.get(e.slug); if (old && old.full && !e.full) return old; EV.set(e.slug, e); EV.set(e.id, e); return e; }
@@ -477,13 +477,57 @@ function loadRound(a, iv){
 const roundEnded = ev => { const r = roundOf(ev); return !!r && now() >= r.t1 * 1000; };
 /* round start price: Binance 1-minute candle open at the round start (reference for the chart line) */
 const SP = {};
-async function startPrice(r){
-  const k = r.sym + r.t0; if (SP[k] != null) return SP[k];
+async function priceAt(sym, t){
+  const k = sym + t; if (SP[k] != null) return SP[k];
   const hosts = (window.CONFIG && CONFIG.BINANCE_REST) || ["https://data-api.binance.vision"];
   for (const h of hosts){
-    try { const d = await getJ(`${h}/api/v3/klines?symbol=${r.sym}&interval=1m&startTime=${r.t0 * 1000}&limit=1`, {}, 6000); if (d && d[0] && +d[0][1] > 0 && Math.abs(d[0][0] - r.t0 * 1000) < 120e3){ SP[k] = +d[0][1]; return SP[k]; } } catch {}
+    try { const d = await getJ(`${h}/api/v3/klines?symbol=${sym}&interval=1m&startTime=${t * 1000}&limit=1`, {}, 6000); if (d && d[0] && +d[0][1] > 0 && Math.abs(d[0][0] - t * 1000) < 120e3){ SP[k] = +d[0][1]; return SP[k]; } } catch {}
   }
   return null;
+}
+const startPrice = r => priceAt(r.sym, r.t0);
+/* 1-minute closes between the round start and end (for the result chart of a finished round) */
+async function roundCloses(r){
+  const hosts = (window.CONFIG && CONFIG.BINANCE_REST) || ["https://data-api.binance.vision"];
+  for (const h of hosts){
+    try { const d = await getJ(`${h}/api/v3/klines?symbol=${r.sym}&interval=1m&startTime=${r.t0 * 1000}&endTime=${r.t1 * 1000}&limit=${r.iv + 2}`, {}, 6000); if (d && d.length) return d.map(k => [Math.max(k[0], r.t0 * 1000), +k[4], +k[1]]); } catch {}
+  }
+  return [];
+}
+/* a round of a series at an exact start time (cached; a finished round never changes, an unresolved one is re-read after 15s) */
+const RAT = {};
+const roundSlug = (a, iv, t0) => `${a.k}-updown-${iv}m-${t0}`;
+function loadRoundAt(a, iv, t0){
+  const k = roundSlug(a, iv, t0); if (RAT[k]) return RAT[k];
+  const p = fetchEvent(k).then(e => { e.round = true; if (!(e.markets[0] && e.markets[0].closed)) setTimeout(() => { if (RAT[k] === p) delete RAT[k]; }, 15000); return e; });
+  RAT[k] = p; p.catch(() => { if (RAT[k] === p) delete RAT[k]; }); return p;
+}
+/* winning side of a resolved round: 0 = Up, 1 = Down, null = not resolved yet */
+const winnerOf = ev => { const m = ev && ev.markets[0]; if (!m || !m.closed) return null; return m.prices[0] >= .99 ? 0 : m.prices[1] >= .99 ? 1 : null; };
+/* chart of a finished round: price line between start and end, start price as a dashed line, end price as a dot */
+function pastChartSvg(cl, sp, ep, r, W, fp){
+  W = Math.max(260, Math.round(W)); const H = 210, L = 10, R = 10, T = 22, B = 24, t0 = r.t0 * 1000, t1 = r.t1 * 1000;
+  const pts = [[t0, sp]].concat(cl.map(x => [Math.min(x[0] + 60e3, t1), x[1]])); if (ep != null) pts.push([t1, ep]);
+  const vals = pts.map(p => p[1]).concat([sp]), lo0 = Math.min(...vals), hi0 = Math.max(...vals), pad = Math.max((hi0 - lo0) * .18, sp * 1e-5), lo = lo0 - pad, hi = hi0 + pad;
+  const x = t => L + (t - t0) / (t1 - t0) * (W - L - R), y = v => T + (hi - v) / (hi - lo) * (H - T - B);
+  const d = pts.map((p, i) => (i ? "L" : "M") + x(p[0]).toFixed(1) + " " + y(p[1]).toFixed(1)).join(" "), last = pts[pts.length - 1], up = ep == null || ep >= sp, col = up ? "up" : "down";
+  const anchorR = x(last[0]) > W * .6;
+  return `<svg class="pd-pcs" viewBox="0 0 ${W} ${H}" width="100%" height="${H}" role="img" aria-label="Price during the round: from ${fp(sp)} to ${ep != null ? fp(ep) : "unknown"}">
+    <line class="pd-pc-s" x1="${L}" x2="${W - R}" y1="${y(sp).toFixed(1)}" y2="${y(sp).toFixed(1)}"/>
+    <text class="pd-pc-t" x="${L + 2}" y="${(y(sp) - 6).toFixed(1)}">Start ${fp(sp)}</text>
+    <path class="pd-pc-a ${col}" d="${d} L${x(last[0]).toFixed(1)} ${y(sp).toFixed(1)} L${x(t0).toFixed(1)} ${y(sp).toFixed(1)} Z"/>
+    <path class="pd-pc-l ${col}" d="${d}"/>
+    <circle class="pd-pc-d ${col}" cx="${x(last[0]).toFixed(1)}" cy="${y(last[1]).toFixed(1)}" r="4.5"/>
+    ${ep != null ? `<text class="pd-pc-t" x="${anchorR ? W - R - 2 : x(last[0]) + 8}" y="${Math.max(T - 6, y(ep) - 9).toFixed(1)}" text-anchor="${anchorR ? "end" : "start"}">End ${fp(ep)}</text>` : ""}
+    <text class="pd-pc-x" x="${L}" y="${H - 6}">${clockET(r.t0)}</text><text class="pd-pc-x" x="${W - R}" y="${H - 6}" text-anchor="end">${clockET(r.t1)} ET</text></svg>`;
+}
+/* time chips (past rounds, the live round, upcoming rounds) + series switch (asset and duration) */
+function roundStripHtml(r){
+  const live = rStart(r.iv), step = r.iv * 60, href = (a, iv, t) => `#/predict/m/${roundSlug(a, iv, t)}`;
+  const chips = []; for (let k = -4; k <= 4; k++){ const t = live + k * step, kind = k < 0 ? "past" : k === 0 ? "live" : "next", on = t === r.t0;
+    chips.push(`<a class="pd-rch ${kind}${on ? " on" : ""}" href="${href(r.a, r.iv, t)}" data-rc data-rt="${t}"${on ? ' aria-current="true"' : ""} aria-label="${clockET(t)} ET round, ${kind === "live" ? "live" : kind === "past" ? "finished" : "upcoming"}"><b class="num">${clockET(t)}</b><small data-rcs="${t}">${kind === "live" ? '<i class="pd-live"></i>Live' : kind === "past" ? "Ended" : "Upcoming"}</small></a>`); }
+  return `<div class="pd-rs" id="pdRs" data-live="${live}"><div class="pd-rs-sw"><div class="pd-seg" role="group" aria-label="Asset">${RA.map(a => `<a data-rc href="${href(a, r.iv, rStart(r.iv))}" class="${a.k === r.a.k ? "on" : ""}">${a.n}</a>`).join("")}</div><div class="pd-seg" role="group" aria-label="Round length">${RIV.map(v => `<a data-rc href="${href(r.a, v, rStart(v))}" class="${v === r.iv ? "on" : ""}">${v}m</a>`).join("")}</div>${hiwBtn}</div>
+    <div class="pd-rs-c" role="list" aria-label="Rounds">${chips.join("")}</div></div>`;
 }
 const livePx = sym => { const q = window.M && M.get(sym); return q && q.price > 0 ? q.price : null; };
 /* faster settlement polling for rounds that just ended */
@@ -495,39 +539,34 @@ setInterval(() => { try {
 /* =====================================================================================================
    Quick guide (4 steps) + data-source info popup
    ===================================================================================================== */
-const TUT_KEY = "nt_pd_tut";
-const tutOff = () => { try { return localStorage.getItem(TUT_KEY) === "1"; } catch { return false; } };
-const G = (b) => `<svg viewBox="0 0 220 84" width="100%" height="84" role="img" aria-hidden="true" class="pd-tg">${b}</svg>`;
-const TUT = [
-  {k: "Transfer", t: "Move funds in", d: "Transfer USDT from Spot or Funding into your Prediction wallet. Your balance is available instantly.", cta: "Transfer now", a: "xf",
-    g: G(`<rect x="12" y="20" width="72" height="44" rx="9" class="g-box"/><text x="48" y="40" text-anchor="middle" class="g-t">Spot</text><text x="48" y="55" text-anchor="middle" class="g-s">USDT</text><rect x="136" y="20" width="72" height="44" rx="9" class="g-box on"/><text x="172" y="40" text-anchor="middle" class="g-t">Prediction</text><text x="172" y="55" text-anchor="middle" class="g-s">wallet</text><path d="M92 42h36m-8-7 8 7-8 7" class="g-ar"/>`)},
-  {k: "Trade", t: "Open a trade", d: "Pick a market, tap Yes or No, enter an amount and confirm. Price in cents = chance of that outcome; each share pays $1 if it wins.", cta: "Browse markets", a: "list",
-    g: G(`<rect x="10" y="8" width="200" height="68" rx="10" class="g-box"/><text x="22" y="28" class="g-t">Will BTC close above 60K?</text><rect x="22" y="40" width="82" height="26" rx="7" class="g-yes"/><text x="63" y="57" text-anchor="middle" class="g-yt">Yes 42¢</text><rect x="116" y="40" width="82" height="26" rx="7" class="g-no"/><text x="157" y="57" text-anchor="middle" class="g-nt">No 60¢</text>`)},
-  {k: "Position", t: "Watch your position", d: "Portfolio shows how much you invested, what it is worth right now and your profit or loss, updating live.", cta: "Open portfolio", a: "portfolio",
-    g: G(`<rect x="10" y="8" width="200" height="68" rx="10" class="g-box"/><text x="24" y="30" class="g-s">Invested</text><text x="24" y="52" class="g-t big">$50.00</text><text x="116" y="30" class="g-s">Value now</text><text x="116" y="52" class="g-t big up">$62.40</text><path d="M24 66l24-8 22 4 26-12" class="g-ln"/>`)},
-  {k: "Close", t: "Cash out or sell", d: "Cash out sells your whole position at the current price in one tap. Or sell part of it, or hold to the end: winning shares pay $1 each.", cta: "", a: "",
-    g: G(`<rect x="14" y="18" width="86" height="48" rx="10" class="g-box"/><text x="57" y="39" text-anchor="middle" class="g-t">120 shares</text><text x="57" y="55" text-anchor="middle" class="g-s">Cash out</text><path d="M108 42h28m-8-7 8 7-8 7" class="g-ar"/><rect x="144" y="18" width="62" height="48" rx="10" class="g-box on"/><text x="175" y="47" text-anchor="middle" class="g-t big up">$62.40</text>`)}
+/* v7.0 "How it works": step-by-step popup with a worked example and small graphics (replaces the old 1-2-3-4 strip) */
+const SV = (vb, label, b) => `<svg viewBox="${vb}" class="pd-hwg" role="img" aria-label="${esc(label)}">${b}</svg>`;
+const HW = [
+  {t: "Pick Up or Down", d: "Every round has a start price, set when the round begins, and an end price, taken when it ends. Buy Up if you think the end price will be at or above the start price. Buy Down if you think it will be lower.",
+    g: SV("0 0 300 112", "Price line above the start price means Up wins, below means Down wins", `<rect x="8" y="8" width="284" height="48" rx="8" class="hw-up"/><rect x="8" y="56" width="284" height="48" rx="8" class="hw-dn"/><line x1="8" y1="56" x2="292" y2="56" class="hw-st"/><text x="16" y="23" class="hw-t up">UP wins: end at or above start</text><text x="16" y="98" class="hw-t down">DOWN wins: end below start</text><path d="M26 56C52 49 70 68 100 60S150 44 182 48S236 34 262 30" class="hw-ln"/><circle cx="26" cy="56" r="4" class="hw-dot"/><circle cx="262" cy="30" r="5" class="hw-dot up"/><text x="30" y="72" class="hw-s">Start</text><text x="262" y="46" text-anchor="middle" class="hw-s">End</text>`)},
+  {t: "Price in cents = chance", d: "A share costs between 1¢ and 99¢. The price is what traders think the chance is. At 60¢, the crowd thinks that outcome is about 60% likely. The Up price and the Down price add up to about $1.",
+    g: SV("0 0 300 112", "Bar split 60 percent Up and 40 percent Down", `<text x="150" y="20" text-anchor="middle" class="hw-s">Up costs 60¢, Down costs 40¢</text><rect x="10" y="30" width="170" height="34" rx="8" class="hw-fup"/><rect x="180" y="30" width="110" height="34" rx="8" class="hw-fdn"/><text x="95" y="52" text-anchor="middle" class="hw-w">Up 60¢</text><text x="235" y="52" text-anchor="middle" class="hw-w">Down 40¢</text><text x="10" y="82" class="hw-s">0¢</text><text x="290" y="82" text-anchor="end" class="hw-s">$1.00</text><text x="150" y="102" text-anchor="middle" class="hw-t">60¢ + 40¢ = $1.00</text>`)},
+  {t: "How much you can win", d: "Each share pays $1.00 if you are right and $0 if you are wrong. So buying 10 shares at 40¢ costs $4.00. If you are right, you get back $10.00. That is a $6.00 profit. If you are wrong, you lose the $4.00.",
+    g: SV("0 0 300 128", "Paying 4 dollars to receive 10 dollars", `<line x1="10" y1="104" x2="290" y2="104" class="hw-ax"/><rect x="50" y="64" width="70" height="40" rx="6" class="hw-fst"/><text x="85" y="89" text-anchor="middle" class="hw-w">$4.00</text><rect x="170" y="64" width="70" height="40" rx="6" class="hw-fst"/><rect x="170" y="4" width="70" height="60" rx="6" class="hw-fup"/><text x="205" y="39" text-anchor="middle" class="hw-w">+$6.00</text><text x="205" y="89" text-anchor="middle" class="hw-w">$4.00</text><text x="85" y="120" text-anchor="middle" class="hw-s">You pay</text><text x="205" y="120" text-anchor="middle" class="hw-s">You get if right: $10.00</text><path d="M126 84h38m-7-6 7 6-7 6" class="hw-ar"/>`)},
+  {t: "When the round ends", d: "At the end time the end price is compared with the start price. Up wins if the end price is at or above the start price. Down wins if it is lower. Each winning share is paid $1.00 into your Prediction wallet, and each losing share is worth $0. When a 5-minute or 15-minute round ends, the next one of the same length starts.",
+    g: SV("0 0 300 100", "Timeline: round starts, live, round ends, paid out", `<line x1="34" y1="38" x2="266" y2="38" class="hw-ln"/><circle cx="34" cy="38" r="8" class="hw-dot"/><circle cx="112" cy="38" r="8" class="hw-dot"/><circle cx="190" cy="38" r="8" class="hw-dot"/><circle cx="266" cy="38" r="8" class="hw-dot up"/><text x="34" y="42" text-anchor="middle" class="hw-w">1</text><text x="112" y="42" text-anchor="middle" class="hw-w">2</text><text x="190" y="42" text-anchor="middle" class="hw-w">3</text><text x="266" y="42" text-anchor="middle" class="hw-w">4</text><text x="34" y="66" text-anchor="middle" class="hw-s">Starts</text><text x="112" y="66" text-anchor="middle" class="hw-s">You trade</text><text x="190" y="66" text-anchor="middle" class="hw-s">Ends</text><text x="266" y="66" text-anchor="middle" class="hw-s">Paid $1</text><text x="34" y="82" text-anchor="middle" class="hw-s2">start price</text><text x="190" y="82" text-anchor="middle" class="hw-s2">end price</text><text x="266" y="82" text-anchor="middle" class="hw-s2">per win</text>`)},
+  {t: "Sell before the end", d: "You do not have to wait. While a round is live you can sell your shares at the current price with Cashout or Sell. If the price of your shares went up, you take a profit now. If it went down, you can sell and keep what is left instead of risking all of it.",
+    g: SV("0 0 300 112", "Share price rising from 40 cents to 70 cents", `<line x1="10" y1="76" x2="290" y2="76" class="hw-st"/><text x="14" y="90" class="hw-s">Bought at 40¢</text><path d="M24 76C60 78 80 62 112 64S160 44 196 40S250 26 272 22" class="hw-ln"/><circle cx="24" cy="76" r="4" class="hw-dot"/><circle cx="272" cy="22" r="5" class="hw-dot up"/><text x="266" y="14" text-anchor="end" class="hw-t up">Sell at 70¢</text><text x="150" y="106" text-anchor="middle" class="hw-s">10 shares × 70¢ = $7.00 (profit $3.00)</text>`)}
 ];
-function tutPop(i){
-  const T = TUT[i];
-  pdPop("Quick guide", "", (el, close) => {
-    const b = el.querySelector(".pd-pop-b");
-    const draw = n => { const x = TUT[n];
-      b.innerHTML = `<div class="pd-tut-steps">${TUT.map((y, j) => `<button type="button" class="${j === n ? "on" : j < n ? "done" : ""}" data-ts="${j}" aria-label="Step ${j + 1}: ${esc(y.k)}">${j + 1}</button>`).join("<i></i>")}</div>
-        <div class="pd-tut-g">${x.g}</div><h4>${n + 1}. ${esc(x.t)}</h4><p>${esc(x.d)}</p>
-        <div class="pd-pop-btns">${n > 0 ? `<button type="button" class="pd-pb" data-pv>Back</button>` : ""}${x.cta ? `<button type="button" class="pd-pb" data-cta>${esc(x.cta)}</button>` : ""}<button type="button" class="pd-pb pri" data-nx>${n < TUT.length - 1 ? "Next" : "Done"}</button></div>`;
-      b.querySelectorAll("[data-ts]").forEach(z => z.onclick = () => { hap(6); draw(+z.dataset.ts); });
-      b.querySelector("[data-pv]") && (b.querySelector("[data-pv]").onclick = () => { hap(6); draw(n - 1); });
-      b.querySelector("[data-nx]").onclick = () => { if (n < TUT.length - 1){ hap(6); draw(n + 1); } else close(); };
-      const c = b.querySelector("[data-cta]"); if (c) c.onclick = () => { close(); hap(8); if (x.a === "xf") UI.transferSheet({to: W}); else location.hash = "#/predict" + (x.a === "portfolio" ? "/portfolio" : ""); };
-    };
-    draw(i);
-  });
+function hiwBody(){
+  const fee = cfg().feePct;
+  return `<p class="pd-hw-lead">A prediction round asks one question about the future, for example: <b>will Bitcoin be higher in 5 minutes than it is right now?</b> You buy shares in the answer you believe in.</p>
+    <ol class="pd-hws">${HW.map((x, i) => `<li><div class="pd-hws-h"><em>${i + 1}</em><b>${esc(x.t)}</b></div><p>${esc(x.d)}</p><div class="pd-hws-g">${x.g}</div></li>`).join("")}</ol>
+    <div class="pd-hwx"><div class="pd-hwx-h"><b>Worked example</b><span>BTC Up or Down · 5m</span></div>
+      <p>The start price is <b class="num">60,000.00</b>. You think Bitcoin will go up, so you buy <b class="up">10 Up shares at 40¢</b> and pay <b class="num">$4.00</b>.</p>
+      <div class="pd-hwx-r"><span>End price <b class="num">60,010.00</b> (above start)</span><b class="up">Up wins: you get $10.00, profit +$6.00</b></div>
+      <div class="pd-hwx-r"><span>End price <b class="num">59,990.00</b> (below start)</span><b class="down">Down wins: your shares are worth $0, loss -$4.00</b></div>
+      <div class="pd-hwx-r"><span>Sell early when your Up shares reach <b class="num">70¢</b></span><b class="up">You get $7.00, profit +$3.00</b></div></div>
+    <p class="pd-fine">${fee > 0 ? `A trading fee of ${fmt(fee, fee < 1 ? 2 : 1)}% applies and is shown before you confirm. ` : ""}You can lose the whole amount you pay, so only trade what you can afford to lose. A low price such as 5¢ pays a lot if it wins, but that outcome is unlikely. The official result follows each market's resolution source; the chart on this page uses Binance prices as a reference.</p>`;
 }
-function tutHtml(){
-  if (tutOff()) return "";
-  return `<div class="pd-tut" id="pdTut"><span class="pd-tut-l" role="img" aria-label="Quick guide">${ic("zap", 15, 2.2)}</span><div class="pd-tut-s">${TUT.map((x, i) => `<button type="button" data-tut="${i}"><b>${i + 1}</b>${esc(x.k)}</button>`).join("")}</div><button type="button" class="pd-tut-x" data-tutx aria-label="Dismiss quick guide">${ic("close", 14)}</button></div>`;
-}
+function hiwPop(){ pdPop("How it works", hiwBody(), el => { const b = el.querySelector(".pd-pop"); if (b) b.classList.add("pd-hiw-pop"); }); }
+const hiwBtn = `<button type="button" class="pd-hiw" data-hiw aria-haspopup="dialog">${ic("info", 16)}<span>How it works</span></button>`;
+const tutHtml = () => `<div class="pd-hiw-r" id="pdTut">${hiwBtn}</div>`;
 function infoPop(){
   pdPop("Where the data comes from", `<div class="pd-flow" aria-hidden="true"><span><b>Polymarket</b><small>markets &amp; order books</small></span><i>&rarr;</i><span class="on"><b>NovaTrade</b><small>live feed</small></span><i>&rarr;</i><span><b>You</b><small>${WSN > 0 ? "live now" : "connecting"}</small></span></div>
     <ul class="pd-info">
@@ -536,9 +575,7 @@ function infoPop(){
       <li><b>Your fills</b> walk the live order book: best asks first when you buy, best bids first when you sell.</li>
       <li><b>BTC and ETH Up or Down</b> rounds are Polymarket's real 5-minute and 15-minute markets. The chart uses Binance spot prices.</li>
       <li><b>Settlement</b> follows each market's Polymarket resolution source. Winning shares pay $1, losing shares $0, credited to your Prediction wallet automatically.</li>
-    </ul>${tutOff() ? `<div class="pd-pop-btns"><button type="button" class="pd-pb" data-tutshow>Show quick guide again</button></div>` : ""}`, (el, close) => {
-    const b = el.querySelector("[data-tutshow]"); if (b) b.onclick = () => { try { localStorage.removeItem(TUT_KEY); } catch {} close(); if (curScreen === "list") location.reload ? (location.hash = "#/predict", bus.emit("pd-tut")) : 0; };
-  });
+    </ul>`);
 }
 
 /* =====================================================================================================
@@ -559,7 +596,7 @@ function bindCommon(root, offs){
     window.NAV_GUARD = g; offs.push(() => { if (window.NAV_GUARD === g) window.NAV_GUARD = null; });
   }
   root.querySelectorAll("[data-acct]").forEach(b => b.onclick = e => { e.stopPropagation(); if (window.ACCT) ACCT.sheet(); else toast("Demo account", "info"); });
-  root.addEventListener("click", e => { if (e.target.closest("[data-pd-xf]")){ hap(10); UI.transferSheet({to: W}); } });
+  root.addEventListener("click", e => { if (e.target.closest("[data-pd-xf]")){ hap(10); UI.transferSheet({to: W}); } if (e.target.closest("[data-hiw]")){ hap(6); hiwPop(); } });
   const upd = () => root.querySelectorAll("[data-pd-bal]").forEach(b => b.textContent = usd(bal()));
   offs.push(bus.on("balance", upd)); upd();
   const lv = () => root.querySelectorAll("[data-lv]").forEach(b => b.classList.toggle("off", WSN <= 0)); lv();
@@ -688,16 +725,19 @@ function tradePanel(host, st, opts = {}){
     const inp = unit === "sh"
       ? `<div class="pd-amt big"><input id="${uid}a" data-ssh ${type === "limit" ? "data-lsh " : ""}inputmode="decimal" size="1" placeholder="0" value="${esc(cin(st.sh))}" autocomplete="off" aria-label="Shares"></div>`
       : `<div class="pd-amt big"><span>$</span><input id="${uid}a" data-amt inputmode="decimal" size="1" placeholder="0" value="${esc(cin(st.amt))}" autocomplete="off" aria-label="Amount in dollars"></div>`;
-    const addRow = (unit === "sh" ? [10, 50, 100] : [1, 10, 100]).map(n => `<button type="button" data-add="${n}">+${unit === "sh" ? "" : "$"}${n}</button>`).join("");
-    const pctRow = [10, 25, 50, 75].map(n => `<button type="button" data-pct="${n / 100}">${n}%</button>`).join("") + `<button type="button" data-pct="1">Max</button>`;
+    const slideMax = side === "buy" ? Math.min(bal(), cfg().maxBet) : freeSh(), slideOff = !(slideMax > 0);
+    const slide = `<div class="pd-slw${slideOff ? " off" : ""}"><div class="pd-slh"><span data-slp>0% of ${side === "buy" ? "balance" : "position"}</span><b class="num" data-slv>${unit === "sh" && side === "buy" ? "0 shares" : usd(0)}</b></div>
+      <input type="range" class="pd-slider" data-slide min="0" max="100" step="1" value="0" ${slideOff ? "disabled" : ""} aria-label="${side === "buy" ? "Amount as a percentage of your balance" : "Shares to sell as a percentage of your position"}">
+      <div class="pd-slt" aria-hidden="true"><span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span></div><small class="pd-slhint">${side === "buy" ? "Add funds to your Prediction wallet to use the slider, or type an amount." : "You have nothing to sell here."}</small></div>`;
     const lpf = type === "limit" ? `<div class="pd-field"><label for="${uid}p">Limit price</label><div class="pd-step"><button type="button" data-lp="-1" aria-label="Lower price">${ic("minus", 16, 2.4)}</button><div class="pd-amt pd-cents"><input id="${uid}p" data-lpv inputmode="decimal" size="1" value="${esc(String(st.lp))}" autocomplete="off" aria-label="Limit price in cents"><span>¢</span></div><button type="button" data-lp="1" aria-label="Raise price">${ic("plus", 16, 2.4)}</button></div></div>` : "";
     const entry = `${lpf}<div class="pd-field"><div class="pd-fl"><label for="${uid}a">${unit === "sh" ? "Shares" : "Amount"}</label><button type="button" class="pd-unit" data-unit aria-label="Switch between amount and shares">${ic("swap", 16, 2)}</button></div>${inp}</div>
-      <div class="pd-chips">${addRow}</div><div class="pd-chips pct">${pctRow}</div>`;
+      ${slide}`;
     const own = pos ? `<div class="pd-own">In position: invested <b class="num">${usd(pos.cost)}</b> · value <b class="num">${usd(posValue(pos))}</b></div>` : side === "sell" ? `<div class="pd-own muted">You have no ${esc(m.outs[oi])} position in this market.</div>` : "";
+    host.classList.toggle("pd-tpc", !!opts.compact);
     host.innerHTML = `${opts.showQ ? `<div class="pd-tp-q">${img(m.img || ev.img, "pd-img sm")}<div><b>${esc(multi ? (m.gt || m.q) : ev.title)}</b>${multi ? `<small>${esc(ev.title)}</small>` : ""}</div></div>` : ""}
-      <div class="pd-c"><div class="pd-tp-top"><div class="pd-bs" role="tablist" aria-label="Buy or sell"><button type="button" role="tab" data-side="buy" class="${side === "buy" ? "on" : ""}" aria-selected="${side === "buy"}">Buy</button><button type="button" role="tab" data-side="sell" class="${side === "sell" ? "on" : ""}" aria-selected="${side === "sell"}">Sell</button></div>
-        <div class="pd-ty" role="tablist" aria-label="Order type"><button type="button" data-type="market" class="${type === "market" ? "on" : ""}">Market</button><button type="button" data-type="limit" class="${type === "limit" ? "on" : ""}">Limit</button></div></div>
-        <div class="pd-oc">${[0, 1].map(i => `<button type="button" class="pd-ocb ${i ? "no" : "yes"} ${oi === i ? "on" : ""}" data-oi="${i}" aria-pressed="${oi === i}"><span>${esc(short(m.outs[i]))}</span><b class="num" data-tpx="${i}">${cents(px(i))}</b></button>`).join("")}</div>${own}</div>
+      <div class="pd-c">${opts.compact ? "" : `<div class="pd-tp-top"><div class="pd-bs" role="tablist" aria-label="Buy or sell"><button type="button" role="tab" data-side="buy" class="${side === "buy" ? "on" : ""}" aria-selected="${side === "buy"}">Buy</button><button type="button" role="tab" data-side="sell" class="${side === "sell" ? "on" : ""}" aria-selected="${side === "sell"}">Sell</button></div>
+        <div class="pd-ty" role="tablist" aria-label="Order type"><button type="button" data-type="market" class="${type === "market" ? "on" : ""}">Market</button><button type="button" data-type="limit" class="${type === "limit" ? "on" : ""}">Limit</button></div></div>`}
+        <div class="pd-oc">${[0, 1].map(i => `<button type="button" class="pd-ocb ${i ? "no" : "yes"} ${oi === i ? "on" : ""}" data-oi="${i}" aria-pressed="${oi === i}"><span>${esc(short(m.outs[i]))}</span><b class="num" data-tpx="${i}">${cents(px(i))}</b></button>`).join("")}</div>${opts.compact ? "" : own}</div>
       ${closed ? `<div class="pd-c"><div class="pd-closed">${ic("lock", 16)}<span>${roundEnded(ev) && !m.closed ? "Round ended · result pending" : m.closed ? "This market is closed" + (m.prices.some(v => v >= .99) ? ` · resolved <b>${esc(m.outs[m.prices[0] >= .99 ? 0 : 1])}</b>` : " · awaiting resolution") : "Trading is paused for this market"}</span></div></div>` : `<div class="pd-c pd-c-in">${entry}</div>`}
       <div class="pd-c pd-c-sum" data-sumc><div class="pd-sum" data-sum></div></div>
       <button type="button" class="pd-go ${side === "sell" ? "sell" : oi ? "no" : "yes"}" data-go ${closed ? "disabled" : ""}>${goLabel()}</button>
@@ -714,6 +754,32 @@ function tradePanel(host, st, opts = {}){
     const sh = lim ? (p > 0 ? fl2(v / (p * (1 + f))) : 0) : fl2(walkBuy(levels(m, oi, "ask"), v * (1 - f), buyPx(m, oi)).shares);
     setVal("sh", sh ? String(sh) : "", "[data-ssh]");
   }
+  /* slider: k = 0..1 of (balance, capped by the max bet) when buying, or of the free position when selling */
+  function applyPct(k){
+    if (st.side === "buy"){ setBudget(Math.min(bal(), cfg().maxBet) * k); }
+    else {
+      const free = freeSh(); if (!(free > 0)) return;
+      const sh = k >= 1 ? free : fl2(free * k); st.exact = sh || null;
+      if (st.unit === "sh") setVal("sh", sh ? String(sh) : "", "[data-ssh]");
+      else { const f = feeR(), v = st.type === "limit" ? (+st.lp || 0) / 100 * sh * (1 - f) : walkSell(levels(st.m, st.oi, "bid"), sh, sellPx(st.m, st.oi)).proceeds * (1 - f); setVal("amt", sh ? String(r2(v)) : "", "[data-amt]"); st.exact = sh || null; }
+    }
+    calc();
+  }
+  function paintSlider(pc){
+    const SL = q("[data-slide]"); if (!SL) return; const Q = quote();
+    SL.style.setProperty("--p", pc + "%");
+    const pe = q("[data-slp]"), ve = q("[data-slv]"), who = st.side === "buy" ? "balance" : "position";
+    if (pe) pe.textContent = fmt(pc, 0) + "% of " + who;
+    if (ve) ve.textContent = st.side === "buy" && st.unit === "sh" ? shr(Q.sh) + " shares" : usd(Q.usd);
+  }
+  function syncSlider(){
+    const SL = q("[data-slide]"); if (!SL) return;
+    const mx = st.side === "buy" ? Math.min(bal(), cfg().maxBet) : freeSh(), Q = quote();
+    const v = mx > 0 ? (st.side === "buy" ? Q.usd : Q.sh) / mx * 100 : 0, pc = Math.max(0, Math.min(100, Math.round(v)));
+    SL.disabled = !(mx > 0); SL.parentElement.classList.toggle("off", !(mx > 0));
+    if (!st.drag) SL.value = String(pc);
+    paintSlider(st.drag ? +SL.value : pc);
+  }
   function bind(){
     host.querySelectorAll("[data-side]").forEach(b => b.onclick = () => { if (st.side === b.dataset.side) return; st.side = b.dataset.side; st.exact = null; st.amt = ""; st.sh = ""; hap(8); render(); });
     host.querySelectorAll("[data-type]").forEach(b => b.onclick = () => { if (st.type === b.dataset.type) return; st.type = b.dataset.type; st.lp = null; st.exact = null; hap(8); render(); });
@@ -727,23 +793,12 @@ function tradePanel(host, st, opts = {}){
       if (st.unit === "usd"){ st.unit = "sh"; st.sh = Q.sh ? String(fl2(Q.sh)) : ""; } else { st.unit = "usd"; st.amt = Q.usd ? String(r2(Q.usd)) : ""; }
       render();
     };
-    host.querySelectorAll("[data-add]").forEach(b => b.onclick = () => {
-      const n = +b.dataset.add; st.exact = null; hap(6);
-      if (st.unit === "usd"){ let v = r2((+st.amt || 0) + n); if (st.side === "sell"){ const mx = fl2(quote().usd || 0), pos = posNow(); if (pos) v = Math.min(v, fl2(sellValue())); } setVal("amt", String(v), "[data-amt]"); }
-      else { let v = r2((+st.sh || 0) + n); if (st.side === "sell") v = Math.min(v, freeSh()); setVal("sh", String(v), "[data-ssh]"); }
-      calc();
-    });
-    host.querySelectorAll("[data-pct]").forEach(b => b.onclick = () => {
-      const k = +b.dataset.pct; hap(k === 1 ? 10 : 8);
-      if (st.side === "buy"){ setBudget(Math.min(bal(), cfg().maxBet) * k); }
-      else {
-        const free = freeSh(); if (!(free > 0)){ toast("You have no position to sell", "info"); return; }
-        const sh = k === 1 ? free : fl2(free * k); st.exact = sh;
-        if (st.unit === "sh") setVal("sh", String(sh), "[data-ssh]");
-        else { const f = feeR(), v = st.type === "limit" ? (+st.lp || 0) / 100 * sh * (1 - f) : walkSell(levels(st.m, st.oi, "bid"), sh, sellPx(st.m, st.oi)).proceeds * (1 - f); setVal("amt", String(r2(v)), "[data-amt]"); st.exact = sh; }
-      }
-      calc();
-    });
+    const SL = q("[data-slide]");
+    if (SL){
+      SL.addEventListener("input", () => { st.drag = true; applyPct(+SL.value / 100); paintSlider(+SL.value); });
+      SL.addEventListener("change", () => { st.drag = false; hap(+SL.value >= 100 ? 10 : 6); });
+      SL.addEventListener("pointerup", () => { st.drag = false; }); SL.addEventListener("blur", () => { st.drag = false; });
+    }
     host.querySelectorAll("[data-lp]").forEach(b => b.onclick = () => { const step = st.m.tick < .01 ? .1 : 1; st.lp = String(Math.round(Math.min(99.9, Math.max(.1, (+st.lp || 50) + step * +b.dataset.lp)) * 10) / 10); if (LP) LP.value = st.lp; hap(6); calc(); });
     q("[data-go]").onclick = go;
     const xf = q("[data-pd-xf2]"); if (xf) xf.onclick = () => { hap(10); UI.transferSheet({to: W}); };
@@ -772,6 +827,7 @@ function tradePanel(host, st, opts = {}){
     box.parentElement.hidden = false;
     box.innerHTML = rows.map(([k, v, c]) => `<div class="${c || ""}"><span>${k}</span><b class="num">${v}</b></div>`).join("");
     if (btn && !btn.classList.contains("done") && !btn.classList.contains("loading")) btn.innerHTML = goLabel() + (Q.usd ? ` <small class="num">· ${usd(Q.usd)}</small>` : "");
+    syncSlider();
   }
   function tick(){
     if (!host.isConnected) return;
@@ -797,7 +853,7 @@ function tradePanel(host, st, opts = {}){
     const out = `<span class="pd-pill ${oi ? "no" : "yes"}">${esc(short(m.outs[oi]))}</span>`, f = feeR(), rows = [["Outcome", out], ["Order type", type === "limit" ? "Limit" : "Market"]];
     if (side === "buy"){ rows.push([type === "limit" ? "Limit price" : "Avg price", cents(type === "limit" ? req.price : Q.avg)], ["Shares", shr(Q.sh)], ["Total", usd(Q.usd)]); if (f) rows.push(["Fee", usd(Q.usd * f / (1 + (type === "limit" ? f : 0)))]); rows.push(["To win", usd(Q.sh), "big up"]); }
     else { const basis = pos ? pos.avg * Q.sh : 0; rows.push([type === "limit" ? "Limit price" : "Avg price", cents(type === "limit" ? req.price : Q.avg)], ["Shares", shr(Q.sh)], ["Invested", usd(basis)], ["Est. PnL", `<span class="${Q.usd - basis >= 0 ? "up" : "down"}">${usdS(Q.usd - basis)}</span>`], ["You'll receive", usd(Q.usd), "big up"]); }
-    const ok = await pdConfirm({title: side === "buy" ? "Confirm buy" : "Confirm sell", sub: esc(ev.markets.length > 1 ? (m.gt || m.q) + " · " + ev.title : ev.title), rows, ok: `${side === "buy" ? "Buy" : "Sell"} ${short(m.outs[oi])}`, tone: side === "sell" ? "sell" : oi ? "no" : "yes"});
+    const ok = opts.noConfirm ? true : await pdConfirm({title: side === "buy" ? "Confirm buy" : "Confirm sell", sub: esc(ev.markets.length > 1 ? (m.gt || m.q) + " · " + ev.title : ev.title), rows, ok: `${side === "buy" ? "Buy" : "Sell"} ${short(m.outs[oi])}`, tone: side === "sell" ? "sell" : oi ? "no" : "yes"});
     if (!ok || !host.isConnected) return;
     busyGo = true; btn.classList.add("loading"); btn.setAttribute("aria-busy", "true");
     try {
@@ -837,6 +893,37 @@ async function cashout(p){
     toast(`Cashed out ${usd(fi.amount != null ? fi.amount : n.net)} · PnL ${usdS(pnl)}`, pnl >= 0 ? "ok" : "info", 3200);
     notif("Cashed out", `${p.q} · ${usd(fi.amount != null ? fi.amount : n.net)} received · PnL ${usdS(pnl)}`, pnl >= 0 ? "ok" : "bad");
   } catch (e){ U.fx("err"); toast(e.message || "Could not cash out", "bad"); }
+}
+/* positions + open orders of one event (used by the event page section and by the quick-buy sheet); posBtn lets the sheet show Cashout only */
+function mineHtml(ev, sheet){
+  const d = data(), ids = new Set(ev.markets.map(m => m.id)), ps = d.positions.filter(p => ids.has(p.mid)), os = d.orders.filter(o => ids.has(o.mid));
+  if (!ps.length && !os.length) return "";
+  const btns = p => sheet ? `<button type="button" class="pd-cash" data-cash="${p.token}">Cashout</button>` : posBtns(p);
+  return `<section class="${sheet ? "pd-qs-mine" : "pd-sec"}"><h3 class="pd-h3">Your positions</h3>${ps.map(p => `<div class="pd-mine pd-mp" data-ptk="${p.token}"><div class="pd-mp-h"><span class="pd-pill ${p.oi ? "no" : "yes"}">${esc(short(p.outcome))}</span>${p.title ? `<small>${esc(p.title)}</small>` : ""}<span class="pd-mine-s num">${shr(p.shares)} shares · avg ${cents(p.avg)}</span></div>${posGrid(p)}<div class="pd-mp-b">${btns(p)}</div></div>`).join("")}
+      ${os.length ? `<h3 class="pd-h3" style="margin-top:12px">Open orders</h3>` + os.map(o => `<div class="pd-mine"><div><span class="pd-pill ${o.side === "buy" ? "yes" : "no"}">${o.side === "buy" ? "Buy" : "Sell"} ${esc(short(o.outcome))}</span>${o.title ? `<small>${esc(o.title)}</small>` : ""}<div class="pd-mine-s num">${shr(o.shares)} shares @ ${cents(o.price)}</div></div><div class="pd-mine-r"><b class="num">${usd(o.price * o.shares)}</b><small>${ago(o.t)}</small></div><button type="button" class="pd-cancel" data-cancel="${o.id}">Cancel</button></div>`).join("") : ""}</section>`;
+}
+/* Quick buy: small bottom sheet from the fixed Buy Up / Buy Down bar. Amount, slider, To win, one confirm button; after a fill the new position shows below the form. */
+function quickBuy(ev, m, oi){
+  if (!cfg().enabled) return toast("Prediction market is under maintenance", "info");
+  const st = {ev, m, oi, side: "buy", type: "market", unit: "usd", amt: "", sh: "", lp: null}, rd = roundOf(ev);
+  let off = null, close = null, panel = null, el0 = null;
+  const sub = rd ? `${rTitle(rd)} · ${clockET(rd.t0)} – ${clockET(rd.t1)} ET` : ev.title;
+  hap(10);
+  U.sheet("Quick buy", `<div class="pd-qb-q">${esc(sub)}</div><div class="pd-qs pd-qb" data-tp></div><div class="pd-qb-m" data-qm></div>`, el => {
+    el0 = el; el.style.maxHeight = "min(68vh, 560px)";
+    const sc = document.getElementById("scrim"); if (sc) sc.classList.add("pd-lite");
+    const mine = () => { const b = el.querySelector("[data-qm]"); if (b) b.innerHTML = mineHtml(ev, true); };
+    panel = tradePanel(el.querySelector("[data-tp]"), st, {compact: true, noConfirm: true, onDone: r => { if (r.fill || r.order){ mine(); setTimeout(() => { const b = el.querySelector("[data-qm]"); const sb = el.querySelector(".sheet-b"); if (b && sb && b.firstElementChild) sb.scrollTo({top: b.offsetTop - 8, behavior: "smooth"}); }, 820); } }});
+    panel.render(); mine();
+    const tk = raf(() => { panel.tick(); el.querySelectorAll("[data-qm] [data-ptk]").forEach(r => { const p = findPos(r.dataset.ptk); if (p) posGridTick(r, p); }); });
+    const f = t => { if (m.tokens.includes(t)) tk(); }; pxListeners.add(f); off = () => pxListeners.delete(f);
+    loadBooks(m.tokens).then(tk).catch(() => {}); close = openWS(m.tokens);
+    const ob = bus.on("balance", () => panel && panel.tick()), op = bus.on("predict", () => mine()); const o0 = off; off = () => { o0 && o0(); ob(); op(); };
+    el.addEventListener("click", e => {
+      const c = e.target.closest("[data-cash]"); if (c){ const p = findPos(c.dataset.cash); if (p) cashout(p); return; }
+      const x = e.target.closest("[data-cancel]"); if (x) cancelOrder(x.dataset.cancel);
+    });
+  }, () => { off && off(); close && close(); const sc = document.getElementById("scrim"); if (sc) sc.classList.remove("pd-lite"); const sh = document.getElementById("sheet"); if (sh) sh.style.maxHeight = ""; });
 }
 function quickTrade(ev, m, oi, side = "buy"){
   if (!cfg().enabled) return toast("Prediction market is under maintenance", "info");
@@ -1001,7 +1088,6 @@ function listScreen(){
   function mount(r){
     root = r; curScreen = "list"; seed(); bindCommon(root, offs);
     pxListeners.add(onPx); offs.push(() => pxListeners.delete(onPx));
-    offs.push(bus.on("pd-tut", () => { const b = $("#pdTutBox"); if (b) b.innerHTML = tutHtml(); }));
     const Q = $("#pdQ"), X = root.querySelector("[data-qx]"); filtDot();
     Q.oninput = () => { X.hidden = !Q.value; clearTimeout(st); st = setTimeout(() => { const v = Q.value.trim(); if (v === qs) return; qs = v; root.querySelectorAll("[data-cat]").forEach(b => b.classList.toggle("dim", !!qs)); events = []; renderRounds(); load(true); }, 380); };
     Q.onkeydown = e => { if (e.key === "Enter"){ Q.blur(); } };
@@ -1013,8 +1099,6 @@ function listScreen(){
       const T = e.target;
       if (T.closest("[data-filt]")){ filterSheet(); return; }
       if (T.closest("[data-info]")){ hap(6); infoPop(); return; }
-      const tb = T.closest("[data-tut]"); if (tb){ hap(6); tutPop(+tb.dataset.tut); return; }
-      if (T.closest("[data-tutx]")){ hap(6); try { localStorage.setItem(TUT_KEY, "1"); } catch {} const b = $("#pdTutBox"); if (b) b.innerHTML = ""; return; }
       if (T.closest("[data-rretry]")){ rLoaded = false; renderRounds(); loadRounds(); return; }
       if (T.closest("[data-retry]")){ hap(8); load(true); return; }
       if (T.closest("[data-more]")){ load(false); return; }
@@ -1053,8 +1137,10 @@ function simHolders(m){ return [0, 1].map(oi => SIMN.slice(oi * 6, oi * 6 + 8).m
 
 function detailScreen(key, mid){
   let root, ev = EV.get(key) || null, sel = 0, tf = sessionStorage.getItem("pd_tf") || "1d", tab = "book", panel = null, closeWS = null, offs = [], timers = [], loadErr = null;
-  let trades = [], holders = null, related = null, chartTok = "", series = [];
-  let rd = null, roundDone = false, startPx = null, slEl = null, svEl = null, rPoll = 0;
+  let trades = [], holders = null, related = null, chartTok = "", series = [], cmtOff = null, cmtBox = null;
+  let rd = null, roundDone = false, startPx = null, slEl = null, svEl = null, rPoll = 0, shown = "", endPx = null, fsx = null, rollT = 0, rtry = 0;
+  const keyRound = roundOf({slug: String(key)});
+  const phase = () => !rd ? "" : now() < rd.t0 * 1000 ? "next" : now() < rd.t1 * 1000 ? "live" : "past";
   const st = {ev, m: null, oi: 0, side: "buy", type: "market", unit: "usd", amt: "", sh: "", lp: null};
   const $ = s => root ? root.querySelector(s) : null;
   const html = `<div class="pd-page pd-det">${backHead("Market", `<button class="pd-ib" data-share aria-label="Share market">${ic("share", 20)}</button>`)}<div id="pdDet">${skelDet()}</div></div>`;
@@ -1067,70 +1153,171 @@ function detailScreen(key, mid){
   }
   function render(){
     const box = $("#pdDet"); if (!box) return;
+    if (!ev && loadErr && keyRound){ shellRound(box); return; }
     if (!ev){ box.innerHTML = loadErr ? `<div class="pd-err">${ic("info", 34, 1.4)}<b>Couldn't load this market</b><span>${esc(/fetch|network|abort/i.test(loadErr.message || "") ? "Network error. Check your connection and try again." : loadErr.message || "Network error")}</span><button type="button" class="btn btn-primary" data-retry>Retry</button></div>` : skelDet(); return; }
-    const m = selM(), multi = ev.markets.length > 1, c = chance(m); rd = roundOf(ev); roundDone = false;
+    const m = selM(), multi = ev.markets.length > 1, c = chance(m); rd = roundOf(ev); roundDone = false; shown = phase(); endPx = null; if (rd && shown !== "live") startPx = null;
     const hero = rd ? roundHeroHtml(m, c) : `<section class="pd-sec pd-hero"><div class="pd-chance">${multi ? `<span class="pd-chname">${esc(m.gt || m.q)}</span>` : ""}<b class="num" data-dch>${chancePct(c)}</b><span>chance</span><em class="num ${m.chg >= 0 ? "up" : "down"}" data-dchg>${m.chg ? (m.chg >= 0 ? "▲" : "▼") + " " + Math.abs(Math.round(m.chg * 100)) + "%" : ""}</em></div>
       <div class="pd-chart" id="pdChart"><div class="pd-ch-empty" style="height:190px"><span class="pd-spin"></span></div></div>
       ${multi ? `<div class="pd-legend" id="pdLeg"></div>` : ""}
       <div class="pd-tfs" role="tablist">${TFS.map(([k, l]) => `<button type="button" role="tab" data-tf="${k}" class="${k === tf ? "on" : ""}">${l}</button>`).join("")}</div></section>`;
-    box.innerHTML = `<div class="pd-dh">${img(ev.img, "pd-img lg")}<div><h2 class="pd-dt">${esc(rd ? rTitle(rd) : ev.title)}</h2>${rd ? `<div class="pd-dmeta"><span>${clockET(rd.t0)} – ${clockET(rd.t1)} ET</span><span class="pd-tag live" data-rtag><i class="pd-live"></i>Live</span></div>` : `<div class="pd-dmeta"><span class="num">$${cmp(ev.vol)} Vol.</span><span>${ic("clock", 12)}${esc(dShort(m.end || ev.end))}</span>${ev.closed || m.closed ? '<span class="pd-tag">Closed</span>' : '<span class="pd-tag live"><i class="pd-live"></i>Live</span>'}</div>`}</div></div>
+    box.innerHTML = `<div class="pd-dh">${img(ev.img, "pd-img lg")}<div><h2 class="pd-dt">${esc(rd ? rTitle(rd) : ev.title)}</h2>${rd ? `<div class="pd-dmeta"><span>${clockET(rd.t0)} – ${clockET(rd.t1)} ET</span>${tagHtml(shown)}</div>` : `<div class="pd-dmeta"><span class="num">$${cmp(ev.vol)} Vol.</span><span>${ic("clock", 12)}${esc(dShort(m.end || ev.end))}</span>${ev.closed || m.closed ? '<span class="pd-tag">Closed</span>' : '<span class="pd-tag live"><i class="pd-live"></i>Live</span>'}</div>`}</div></div>
+      ${rd ? roundStripHtml(rd) : ""}
       ${hero}
       ${multi ? `<section class="pd-sec"><h3 class="pd-h3">Outcomes <small>${ev.markets.length}</small></h3><div class="pd-outs" id="pdOuts">${outsHtml()}</div></section>` : ""}
       <section class="pd-sec pd-trade" id="pdTrade"></section>
       <div id="pdMine"></div>
-      <section class="pd-sec"><div class="pd-tabs" role="tablist">${[["book", "Order Book"], ["activity", "Activity"], ["holders", "Top Holders"], ["rules", "Rules"]].map(([k, l]) => `<button type="button" role="tab" data-tab="${k}" class="${k === tab ? "on" : ""}">${l}</button>`).join("")}</div><div id="pdTab"></div></section>
+      <section class="pd-sec"><div class="pd-tabs" role="tablist">${[["book", "Order Book"], ["activity", "Activity"], ["holders", "Top Holders"], ...(window.PSOC && (ev.cc == null || ev.cc > 0) ? [["comments", "Comments"]] : []), ["rules", "Rules"]].map(([k, l]) => `<button type="button" role="tab" data-tab="${k}" class="${k === tab ? "on" : ""}">${l}</button>`).join("")}</div><div id="pdTab"></div></section>
       <section class="pd-sec"><h3 class="pd-h3">Related markets</h3><div id="pdRel"><div class="pd-spin"></div></div></section>
       <div class="pd-sticky" id="pdSticky">${[0, 1].map(i => `<button type="button" class="pd-ynb ${i ? "no" : "yes"}" data-stk="${i}"><span>Buy ${esc(short(m.outs[i]))}</span><b class="num" data-stp="${i}">${cents(buyPx(m, i))}</b></button>`).join("")}</div>`;
     panel = tradePanel($("#pdTrade"), st, {onOi: () => { renderTab(); }}); panel.render();
     renderMine(); renderTab(); renderRel();
-    if (rd) mountRoundChart(); else loadChart();
+    if (rd){ mountRoundChart(); stripInit(); } else loadChart();
   }
-  /* ---- live round hero: live price, start price, countdown, app chart (timeframes + indicators) ---- */
+  /* ---- round hero: live price, start price, countdown, app chart (timeframes + indicators); upcoming and finished rounds have their own states ---- */
+  const tagHtml = ph => ph === "live" ? `<span class="pd-tag live" data-rtag><i class="pd-live"></i>Live</span>` : ph === "next" ? `<span class="pd-tag" data-rtag>Upcoming</span>` : `<span class="pd-tag" data-rtag>${ev && winnerOf(ev) != null ? "Resolved" : "Ended"}</span>`;
   function roundHeroHtml(m, c){
-    return `<section class="pd-sec pd-rh"><div class="pd-rh-top"><div class="pd-rh-p"><span>${esc(rd.a.name)} price</span><b class="num" data-rpx>--</b><em class="num" data-rdl></em></div><div class="pd-rh-cd"><span data-rcl>Ends in</span><b class="num" data-rcd>${mmss(rd.t1 * 1000 - now())}</b></div></div>
+    const ph = phase(), cdT = (ph === "next" ? rd.t0 : rd.t1) * 1000 - now();
+    const top = ph === "past"
+      ? `<div class="pd-rh-p"><span>Final price</span><b class="num" data-rpx>--</b><em class="num" data-rdl></em></div><div class="pd-rh-cd"><span>Result</span><b class="num" data-rwin>--</b></div>`
+      : `<div class="pd-rh-p"><span>${esc(rd.a.name)} price</span><b class="num" data-rpx>--</b><em class="num" data-rdl></em></div><div class="pd-rh-cd"><span data-rcl>${ph === "next" ? "Starts in" : "Ends in"}</span><b class="num" data-rcd>${mmss(cdT)}</b></div>`;
+    const meta = ph === "past" ? `<span>Start price <b class="num" data-rsp>--</b></span><span>End price <b class="num" data-rep>--</b></span>` : `<span>Start price <b class="num" data-rsp>--</b></span><span>${esc(m.outs[0])} <b class="num up" data-dch>${chancePct(c)}</b></span>`;
+    const chart = ph === "past" ? `<div class="pd-rh-chart"><div id="pdRC" class="pd-pch"><div class="pd-ch-empty" style="height:210px"><span class="pd-spin"></span></div></div></div>` : `<div class="pd-rh-chart"><div id="pdRC" style="height:280px"></div></div>`;
+    return `<section class="pd-sec pd-rh"><div class="pd-rh-top">${top}</div>
       <div class="pd-rc-bar"><i data-rcbar="${rd.t0},${rd.t1}"></i></div>
-      <div class="pd-rh-meta"><span>Start price <b class="num" data-rsp>--</b></span><span>${esc(m.outs[0])} <b class="num up" data-dch>${chancePct(c)}</b></span></div>
-      <div class="pd-rh-chart"><div id="pdRC" style="height:280px"></div></div>
-      <div class="pd-fine" data-rres></div></section>`;
+      <div class="pd-rh-meta">${meta}</div>${chart}
+      <div class="pd-fine" data-rres>${ph === "next" ? "This round has not started yet. You can already buy; the start price is set when it begins." : ""}</div></section>`;
   }
   function mountRoundChart(){
-    const host = $("#pdRC"); if (!host || !window.CH) return;
+    const host = $("#pdRC"); if (!host) return;
+    if (phase() === "past"){ loadPast(); if (winnerOf(ev) == null){ rPoll = 0; pollRound(); } updateRound(); return; }
+    if (!window.CH) return;
     try { CH.mount(host, {sym: rd.sym, tf: sessionStorage.getItem("tf_ch3") || "1m", indicators: true, compact: true, tfbar: true, mode: "none", height: "280px", tfs: ["1s", "1m", "5m", "15m", "1h"]}); } catch (e){ console.warn(e); }
-    startPrice(rd).then(v => { startPx = v != null ? v : livePx(rd.sym); updateRound(); });
+    if (phase() === "live") startPrice(rd).then(v => { if (phase() === "live"){ startPx = v != null ? v : livePx(rd.sym); updateRound(); } });
+    updateRound(); cancelAnimationFrame(fr); fr = requestAnimationFrame(frameLoop);
+  }
+  /* finished round: start and end price from 1-minute prices, plus a small chart of the round */
+  async function loadPast(){
+    const r = rd; if (!r) return;
+    const [sp, cl] = await Promise.all([startPrice(r), roundCloses(r)]); if (!root || rd !== r) return;
+    let ep = await priceAt(r.sym, r.t1); if (!root || rd !== r) return;
+    if (ep == null && cl.length) ep = cl[cl.length - 1][1];
+    startPx = sp != null ? sp : cl[0] ? cl[0][2] : null; endPx = ep;
+    const host = $("#pdRC"); if (host) host.innerHTML = cl.length && startPx != null ? pastChartSvg(cl, startPx, endPx, r, host.clientWidth || 340, fp) : `<div class="pd-ch-empty" style="height:120px">Price chart unavailable for this round</div>`;
     updateRound();
   }
-  const nextLink = txt => `${txt} <a class="pd-link" href="#/predict/m/${rd.a.k}-updown-${rd.iv}m-${rd.t1}">Go to the next round ${ic("chev", 14)}</a>`;
+  function stripInit(){
+    const rs = $("#pdRs"); if (!rs || !rd) return; const r = rd, live = rStart(r.iv), step = r.iv * 60;
+    const c = rs.querySelector(".pd-rch.on"), sc = rs.querySelector(".pd-rs-c"); if (c && sc) sc.scrollLeft = Math.max(0, c.offsetLeft - (sc.clientWidth - c.offsetWidth) / 2);
+    for (let k = -4; k < 0; k++){ const t = live + k * step; loadRoundAt(r.a, r.iv, t).then(e => { const el = root && root.querySelector(`[data-rcs="${t}"]`); if (!el) return; const w = winnerOf(e); el.innerHTML = w == null ? "Resolving" : `<span class="${w ? "down" : "up"}">${w ? "\u25BC" : "\u25B2"} ${esc(e.markets[0].outs[w])}</span>`; }).catch(() => {}); }
+  }
   const fp = v => v == null ? "--" : window.M && M.fmtPx ? M.fmtPx(M.get(rd.sym), v) : fmt(v, 2);
+  /* v7.0: the Start line / label and the start-time marker are HTML overlays, so they are re-placed on EVERY animation frame
+     (right after the chart repaints) from the chart's own price-to-y mapping. They cannot drift when the chart autoscales, pans or resizes. */
+  let slY = NaN, slX = NaN, slT = "", slE = "", fr = 0;
   function placeLines(){
     const g = window.CH && CH.geo && CH.geo(); const wrap = g && g.el && g.el.parentElement;
-    if (!wrap || startPx == null){ if (slEl) slEl.style.display = "none"; if (svEl) svEl.style.display = "none"; return; }
-    if (!slEl || !slEl.isConnected){ slEl = document.createElement("div"); slEl.className = "pd-sl"; slEl.innerHTML = "<i></i><span></span>"; wrap.appendChild(slEl); svEl = document.createElement("div"); svEl.className = "pd-sv"; wrap.appendChild(svEl); }
-    const y = g.p2y(startPx);
-    if (y == null || isNaN(y) || y < 0 || y > g.h){ slEl.style.display = "none"; } else { slEl.style.display = ""; slEl.style.top = y.toFixed(1) + "px"; slEl.lastChild.textContent = "Start " + fp(startPx); }
+    if (!wrap || startPx == null || !rd){ if (slEl) slEl.style.display = "none"; if (svEl) svEl.style.display = "none"; slY = slX = NaN; return; }
+    if (!slEl || !slEl.isConnected){ slEl = document.createElement("div"); slEl.className = "pd-sl"; slEl.innerHTML = "<i></i><span></span>"; wrap.appendChild(slEl); svEl = document.createElement("div"); svEl.className = "pd-sv"; wrap.appendChild(svEl); slY = slX = NaN; slT = slE = ""; }
+    const y = g.p2y(startPx), txt = "Start " + fp(startPx);
+    if (y == null || isNaN(y)){ slEl.style.display = "none"; slY = NaN; }
+    else {
+      /* start price outside the visible range: keep a small arrow chip at the edge instead of losing it */
+      const out = y < 0 ? "up" : y > g.h ? "down" : "", yy = out === "up" ? 12 : out === "down" ? g.h - 12 : y;
+      if (slEl.style.display === "none") slEl.style.display = "";
+      if (!(Math.abs(yy - slY) <= .04)){ slEl.style.transform = "translateY(" + (yy - .75).toFixed(2) + "px)"; slY = yy; }
+      if (out !== slE){ slE = out; slEl.className = "pd-sl" + (out ? " edge " + out : ""); }
+      const lab = out ? (out === "up" ? "\u25B2 " : "\u25BC ") + txt : txt; if (lab !== slT){ slT = lab; slEl.lastChild.textContent = lab; }
+    }
     let x = null; try { x = g.t2x(rd.t0); } catch {}
-    if (x == null || isNaN(x) || x < 0 || x > g.pw){ svEl.style.display = "none"; } else { svEl.style.display = ""; svEl.style.left = x.toFixed(1) + "px"; }
+    if (x == null || isNaN(x) || x < 0 || x > g.pw){ svEl.style.display = "none"; slX = NaN; } else { if (svEl.style.display === "none") svEl.style.display = ""; if (!(Math.abs(x - slX) <= .04)){ svEl.style.transform = "translateX(" + x.toFixed(2) + "px)"; slX = x; } }
   }
+  const frameLoop = () => { fr = requestAnimationFrame(frameLoop); if (root && rd && !document.hidden) placeLines(); };
+  const resText = () => {
+    const w = winnerOf(ev), est = w == null && startPx != null && endPx != null ? (endPx >= startPx ? 0 : 1) : null, side = w != null ? w : est, d = startPx != null && endPx != null ? ` The price went from ${fp(startPx)} to ${fp(endPx)}.` : "";
+    if (side == null) return "Waiting for the final result.";
+    const px2 = startPx != null && endPx != null ? (endPx >= startPx ? 0 : 1) : null;
+    return w != null ? `Result: <b class="${w ? "down" : "up"}">${esc(ev.markets[0].outs[w])}</b> won. Winning shares pay $1 each.${d}${px2 != null && px2 !== w ? " The official source decided this round, and its price can differ slightly from the Binance prices shown here." : ""}` : `The price ended ${est ? "below" : "at or above"} the start, so <b class="${est ? "down" : "up"}">${esc(ev.markets[0].outs[est])}</b> looks like the winner. The official result is confirmed shortly, so the round can still change.${d}`;
+  };
   function updateRound(){
-    if (!rd || !root) return; const t = now(), left = rd.t1 * 1000 - t, px = livePx(rd.sym);
+    if (!rd || !root) return; const t = now(), ph = phase();
+    if (ph !== shown){
+      if (shown === "next" && ph === "live"){ shown = ph; try { CH.destroy(); } catch {} render(); return; }
+      shown = ph; if (ph === "past"){ onRoundEnd(); return; }
+    }
+    const px = livePx(rd.sym);
+    if (ph === "past"){
+      const w = winnerOf(ev), est = w == null && startPx != null && endPx != null ? (endPx >= startPx ? 0 : 1) : null, side = w != null ? w : est;
+      setTxt2($("[data-rpx]"), fp(endPx)); setTxt2($("[data-rsp]"), fp(startPx)); setTxt2($("[data-rep]"), fp(endPx));
+      const we = $("[data-rwin]"); if (we){ setTxt2(we, side == null ? "--" : ev.markets[0].outs[side] + (w == null ? "?" : " won")); we.className = "num " + (side == null ? "" : side ? "down" : "up"); }
+      if (startPx != null && endPx != null){ const d = endPx - startPx, e = $("[data-rdl]"); if (e){ e.textContent = (d >= 0 ? "+" : "-") + fp(Math.abs(d)) + " (" + (d >= 0 ? "+" : "-") + fmt(Math.abs(d / startPx * 100), 3) + "%)"; e.className = "num " + (d >= 0 ? "up" : "down"); } }
+      const bar = $("[data-rcbar]"); if (bar) bar.style.width = "100%";
+      const rs = $("[data-rres]"); if (rs){ const h = resText(); if (rs.dataset.h !== h){ rs.dataset.h = h; rs.innerHTML = h; } }
+      const tg = $("[data-rtag]"); if (tg && w != null && tg.textContent !== "Resolved") tg.textContent = "Resolved";
+      return;
+    }
+    const left = (ph === "next" ? rd.t0 : rd.t1) * 1000 - t;
     setTxt2($("[data-rcd]"), mmss(left));
     const bar = $("[data-rcbar]"); if (bar) bar.style.width = Math.max(0, Math.min(100, (t / 1000 - rd.t0) / (rd.t1 - rd.t0) * 100)).toFixed(1) + "%";
-    if (px != null){ setTxt($("[data-rpx]"), fp(px)); if (startPx != null){ const d = px - startPx, e = $("[data-rdl]"); if (e){ e.textContent = (d >= 0 ? "+" : "-") + fp(Math.abs(d)) + " (" + (d >= 0 ? "+" : "-") + fmt(Math.abs(d / startPx * 100), 3) + "%)"; e.className = "num " + (d >= 0 ? "up" : "down"); } } }
-    setTxt2($("[data-rsp]"), fp(startPx));
+    if (px != null){ setTxt($("[data-rpx]"), fp(px)); if (ph === "live" && startPx != null){ const d = px - startPx, e = $("[data-rdl]"); if (e){ e.textContent = (d >= 0 ? "+" : "-") + fp(Math.abs(d)) + " (" + (d >= 0 ? "+" : "-") + fmt(Math.abs(d / startPx * 100), 3) + "%)"; e.className = "num " + (d >= 0 ? "up" : "down"); } } }
+    setTxt2($("[data-rsp]"), ph === "next" ? "At start" : fp(startPx));
     placeLines();
-    if (left <= 0 && !roundDone){ roundDone = true; const l = $("[data-rcl]"); if (l) l.textContent = "Round ended"; const tg = $("[data-rtag]"); if (tg){ tg.classList.remove("live"); tg.textContent = "Resolving"; } panel && panel.render(); rPoll = 0; const rs = $("[data-rres]"); if (rs) rs.innerHTML = nextLink("Waiting for the final result."); pollRound(); }
-    if (roundDone) { const l = $("[data-rcl]"); if (l && ev.markets[0].closed) l.textContent = "Result"; }
+    const sr = $("#pdRs"); if (sr && +sr.dataset.live !== rStart(rd.iv)){ const n = document.createElement("div"); n.innerHTML = roundStripHtml(rd); sr.replaceWith(n.firstElementChild); stripInit(); }
   }
+  /* the live round just ended: roll straight into the next round of the same length (same series) */
+  function onRoundEnd(){
+    roundDone = true; closeFS(true);
+    const l = $("[data-rcl]"); if (l) l.textContent = "Round ended"; setTxt2($("[data-rcd]"), "00:00");
+    const tg = $("[data-rtag]"); if (tg){ tg.classList.remove("live"); tg.textContent = "Ended"; }
+    const rs = $("[data-rres]"); if (rs) rs.textContent = "Round ended. Starting the next round...";
+    panel && panel.render();
+    const had = data().positions.some(p => p.slug === ev.slug) || data().orders.some(o => o.slug === ev.slug), nx = `#/predict/m/${roundSlug(rd.a, rd.iv, rd.t1)}`;
+    clearTimeout(rollT); rollT = setTimeout(() => { if (!root) return; toast(had ? "Round ended. Your result settles automatically. The next round is live." : "The next round has started", "info", had ? 3600 : 2000); location.replace(nx); }, 1500);
+  }
+  /* past round whose result is not confirmed yet */
   async function pollRound(){
-    if (!root || !rd || !roundDone) return;
+    if (!root || !rd || phase() !== "past") return;
     try {
       const e = await fetchEvent(ev.slug), nm0 = e.markets[0], m = ev.markets[0];
       if (nm0 && nm0.closed){ Object.assign(m, {closed: true, prices: nm0.prices, active: nm0.active, accepting: false});
-        const up = nm0.prices[0] >= .99, dn = nm0.prices[1] >= .99, tg = $("[data-rtag]");
-        if (tg) tg.textContent = "Resolved"; const rs = $("[data-rres]"); if (rs) rs.innerHTML = up || dn ? nextLink(`Result: <b class="${up ? "up" : "down"}">${esc(m.outs[up ? 0 : 1])}</b>. Winning shares pay $1 each.`) : nextLink("Round resolved.");
-        panel && panel.render(); renderMine(); checkSettle().catch(() => {}); return; }
+        updateRound(); panel && panel.render(); renderMine(); checkSettle().catch(() => {}); return; }
     } catch {}
     rPoll++; if (root && rPoll < 90) setTimeout(pollRound, 4000);
   }
+  /* ---- full screen chart: fixed overlay + the Fullscreen API where it exists; Back (top left) and X (top right) both close it ---- */
+  function openFS(){
+    if (fsx || !rd) return; const host = $("#pdRC"), box = host && host.closest(".ch3-box"); if (!box) return;
+    const mk = document.createElement("span"); mk.hidden = true; box.before(mk);
+    const ov = document.createElement("div"); ov.className = "fs3 pd-fsc"; ov.setAttribute("role", "dialog"); ov.setAttribute("aria-modal", "true"); ov.setAttribute("aria-label", "Chart full screen");
+    ov.innerHTML = `<div class="pd-fsc-h"><button type="button" class="pd-fsc-b" data-fsb aria-label="Back">${ic("back", 22)}</button><div class="pd-fsc-t"><b>${esc(rTitle(rd))}</b><span class="num" data-fsp></span></div><button type="button" class="pd-fsc-b" data-fsx aria-label="Close full screen">${ic("close", 20)}</button></div>`;
+    ov.appendChild(box); document.body.appendChild(ov); document.body.classList.add("fs-on");
+    const F = fsx = {ov, box, mk, entered: false, pushed: false, off: []};
+    const on = (t, ev2, fn, o) => { t.addEventListener(ev2, fn, o); F.off.push(() => t.removeEventListener(ev2, fn, o)); };
+    ov.querySelector("[data-fsb]").onclick = () => closeFS(); ov.querySelector("[data-fsx]").onclick = () => closeFS();
+    const upd = () => { const e = ov.querySelector("[data-fsp]"), q = livePx(rd.sym); if (e && q != null) e.textContent = fp(q); }; upd(); F.tm = setInterval(upd, 1000);
+    on(document, "keydown", e => { if (e.key === "Escape") closeFS(); });
+    on(window, "hashchange", () => closeFS(true)); on(window, "popstate", () => closeFS(true));
+    on(document, "fullscreenchange", () => { if (fsx === F && F.entered && !document.fullscreenElement) closeFS(); });
+    on(window, "resize", () => { try { CH.resize(); } catch {} }); on(window, "orientationchange", () => setTimeout(() => { try { CH.resize(); } catch {} }, 200));
+    try { history.pushState({pdfs: 1}, "", location.href); F.pushed = true; } catch {}
+    try { const r = document.documentElement.requestFullscreen && document.documentElement.requestFullscreen(); if (r && r.then) r.then(() => { F.entered = true; setTimeout(() => { try { CH.resize(); } catch {} }, 120); }).catch(() => {}); } catch {}
+    hap(8); setTimeout(() => { try { CH.resize(); } catch {} }, 60);
+  }
+  function closeFS(noBack){
+    const F = fsx; if (!F) return; fsx = null; clearInterval(F.tm); F.off.forEach(f => f());
+    if (F.mk.isConnected) F.mk.replaceWith(F.box); else F.box.remove();
+    F.ov.remove(); document.body.classList.remove("fs-on");
+    if (F.entered && document.fullscreenElement){ try { document.exitFullscreen(); } catch {} }
+    if (F.pushed && !noBack){ try { if (history.state && history.state.pdfs) history.back(); } catch {} }
+    setTimeout(() => { try { CH.resize(); } catch {} }, 60); setTimeout(() => { try { CH.resize(); } catch {} }, 350);
+  }
+  /* round page whose event could not be loaded (an upcoming round that is not open yet, or a network problem): keep the time chips usable */
+  function shellRound(box){
+    const r = keyRound, ph = now() < r.t0 * 1000 ? "next" : now() < r.t1 * 1000 ? "live" : "past", soon = ph === "next";
+    box.innerHTML = `<div class="pd-dh">${img("", "pd-img lg")}<div><h2 class="pd-dt">${esc(rTitle(r))}</h2><div class="pd-dmeta"><span>${clockET(r.t0)} \u2013 ${clockET(r.t1)} ET</span><span class="pd-tag">${soon ? "Upcoming" : ph === "live" ? "Live" : "Ended"}</span></div></div></div>${roundStripHtml(r)}
+      <div class="pd-err">${ic(soon ? "clock" : "info", 34, 1.4)}<b>${soon ? "This round is not open yet" : "Couldn't load this round"}</b><span>${soon ? "Rounds open a few minutes before they start. This page keeps checking." : "Check your connection and try again."}</span><button type="button" class="btn btn-primary" data-retry>Retry</button></div>`;
+    setTimeout(() => { if (root) stripInit0(r); }, 0);
+  }
+  function stripInit0(r){ const rs = $("#pdRs"), c = rs && rs.querySelector(".pd-rch.on"), sc = rs && rs.querySelector(".pd-rs-c"); if (c && sc) sc.scrollLeft = Math.max(0, c.offsetLeft - (sc.clientWidth - c.offsetWidth) / 2); }
   function outsHtml(){
     return ev.markets.map((m, i) => `<div class="pd-out ${i === sel ? "on" : ""}" data-sel="${i}" role="button" tabindex="0"><div class="pd-out-l">${ev.markets.length > 1 && m.img && m.img !== ev.img ? img(m.img, "pd-img xs") : ""}<div><b>${esc(m.gt || m.q)}</b><small class="num">$${cmp(m.vol)} Vol.</small></div></div>
       <b class="num pd-out-c" data-och="${m.id}">${chancePct(chance(m))}</b><div class="pd-out-b"><button type="button" class="pd-mini yes" data-ob="${i}" data-oi="0"><span>${esc(short(m.outs[0]))}</span> <b class="num" data-oyb="${m.id}">${cents(buyPx(m, 0))}</b></button><button type="button" class="pd-mini no" data-ob="${i}" data-oi="1"><span>${esc(short(m.outs[1]))}</span> <b class="num" data-onb="${m.id}">${cents(buyPx(m, 1))}</b></button></div></div>`).join("");
@@ -1170,11 +1357,9 @@ function detailScreen(key, mid){
   }
   /* your position + open orders in this event */
   function renderMine(){
-    const box = $("#pdMine"); if (!box || !ev) return; const d = data(), ids = new Set(ev.markets.map(m => m.id));
-    const ps = d.positions.filter(p => ids.has(p.mid)), os = d.orders.filter(o => ids.has(o.mid));
-    if (!ps.length && !os.length){ box.innerHTML = ""; return; }
-    box.innerHTML = `<section class="pd-sec"><h3 class="pd-h3">Your positions</h3>${ps.map(p => `<div class="pd-mine pd-mp" data-ptk="${p.token}"><div class="pd-mp-h"><span class="pd-pill ${p.oi ? "no" : "yes"}">${esc(short(p.outcome))}</span>${p.title ? `<small>${esc(p.title)}</small>` : ""}<span class="pd-mine-s num">${shr(p.shares)} shares · avg ${cents(p.avg)}</span></div>${posGrid(p)}<div class="pd-mp-b">${posBtns(p)}</div></div>`).join("")}
-      ${os.length ? `<h3 class="pd-h3" style="margin-top:12px">Open orders</h3>` + os.map(o => `<div class="pd-mine"><div><span class="pd-pill ${o.side === "buy" ? "yes" : "no"}">${o.side === "buy" ? "Buy" : "Sell"} ${esc(short(o.outcome))}</span>${o.title ? `<small>${esc(o.title)}</small>` : ""}<div class="pd-mine-s num">${shr(o.shares)} shares @ ${cents(o.price)}</div></div><div class="pd-mine-r"><b class="num">${usd(o.price * o.shares)}</b><small>${ago(o.t)}</small></div><button type="button" class="pd-cancel" data-cancel="${o.id}">Cancel</button></div>`).join("") : ""}</section>`;
+    const box = $("#pdMine"); if (!box || !ev) return;
+    const h = mineHtml(ev);
+    box.innerHTML = h || (rd ? `<section class="pd-sec"><h3 class="pd-h3">Your positions and orders</h3>${UI.emptyState("target", "You have no positions.")}</section>` : "");
   }
   function tickMine(){ const box = $("#pdMine"); if (!box) return; box.querySelectorAll("[data-ptk]").forEach(r => { const p = findPos(r.dataset.ptk); if (p) posGridTick(r, p); }); }
   /* tabs */
@@ -1191,14 +1376,17 @@ function detailScreen(key, mid){
   }
   function renderTab(){
     const box = $("#pdTab"); if (!box || !ev) return; const m = selM();
+    if (cmtOff && (tab !== "comments" || cmtBox !== box)){ cmtOff(); cmtOff = null; }   /* v7.0 comments */
     if (tab === "book"){
       box.innerHTML = `<div class="pd-bk-oc">${[0, 1].map(i => `<button type="button" data-bkoi="${i}" class="${st.oi === i ? "on" : ""}">Trade ${esc(short(m.outs[i]))}</button>`).join("")}</div><div id="pdBk">${bookHtml(m, st.oi, 6)}</div><a class="pd-link" href="#/predict/book/${encodeURIComponent(ev.slug)}/${m.id}">Full order book ${ic("chev", 14)}</a>`;
     } else if (tab === "activity"){
       const live = (TRADES[m.tokens[0]] || []).concat(TRADES[m.tokens[1]] || []).filter(t => t.t > now() - 3600e3).map(t => ({name: "Trader", side: t.side, outcome: m.outs[t.tk === m.tokens[0] ? 0 : 1], size: t.s, price: t.p, t: t.t, live: true}));
       const list = live.concat(trades).sort((a, b) => b.t - a.t).slice(0, 30);
       box.innerHTML = list.length ? `<div class="pd-acts">${list.map(t => `<div class="pd-act">${t.img ? `<img class="pd-av" src="${esc(t.img)}" alt="" loading="lazy" onerror="this.replaceWith(document.createElement('span'))">` : nameAv(t.name)}<div><b>${esc(t.name)}</b><span>${t.side === "SELL" ? "sold" : "bought"} <em class="num ${t.outcome === m.outs[0] ? "up" : "down"}">${shr(t.size)} ${esc(short(t.outcome))}</em> at <span class="num">${cents(t.price)}</span></span></div><div class="pd-act-r"><b class="num">${usd(t.size * t.price)}</b><small>${ago(t.t)}</small></div></div>`).join("")}</div>${trades[0] && trades[0].sim ? '<div class="pd-fine">Sample activity (live feed unavailable)</div>' : ""}` : `<div class="pd-ch-empty" style="height:100px"><span class="pd-spin"></span></div>`;
+    } else if (tab === "comments"){
+      if (!cmtOff && window.PSOC){ cmtBox = box; box.innerHTML = ""; cmtOff = PSOC.comments(box, ev); }
     } else if (tab === "holders"){
-      box.innerHTML = holders ? `<div class="pd-hold">${[0, 1].map(oi => `<div><h4 class="${oi ? "down" : "up"}">${esc(short(m.outs[oi]))} holders</h4>${(holders[oi] || []).slice(0, 8).map((h, i) => `<div class="pd-hr"><span class="pd-hn">${i + 1}</span>${h.img ? `<img class="pd-av" src="${esc(h.img)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">` : nameAv(h.name, 24)}<span class="pd-hname">${esc(h.name)}</span><b class="num">${cmp(h.amount)}</b></div>`).join("") || '<div class="pd-fine">No holders</div>'}</div>`).join("")}</div>${holders.sim ? '<div class="pd-fine">Sample holders (live data unavailable)</div>' : ""}` : `<div class="pd-ch-empty" style="height:100px"><span class="pd-spin"></span></div>`;
+      box.innerHTML = holders ? `<div class="pd-hold">${[0, 1].map(oi => `<div><h4 class="${oi ? "down" : "up"}">${esc(short(m.outs[oi]))} holders</h4>${(holders[oi] || []).slice(0, 8).map((h, i) => `<div class="pd-hr" ${h.addr ? `data-paddr="${esc(h.addr)}" role="button" tabindex="0"` : ""}><span class="pd-hn">${i + 1}</span>${h.img ? `<img class="pd-av" src="${esc(h.img)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">` : nameAv(h.name, 24)}<span class="pd-hname">${esc(h.name)}</span><b class="num">${cmp(h.amount)}</b></div>`).join("") || '<div class="pd-fine">No holders</div>'}</div>`).join("")}</div>${holders.sim ? '<div class="pd-fine">Sample holders (live data unavailable)</div>' : ""}` : `<div class="pd-ch-empty" style="height:100px"><span class="pd-spin"></span></div>`;
     } else {
       const desc = (m.desc || ev.desc || "").trim();
       box.innerHTML = `<div class="pd-rules"><p>${esc(desc || "No rules provided.").replace(/\n+/g, "<br><br>")}</p><div class="pd-kv"><div><span>Market opened</span><b>${esc(dShort(m.start || ev.start) || "--")}</b></div><div><span>End date</span><b>${esc(dShort(m.end || ev.end) || "--")}</b></div><div><span>Resolver</span><b>UMA optimistic oracle</b></div>${ev.res ? `<div><span>Source</span><b><a href="${esc(ev.res)}" target="_blank" rel="noopener noreferrer">${esc(ev.res.replace(/^https?:\/\//, "").slice(0, 40))}</a></b></div>` : ""}</div></div>`;
@@ -1209,7 +1397,7 @@ function detailScreen(key, mid){
     const m = selM(); if (!m || !m.cid) return;
     if (!trades.length) getJ(`${DAPI}/trades?condition=${m.cid}&limit=30`).then(d => { if (selM() !== m) return; trades = (d.data || []).map(t => ({name: nm(t.name || t.pseudonym || t.proxy_wallet), img: t.profile_image_optimized || t.profile_image || "", side: t.side, outcome: t.outcome, size: +t.size, price: +t.price, t: t.timestamp * 1000})); if (!trades.length) trades = simTrades(m); if (tab === "activity") renderTab(); })
       .catch(() => { trades = simTrades(m); if (tab === "activity") renderTab(); });
-    if (!holders) getJ(`${DAPI}/holders?condition=${m.cid}&limit=10`).then(d => { if (selM() !== m) return; const rows = d.data || []; holders = [0, 1].map(oi => { const g = rows.find(r => r.token_id === m.tokens[oi]); return ((g && g.holders) || []).map(h => ({name: nm(h.name || h.pseudonym || h.proxy_wallet), img: h.profile_image_optimized || h.profile_image || "", amount: +h.amount})); }); if (!holders[0].length && !holders[1].length){ holders = simHolders(m); holders.sim = true; } if (tab === "holders") renderTab(); })
+    if (!holders) getJ(`${DAPI}/holders?condition=${m.cid}&limit=10`).then(d => { if (selM() !== m) return; const rows = d.data || []; holders = [0, 1].map(oi => { const g = rows.find(r => r.token_id === m.tokens[oi]); return ((g && g.holders) || []).map(h => ({name: nm(h.name || h.pseudonym || h.proxy_wallet), img: h.profile_image_optimized || h.profile_image || "", amount: +h.amount, addr: h.proxy_wallet || ""})); }); if (!holders[0].length && !holders[1].length){ holders = simHolders(m); holders.sim = true; } if (tab === "holders") renderTab(); })
       .catch(() => { holders = simHolders(m); holders.sim = true; if (tab === "holders") renderTab(); });
   }
   async function renderRel(){
@@ -1240,22 +1428,27 @@ function detailScreen(key, mid){
       closeWS && closeWS(); closeWS = openWS(toks);
       loadTabData();
       if (ev.markets.some(m => m.closed)) checkSettle().catch(() => {});
-    } catch (e){ loadErr = e; if (!ev) render(); else { pickInitial(); render(); } }
+    } catch (e){ loadErr = e; if (!ev) render(); else { pickInitial(); render(); } if (!ev && keyRound && rtry++ < 40) timers.push(setTimeout(() => { if (root && !ev) boot(); }, 5000)); }
   }
   function mount(r){
     root = r; curScreen = "detail"; bindCommon(root, offs);
     pxListeners.add(onPx); tradeListeners.add(onTrade); offs.push(() => { pxListeners.delete(onPx); tradeListeners.delete(onTrade); });
+    /* the chart tool row's expand arrow: our own full screen (runs before the chart's built-in handler) */
+    const onFsClick = e => { const b = rd && e.target.closest && e.target.closest("[data-fs]"); if (!b || !((root && root.contains(b)) || (fsx && fsx.ov.contains(b)))) return; e.stopImmediatePropagation(); e.preventDefault(); if (fsx) closeFS(); else openFS(); };
+    window.addEventListener("click", onFsClick, true); offs.push(() => window.removeEventListener("click", onFsClick, true));
     offs.push(bus.on("predict", () => { renderMine(); panel && panel.render(); }));
     if (ev){ pickInitial(); render(); }
     root.addEventListener("click", e => {
       const t = e.target;
+      const rc = t.closest("[data-rc]"); if (rc){ e.preventDefault(); hap(6); location.replace(rc.getAttribute("href")); return; }
       if (t.closest("[data-retry]")){ ev = null; render(); boot(); return; }
       if (t.closest("[data-chretry]")){ loadChart(true); return; }
       if (t.closest("[data-share]")){ const url = location.href.split("#")[0] + `#/predict/m/${encodeURIComponent(ev ? ev.slug : key)}`; if (navigator.share) navigator.share({title: ev ? ev.title : "Prediction", url}).catch(() => {}); else U.copyText(url, "Link copied"); return; }
       const tfb = t.closest("[data-tf]"); if (tfb){ tf = tfb.dataset.tf; try { sessionStorage.setItem("pd_tf", tf); } catch {} root.querySelectorAll("[data-tf]").forEach(x => x.classList.toggle("on", x === tfb)); hap(6); loadChart(true); return; }
       const ob = t.closest("[data-ob]"); if (ob){ select(+ob.dataset.ob, +ob.dataset.oi); st.side = "buy"; panel.render(); $("#pdTrade").scrollIntoView({behavior: "smooth", block: "center"}); return; }
       const so = t.closest("[data-sel]"); if (so){ select(+so.dataset.sel); return; }
-      const sk = t.closest("[data-stk]"); if (sk){ st.oi = +sk.dataset.stk; st.side = "buy"; hap(10); panel.render(); renderTab(); const tp = $("#pdTrade"); tp.scrollIntoView({behavior: "smooth", block: "center"}); setTimeout(() => { const a = tp.querySelector("[data-amt]"); a && a.focus({preventScroll: true}); }, 350); return; }
+      const sk = t.closest("[data-stk]"); if (sk){ st.oi = +sk.dataset.stk; st.side = "buy"; panel.render(); renderTab(); quickBuy(ev, selM(), st.oi); return; }
+      const pa = t.closest("[data-paddr]"); if (pa && window.PSOC){ const hh = [].concat(...(holders || [])).find(x => x.addr === pa.dataset.paddr); PSOC.profile({addr: pa.dataset.paddr, name: hh && hh.name, img: hh && hh.img}); return; }
       const tb = t.closest("[data-tab]"); if (tb){ tab = tb.dataset.tab; root.querySelectorAll("[data-tab]").forEach(x => x.classList.toggle("on", x === tb)); hap(6); renderTab(); return; }
       const bo = t.closest("[data-bkoi]"); if (bo){ st.oi = +bo.dataset.bkoi; st.lp = null; panel.render(); renderTab(); return; }
       const bp = t.closest("[data-bkp]"); if (bp){ st.type = "limit"; st.lp = Math.round(+bp.dataset.bkp * 1000) / 10; st.side = bp.classList.contains("ask") ? "buy" : "sell"; if (st.side === "sell" && !findPos(selM().tokens[st.oi])) st.side = "buy"; hap(8); panel.render(); $("#pdTrade").scrollIntoView({behavior: "smooth", block: "center"}); return; }
@@ -1270,7 +1463,7 @@ function detailScreen(key, mid){
     let rz = 0; const onRz = () => { clearTimeout(rz); rz = setTimeout(() => series.length && drawSeries(), 200); }; addEventListener("resize", onRz); offs.push(() => removeEventListener("resize", onRz));
     boot();
   }
-  function unmount(){ curScreen = null; root = null; closeWS && closeWS(); timers.forEach(clearInterval); offs.forEach(f => f()); closeAllOvl(); if (rd){ try { CH.destroy(); } catch {} } }
+  function unmount(){ curScreen = null; root = null; cancelAnimationFrame(fr); clearTimeout(rollT); closeFS(true); cmtOff && cmtOff(); cmtOff = null; closeWS && closeWS(); timers.forEach(clearInterval); offs.forEach(f => f()); closeAllOvl(); if (rd){ try { CH.destroy(); } catch {} } }
   return {html: cfg().enabled ? html : backHead("Market") + maint(), title: ev ? ev.title : "Prediction market", mount: cfg().enabled ? mount : () => {}, unmount};
 }
 async function cancelOrder(id){
@@ -1352,7 +1545,7 @@ function histRow(h){
 function portfolioScreen(){
   let root, tab = sessionStorage.getItem("pd_ptab") || "pos", closeWS = null, offs = [], timers = [];
   const $ = s => root ? root.querySelector(s) : null;
-  const html = `${STRIP}${subnav("portfolio")}<div class="pd-page">${balBar()}<div class="pd-sum-card" id="pdPS"></div>
+  const html = `${STRIP}${subnav("portfolio")}<div class="pd-page">${balBar()}${tutHtml()}<div class="pd-sum-card" id="pdPS"></div>
     <section class="pd-sec"><div class="pd-tabs" role="tablist" id="pdPT"></div><div id="pdPL"></div></section></div>`;
   function totals(){ const d = data(), pv = d.positions.reduce((a, p) => a + posValue(p), 0), cost = d.positions.reduce((a, p) => a + p.cost, 0), res = d.orders.reduce((a, o) => a + (o.reserved || 0), 0);
     return {pv, cost, res, un: pv - cost, total: bal() + pv + res, real: d.realized || 0}; }

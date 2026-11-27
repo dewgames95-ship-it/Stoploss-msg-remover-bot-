@@ -126,6 +126,7 @@ const BOTS = [
 function botPnl(id){
   const b = S().bots[id]; if (!b?.running) return b?.pnl || 0;
   const def = BOTS.find(x => x.id === id), p = M.get(def.pair);
+  if (def.kind === "ugrid") return window.BOTX && BOTX.ugPnl ? BOTX.ugPnl(b) : 0;   // USDC/USDT grid: live grid fills, 0 fee
   const px = p?.price || b.start;
   const move = (px - b.start) / b.start * def.mult * b.invest;
   const mins = (Date.now() - b.since) / 60000;
@@ -221,6 +222,7 @@ function stopAuto(reason="Stopped by you.", id="auto"){ const a = binCfg(id); if
 /* ---- Futures (USDT-M perpetual, cross or isolated) ---- */
 const F = () => S().fut;
 const r2 = v => Math.round(v * 100) / 100;
+const r6 = v => Math.round(v * 1e6) / 1e6;   /* fees keep 6 decimals (small orders must not round to 0) */
 function maxLev(p){ return C.LEVERAGE_MAX[p?.type] || 125; }
 function crossAvail(){ return store.wb("futures"); }
 // Liquidation: margin balance (margin [+ free balance for cross]) + uPnL = maintenance margin
@@ -273,15 +275,15 @@ function openFut({sym, side, margin, lev, type="market", price=null, tp=null, sl
   margin = r2(margin);
   const err = futValidate(sym, margin, lev, type === "limit" ? price : null); if (err) return {err};
   const p = M.get(sym);
-  let fee = r2(margin * lev * C.FEE * (type === "limit" ? 0.4 : 1));   // maker (limit) fee = 0.4 x taker
+  let fee = r6(margin * lev * C.FEE * (type === "limit" ? 0.4 : 1));   // maker (limit) fee = 0.4 x taker
   if (type === "limit"){
-    if (side === "long" ? price >= p.price : price <= p.price){ type = "market"; fee = r2(margin * lev * C.FEE); }
+    if (side === "long" ? price >= p.price : price <= p.price){ type = "market"; fee = r6(margin * lev * C.FEE); }
     else {
       if (tif === "IOC" || tif === "FOK") return {err:`${tif} order cannot be filled immediately at this price.`};
       const e2 = tpslCheck(side, price, tp, sl, null); if (e2) return {err:e2};
       const o = {id:uid(), sym, side, margin, lev, price, tp, sl, fee, mode, tif, t:Date.now()};
       F().orders.push(o); store.addWallet("futures", -margin - fee, "order");
-      F().log = (F().log || []).concat({t:Date.now(), sym, side, type:"Limit", price, qty: margin*lev/price, status:"New"}).slice(-200);
+      F().log = (F().log || []).concat({t:Date.now(), sym, side, type:"Limit", price, qty: margin*lev/price, fee, status:"New"}).slice(-200);
       bus.emit("positions"); store.save(); return {order:o};
     }
   }
@@ -305,7 +307,7 @@ function closeFut(id, reason="manual", atPx, frac=1){
   frac = U.clamp(frac, 0, 1);
   const q = pos.qty * frac, m = pos.margin * frac;
   let pnl = (px - pos.entry) * q * (pos.side === "long" ? 1 : -1);
-  const fee = r2(q * px * C.FEE);
+  const fee = r6(q * px * C.FEE);
   if (reason === "liquidated") pnl = -m;
   const back = Math.max(0, m + pnl - (reason === "liquidated" ? 0 : fee));
   pos.realized = (pos.realized || 0) + pnl - (reason === "liquidated" ? 0 : fee);

@@ -72,14 +72,13 @@ const LESSONS = [
 ];
 Pages.academy = () => {
   const html = `<div class="px-page">${hd("Academy")}
-    <div class="px-sec" style="padding-top:8px"><div class="px-sec-h"><h2>Your progress</h2><span class="px-mut" id="apl"></span></div><div class="px-bar"><i id="ap"></i></div><p class="px-t2" style="margin-top:8px">Short lessons with a quiz. Earn 25 XP for each correct answer.</p></div>
+    <div class="px-sec" style="padding-top:8px"><p class="px-t2">Short lessons with pictures and examples. Tap any lesson to read it.</p></div>
     <div id="ll"></div></div>`;
   const LV = {Beginner:"br", Intermediate:"", Advanced:"dn", "All levels":"up"};
   return {html, title:"Academy", mount(r){
     const read = k => !!S().rewards.used["lesson:" + k];
     const render = () => {
       const n = LESSONS.filter(l => read(l.k)).length;
-      r.querySelector("#ap").style.width = (n/LESSONS.length*100) + "%"; r.querySelector("#apl").textContent = `${n} of ${LESSONS.length} completed`;
       r.querySelector("#ll").innerHTML = LESSONS.map(l => `<button class="px-les" data-l="${l.k}"><span class="th">${thumb(l.k)}</span><div class="grow"><b>${esc(l.t)}</b><div class="px-mut"><span class="px-tag ${LV[l.lvl] || ""}">${l.lvl}</span> &nbsp;${2 + l.body.length - 1} min read</div></div>${read(l.k) ? `<span class="up">${ic("check",18)}</span>` : `<span style="color:var(--muted)">${ic("chev",16)}</span>`}</button>`).join("");
     };
     render();

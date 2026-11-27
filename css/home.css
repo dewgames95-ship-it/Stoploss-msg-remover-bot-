@@ -176,3 +176,24 @@ a.hm-ar small{color:var(--muted);font-size:11px;flex-shrink:0}
 :root[data-theme="dark"] .hm-sym em{color:#B4BAC4}
 :root[data-theme="dark"] .hm-row{border-bottom:1px solid rgba(255,255,255,.04)}
 :root[data-theme="dark"] .hm-cp,:root[data-theme="dark"] .hm-bot{background:linear-gradient(180deg,#1C1C1C,#141414);border-color:#2A2A2A}
+
+/* v7.0 feed logos + academy cards */
+.hm-src{position:relative;overflow:hidden;background:#fff}
+.hm-src img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#fff}
+.hm-src u{text-decoration:none;color:#222}
+.hm-ac{display:flex;align-items:center;gap:12px;width:100%;padding:12px 0;border:0;border-top:1px solid var(--line);background:none;color:var(--text);text-align:left;font:inherit;cursor:pointer}
+.hm-ac:first-child{border-top:0}
+.hm-ac>div{flex:1;min-width:0}
+.hm-ac b{display:block;font-size:13.5px;line-height:1.3}
+.hm-ac span{display:block;margin-top:2px;font-size:12px;color:var(--muted);line-height:1.35}
+.hm-ac small{display:block;margin-top:3px;font-size:11px;color:var(--muted)}
+.hm-ac>svg:last-child{flex:none;color:var(--muted)}
+.hm-lg{flex:none;width:72px;height:47px;border-radius:10px;background:linear-gradient(145deg,rgba(46,107,255,.16),rgba(46,107,255,.04));border:1px solid rgba(46,107,255,.2)}
+.hm-ag{display:grid;place-items:center;padding:12px;border-radius:12px;background:var(--card-2);margin-bottom:12px}
+.hm-ag .hm-lg{width:200px;height:130px;border:0;background:none}
+.hm-ad p{margin:0 0 10px;font-size:14px;line-height:1.6;color:var(--text-2,var(--text))}
+.hm-ad p.hm-as{font-weight:700;color:var(--text)}
+.hm-ax{padding:12px;border-radius:12px;background:var(--card-2);border-left:3px solid #2E6BFF}
+.hm-ax b{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.hm-ax p{margin:4px 0 0}
+.hm-ad>small{color:var(--muted);font-size:11px}

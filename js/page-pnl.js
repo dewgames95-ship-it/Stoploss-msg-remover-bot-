@@ -94,7 +94,7 @@ Pages.pnl = (params) => {
       const d = calc(), st = stats(d.cur), all = stats(d.inP), pctv = st.tot / C.START_BALANCE * 100;
       const kv = (l, v, c = "") => `<div><span>${l}</span><b class="num ${c}">${v}</b></div>`;
       const rows = PRODS.map(([k, n, i]) => {
-        const a = d.inP.filter(x => x.prod === k), s = stats(a), extra = k === "spot" ? ` · fees ${fmt(d.spot.fees, 2)}` : "";
+        const a = d.inP.filter(x => x.prod === k), s = stats(a), extra = k === "spot" ? ` · fees ${fmt(d.spot.fees, d.spot.fees > 0 && d.spot.fees < 0.01 ? 4 : 2)} USDT` : "";
         return `<button class="pn-pr${prod === k ? " on" : ""}" data-pr="${k}"><span class="pn-pi">${ic(i, 20, 1.7)}</span><div class="grow"><b>${n}</b><span>${k === "spot" && !a.length ? d.spot.count + " fills" + extra : s.n + " trade" + (s.n === 1 ? "" : "s") + (s.wr == null ? "" : " · " + s.wr.toFixed(0) + "% win") + (k === "spot" ? extra : "")}</span></div><b class="num ${cls(s.tot)}">${signed(s.tot)}</b></button>`;
       }).join("");
       const cal = calHtml(d.T.filter(x => !prod || x.prod === prod));
