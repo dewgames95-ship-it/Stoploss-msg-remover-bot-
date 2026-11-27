@@ -3,7 +3,8 @@ body.adm-mode{color-scheme:dark}
 body.adm-mode #bnav{display:none!important}
 body.adm-mode .app{padding:0 0 calc(74px + env(safe-area-inset-bottom));max-width:760px}
 body.adm-mode .au-banner{display:none}
-.a2{--a2:var(--brand,#3D8BFF);--a2-soft:var(--brand-soft,rgba(61,139,255,.14));--a2-amber:#F5A524;min-height:100vh;color:var(--text);position:relative}
+body.adm-mode,.a2{--a2:var(--brand,#3D8BFF);--a2-soft:var(--brand-soft,rgba(61,139,255,.14));--a2-amber:#F5A524}
+.a2{min-height:100vh;color:var(--text);position:relative}
 .a2 *{box-sizing:border-box}
 .a2 .num{font-variant-numeric:tabular-nums}
 /* header */
