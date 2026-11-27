@@ -6269,7 +6269,9 @@ html.mr-pop, html.mr-pop body { overflow: hidden !important; overscroll-behavior
   window._trHitPatterns = HIT_PATTERN;
   const meInvolved = () => { try { const me = cars.find(c => c.isPlayer); return !!(me && (me.hitSlowTimer > 0.25 || me.scrapeTimer > 0.25 || me.bumpCooldown > 0.25)); } catch (e) { return false; } };
   function hitHaptic(kind, mine) {
-    if (!(mine === undefined ? meInvolved() : mine)) return;
+    const m = mine === undefined ? meInvolved() : mine;
+    try { const L = window._trHitLog || (window._trHitLog = []); L.push({ kind, mine: !!m, t: Math.round(performance.now()) }); if (L.length > 40) L.shift(); } catch (e) {}   // (read by the tests)
+    if (!m) return;
     triggerHaptic(HIT_PATTERN[kind], 'hit', HIT_W[kind] || 1);
   }
   function sfxCrash(w) { // heavy crash only (broken truck / wrong-way car): layered body thump + crunch + debris
@@ -8563,7 +8565,7 @@ html.mr-pop, html.mr-pop body { overflow: hidden !important; overscroll-behavior
         <div class="ui-step" style="--c:#a855f7"><span class="ui-num">4</span><div><b>Get paid</b><p>If your car wins, the payout is added to your Money Game wallet right away. If it does not, the bet is lost.</p></div></div>
       </div>
       <div class="hiw-sec">Worked example</div>
-      <div class="hiw-flow"><span class="hiw-chip">Bet 10 USDT on Blue</span><span class="hiw-arrow">&rarr;</span><span class="hiw-chip">3-car race</span><span class="hiw-arrow">&rarr;</span><span class="hiw-chip g">Win</span><span class="hiw-chip r">or Lose</span></div>
+      <div class="hiw-flow"><span class="hiw-chip">Bet 10 USDT</span><span class="hiw-arrow">&rarr;</span><span class="hiw-chip">3-car race</span><span class="hiw-arrow">&rarr;</span><span class="hiw-chip g">Win</span><span class="hiw-arrow">/</span><span class="hiw-chip r">Lose</span></div>
       <div class="hiw-res">
         <div class="w"><h4>If Blue finishes 1st</h4><p>Payout = <b>10 &times; ${vcFmt(o3)}</b></p><span class="big">+${vcFmt(prof)} USDT</span><p>You receive <b>${vcFmt(pay)} USDT</b> (your 10 back plus ${vcFmt(prof)} profit).</p></div>
         <div class="l"><h4>If Blue finishes 2nd or 3rd</h4><p>The bet is not returned.</p><span class="big">-10 USDT</span><p>You lose the <b>10 USDT</b> you bet.</p></div>

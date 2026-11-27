@@ -105,7 +105,9 @@ function paintLocks(){
   if (!lockEls){ lockEls = [0, 1].map(() => { const e = document.createElement("span"); e.className = "rc-lockic"; e.innerHTML = LOCK_SVG; document.body.appendChild(e); return e; }); }
   [[tabs, lockEls[0]], [nav, lockEls[1]]].forEach(([bar, ic]) => {
     if (!bar || getComputedStyle(bar).display === "none"){ ic.style.display = "none"; return; }
-    const r = bar.getBoundingClientRect(); ic.style.display = ""; ic.style.left = Math.round(r.left + r.width / 2 - 14) + "px"; ic.style.top = Math.round(r.top + r.height / 2 - 14) + "px";
+    const r = bar.getBoundingClientRect(); ic.style.display = "";
+    if (bar === tabs){ ic.style.left = Math.round(r.right - 38) + "px"; ic.style.top = Math.round(r.top + r.height / 2 - 14) + "px"; }   // end of the strip, clear of the tab labels
+    else { ic.style.left = Math.round(r.left + r.width / 2 - 14) + "px"; ic.style.top = Math.round(r.top - 15) + "px"; }                    // sits on the nav's top edge
   });
 }
 function lockedTap(e){
