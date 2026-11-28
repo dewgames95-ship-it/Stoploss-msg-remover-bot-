@@ -197,7 +197,7 @@ function initDraw(container){
   wrap.addEventListener("pointerdown", e => { if (D.sel && !e.target.closest(".dw3")) select(null); }, true);
   /* v7.4: while the drawing tools are open, a plain tap on the chart hides the tool row; the next tap brings it back */
   let tp = null;
-  wrap.addEventListener("pointerdown", e => { tp = cur && !cur.bar.classList.contains("hide") && !D.tool && !MS.phase && !e.target.closest(".hit,.hd,[data-mk],[data-drag],[data-qo],.mkpop,.lqbox,.lqpop,.aibox,.auto-btn") ? {x:e.clientX, y:e.clientY, t:Date.now()} : null; }, true);
+  wrap.addEventListener("pointerdown", e => { tp = cur && !cur.bar.classList.contains("hide") && !D.tool && !MS.phase && !SP && !e.target.closest(".hit,.hd,[data-mk],[data-drag],[data-qo],.mkpop,.lqbox,.lqpop,.aibox,.auto-btn") ? {x:e.clientX, y:e.clientY, t:Date.now()} : null; }, true);
   wrap.addEventListener("pointerup", e => { const s0 = tp; tp = null; if (!s0 || D.tool || MS.phase || !cur || Math.hypot(e.clientX - s0.x, e.clientY - s0.y) > 8 || Date.now() - s0.t > 450) return;
     styleClose(); cur.bar.classList.toggle("peek"); }, true);
   initMeasure(wrap);
