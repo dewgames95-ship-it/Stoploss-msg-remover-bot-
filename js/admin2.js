@@ -520,7 +520,7 @@ const wdCard = x => `<div class="a2-pw"><div class="a2-ac"><span class="a2-ai dn
   ${x.receive != null ? `<div class="a2-hint">Receive ${n2(x.receive)} ${esc(x.coin || "USDT")} after fee ${n2(x.fee)}</div>` : ""}
   ${x.status === "Processing" ? `<div class="a2-btns"><button class="a2-b pri" data-pay="${esc(x.id)}">Pay manually</button><button class="a2-b dng" data-rj="${esc(x.id)}">Reject</button></div>` : x.txHash ? `<div class="a2-hint">Tx <span class="mono a2-brk">${esc(x.txHash)}</span></div>` : ""}</div>`;
 const depCard = x => `<div class="a2-pw"><div class="a2-ac"><span class="a2-ai upc">${I("fin", 16)}</span><div><b>Deposit +${n2(x.amount)} ${esc(x.coin || "USDT")} <span class="a2-st">${esc(x.status || "")}</span></b><small>${esc(x.method || "")} &middot; ${tstr(x.t)}</small></div></div>
-  ${x.status === "Pending" ? `<div class="a2-btns"><button class="a2-b pri" data-dap="${esc(x.id)}">Approve and credit</button><button class="a2-b dng" data-drj="${esc(x.id)}">Reject</button></div>` : ""}</div>`;
+  ${x.status === "Pending" ? `<div class="a2-btns"><button class="a2-b pri" data-dap="${esc(x.id)}">Approve</button><button class="a2-b dng" data-drj="${esc(x.id)}">Reject</button></div>` : ""}</div>`;
 function wdActions(r){
   r.querySelectorAll("[data-copy]").forEach(b => b.onclick = () => U.copyText ? U.copyText(b.dataset.copy, "Address copied") : toast("Copied", "ok"));
   r.querySelectorAll("[data-pay]").forEach(b => b.onclick = () => payWd(b.dataset.pay));

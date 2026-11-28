@@ -34,3 +34,8 @@ html[data-theme="dark"]{
 }
 html:root[data-theme] .btn-primary,html:root[data-theme] .px-btn.pri,html:root[data-theme] .hm-dep{
   background:var(--grad-brand);box-shadow:inset 0 1px 0 rgba(255,255,255,.16)}
+/* copy-trading risk badge (lead card) */
+.ax-risk{font-style:normal;font-size:11px;font-weight:700;line-height:16px;padding:0 6px;border-radius:4px;margin-left:6px;white-space:nowrap;flex:0 0 auto}
+.ax-risk.lo{color:var(--up);background:var(--up-bg,rgba(46,189,133,.12))}
+.ax-risk.md{color:#D99A00;background:rgba(247,181,0,.13)}
+.ax-risk.hi{color:var(--down);background:var(--down-bg,rgba(246,70,93,.12))}

@@ -236,7 +236,7 @@ kbd{font:600 11px/1 ui-monospace,Menlo,monospace;padding:3px 6px;border-radius:5
 .a2-side{display:none}
 .a2-card.a2-mob{display:block}
 @media (min-width:1024px){
-  body.adm-mode .app{max-width:none;padding:0}
+  html body.adm-mode .app{max-width:none!important;padding:0}
   #a2nav{display:none!important}
   .a2{display:flex;align-items:flex-start}
   .a2-main{flex:1;min-width:0}
@@ -272,3 +272,4 @@ kbd{font:600 11px/1 ui-monospace,Menlo,monospace;padding:3px 6px;border-radius:5
 @media (min-width:1500px){.a2-body.c3{grid-template-columns:repeat(4,minmax(0,1fr))}.a2-body.c3>.s2{grid-column:span 2}}
 .a2-ttl small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 @media (max-width:599px){.a2-ttl small{display:none}}
+.a2-chips.seg .a2-chip{flex:1 1 0;min-width:0}
