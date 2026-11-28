@@ -181,7 +181,7 @@ Pages.spot = (params) => {
       <div class="sp-kv"><span>Avbl${TX.hq("avbl")}</span><b><span id="spav"></span> <button class="wl-plus" data-wlto="spot" aria-label="Transfer in">${ic("plus",13,3)}</button></b></div>
       <div class="sp-kv"><span data-info="fee"><u>Est. Fee</u></span><b id="spef">-- USDT</b></div>
       <button class="sp-go b" id="spgo"></button>
-      <div class="slip0">0% slippage · Market orders fill at the shown price</div>
+      <div class="slip0" data-slip0 role="button" tabindex="0" aria-label="0% slippage. Tap for details"><span>0% slippage</span>${ic("info",12)}</div>
       ${isUC ? `<div class="fee-l uc-fee"><span class="uc-f0">0 Fee</span> <span>No trading fee on USDC/USDT</span></div>` : TX.feeNote("0.02%", "0.10%")}
       <div class="sp-closed hide" id="spclosed">Market closed — reopens with the next session</div>
       <div class="err-msg" id="sperr" role="alert"></div>

@@ -324,7 +324,7 @@ function pageFactory(params){
     const d = SP[h.sym] || {dp: 2}, buy = h.side === "buy";
     return `<article class="cf-pos cf-h"><header><div class="cf-pn"><b>${h.sym}</b><small><i class="cf-sd ${buy ? "buy" : "sell"}">${buy ? "BUY" : "SELL"}</i> ${fmt(h.lots, 2)} lot · 1:${h.lev} · ${REASON[h.reason] || "Closed"}</small></div><div class="cf-pl"><b class="num ${cls(h.pnl)}">${sg(h.pnl)} USDT</b><small class="num ${cls(h.pnl)}">${sg(h.roi)}%</small></div></header>
       <div class="cf-g"><div><span>Entry</span><b class="num">${px(h.entry, d.dp)}</b></div><div><span>Close</span><b class="num">${px(h.close, d.dp)}</b></div><div><span>Margin</span><b class="num">${fmt(h.margin, 2)}</b></div></div>
-      <div class="cf-tm">${new Date(h.tc).toLocaleString("en-US", {month: "short", day: "numeric", hour: "2-digit", minute: "2-digit"})}</div></article>`;
+      <div class="cf-tm">${U.dateStr(h.tc)}</div></article>`;
   }
   function renderBody(force){
     const body = q$("#cfBody"); if (!body) return;

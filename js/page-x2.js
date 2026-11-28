@@ -387,7 +387,7 @@ const mById = id => COPY_MODELS.find(m => m.id === id);
 function modelLogo(mid, size = 40){
   const m = mById(mid); if (!m) return "";
   const c = modelProf(m).c, f = Math.round(size * .44);
-  return `<span class="ax-logo" style="width:${size}px;height:${size}px;--c:${c};font-size:${f}px"><b>${esc(String(m.name)[0].toUpperCase())}</b>${m.site ? `<img src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(m.site)}&sz=128" alt="" loading="lazy" decoding="async" onerror="this.remove()" onload="this.parentNode.classList.add('ok')">` : ""}</span>`;
+  return `<span class="ax-logo" style="width:${size}px;height:${size}px;--c:${c};font-size:${f}px"><b>${esc(String(m.name)[0].toUpperCase())}</b>${m.site ? `<img src="assets/logos/${m.site}.png" alt="" loading="lazy" decoding="async" onerror="this.remove()" onload="this.parentNode.classList.add('ok')">` : ""}</span>`;
 }
 window.AIM = {models: COPY_MODELS, logo: modelLogo, logoFor: (seed, size) => { const m = /^[pb]_(.+)$/.exec(String(seed)); return m && mById(m[1]) ? modelLogo(m[1], size) : ""; }};
 /* [id, nickname, style, symbol, roi[7D,30D,90D], pnl30, winRate, maxDD, aum, followers, tradingDays, payout, tradesPerDay] (aum / followers / pnl30 are derived below) */
@@ -922,7 +922,7 @@ Pages.copy = (params) => {
           <div class="px-fld"><label>${setLbl("tp")}</label><div class="px-inp"><input id="tp" type="number" inputmode="decimal" placeholder="Off"><span>%</span></div></div></div>
         <div class="px-notice" style="margin-bottom:12px">${ic("info", 14)}<span>Past performance does not guarantee future results. Copying may be closed automatically when your stop-loss or take-profit is reached.</span></div>
         <div class="px-err" id="fe"></div><button class="px-btn pri blk lg" id="go">Start Copying</button></div>`;
-      const tstr = t => new Date(t).toLocaleString("en-US", {month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false});
+      const tstr = t => U.dateStr(t);
       const fresh = t => Date.now() - t < 20000 ? " fresh" : "";
       const agoS = t => { const sec = Math.max(0, Math.round((Date.now() - t) / 1000)); return sec < 60 ? sec + "s ago" : dur(Date.now() - t) + " ago"; };
       const tag = p => `<span class="px-tag ${p.long ? "up" : "dn"}">${p.bin ? (p.long ? "Up" : "Down") : (p.long ? "Long " : "Short ") + p.lev + "x"}</span>`;

@@ -152,12 +152,7 @@ function openNotifs(){
     el.querySelector("[data-clear]")?.addEventListener("click", () => { s.notifs = []; store.save(); U.closeLayer(); U.toast("Notifications cleared", "ok"); });
   });
 }
-function openLang(){
-  const cur = store.s.settings.lang;
-  U.sheet(t("Language"), [["en","English","🇬🇧"],["hi","हिन्दी (Hindi)","🇮🇳"]].map(([k,n,f]) => `<button class="list-item" style="width:100%" data-l="${k}"><span style="font-size:22px">${f}</span><span class="grow" style="font-weight:500">${n}</span>${cur===k?`<span class="brand-c">${ic("check",20)}</span>`:""}</button>`).join(""), el => {
-    el.querySelectorAll("[data-l]").forEach(b => b.onclick = () => { store.s.settings.lang = b.dataset.l; store.save(); U.closeLayer(); U.bus.emit("lang"); U.toast("Language updated", "ok"); });
-  });
-}
+function openLang(){ U.toast("English is the only language", "info"); }
 function openMenu(){
   const links = [["home","Home","#/home"],["chart","Markets","#/markets"],["candle","Binary Options","#/trade"],["layers","Futures","#/futures"],["swap","Spot","#/spot"],["target","Options","#/options"],["users","Copy Trading","#/copy"],["wallet","Assets","#/assets"],["gift","Rewards Hub","#/rewards"],["book","Academy","#/academy"],["ring","Price Alerts","#/alerts"],["bot","Trading Bots","#/bots"],["users","Referral","#/referral"],["chat","Community","#/community"],["user","Profile","#/profile"],["gear","Settings","#/settings"],["info","About Us","#/about"],["headset","Contact Support","#/support"]];
   const cur = location.hash.split("?")[0], p = store.s.profile, lv = E.level();

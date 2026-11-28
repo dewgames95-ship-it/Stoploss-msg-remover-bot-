@@ -80,7 +80,8 @@ function inject(){
   const now = Date.now();
   const card = document.createElement("section");
   card.className = "wf-card"; card.setAttribute("aria-label", "Live withdrawals");
-  card.innerHTML = `<header class="wf-h"><h2>Live withdrawals</h2><span class="wf-live"><i></i>Live</span></header><div class="wf-list">${latest(now).map(e => row(e, now, false)).join("")}</div>`;
+  card.innerHTML = `<header class="wf-h"><h2>Live withdrawals</h2><span class="wf-live"><i></i>Live</span></header><div class="wf-list">${U.skel ? U.skel(3, "row") : ""}</div>`;
+  setTimeout(() => { const l = card.querySelector(".wf-list"); if (l && card.isConnected) l.innerHTML = latest(Date.now()).map(e => row(e, Date.now(), false)).join(""); }, 450);
   v.querySelector(".hm-strip-sp").before(card);
   const wy = document.createElement("section"); wy.className = "wy-sec"; wy.setAttribute("aria-label", "Why NovaTrade"); wy.innerHTML = whyHtml(); card.after(wy);
   stop(); timer = setInterval(() => tick(card), 1000);

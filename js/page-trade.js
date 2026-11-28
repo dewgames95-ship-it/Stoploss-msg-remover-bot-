@@ -12,7 +12,7 @@ const feeU = v => { v = +v; if (!isFinite(v)) return "-- USDT"; const a = Math.a
 /* v7.0: Binance session label for TradFi perps: Off-Hours (still trades) / Market closed (Binance closed) */
 const sessLbl = p => p.closed ? "Market closed" : p.offHours ? "Off-Hours" : "";
 const mkBdg = p => { const h = UI.mktBadges(p); return sessLbl(p) ? h.replace(/<span class="mk-st[^"]*">.*?<\/span>/, "") : h; };
-const SLIP0 = `<div class="slip0">${ic("info",12)}<span>0% slippage · Market orders fill at the shown price</span></div>`;
+const SLIP0 = `<div class="slip0" data-slip0 role="button" tabindex="0" aria-label="0% slippage. Tap for details"><span>0% slippage</span>${ic("info",12)}</div>`;
 
 /* ---------------- Coin info (CoinGecko, cached per session) ---------------- */
 const CG = "https://api.coingecko.com/api/v3";
@@ -58,7 +58,7 @@ const INFO = {
 };
 function showInfo(k){ const f = INFO[k]; if (!f) return; const [t, h] = f();
   if (BIN_TIPS.includes(k) && UI.tip) return UI.tip(t, h); U.sheet(t, h + `<button class="btn btn-primary btn-block" style="margin-top:14px" data-x>OK</button>`, el => el.querySelector("[data-x]").onclick = U.closeLayer); }
-document.addEventListener("click", e => { const t = e.target.closest("[data-info]"); if (t){ e.preventDefault(); showInfo(t.dataset.info); } });
+document.addEventListener("click", e => { const sl = e.target.closest("[data-slip0]"); if (sl){ (UI.tip || UI.help)("0% slippage", "Market orders fill at the shown price, with no slippage."); return; } const t = e.target.closest("[data-info]"); if (t){ e.preventDefault(); showInfo(t.dataset.info); } });
 
 /* ---------------- Quick trade sheet (open a futures position without leaving the chart) ---------------- */
 function quickTrade(sym, side){
@@ -199,7 +199,7 @@ function candleDetail(sym, onAct){ return d => {
   const p = M.get(sym), b = d.bar, f = v => v == null ? "--" : M.fmtPx(p, v), ch = d.prev ? (b.close - d.prev.close) : (b.close - b.open), chp = ch / (d.prev ? d.prev.close : b.open) * 100;
   const bull = b.close >= b.open, body = Math.abs(b.close - b.open), rng = b.high - b.low || 1;
   const kind = body / rng < 0.1 ? "Doji (indecision)" : body / rng > 0.7 ? (bull ? "Strong bullish candle" : "Strong bearish candle") : (bull ? "Bullish candle" : "Bearish candle");
-  U.sheet("Candle analysis", `<div class="row" style="gap:10px;margin-bottom:10px"><div class="grow"><b>${esc(fsym(p))} · ${d.tf.toUpperCase()}</b><div class="label">${new Date(b.time*1000).toLocaleString("en-US")}</div></div><b class="num ${chp>=0?"up":"down"}" style="font-size:18px">${chp>=0?"+":""}${chp.toFixed(2)}%</b></div>
+  U.sheet("Candle analysis", `<div class="row" style="gap:10px;margin-bottom:10px"><div class="grow"><b>${esc(fsym(p))} · ${d.tf.toUpperCase()}</b><div class="label">${U.dateStr(b.time*1000)}</div></div><b class="num ${chp>=0?"up":"down"}" style="font-size:18px">${chp>=0?"+":""}${chp.toFixed(2)}%</b></div>
     <div class="label" style="margin-bottom:8px">${kind}${d.rsiFull != null ? ` · RSI ${d.rsiFull.toFixed(1)} ${d.rsiFull > 70 ? "overbought" : d.rsiFull < 30 ? "oversold" : "neutral"}` : ""}</div>
     <div class="cdetail">${[["Open",f(b.open)],["High",f(b.high)],["Low",f(b.low)],["Close",f(b.close)],["Volume",CH.fmtVol(b.volume||0)],["Body / Range",(body/rng*100).toFixed(0)+"%"],["MA/EMA 7",f(d.ind.e7)],["MA/EMA 25",f(d.ind.e25)],["BOLL mid",f(d.ind.bm)],["SuperTrend",d.ind.st == null ? "--" : f(d.ind.st) + (d.ind.stDir === 1 ? " ▲" : " ▼")]].map(([a,v]) => `<div><span>${a}</span><b class="num">${v}</b></div>`).join("")}</div>
     ${onAct ? `<div class="ud" style="margin-top:14px">${onAct.html}</div>` : ""}`, el => onAct && onAct.bind(el));
@@ -369,7 +369,7 @@ Pages.futures = (params) => {
     const maxNotional = avail / (1/lev + C.FEE);
     $("#mxl").textContent = CH.fmtVol(maxNotional) + " USDT";
     const cost = amt ? amt / lev + amt * C.FEE * (otype === "limit" ? 0.4 : 1) : 0; $("#cl").textContent = $("#cs").textContent = cost ? "≈ " + money(cost) + " USDT" : ""; $("#cst").textContent = cost ? money(cost) + " USDT" : "-- USDT";
-    if (amt && px){ const q = amt / px, m = amt / lev, l1 = E.liqPrice("long", px, lev, mode, q, m), l2 = E.liqPrice("short", px, lev, mode, q, m); $("#lqp2").innerHTML = `<span class="up">${l1 > 0 ? M.fmtPx(p, l1) : "--"}</span> / <span class="down">${l2 > 0 ? M.fmtPx(p, l2) : "--"}</span>`; const ll = E.liqPrice("long", px, lev, mode, q, m), ls = E.liqPrice("short", px, lev, mode, q, m); $("#lqp").textContent = `${ll > 0 ? M.fmtPx(p, ll) : "--"} / ${ls > 0 ? M.fmtPx(p, ls) : "--"}`; } else { $("#lqp").textContent = "-- / --"; $("#lqp2").textContent = "-- / --"; }
+    if (amt && px){ const q = amt / px, m = amt / lev, l1 = E.liqPrice("long", px, lev, mode, q, m), l2 = E.liqPrice("short", px, lev, mode, q, m); $("#lqp2").innerHTML = (l1 > 0 || l2 > 0) ? `<span class="up">${l1 > 0 ? M.fmtPx(p, l1) : "--"}</span> / <span class="down">${l2 > 0 ? M.fmtPx(p, l2) : "--"}</span>` : "--"; const ll = E.liqPrice("long", px, lev, mode, q, m), ls = E.liqPrice("short", px, lev, mode, q, m); $("#lqp").textContent = `${ll > 0 ? M.fmtPx(p, ll) : "--"} / ${ls > 0 ? M.fmtPx(p, ls) : "--"}`; } else { $("#lqp").textContent = "-- / --"; $("#lqp2").textContent = "--"; }
     root.querySelectorAll("[data-go]").forEach(b => b.disabled = p.closed);
     const lp = s.fut.positions.find(x => x.sym === sym && x.side === "long"), sp = s.fut.positions.find(x => x.sym === sym && x.side === "short");
     $("#clq").textContent = lp ? money(lp.qty * p.price) + " USDT" : "--"; $("#csq").textContent = sp ? money(sp.qty * p.price) + " USDT" : "--";
@@ -921,7 +921,7 @@ Pages.history = () => {
     <p class="label" style="margin:10px 0">Last updated: <span id="lu"></span></p><div id="hl"></div>`;
   return {html, title:"My Trades", mount(r){
     const render = () => {
-      r.querySelector("#lu").textContent = new Date().toLocaleString("en-US");
+      r.querySelector("#lu").textContent = U.dateStr(Date.now());
       const f = S().fut, log = (f.log || []).slice().reverse();
       const box = r.querySelector("#hl");
       if (tab === "pos") box.innerHTML = historyHtml(f.history);

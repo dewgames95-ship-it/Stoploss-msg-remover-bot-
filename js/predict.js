@@ -687,7 +687,7 @@ function drawChart(box, series, o = {}){
     xg.style.display = ""; xg.querySelector("line").setAttribute("x1", xx); xg.querySelector("line").setAttribute("x2", xx);
     xg.querySelectorAll("circle").forEach(c => c.remove());
     pts.forEach((p, i) => { const c = document.createElementNS("http://www.w3.org/2000/svg", "circle"); c.setAttribute("cx", X(p[0])); c.setAttribute("cy", Y(p[1])); c.setAttribute("r", 4.5); c.setAttribute("fill", series[i].color || COLS[i % COLS.length]); c.setAttribute("class", "pd-ch-hd"); xg.appendChild(c); });
-    tip.style.display = ""; tip.innerHTML = `<small>${esc(new Date(pts[0][0]).toLocaleString("en-US", {month: "short", day: "numeric", hour: "numeric", minute: "2-digit"}))}</small>` + pts.map((p, i) => `<span><i style="background:${series[i].color || COLS[i % COLS.length]}"></i>${series.length > 1 ? esc(short(series[i].name)) + " " : ""}<b class="num">${esc(fmtV(p[1]))}</b></span>`).join("");
+    tip.style.display = ""; tip.innerHTML = `<small>${esc(U.dateStr(pts[0][0]))}</small>` + pts.map((p, i) => `<span><i style="background:${series[i].color || COLS[i % COLS.length]}"></i>${series.length > 1 ? esc(short(series[i].name)) + " " : ""}<b class="num">${esc(fmtV(p[1]))}</b></span>`).join("");
     const px = xx / W0 * r.width; tip.style.left = Math.max(4, Math.min(r.width - tip.offsetWidth - 4, px - tip.offsetWidth / 2)) + "px";
     const idx = Math.round(x); if (Math.abs(idx - lastIdx) > 6 && now() - lastBuzz > 45){ lastIdx = idx; lastBuzz = now(); hap(4); }
   };

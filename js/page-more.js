@@ -582,7 +582,7 @@ Pages.profile = () => {
     <section class="pf-card"><h3 class="pf-h">Trade</h3>
     ${G([["chart","Markets","#/markets"],["swap","Spot","#/spot"],["candle","Futures","#/futures"],["clock","Binary","#/trade"],["layers","Options","#/options"],["users","Copy Trading","#/copy"],["bot","Trading Bots","#/bots"]])}</section>
     <section class="pf-card"><h3 class="pf-h">Earn &amp; Rewards</h3>
-    ${G([["earn","Earn","#/earn"],["wallet","Assets","#/assets"],["pie","PnL Analysis","#/pnl"],["trophy","Rewards Hub","#/rewards"],["share","Referral","#/referral"],["ring","Price Alerts","#/alerts"],["book","Academy","#/academy"]])}</section>
+    ${G([["earn","Earn","#/earn"],["wallet","Assets","#/assets"],["pie","PnL Analysis","#/pnl"],["trophy","Rewards Hub","#/rewards"],["ring","Price Alerts","#/alerts"],["book","Academy","#/academy"]])}</section>
     <h3 class="pf-h">Account</h3>
     <section class="pf-list">${L("shield","Verification",'<span class="pf-ok">Verified</span>',"data-ver")}${L("lock","Security Center","",'href="#/security"')}${L("history","Trade History","",'href="#/history"')}${L("gear","Settings & Preferences","",'href="#/settings"')}${L("grid","Practical Functions","","data-prac")}</section>
     <h3 class="pf-h">Help</h3>
@@ -631,7 +631,7 @@ Pages.settings = () => {
       prow("Price colour", `<span id="pmCmS">${st0.colorMode === "ru" ? "Red up / Green down" : "Green up / Red down"}</span>`, sg("data-cm", st0.colorMode, [["gu", "Green up"], ["ru", "Red up"]])))}
     ${psec("Guide & tips",
       prow("Show tips on new screens", "A short walkthrough the first time you open a screen", swb("tips", st0.tips !== false), "data-rsw") +
-      [["home", "Home"], ["trade", "Binary"], ["futures", "Futures"], ["spot", "Spot"], ["options", "Options"], ["copy", "Copy trading"]].map(([k, n]) => `<button class="pm-row tap" data-guide="${k}"><span class="pm-main"><span class="pm-t">Replay guide: ${n}</span></span><span class="chev">${ic("chev", 16)}</span></button>`).join("") +
+      `<button class="pm-row tap" data-guides><span class="pm-main"><span class="pm-t">Guides · 6</span><span class="pm-s" style="display:block">Replay the walkthrough of any screen.</span></span><span class="chev">${ic("chev", 16)}</span></button>` +
       `<button class="pm-row tap" data-tipsreset><span class="pm-main"><span class="pm-t">Reset all tips</span><span class="pm-s" style="display:block">Show every screen's guide again on your next visit.</span></span><span class="chev">${ic("chev", 16)}</span></button>`)}
     ${psec("Order confirmation", CONF.map(([k, n, s]) => prow(n, s, swb("confirm." + k, st0.confirm[k] !== false), "data-rsw")).join(""))}
     ${psec("Sounds", prow("Sounds", "Master switch for all event sounds", swb("sound", st0.sound), "data-rsw") +
@@ -663,8 +663,12 @@ Pages.settings = () => {
     r.addEventListener("click", async e => {
       const pv = e.target.closest("[data-pv]");
       if (pv){ if (!st().sound) return toast("Turn on Sounds to preview", "info"); if (st().snd[pv.dataset.pv] === false) return toast("Turn this sound on to preview it", "info"); return U.beep(pv.dataset.pv); }
-      const gd = e.target.closest("[data-guide]");
-      if (gd){ const k = gd.dataset.guide, rt = {home:"#/home", trade:"#/trade/BTCUSDT", futures:"#/futures/BTCUSDT", spot:"#/spot/BTCUSDT", options:"#/options", copy:"#/copy"}[k]; location.hash = rt; setTimeout(() => window.TOUR?.run(k, true), 700); return; }
+      if (e.target.closest("[data-guides]")){
+        U.sheet("Guides", [["home", "Home"], ["trade", "Binary"], ["futures", "Futures"], ["spot", "Spot"], ["options", "Options"], ["copy", "Copy trading"]].map(([k, n]) => `<button class="pm-row tap" data-guide="${k}"><span class="pm-main"><span class="pm-t">${n}</span><span class="pm-s" style="display:block">Replay the ${n} walkthrough</span></span><span class="chev">${ic("chev", 16)}</span></button>`).join(""), el => {
+          el.querySelectorAll("[data-guide]").forEach(g => g.onclick = () => { const k = g.dataset.guide, rt = {home:"#/home", trade:"#/trade/BTCUSDT", futures:"#/futures/BTCUSDT", spot:"#/spot/BTCUSDT", options:"#/options", copy:"#/copy"}[k]; U.closeLayer(); location.hash = rt; setTimeout(() => window.TOUR?.run(k, true), 700); });
+        });
+        return;
+      }
       if (e.target.closest("[data-tipsreset]")){ window.TOUR?.reset(); return toast("All tips will show again", "ok"); }
       const row = e.target.closest(".pm-row[data-rsw]");
       if (row){
