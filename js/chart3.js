@@ -119,7 +119,7 @@ function toggleInd(k){ const l = CH.inds.includes(k) ? CH.inds.filter(x => x !==
 
 const mount0 = CH.mount, setInds0 = CH.setInds, destroy0 = CH.destroy;
 CH.setInds = function(){ const r = setInds0.apply(this, arguments); try { syncRow(); } catch {} return r; };
-CH.destroy = function(){ try { closeFS(true); } catch {} try { tfPopClose(); } catch {} cur = null; return destroy0.apply(this, arguments); };
+CH.destroy = function(){ try { closeFS(true); } catch {} try { tfPopClose(); } catch {} try { styleClose(); msClear(); MS.layer = null; } catch {} cur = null; return destroy0.apply(this, arguments); };
 CH.mount = function(container, parts, cb){
   parts = Object.assign({}, parts || {});
   let box = null, injected = null;
@@ -205,7 +205,7 @@ function initDraw(container){
 function showBar(on){ if (!cur) return; cur.bar.classList.toggle("hide", !on); cur.bar.classList.remove("peek"); styleClose(); if (on) msClear(); (FS ? FS.ov : cur.cc.parentElement).querySelectorAll("[data-drawt]").forEach(b => b.classList.toggle("on", on)); if (!on){ setTool(null); select(null); } }
 function setTool(t){ D.tool = t; D.temp = null; if (cur){ cur.svg.classList.toggle("on", !!t); cur.bar.querySelectorAll("[data-dt]").forEach(b => b.classList.toggle("on", b.dataset.dt === t)); hint(t ? (t === "hline" || t === "vline" ? "Tap the chart to place the line" : "Tap the first point") : ""); } if (t) select(null); }
 function hint(t){ const h = cur && cur.bar.querySelector(".dw3-hint"); if (h) h.textContent = FS ? (t || "") : ""; if (t && !FS) U.toast(t, "info", 1400); }
-function select(id){ D.sel = id; if (cur) cur.bar.querySelector("[data-dsel]").classList.toggle("dis", !id); D.els.forEach(e => e.g.classList.toggle("sel", e.id === id)); }
+function select(id){ D.sel = id; if (cur) cur.bar.querySelector("[data-dsel]").classList.toggle("dis", !id); D.els.forEach(e => e.g.classList.toggle("sel", e.id === id)); try { styBtn(); } catch {} }
 /* pointer position inside the svg (the full-screen view may be rotated with CSS; remapped events already carry unrotated coordinates) */
 const loc = e => { const r = cur.svg.getBoundingClientRect(); return {x:e.clientX - r.left, y:e.clientY - r.top}; };
 const P = (g, x, y) => { const t = g.x2t(x), p = g.y2p(y); return t == null || p == null ? null : {t, p}; };
@@ -292,6 +292,139 @@ function renderDW(){
   });
 }
 
+/* ---- v7.4 drawing colour + line style (6 swatches, solid / dashed / dotted) — applies to the selected drawing and to new ones ---- */
+const SWATCH = ["#2E6BFF", "#F6465D", "#2EBD85", "#F7931A", "#A855F7", "#94A3B8"];
+const DASH = {solid:"", dash:"6 4", dot:"0.5 3.5"};
+const dsty = () => { const o = store.s.settings.drawStyle || {}; return {c: SWATCH.includes(o.c) ? o.c : SWATCH[0], ls: DASH[o.ls] != null ? o.ls : "solid"}; };
+const rgba = (h, a) => `rgba(${parseInt(h.slice(1, 3), 16)},${parseInt(h.slice(3, 5), 16)},${parseInt(h.slice(5, 7), 16)},${a})`;
+function styBtn(bar){ const b = (bar || cur && cur.bar)?.querySelector("[data-dsty]"); if (!b) return; const g = CH.geo(), d = D.sel && g ? dstore(g.sym).find(x => x.id === D.sel) : null, st = d ? {c:d.c || SWATCH[0], ls:d.ls || "solid"} : dsty();
+  b.style.setProperty("--dc", st.c); b.dataset.ls = st.ls; }
+function paint(o, d){ const c = d.c || null, ls = DASH[d.ls || "solid"] || "", k = (c || "") + "|" + ls; if (o._p === k) return; o._p = k;
+  o.vis.style.stroke = c || ""; o.vis.style.strokeDasharray = ls; o.vis.style.strokeLinecap = d.ls === "dot" ? "round" : "";
+  if (o.fill) o.fill.style.fill = c ? rgba(c, .12) : ""; if (o.txt) o.txt.style.fill = c || ""; if (o.ha) o.ha.style.stroke = c || ""; if (o.hb) o.hb.style.stroke = c || ""; }
+const tlab = t => { const d = new Date(t * 1000), z = n => String(n).padStart(2, "0"), MO = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"], sc = CH.sec || 60;
+  return sc >= 86400 ? `${d.getDate()} ${MO[d.getMonth()]} '${String(d.getFullYear()).slice(2)}` : `${d.getDate()} ${MO[d.getMonth()]} ${z(d.getHours())}:${z(d.getMinutes())}${sc < 60 ? ":" + z(d.getSeconds()) : ""}`; };
+let SP = null;
+function styleClose(){ if (!SP) return; SP.el.remove(); document.removeEventListener("pointerdown", SP.out, true); SP.btn.classList.remove("on"); SP = null; }
+function stylePop(btn){
+  if (SP){ styleClose(); return; } if (!cur) return;
+  const g = CH.geo(), sel = D.sel && g ? dstore(g.sym).find(x => x.id === D.sel) : null, st = sel ? {c:sel.c || SWATCH[0], ls:sel.ls || "solid"} : dsty();
+  const el = document.createElement("div"); el.className = "dw3-pop"; el.setAttribute("role", "dialog"); el.setAttribute("aria-label", "Line colour and style");
+  el.innerHTML = `<div class="dsp-c">${SWATCH.map(c => `<button data-dc="${c}" class="${c === st.c ? "on" : ""}" style="--dc:${c}" aria-label="Colour ${c}"></button>`).join("")}</div>
+    <div class="dsp-l">${[["solid","Solid"],["dash","Dashed"],["dot","Dotted"]].map(([k, n]) => `<button data-dl="${k}" class="${k === st.ls ? "on" : ""}" aria-label="${n}"><i class="ln-${k}"></i></button>`).join("")}</div>`;
+  cur.cc.appendChild(el);
+  const r = btn.getBoundingClientRect(), rc = cur.cc.getBoundingClientRect(), w = el.offsetWidth;
+  el.style.left = Math.max(6, Math.min(r.left - rc.left + r.width / 2 - w / 2, cur.cc.clientWidth - w - 6)) + "px"; el.style.top = (r.bottom - rc.top + 6) + "px";
+  btn.classList.add("on");
+  el.addEventListener("click", e => { const c = e.target.closest("[data-dc]"), l = e.target.closest("[data-dl]"); if (!c && !l) return; U.buzz(8);
+    const o = store.s.settings.drawStyle = dsty(); if (c) o.c = c.dataset.dc; if (l) o.ls = l.dataset.dl;
+    const g2 = CH.geo(), d = D.sel && g2 ? dstore(g2.sym).find(x => x.id === D.sel) : null; if (d){ if (c) d.c = o.c; if (l) d.ls = o.ls; if (!d.c) d.c = o.c; }
+    store.save(); el.querySelectorAll("[data-dc]").forEach(b => b.classList.toggle("on", b.dataset.dc === o.c)); el.querySelectorAll("[data-dl]").forEach(b => b.classList.toggle("on", b.dataset.dl === o.ls)); styBtn(); });
+  SP = {el, btn, out: e => { if (!el.contains(e.target) && !btn.contains(e.target)) styleClose(); }};
+  setTimeout(() => SP && SP.el === el && document.addEventListener("pointerdown", SP.out, true), 0);
+}
+
+/* ================= v7.4 measure tool (TradingView-style) =================
+   ruler icon → tap the start point → drag / move to the end point (live box + dashed crosshair) → tap again = final box →
+   the next tap anywhere on the chart removes it. Box: Δprice (Δ%) ticks / N bars, duration / Vol (USDT quote volume). */
+const MS = {phase:0, a:null, b:null, layer:null, st:null, key:""};   // phase 0 off · 1 armed (no start yet) · 2 drawing · 3 final
+function msBtns(){ document.querySelectorAll("[data-measure]").forEach(b => b.classList.toggle("on", MS.phase > 0)); }
+function msClear(){ MS.phase = 0; MS.a = MS.b = null; MS.st = null; MS.key = ""; if (MS.layer){ MS.layer.classList.remove("armed"); MS.layer.innerHTML = ""; } msBtns(); }
+function armMeasure(){
+  if (!MS.layer || !CH.geo()) return; if (MS.phase){ msClear(); return; }
+  if (cur){ setTool(null); select(null); if (!cur.bar.classList.contains("hide")) showBar(false); }
+  MS.phase = 1; MS.layer.classList.add("armed"); msBtns(); U.toast("Tap the start point, then the end point", "info", 1500);
+}
+function snapT(t){ const bs = CH.bars, sc = CH.sec || 60; if (!bs || !bs.length) return t; const L = bs.length - 1, lt = bs[L].time;
+  if (t >= lt) return lt + Math.round((t - lt) / sc) * sc; let lo = 0, hi = L; while (lo < hi){ const m = (lo + hi) >> 1; if (bs[m].time < t) lo = m + 1; else hi = m; }
+  return lo > 0 && t - bs[lo - 1].time < bs[lo].time - t ? bs[lo - 1].time : bs[lo].time; }
+function msPt(e){ const g = CH.geo(); if (!g || !MS.layer) return null; const r = MS.layer.getBoundingClientRect(), x = Math.min(e.clientX - r.left, g.pw - 1), y = Math.max(0, Math.min(e.clientY - r.top, g.h - 1));
+  const t = g.x2t(x), p = g.y2p(y); return t == null || p == null ? null : {t:snapT(t), p}; }
+function initMeasure(wrap){
+  wrap.querySelector(".msr")?.remove(); msClear();
+  const L = MS.layer = document.createElement("div"); L.className = "msr"; wrap.appendChild(L);
+  L.addEventListener("pointerdown", e => { if (MS.phase !== 1 && MS.phase !== 2) return; e.preventDefault(); e.stopPropagation(); const q = msPt(e); if (!q) return;
+    try { L.setPointerCapture(e.pointerId); } catch {}
+    MS.st = {x:e.clientX, y:e.clientY, moved:false};
+    if (MS.phase === 1){ MS.a = q; MS.b = q; MS.phase = 2; MS.st.start = true; U.buzz(10); } else MS.b = q; });
+  L.addEventListener("pointermove", e => { if (MS.phase !== 2) return; if (MS.st && Math.hypot(e.clientX - MS.st.x, e.clientY - MS.st.y) > 8) MS.st.moved = true;
+    if (MS.st || e.pointerType === "mouse"){ const q = msPt(e); if (q) MS.b = q; } });
+  L.addEventListener("pointerup", e => { if (MS.phase !== 2 || !MS.st) return; e.stopPropagation(); const s0 = MS.st; MS.st = null; const q = msPt(e); if (q) MS.b = q;
+    if (s0.start && !s0.moved) return;   // first tap only set the start point: wait for the end point
+    MS.phase = 3; L.classList.remove("armed"); U.buzz(14); msBtns(); });
+  L.addEventListener("pointercancel", () => { MS.st = null; });
+  L.addEventListener("touchstart", e => { if (MS.phase === 1 || MS.phase === 2) e.preventDefault(); }, {passive:false});
+  // final box: the next plain tap anywhere on the chart removes it (panning still works)
+  let tp = null;
+  wrap.addEventListener("pointerdown", e => { tp = MS.phase === 3 ? {x:e.clientX, y:e.clientY, t:Date.now()} : null; }, true);
+  wrap.addEventListener("pointerup", e => { const s0 = tp; tp = null; if (!s0 || MS.phase !== 3) return; if (Math.hypot(e.clientX - s0.x, e.clientY - s0.y) < 9 && Date.now() - s0.t < 500){ U.buzz(8); msClear(); } }, true);
+}
+const DUR = s => { s = Math.abs(Math.round(s)); const d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60), x = s % 60;
+  return d ? (h ? `${d}d ${h}h` : `${d}d`) : h ? (m ? `${h}h ${m}m` : `${h}h`) : m ? (x ? `${m}m ${x}s` : `${m}m`) : `${x}s`; };
+const msT = t => { const d = new Date(t * 1000), z = n => String(n).padStart(2, "0"), MO = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"], WD = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"], sc = CH.sec || 60;
+  return sc >= 86400 ? `${WD[d.getDay()]} ${z(d.getDate())} ${MO[d.getMonth()]} '${String(d.getFullYear()).slice(2)}` : `${z(d.getDate())} ${MO[d.getMonth()]} ${z(d.getHours())}:${z(d.getMinutes())}${sc < 60 ? ":" + z(d.getSeconds()) : ""}`; };
+function renderMeasure(){
+  const L = MS.layer; if (!L || !L.isConnected) return;
+  if (MS.phase < 2 || !MS.a || !MS.b){ if (MS.key){ MS.key = ""; L.innerHTML = ""; } return; }
+  const g = CH.geo(); if (!g){ return; }
+  const xa = g.t2x(MS.a.t), xb = g.t2x(MS.b.t), ya = g.p2y(MS.a.p), yb = g.p2y(MS.b.p);
+  if (xa == null || xb == null || ya == null || yb == null){ if (MS.key){ MS.key = ""; L.innerHTML = ""; } return; }
+  const W = g.el.clientWidth, Hc = g.el.clientHeight, pw = g.pw, H = g.h, P = M.get(g.sym), dp = P?.dp ?? 2;
+  const key = [xa, xb, ya, yb, MS.phase, W, Hc, document.documentElement.dataset.theme].map(v => typeof v === "number" ? Math.round(v * 2) / 2 : v).join("|");
+  if (key === MS.key) return; MS.key = key;
+  const up = MS.b.p >= MS.a.p, col = up ? "#2E6BFF" : "#F6465D", fill = up ? "rgba(46,107,255,.17)" : "rgba(246,70,93,.15)";
+  const dP = MS.b.p - MS.a.p, pc = MS.a.p ? dP / MS.a.p * 100 : 0, ticks = Math.round(dP * Math.pow(10, dp));
+  const sc = CH.sec || 60, t0 = Math.min(MS.a.t, MS.b.t), t1 = Math.max(MS.a.t, MS.b.t), nb = Math.round((MS.b.t - MS.a.t) / sc);
+  let vol = 0, usd = false; (CH.bars || []).forEach(b => { if (b.time >= t0 && b.time <= t1){ if (b.qv != null){ vol += b.qv; usd = true; } else vol += b.volume || 0; } });
+  const fv = CH.fmtVol ? CH.fmtVol(vol) : vol.toFixed(2);
+  const x0 = Math.min(xa, xb), x1 = Math.max(xa, xb), y0 = Math.min(ya, yb), y1 = Math.max(ya, yb), xm = (xa + xb) / 2, ym = (ya + yb) / 2;
+  const hd = 5, vy = yb, vdir = yb < ya ? 1 : -1, hdir = xb >= xa ? -1 : 1;
+  let svg = `<rect x="${x0}" y="${y0}" width="${Math.max(1, x1 - x0)}" height="${Math.max(1, y1 - y0)}" fill="${fill}"/>`;
+  if (Math.abs(yb - ya) > 2) svg += `<path d="M${xm} ${ya}V${yb}M${xm - hd} ${vy + vdir * hd}L${xm} ${vy}L${xm + hd} ${vy + vdir * hd}" stroke="${col}" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`;
+  if (Math.abs(xb - xa) > 2) svg += `<path d="M${xa} ${ym}H${xb}M${xb + hdir * hd} ${ym - hd}L${xb} ${ym}L${xb + hdir * hd} ${ym + hd}" stroke="${col}" stroke-width="1.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`;
+  if (MS.phase === 2) svg += `<path d="M${xb} 0V${Hc}M0 ${yb}H${pw}" stroke="${col}" stroke-width="1" stroke-dasharray="4 4" fill="none"/><circle cx="${xb}" cy="${yb}" r="4.5" fill="${col}" stroke="var(--cbg,#fff)" stroke-width="1.5"/>`;
+  // axis bands
+  svg += `<rect x="${pw}" y="${y0}" width="${W - pw}" height="${Math.max(1, y1 - y0)}" fill="${fill}"/>`;
+  const ax = Hc - 24; if (ax > H) svg += `<rect x="${x0}" y="${ax}" width="${Math.max(1, x1 - x0)}" height="24" fill="${fill}"/>`;
+  const fx = v => M.fmtPx(P, v), sg = v => v > 0 ? "+" : v < 0 ? "-" : "";
+  const l1 = `${sg(dP)}${fx(Math.abs(dP))} (${sg(pc)}${Math.abs(pc).toFixed(2)}%) ${sg(ticks)}${Math.abs(ticks).toLocaleString("en-US")}`, l2 = `${Math.abs(nb).toLocaleString("en-US")} bar${Math.abs(nb) === 1 ? "" : "s"}, ${DUR(MS.b.t - MS.a.t)}`, l3 = `Vol ${fv}${usd ? " USDT" : ""}`;
+  let html = `<svg class="msr-svg" width="${W}" height="${Hc}" viewBox="0 0 ${W} ${Hc}" aria-hidden="true">${svg}</svg>`;
+  const plab = (y, v) => `<div class="msr-pl" style="top:${y}px;left:${pw}px;background:${col}">${fx(v)}</div>`;
+  html += plab(yb, MS.b.p); if (Math.abs(yb - ya) >= 17) html += plab(ya, MS.a.p);
+  if (ax > H){ const tl = (x, t) => `<div class="msr-tl" style="left:${x}px;top:${ax + 12}px;background:${col}">${msT(t)}</div>`; html += tl(xb, MS.b.t); if (Math.abs(xb - xa) >= 104) html += tl(xa, MS.a.t); }
+  html += `<div class="msr-info" style="background:${col}" data-up="${up ? 1 : 0}"><div class="num">${l1}</div><div class="num">${l2}</div><div class="num">${l3}</div></div>`;
+  L.innerHTML = html;
+  const info = L.querySelector(".msr-info"), iw = info.offsetWidth, ih = info.offsetHeight;
+  let top = up ? y0 - ih - 8 : y1 + 8; if (top < 2) top = y1 + 8; if (top + ih > H - 2) top = Math.max(2, y0 - ih - 8);
+  info.style.left = Math.max(4, Math.min(xm - iw / 2, pw - iw - 4)) + "px"; info.style.top = Math.max(2, Math.min(top, H - ih - 2)) + "px";
+}
+
+/* ================= v7.4 chart settings sheet (toolbar icon: lines + gear) — only what this chart really supports =================
+   store.s.settings.chart: ord, pos, tpsl, liq, bs, cd, hilo, pl (default ON = what the chart showed before) + al (price alerts, default OFF) */
+const ICS = {
+  ind:`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m6 15 4-5 3 3 6-7"/></svg>`,
+  draw:`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z"/></svg>`,
+  msr: IC_RULER
+};
+function chartSettings(){
+  const md = CH.mode, cp0 = () => store.s.settings.chart || {}, on = k => k === "al" ? cp0()[k] === true : cp0()[k] !== false;
+  const ORD = md === "bin" ? [["pos","Positions"],["bs","Order history"]] : md === "none" ? [] : [["ord","Open orders"],["pos","Positions"],["tpsl","TP / SL"],["liq","Liquidation price"],["bs","Order history"]];
+  const DISP = [["cd","Countdown"],["hilo","High / Low"],["pl","Last price line"], ...(md === "none" ? [] : [["al","Price alerts"]])];
+  const chip = ([k, n]) => `<button class="cs-chip${on(k) ? " on" : ""}" data-cs="${k}" aria-pressed="${on(k)}">${n}<i class="cs-ck" aria-hidden="true"><svg viewBox="0 0 12 12" width="9" height="9"><path d="M2.5 6.2 5 8.6 9.6 3.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></i></button>`;
+  U.sheet("Chart settings", `<div class="cs">
+    <div class="cs-top"><button data-csa="ind">${ICS.ind}<span>Indicators</span></button><button data-csa="draw">${ICS.draw}<span>Drawing</span></button><button data-csa="msr">${ICS.msr}<span>Measure</span></button></div>
+    ${ORD.length ? `<div class="cs-sec">Order display</div><div class="cs-grid">${ORD.map(chip).join("")}</div>` : ""}
+    <div class="cs-sec">Chart display</div><div class="cs-grid">${DISP.map(chip).join("")}</div></div>`, el => {
+    el.addEventListener("click", e => {
+      const a = e.target.closest("[data-csa]"); if (a){ U.buzz(8); U.closeLayer(); const k = a.dataset.csa; setTimeout(() => { if (k === "ind") open(); else if (k === "draw") showBar(true); else if (!MS.phase) armMeasure(); }, 60); return; }
+      const c = e.target.closest("[data-cs]"); if (!c) return; const k = c.dataset.cs, v = !on(k);
+      store.s.settings.chart = Object.assign({}, cp0(), {[k]: v}); store.save(); c.classList.toggle("on", v); c.setAttribute("aria-pressed", v); U.buzz(8);
+      U.bus.emit("chartprefs");
+    });
+  });
+}
+CH.chartSettings = chartSettings; CH.measure = armMeasure;
+
 /* ================= landscape / full-screen chart ================= */
 let FS = null;
 const isPhone = () => Math.min(innerWidth, innerHeight) < 700;
@@ -376,7 +509,9 @@ document.addEventListener("fullscreenchange", () => { if (FS && FS.entered && !d
 
 /* header buttons (pencil / expand / the mini chart's expand link) — captured before the page's own handlers */
 document.addEventListener("click", e => {
-  const dt = e.target.closest("[data-drawt]"); if (dt && cur){ e.stopImmediatePropagation(); e.preventDefault(); showBar(cur.bar.classList.contains("hide")); return; }
+  const dt = e.target.closest("[data-drawt]"); if (dt && cur){ e.stopImmediatePropagation(); e.preventDefault(); U.buzz(8); showBar(cur.bar.classList.contains("hide")); return; }
+  const ms = e.target.closest("[data-measure]"); if (ms && cur){ e.stopImmediatePropagation(); e.preventDefault(); U.buzz(8); armMeasure(); return; }
+  const cs = e.target.closest("[data-chset]"); if (cs && cur){ e.stopImmediatePropagation(); e.preventDefault(); U.buzz(8); chartSettings(); return; }
   const fs = e.target.closest("[data-fs],.tfbar a.ti[href^='#/chart']"); if (fs && cur){ e.stopImmediatePropagation(); e.preventDefault(); FS ? closeFS() : openFS(); }
 }, true);
 

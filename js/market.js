@@ -323,7 +323,7 @@ async function loadTradfi(){
       });
       tfLoaded = true;
       /* v7.4: stock / TradFi list comes from Binance only: drop synthetic + catalogue stock rows that are not Binance contracts */
-      if (info.length > 10) [...pairs.values()].filter(p => p.type === "stock" && p.src !== "bnf" && !inUse(p.sym)).forEach(p => pairs.delete(p.sym));
+      if (info.length > 0) [...pairs.values()].filter(p => p.type === "stock" && p.src !== "bnf" && !inUse(p.sym)).forEach(p => pairs.delete(p.sym));
       FX_SYMS = [...pairs.values()].filter(p => p.type !== "crypto" && p.src !== "bnf" && p.src !== "fx").map(p => p.sym);
       bus.emit("list");
     }

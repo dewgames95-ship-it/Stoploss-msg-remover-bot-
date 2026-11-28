@@ -27,7 +27,7 @@ const E = {
 };
 function mock(els){
   let y = PAD, body = "";
-  els.forEach(([k, ...a]) => { const [h, f] = E[k](a); body += f(y); y += h + GAP; });
+  els.forEach(([k, ...a]) => { const [h, f] = E[k](a[0]); body += f(y); y += h + GAP; });
   const H = y - GAP + PAD;
   return `<svg class="tt-mock" viewBox="0 0 ${W} ${H}" role="img" aria-hidden="true"><rect x="1" y="1" width="${W - 2}" height="${H - 2}" rx="14" class="tm-bg"/>${body}</svg>`;
 }

@@ -19,7 +19,7 @@
 .cd-kv b{font-weight:600;text-align:right;overflow-wrap:anywhere}
 .cd-q{display:inline-grid;place-items:center;color:var(--muted);cursor:pointer;vertical-align:middle}
 .cd-tbl{overflow-x:auto}
-.cd-th,.cd-tr{display:grid;grid-template-columns:.5fr 1.7fr .8fr 1fr 1fr;gap:6px;padding:10px 0;font-size:12.5px;border-bottom:1px solid var(--line);align-items:center}
+.cd-th,.cd-tr{display:grid;grid-template-columns:.4fr 1.45fr .75fr .9fr 1.35fr;gap:5px;padding:10px 0;font-size:12px;border-bottom:1px solid var(--line);align-items:center}
 .cd-th{color:var(--muted);font-size:12px}
 .cd-th span,.cd-tr span{min-width:0}
 .cd-th span:not(:first-child),.cd-tr span:not(:first-child){text-align:right}

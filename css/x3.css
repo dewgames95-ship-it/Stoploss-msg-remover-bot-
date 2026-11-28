@@ -18,7 +18,7 @@
 .hx-chips button{flex:none;height:32px;padding:0 14px;border-radius:var(--r-ctl,8px);font-size:13px;font-weight:600}
 
 /* ===== v7.4 Markets stat cards: one scrolling row, nothing truncated ===== */
-.hm-kp.mk-sc{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin-left:-16px;margin-right:-16px;padding:0 16px 2px;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch}
+.hm-kp.mk-sc{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin-left:-16px;margin-right:-16px;padding:0 16px 2px;scroll-padding-left:16px;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch}
 .hm-kp.mk-sc::-webkit-scrollbar{display:none}
 .hm-kp.mk-sc .mk-c{flex:0 0 118px;width:118px;box-sizing:border-box;padding:10px 12px;scroll-snap-align:start;background:linear-gradient(180deg,var(--card-g1),var(--card-g2));border:1px solid var(--card-bd);border-radius:var(--r-card)}
 .hm-kp.mk-sc .mk-c span{display:block;font-size:11px;line-height:14px;color:var(--muted);white-space:nowrap;overflow:visible;text-overflow:clip}
