@@ -417,7 +417,7 @@ const BADGES = [
   {k:"first", e:"🚀", n:"First Trade"}, {k:"win3", e:"🏆", n:"Hat-trick"}, {k:"futures", e:"⚡", n:"Leverage"}, {k:"tpsl", e:"🛡️", n:"Risk Pro"},
   {k:"ind", e:"📊", n:"Analyst"}, {k:"alert", e:"🔔", n:"Watcher"}, {k:"bot", e:"🤖", n:"Automator"}, {k:"streak", e:"🔥", n:"7-day Streak"}
 ];
-function award(k){ const r = S().rewards; if (r.used[k]) return; r.used[k] = Date.now(); store.save(); bus.emit("rewards"); U.toast("Task complete! Claim your reward in Rewards Hub", "ok", 3000); }
+function award(k){ const r = S().rewards; if (r.used[k]) return; r.used[k] = Date.now(); store.save(); bus.emit("rewards"); U.pushNotif ? U.pushNotif("system", "Task complete", "Claim your reward in Rewards Hub", "ok") : U.toast("Task complete! Claim your reward in Rewards Hub", "ok", 3000); }
 function taskDone(k){
   const r = S().rewards, h = S().history;
   if (k === "first") return h.length > 0 || S().positions.length > 0;
