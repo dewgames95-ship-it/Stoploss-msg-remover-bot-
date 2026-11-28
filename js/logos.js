@@ -87,6 +87,16 @@ const FLAGS = {
   tr: () => `<rect width="40" height="40" fill="#E30A17"/><circle cx="17" cy="20" r="9" fill="#fff"/><circle cx="20" cy="20" r="7.2" fill="#E30A17"/>${star(25, 20, 4.2)}`,
   br: () => `<rect width="40" height="40" fill="#009C3B"/><path d="M20 6L37 20 20 34 3 20z" fill="#FFDF00"/><circle cx="20" cy="20" r="7" fill="#002776"/><path d="M13.4 18.6c4.6-1 9.6.4 13 3.4" stroke="#fff" stroke-width="1.2" fill="none"/>`,
   in: () => `<rect width="40" height="13.4" fill="#FF9933"/><rect y="13.3" width="40" height="13.4" fill="#fff"/><rect y="26.6" width="40" height="13.4" fill="#138808"/><circle cx="20" cy="20" r="4.4" fill="none" stroke="#000080" stroke-width="1"/><circle cx="20" cy="20" r=".9" fill="#000080"/>`,
+  ae: () => `<rect width="40" height="13.4" fill="#00732F"/><rect y="13.3" width="40" height="13.4" fill="#fff"/><rect y="26.6" width="40" height="13.4" fill="#111"/><rect width="11" height="40" fill="#FF0000"/>`,
+  ru: () => `<rect width="40" height="13.4" fill="#fff"/><rect y="13.3" width="40" height="13.4" fill="#0039A6"/><rect y="26.6" width="40" height="13.4" fill="#D52B1E"/>`,
+  sa: () => `<rect width="40" height="40" fill="#006C35"/><rect x="9" y="12" width="22" height="2.6" rx="1" fill="#fff"/><rect x="9" y="19" width="22" height="2.2" rx="1" fill="#fff" opacity=".85"/><rect x="11" y="27" width="18" height="2.2" rx="1" fill="#fff"/>`,
+  ng: () => `<rect width="40" height="40" fill="#fff"/><rect width="13.4" height="40" fill="#008751"/><rect x="26.6" width="13.4" height="40" fill="#008751"/>`,
+  pk: () => `<rect width="40" height="40" fill="#01411C"/><rect width="10" height="40" fill="#fff"/><circle cx="26" cy="20" r="8" fill="#fff"/><circle cx="29" cy="18" r="7" fill="#01411C"/>${star(30, 14, 3)}`,
+  id: () => `<rect width="40" height="20" fill="#E70011"/><rect y="20" width="40" height="20" fill="#fff"/>`,
+  th: () => `<rect width="40" height="40" fill="#A51931"/><rect y="6.6" width="40" height="26.8" fill="#fff"/><rect y="13.4" width="40" height="13.2" fill="#2D2A4A"/>`,
+  ph: () => `<rect width="40" height="20" fill="#0038A8"/><rect y="20" width="40" height="20" fill="#CE1126"/><path d="M0 0L24 20 0 40z" fill="#fff"/><circle cx="7" cy="20" r="3" fill="#FCD116"/>`,
+  vn: () => `<rect width="40" height="40" fill="#DA251D"/>${star(20, 21, 11, "#FFFF00")}`,
+  se: () => `<rect width="40" height="40" fill="#006AA7"/><rect x="11" width="6" height="40" fill="#FECC00"/><rect y="17" width="40" height="6" fill="#FECC00"/>`,
   kr: () => `<rect width="40" height="40" fill="#fff"/><path d="M12 20a8 8 0 0116 0z" fill="#CD2E3A"/><path d="M12 20a8 8 0 0016 0z" fill="#0047A0"/><path d="M5 8l5-3M30 5l5 3M5 32l5 3M30 35l5-3" stroke="#111" stroke-width="2.2"/>`
 };
 const FLAG_BUNDLED = new Set(["au","ca","ch","eu","gb","jp","nz","us"]);
@@ -109,7 +119,7 @@ function mono(txt, size = 28, seed){
 function special(base, size = 28){
   const b = String(base).toUpperCase(), id = nid("sp");
   if (b === "OPENAI") return svg(size, `<circle cx="20" cy="20" r="20" fill="#0B0D10"/>${[0,1,2,3,4,5].map(i => `<rect x="14.2" y="7.6" width="11.6" height="11.6" rx="5.8" fill="none" stroke="#fff" stroke-width="1.8" transform="rotate(${i * 60} 20 20)"/>`).join("")}`);
-  if (b === "ANTHROPIC") return svg(size, `<circle cx="20" cy="20" r="20" fill="#D97757"/><path d="M13 28L20 10l7 18M16 22.2h8" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>`);
+  if (b === "ANTHROPIC" || b === "ANTUS" || b === "ANT") return svg(size, `<circle cx="20" cy="20" r="20" fill="#F0EEE6"/><path d="M22.4 11h3.6L33 29h-3.7zM14.3 11h3.8l7 18h-3.8zM7 29l5.2-13 1.9 4.700-3.300 8.300z" fill="#191919"/>`);
   if (b === "MOONSHOT") return svg(size, `${disc(id, "#241F4D", "#0F0C26")}<path d="M24.5 9a11.5 11.5 0 100 22 9.2 9.2 0 010-22z" fill="#F5F0D2"/>${dots([[27,14],[30,22],[26,28]], 1, "#fff")}`);
   return null;
 }

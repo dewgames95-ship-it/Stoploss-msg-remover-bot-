@@ -97,15 +97,15 @@ const RE = {evm:EVM, trx:/^T[1-9A-HJ-NP-Za-km-z]{33}$/, sol:B58, ton:/^[UE]Q[A-Z
 const FAM = {BSC:"evm", TRX:"trx", ETH:"evm", APT:"apt", TON:"ton", POL:"evm", SOL:"sol", ARB:"evm", OP:"evm"};
 NETS.forEach(n => { n.fam = FAM[n.k]; });
 const COIN_NETS = {
-  BTC:[mk("BTC", "Bitcoin", "btc", .0002, .001, 20, RE.btc, "bc1…")],
-  ETH:[mk("ETH", "Ethereum (ERC20)", "evm", .002, .01, 3, EVM, "0x…"), mk("ARB", "Arbitrum One", "evm", .0001, .005, 2, EVM, "0x…"), mk("OP", "Optimism", "evm", .0001, .005, 2, EVM, "0x…"), mk("BSC", "BNB Smart Chain (BEP20)", "evm", .0005, .005, 1, EVM, "0x…")],
+  BTC:[mk("BTC", "Bitcoin", "btc", .00001, .00005, 20, RE.btc, "bc1…")],
+  ETH:[mk("ETH", "Ethereum (ERC20)", "evm", .0004, .001, 3, EVM, "0x…"), mk("ARB", "Arbitrum One", "evm", .00004, .0001, 2, EVM, "0x…"), mk("OP", "Optimism", "evm", .00004, .0001, 2, EVM, "0x…"), mk("BSC", "BNB Smart Chain (BEP20)", "evm", .00005, .0001, 1, EVM, "0x…")],
   BNB:[mk("BSC", "BNB Smart Chain (BEP20)", "evm", .0005, .01, 1, EVM, "0x…")],
-  SOL:[mk("SOL", "Solana", "sol", .01, .05, 1, B58, "base58")],
-  XRP:[mk("XRP", "XRP Ledger", "xrp", .25, 1, 1, RE.xrp, "r…")],
-  TRX:[mk("TRX", "Tron (TRC20)", "trx", 1, 5, 1, RE.trx, "T…")],
-  DOGE:[mk("DOGE", "Dogecoin", "doge", 4, 20, 10, RE.doge, "D…")],
-  LTC:[mk("LTC", "Litecoin", "ltc", .001, .01, 10, RE.ltc, "ltc1…")],
-  TON:[mk("TON", "TON", "ton", .05, .5, 1, RE.ton, "UQ…")]
+  SOL:[mk("SOL", "Solana", "sol", .01, .02, 1, B58, "base58")],
+  XRP:[mk("XRP", "XRP Ledger", "xrp", .2, 25, 1, RE.xrp, "r…")],
+  TRX:[mk("TRX", "Tron (TRC20)", "trx", 1, 2, 1, RE.trx, "T…")],
+  DOGE:[mk("DOGE", "Dogecoin", "doge", 4, 10, 10, RE.doge, "D…")],
+  LTC:[mk("LTC", "Litecoin", "ltc", .001, .002, 10, RE.ltc, "ltc1…")],
+  TON:[mk("TON", "TON", "ton", .01, .05, 1, RE.ton, "UQ…")]
 };
 const netsOf = c => c === "USDT" ? NETS : (COIN_NETS[c] || []);
 const WD_COINS = ["USDT", ...Object.keys(COIN_NETS)];
@@ -225,7 +225,7 @@ function pickPage(){
 function chainPage(coin){
   const isU = coin === "USDT", nets = netsOf(coin), DP = dpOf(coin), K = Math.pow(10, DP), st = {net:null, from:{funding:isU, spot:true}};
   const fundB = () => isU ? fundBal() : 0, spotB = () => isU ? spotBal() : coinAvail(coin);
-  const minOf = n => { if (isU) return 1; const p = (window.M && M.get(coin + "USDT") || {}).price; return p > 0 ? Math.ceil(1 / p * Math.pow(10, DP)) / Math.pow(10, DP) : n.min; };   /* v7.1: minimum = 1 USDT value */
+  const minOf = n => isU ? 1 : n.min;   /* v7.4: USDT min 1; other coins use the Binance standard minimum withdrawal */
   const avail = () => (st.from.funding ? fundB() : 0) + (st.from.spot ? spotB() : 0);
   const html = head(coin + " On-chain", histBtn) + `<div class="wd-pg wd-ch">
     <label class="wd-l" for="wad">${coin} address</label>
@@ -286,7 +286,7 @@ function chainPage(coin){
       if (!n){ setErr("#e2", "Select a network"); bad = true; }
       else if (ad && !n.re.test(ad)){ setErr("#e1", `Invalid ${n.n} address format`); bad = true; }
       if (!(v > 0)){ setErr("#e3", "Enter an amount"); bad = true; }
-      else if (n && v < minOf(n) - 1e-9){ setErr("#e3", `Minimum withdrawal is ${fnum(minOf(n))} ${coin}` + (isU ? "" : " (≈ 1 USDT)")); bad = true; }
+      else if (n && v < minOf(n) - 1e-9){ setErr("#e3", `Minimum withdrawal is ${fnum(minOf(n))} ${coin}`); bad = true; }
       else if (n && v <= n.fee){ setErr("#e3", "Amount must be greater than the fee"); bad = true; }
       else if (v > avail() + 1e-9){ setErr("#e3", "Insufficient balance in the selected accounts"); bad = true; }
       if (bad) return U.fx("err");

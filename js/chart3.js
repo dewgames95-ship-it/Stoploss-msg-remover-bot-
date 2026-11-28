@@ -85,6 +85,21 @@ const TFLAB = {"1s":"1s","5s":"5s","30s":"30s","1m":"1m","5m":"5m","15m":"15m","
 const rowHTML = () => `<div class="il" id="inds">${IND_MAIN.map(k => `<button data-ind="${k}">${k}</button>`).join("")}<span style="color:var(--line)">|</span>${IND_SUB.map(k => `<button data-ind="${k}">${k}</button>`).join("")}</div><button class="ti" data-indinfo aria-label="Indicator settings">${U.ic("ind", 18)}</button>`;
 const penBtn = () => `<button class="ti" data-drawt aria-label="Drawing tools">${U.ic("pen", 15)}</button>`;
 const fsBtn = () => `<button class="ti" data-fs aria-label="Full screen">${U.ic("expand", 15)}</button>`;
+/* v7.4 toolbar icons: ruler (measure) + chart settings (lines + gear hexagon) */
+const IC_RULER = `<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 16.5 16.5 3.5l4 4-13 13z"/><path d="M7 13l1.8 1.8M10 10l2.6 2.6M13 7l1.8 1.8M16 4.5l1.2 1.2"/></svg>`;
+const IC_CSET = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18M3 11h6M3 17h6"/><path d="M16 9.2l4.2 2.4v4.8L16 18.8l-4.2-2.4v-4.8z"/><circle cx="16" cy="14" r="1.6"/></svg>`;
+const msrBtn = () => `<button class="ti" data-measure aria-label="Measure">${IC_RULER}</button>`;
+const csetBtn = () => `<button class="ti" data-chset aria-label="Chart settings">${IC_CSET}</button>`;
+/* toolbar order on every chart: intervals … | measure | pencil | chart settings | full screen (corner). The candle/line toggle and the grid icon are gone. */
+function arrangeBar(tb){
+  if (!tb) return;
+  tb.querySelectorAll(":scope > [data-ctype], :scope > [data-indset]").forEach(b => b.remove());
+  if (!tb.querySelector("[data-measure]")) tb.insertAdjacentHTML("beforeend", msrBtn());
+  if (!tb.querySelector("[data-drawt]")) tb.insertAdjacentHTML("beforeend", penBtn());
+  if (!tb.querySelector("[data-chset]")) tb.insertAdjacentHTML("beforeend", csetBtn());
+  if (!tb.querySelector("[data-fs],a.ti[href^='#/chart']")) tb.insertAdjacentHTML("beforeend", fsBtn());
+  [tb.querySelector("[data-measure]"), tb.querySelector("[data-drawt]"), tb.querySelector("[data-chset]"), tb.querySelector("[data-fs],a.ti[href^='#/chart']")].forEach(b => b && tb.appendChild(b));
+}
 let cur = null;   // {svg, bar, wrap, box}
 
 function wrapHost(container, parts){
@@ -93,7 +108,7 @@ function wrapHost(container, parts){
   const box = document.createElement("div"); box.className = "ch3-box" + (compact ? " compact" : "");
   container.parentNode.insertBefore(box, container);
   const h = parts.height || container.style.height || (compact ? "240px" : "300px");
-  box.innerHTML = (withTf ? `<div class="tfbar x3"><div class="tfs">${tfs.map(x => `<button data-x3tf="${x}">${TFLAB[x] || x}</button>`).join("")}</div>${penBtn()}${fsBtn()}</div>` : "") +
+  box.innerHTML = (withTf ? `<div class="tfbar x3"><div class="tfs">${tfs.map(x => `<button data-x3tf="${x}">${TFLAB[x] || x}</button>`).join("")}</div>${msrBtn()}${penBtn()}${csetBtn()}${fsBtn()}</div>` : "") +
     `<div class="cp-chart"><div class="chart-wrap" style="height:${h};min-height:0;max-height:none"><div class="legend"></div><div class="chart-msg"></div></div></div>`;
   const wrap = box.querySelector(".chart-wrap"); wrap.insertBefore(container, wrap.firstChild);
   container.style.cssText += ";position:absolute;inset:0;height:auto;width:auto";
@@ -117,8 +132,7 @@ CH.mount = function(container, parts, cb){
         injected.addEventListener("click", e => { const b = e.target.closest("[data-ind]"); if (b && !b.onclick) toggleInd(b.dataset.ind); }); }
     }
     const tb = par && par.querySelector(":scope > .tfbar");
-    if (tb && !tb.querySelector("[data-drawt]")){ const ct = tb.querySelector("[data-ctype]"); ct ? ct.insertAdjacentHTML("beforebegin", penBtn()) : tb.insertAdjacentHTML("beforeend", penBtn()); }
-    if (tb && !tb.querySelector("[data-fs],a.ti[href^='#/chart']")) tb.insertAdjacentHTML("beforeend", fsBtn());   // every chart can go full screen (options too)
+    arrangeBar(tb);   // every chart: measure, drawing, chart settings, full screen (options too)
   } catch (e) { console.warn(e); }
   const r = mount0.call(this, container, parts, cb);
   try {
@@ -149,7 +163,7 @@ CH.mount = function(container, parts, cb){
 
 /* ================= drawing tools ================= */
 const NS = "http://www.w3.org/2000/svg", BLUE = "#2E6BFF";
-const dstore = sym => { const s = store.s; s.drawings = s.drawings || {}; if (!s.drawings[sym]){ let a = []; try { a = (JSON.parse(localStorage.getItem("draw_" + sym) || "[]") || []).filter(d => ["trend","ray","hline","rect"].includes(d.k)).map((d, i) => Object.assign({id:"m" + i + Date.now()}, d)); } catch {} s.drawings[sym] = a; } return s.drawings[sym]; };
+const dstore = sym => { const s = store.s; s.drawings = s.drawings || {}; if (!s.drawings[sym]){ let a = []; try { a = (JSON.parse(localStorage.getItem("draw_" + sym) || "[]") || []).filter(d => ["trend","ray","hline","vline","rect"].includes(d.k)).map((d, i) => Object.assign({id:"m" + i + Date.now()}, d)); } catch {} s.drawings[sym] = a; } return s.drawings[sym]; };
 const dsave = () => store.save();
 const did = () => "d" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
 let D = {tool:null, sel:null, temp:null, st:null, els:new Map(), clipId:"dwc" + Math.random().toString(36).slice(2, 6)};
@@ -164,14 +178,15 @@ function initDraw(container){
   const cc = wrap.closest(".cp-chart");
   cc.querySelector(".dw3-bar")?.remove();
   const bar = document.createElement("div"); bar.className = "dw3-bar hide";
-  bar.innerHTML = [["trend","Trend line"],["hline","H-line"],["ray","Ray"],["rect","Rect"]].map(([k, n]) => `<button data-dt="${k}">${n}</button>`).join("") +
-    `<button data-dsel class="dis">${U.ic("trash", 13)} Delete</button><button data-dclr>Clear all</button><span class="dw3-hint"></span><button data-dx class="dw3-x" aria-label="Close tools">${U.ic("close", 14)}</button>`;
-  cc.insertBefore(bar, wrap);
+  bar.innerHTML = [["trend","Trend line"],["hline","H-line"],["vline","V-line"],["ray","Ray"],["rect","Rect"]].map(([k, n]) => `<button data-dt="${k}">${n}</button>`).join("") +
+    `<button data-dsty class="dw3-sty" aria-label="Line colour and style"><i class="dw3-sw"></i><i class="dw3-ln"></i></button><button data-dsel class="dis">${U.ic("trash", 13)} Delete</button><button data-dclr>Clear all</button><span class="dw3-hint"></span><button data-dx class="dw3-x" aria-label="Close tools">${U.ic("close", 14)}</button>`;
+  cc.insertBefore(bar, wrap); styBtn(bar);
   cur = {svg, bar, wrap, cc, g:svg.querySelector(".dwr"), clip:svg.querySelector("rect")};
   D = Object.assign(D, {tool:null, sel:null, temp:null, st:null}); D.els = new Map();
   bar.addEventListener("click", e => {
     const b = e.target.closest("button"); if (!b) return;
-    if (b.dataset.dt){ setTool(D.tool === b.dataset.dt ? null : b.dataset.dt); return; }
+    if (b.dataset.dt){ U.buzz(8); setTool(D.tool === b.dataset.dt ? null : b.dataset.dt); return; }
+    if (b.hasAttribute("data-dsty")){ U.buzz(8); stylePop(b); return; }
     if (b.hasAttribute("data-dsel")){ if (D.sel){ const g = CH.geo(); if (g){ const a = dstore(g.sym), i = a.findIndex(d => d.id === D.sel); if (i >= 0){ a.splice(i, 1); dsave(); } } select(null); } return; }
     if (b.hasAttribute("data-dclr")){ const g = CH.geo(); if (g){ store.s.drawings[g.sym] = []; dsave(); select(null); U.toast("Drawings cleared", "ok", 1200); } return; }
     if (b.hasAttribute("data-dx")) showBar(false);
@@ -179,10 +194,16 @@ function initDraw(container){
   svg.addEventListener("pointerdown", onDown); svg.addEventListener("pointermove", onMove); svg.addEventListener("pointerup", onUp); svg.addEventListener("pointercancel", () => { D.st = null; });
   svg.addEventListener("touchstart", e => { if (D.tool || e.target.closest(".hit,.hd")) e.preventDefault(); }, {passive:false});
   wrap.addEventListener("pointerdown", e => { if (D.sel && !e.target.closest(".dw3")) select(null); }, true);
-  CH.frame = renderDW;
+  /* v7.4: while the drawing tools are open, a plain tap on the chart hides the tool row; the next tap brings it back */
+  let tp = null;
+  wrap.addEventListener("pointerdown", e => { tp = cur && !cur.bar.classList.contains("hide") && !D.tool && !MS.phase && !e.target.closest(".hit,.hd,[data-mk],[data-drag],[data-qo],.mkpop,.lqbox,.lqpop,.aibox,.auto-btn") ? {x:e.clientX, y:e.clientY, t:Date.now()} : null; }, true);
+  wrap.addEventListener("pointerup", e => { const s0 = tp; tp = null; if (!s0 || D.tool || MS.phase || !cur || Math.hypot(e.clientX - s0.x, e.clientY - s0.y) > 8 || Date.now() - s0.t > 450) return;
+    styleClose(); cur.bar.classList.toggle("peek"); }, true);
+  initMeasure(wrap);
+  CH.frame = () => { renderDW(); renderMeasure(); };
 }
-function showBar(on){ if (!cur) return; cur.bar.classList.toggle("hide", !on); (FS ? FS.ov : cur.cc.parentElement).querySelectorAll("[data-drawt]").forEach(b => b.classList.toggle("on", on)); if (!on){ setTool(null); select(null); } }
-function setTool(t){ D.tool = t; D.temp = null; if (cur){ cur.svg.classList.toggle("on", !!t); cur.bar.querySelectorAll("[data-dt]").forEach(b => b.classList.toggle("on", b.dataset.dt === t)); hint(t ? (t === "hline" ? "Tap the chart to place the line" : "Tap the first point") : ""); } if (t) select(null); }
+function showBar(on){ if (!cur) return; cur.bar.classList.toggle("hide", !on); cur.bar.classList.remove("peek"); styleClose(); if (on) msClear(); (FS ? FS.ov : cur.cc.parentElement).querySelectorAll("[data-drawt]").forEach(b => b.classList.toggle("on", on)); if (!on){ setTool(null); select(null); } }
+function setTool(t){ D.tool = t; D.temp = null; if (cur){ cur.svg.classList.toggle("on", !!t); cur.bar.querySelectorAll("[data-dt]").forEach(b => b.classList.toggle("on", b.dataset.dt === t)); hint(t ? (t === "hline" || t === "vline" ? "Tap the chart to place the line" : "Tap the first point") : ""); } if (t) select(null); }
 function hint(t){ const h = cur && cur.bar.querySelector(".dw3-hint"); if (h) h.textContent = FS ? (t || "") : ""; if (t && !FS) U.toast(t, "info", 1400); }
 function select(id){ D.sel = id; if (cur) cur.bar.querySelector("[data-dsel]").classList.toggle("dis", !id); D.els.forEach(e => e.g.classList.toggle("sel", e.id === id)); }
 /* pointer position inside the svg (the full-screen view may be rotated with CSS; remapped events already carry unrotated coordinates) */
@@ -202,10 +223,11 @@ function onMove(e){
   if (D.st && D.st.mode === "new" && Math.hypot(l.x - D.st.x, l.y - D.st.y) > 6) D.st.moved = true;
   if (D.temp){ const q = P(g, l.x, l.y); if (q) D.temp.b = q; }
 }
-function finish(d){ const g = CH.geo(); const a = dstore(g.sym); d.id = did(); a.push(d); dsave(); D.temp = null; setTool(null); select(d.id); }
+function finish(d){ const g = CH.geo(); const a = dstore(g.sym); d.id = did(); const st = dsty(); d.c = st.c; d.ls = st.ls; a.push(d); dsave(); D.temp = null; setTool(null); select(d.id); }
 function onUp(e){
   if (!cur || !D.tool || !D.st || D.st.mode !== "new") return; const g = CH.geo(); const s0 = D.st; D.st = null; if (!g) return; const l = loc(e), q = P(g, l.x, l.y); if (!q) return;
   if (D.tool === "hline") return finish({k:"hline", p:q.p, a:q, b:q});
+  if (D.tool === "vline") return finish({k:"vline", a:q, b:q});
   if (!D.temp){
     if (s0.moved){ const a0 = P(g, s0.x, s0.y); if (a0) return finish({k:D.tool, a:a0, b:q}); }
     D.temp = {k:D.tool, a:q, b:q}; hint("Tap the second point"); return;
@@ -217,6 +239,7 @@ function onWinMove(e){
   const s = D.st; if (!s || s.mode !== "edit" || !cur) return; const g = CH.geo(); if (!g) return; e.preventDefault();
   const d = dstore(g.sym).find(x => x.id === s.id); if (!d) return; const l = loc(e), q = P(g, l.x, l.y); if (!q) return; s.moved = true;
   if (d.k === "hline"){ d.p = q.p - (s.p0.p - s.hp); return; }
+  if (d.k === "vline"){ d.a = {t:s.a.t + (q.t - s.p0.t), p:s.a.p}; d.b = d.a; return; }
   if (s.part === "a") d.a = q; else if (s.part === "b") d.b = q;
   else { const dt = q.t - s.p0.t, dp = q.p - s.p0.p; d.a = {t:s.a.t + dt, p:s.a.p + dp}; d.b = {t:s.b.t + dt, p:s.b.p + dp}; }
 }
@@ -228,8 +251,8 @@ function group(d){
   const o = {g, id:d.id, k:d.k};
   if (d.k === "rect"){ o.fill = mk("rect", "fillr"); o.hit = mk("rect", "hit"); o.vis = mk("rect", "vis"); }
   else { o.hit = mk("line", "hit"); o.vis = mk("line", "vis"); }
-  if (d.k === "hline") o.txt = mk("text", "dtx");
-  o.ha = mk("circle", "hd", "a"); if (d.k !== "hline") o.hb = mk("circle", "hd", "b");
+  if (d.k === "hline" || d.k === "vline") o.txt = mk("text", "dtx" + (d.k === "vline" ? " v" : ""));
+  o.ha = mk("circle", "hd", "a"); if (d.k !== "hline" && d.k !== "vline") o.hb = mk("circle", "hd", "b");
   return o;
 }
 function renderDW(){
@@ -244,6 +267,12 @@ function renderDW(){
     let o = D.els.get(d.id); if (o && o.k !== d.k){ o.g.remove(); o = null; }
     if (!o){ o = group(d); o.id = d.id; o.k = d.k; if (d.id === "tmp") o.g.classList.add("tmp"); D.els.set(d.id, o); root.appendChild(o.g); o.g.classList.toggle("sel", d.id === D.sel); }
     const sel = d.id === D.sel;
+    paint(o, d);
+    if (d.k === "vline"){
+      const x = g.t2x(d.a.t); if (x == null){ o.g.style.display = "none"; return; } o.g.style.display = "";
+      const A = {x1:x, x2:x, y1:0, y2:g.h}; setA(o.hit, A); setA(o.vis, A); setA(o.ha, {cx:x, cy:g.h / 2, r:7});
+      setA(o.txt, {x:x + 4, y:g.h - 6}); const lb = tlab(d.a.t); if (o.txt._v !== lb){ o.txt._v = lb; o.txt.textContent = lb; } return;
+    }
     if (d.k === "hline"){
       const y = g.p2y(d.p); if (y == null){ o.g.style.display = "none"; return; } o.g.style.display = "";
       const A = {x1:0, x2:w, y1:y, y2:y}; setA(o.hit, A); setA(o.vis, A); setA(o.ha, {cx:w - 14, cy:y, r:7});

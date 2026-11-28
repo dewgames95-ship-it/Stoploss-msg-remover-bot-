@@ -582,7 +582,7 @@ Pages.profile = () => {
     <section class="pf-card"><h3 class="pf-h">Trade</h3>
     ${G([["chart","Markets","#/markets"],["swap","Spot","#/spot"],["candle","Futures","#/futures"],["clock","Binary","#/trade"],["layers","Options","#/options"],["users","Copy Trading","#/copy"],["bot","Trading Bots","#/bots"]])}</section>
     <section class="pf-card"><h3 class="pf-h">Earn &amp; Rewards</h3>
-    ${G([["earn","Earn","#/earn"],["wallet","Assets","#/assets"],["pie","PnL Analysis","#/pnl"],["trophy","Rewards Hub","#/rewards"],["ring","Price Alerts","#/alerts"],["book","Academy","#/academy"]])}</section>
+    ${G([["earn","Earn","#/earn"],["wallet","Assets","#/assets"],["pie","PnL Analysis","#/pnl"],["trophy","Rewards Hub","#/rewards"],["ring","Price Alerts","#/alerts"],["book","Tutorial","#/academy"]])}</section>
     <h3 class="pf-h">Account</h3>
     <section class="pf-list">${L("shield","Verification",'<span class="pf-ok">Verified</span>',"data-ver")}${L("lock","Security Center","",'href="#/security"')}${L("history","Trade History","",'href="#/history"')}${L("gear","Settings & Preferences","",'href="#/settings"')}${L("grid","Practical Functions","","data-prac")}</section>
     <h3 class="pf-h">Help</h3>
@@ -815,12 +815,29 @@ Pages.preferences = Pages.prefs = () => {
     const a = k === "left" ? [6, 42] : [46, 6];
     return `<svg viewBox="0 0 84 70" class="pr-ill" aria-hidden="true"><rect x=".5" y=".5" width="83" height="69" rx="7" fill="var(--card)" stroke="var(--line)"/>${chartBlk(6, 6, 72, 18)}${formBlk(a[0] === 6 ? 6 : 46, 28, 32, 36)}${bookBlk(a[0] === 6 ? 44 : 6, 28, 34, 36)}</svg>`;
   };
+  const fmSvg = k => {
+    const fr = `<rect x=".5" y=".5" width="83" height="69" rx="7" fill="var(--card)" stroke="var(--line)"/>`, bar = (y, w, c = "var(--input)", h = 7) => `<rect x="8" y="${y}" width="${w}" height="${h}" rx="3" fill="${c}"/>`;
+    return k === "easy"
+      ? `<svg viewBox="0 0 84 70" class="pr-ill" aria-hidden="true">${fr}${bar(8, 68)}${bar(19, 68)}<rect x="8" y="31" width="68" height="3" rx="1.5" fill="var(--line-2)"/>${bar(40, 68, "var(--up)", 12)}${bar(55, 68, "var(--down)", 9)}</svg>`
+      : `<svg viewBox="0 0 84 70" class="pr-ill" aria-hidden="true">${fr}<rect x="8" y="7" width="20" height="6" rx="3" fill="var(--input)"/><rect x="31" y="7" width="20" height="6" rx="3" fill="var(--input)"/><rect x="54" y="7" width="22" height="6" rx="3" fill="var(--input)"/>${bar(16, 68, "var(--input)", 6)}${bar(25, 68, "var(--input)", 6)}${bar(34, 68, "var(--input)", 6)}<rect x="8" y="43" width="30" height="3" rx="1.5" fill="var(--line-2)"/><rect x="8" y="49" width="45" height="3" rx="1.5" fill="var(--line-2)"/>${bar(55, 32, "var(--up)", 8)}<rect x="44" y="55" width="32" height="8" rx="3" fill="var(--down)"/></svg>`;
+  };
+  const miniSvg = (k, v) => {
+    const fr = `<rect x=".5" y=".5" width="83" height="35" rx="7" fill="var(--card)" stroke="var(--line)"/>`, ar = (x, up) => `<path d="M${x} ${up ? 26 : 10} V${up ? 10 : 26} M${x - 4} ${up ? 14 : 22} L${x} ${up ? 10 : 26} L${x + 4} ${up ? 14 : 22}" fill="none" stroke="${up ? "var(--up)" : "var(--down)"}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`;
+    let b = "";
+    if (k === "pos") b = v === "hedge" ? ar(30, true) + ar(54, false) + `<text x="42" y="22" font-size="8" text-anchor="middle" fill="var(--muted)">+</text>` : ar(42, true) + `<text x="62" y="22" font-size="8" fill="var(--muted)">only</text>`;
+    else if (k === "unit") b = `<rect x="14" y="11" width="56" height="14" rx="5" fill="var(--input)"/><text x="42" y="22" font-size="9" font-weight="700" text-anchor="middle" fill="var(--text-2)">${v === "COIN" ? "0.5 BTC" : "100 USDT"}</text>`;
+    else if (k === "trig") b = `<path d="M8 28 L24 20 L38 24 L54 12 L76 16" fill="none" stroke="var(--muted)" stroke-width="1.6"/><line x1="8" y1="${v === "mark" ? 18 : 14}" x2="76" y2="${v === "mark" ? 18 : 14}" stroke="var(--brand)" stroke-width="1.2" stroke-dasharray="3 3"/><circle cx="${v === "mark" ? 46 : 54}" cy="${v === "mark" ? 18 : 12}" r="3" fill="var(--brand)"/>`;
+    else b = `<rect x="10" y="9" width="18" height="18" rx="5" fill="var(--input)"/><rect x="33" y="9" width="18" height="18" rx="5" fill="var(--input)"/><rect x="56" y="9" width="18" height="18" rx="5" fill="var(--input)"/>`;
+    return `<svg viewBox="0 0 84 36" class="pr-ill pr-mini" aria-hidden="true">${fr}${b}</svg>`;
+  };
   const card = (attr, val, cur, label, ill) => `<button class="pr-card ${cur === val ? "on" : ""}" ${attr}="${val}" aria-pressed="${cur === val}">${ill}<span>${label}</span></button>`;
 
   /* ---- tab bodies ---- */
   const bodyMode = () => `
     <div class="pr-sec">
-      <div class="pr-row"><div class="pr-main"><div class="pr-t">Futures Mode</div></div>${seg("data-fm", F().mode, [["classic", "Classic"], ["easy", "Easy"]])}</div>
+      <div class="pr-h" style="margin:4px 0 8px">Futures Mode</div>
+      <div class="pr-cards two">${[["classic", "Classic"], ["easy", "Easy"]].map(([k, n]) => card("data-fm", k, F().mode === "easy" ? "easy" : "classic", n, fmSvg(k))).join("")}</div>
+      <p class="pr-p" style="margin:8px 2px 12px">${F().mode === "easy" ? "Easy: a simpler order form with Market and Limit only, big Long and Short buttons, and no margin mode, TP/SL or fee rows." : "Classic: the full order form with margin mode, TP/SL, fees and every detail."}</p>
       ${vrow("acct", "Account Mode", "Classic Trading")}
       ${vrow("pos", "Position Mode", nameOf[F().posMode])}
       ${vrow("asset", "Asset Mode", nameOf[F().asset || "single"])}
@@ -895,13 +912,13 @@ Pages.preferences = Pages.prefs = () => {
       el.querySelectorAll(".pr-opt").forEach(b => b.onclick = () => { const a = [...b.attributes].find(x => x.name.startsWith("data-")); onPick(a.value); save(); U.closeLayer(); render(); });
     });
     const sheets = {
-      acct: () => U.sheet("Account Mode", `<div class="pr-opts">${opt("data-x", "c", "c", "Classic Trading", `<p class="pr-p">Trade Spot, Futures and Options with separate balances and the full set of order types.</p>`)}</div>`),
-      pos: () => pick("Position Mode", opt("data-v", "oneway", F().posMode, "One-way Mode", `<p class="pr-p">Hold a single position per contract, in one direction only.</p>`) + opt("data-v", "hedge", F().posMode, "Hedge Mode", `<p class="pr-p">Hold long and short positions on the same contract at the same time.</p>`), v => F().posMode = v),
+      acct: () => U.sheet("Account Mode", `<div class="pr-opts">${opt("data-x", "c", "c", "Classic Trading", `${miniSvg("acct")}<p class="pr-p">Trade Spot, Futures and Options with separate balances and the full set of order types.</p>`)}</div>`),
+      pos: () => pick("Position Mode", opt("data-v", "oneway", F().posMode, "One-way Mode", `${miniSvg("pos", "oneway")}<p class="pr-p">Hold a single position per contract, in one direction only.</p>`) + opt("data-v", "hedge", F().posMode, "Hedge Mode", `${miniSvg("pos", "hedge")}<p class="pr-p">Hold long and short positions on the same contract at the same time.</p>`), v => F().posMode = v),
       asset: () => { const a = F().asset || "single"; pick("Asset Mode",
         opt("data-v", "single", a, "Single-Asset Mode", bullets(["Margin is the contract's own settlement asset", "Profit and loss from one contract does not offset another", "Simple and predictable risk per position"]), `<span class="pr-oi">${ic("wallet", 20)}</span>`) +
         opt("data-v", "multi", a, "Multi-Assets Mode", bullets(["Use several assets as shared margin", "Unrealized profits from one position can support others", "Cross-margin only, higher liquidation interdependence"]), `<span class="pr-oi">${ic("layers", 20)}</span>`), v => F().asset = v); },
-      unit: () => pick("Unit Preference", opt("data-v", "USDT", F().unit, "USDT (Order Size)", `<p class="pr-p">Enter order size in USDT value.</p>`) + opt("data-v", "COIN", F().unit, "Coin", `<p class="pr-p">Enter order size in the base coin, e.g. BTC.</p>`), v => F().unit = v),
-      trig: () => pick("Default Trigger Type", opt("data-v", "last", F().trig, "Last Price", `<p class="pr-p">Triggers on the latest traded price.</p>`) + opt("data-v", "mark", F().trig, "Mark Price", `<p class="pr-p">Triggers on the fair mark price, less prone to wicks.</p>`), v => F().trig = v),
+      unit: () => pick("Unit Preference", opt("data-v", "USDT", F().unit, "USDT (Order Size)", `${miniSvg("unit", "USDT")}<p class="pr-p">Enter order size in USDT value.</p>`) + opt("data-v", "COIN", F().unit, "Coin", `${miniSvg("unit", "COIN")}<p class="pr-p">Enter order size in the base coin, e.g. BTC.</p>`), v => F().unit = v),
+      trig: () => pick("Default Trigger Type", opt("data-v", "last", F().trig, "Last Price", `${miniSvg("trig", "last")}<p class="pr-p">Triggers on the latest traded price.</p>`) + opt("data-v", "mark", F().trig, "Mark Price", `${miniSvg("trig", "mark")}<p class="pr-p">Triggers on the fair mark price, less prone to wicks.</p>`), v => F().trig = v),
       lev: () => {
         let lv = Math.max(1, Math.min(125, st().lev || 20)), mm = st().marginMode || "cross";
         U.sheet("Default Leverage & Margin Mode", `<div class="pr-lv"><div class="pr-lv-v"><b id="prLv">${lv}x</b></div><input type="range" id="prLvR" min="1" max="125" value="${lv}" aria-label="Leverage"><div class="pr-lv-m"><span>1x</span><span>25x</span><span>50x</span><span>75x</span><span>100x</span><span>125x</span></div>
@@ -921,7 +938,7 @@ Pages.preferences = Pages.prefs = () => {
       if ((b = t.closest("[data-tab]"))){ tab = b.dataset.tab; return render(); }
       if ((b = t.closest("[data-sub]"))){ sub = b.dataset.sub; return render(); }
       if ((b = t.closest("[data-open]"))) return sheets[b.dataset.open]();
-      if ((b = t.closest("[data-fm]"))){ F().mode = b.dataset.fm; save(); return render(); }
+      if ((b = t.closest("[data-fm]"))){ F().mode = b.dataset.fm; save(); document.documentElement.dataset.fmode = F().mode === "easy" ? "easy" : "classic"; return render(); }
       if ((b = t.closest("[data-kl]"))){ L().kline = b.dataset.kl; save(); return render(); }
       if ((b = t.closest("[data-ol]"))){ L().order = b.dataset.ol; save(); return render(); }
       if ((b = t.closest("[data-bs]"))){ L().bstab = b.dataset.bs === "1"; save(); return render(); }
@@ -935,6 +952,8 @@ Pages.preferences = Pages.prefs = () => {
     render();
   }};
 };
+/* Easy futures mode: the futures page is styled through html[data-fmode="easy"] (css/pairinfo.css) */
+setTimeout(() => { try { document.documentElement.dataset.fmode = S().settings.futp?.mode === "easy" ? "easy" : "classic"; } catch {} }, 0);
 /* entry row in Settings */
 const _st = Pages.settings;
 Pages.settings = (...a) => { const p = _st(...a); p.html = p.html.replace('<div class="pm-page">', `<div class="pm-page"><section class="pm-sec"><a class="pm-row tap" href="#/preferences"><span class="pm-main"><span class="pm-t">Preferences</span><span class="pm-s" style="display:block">Trading mode, layout and notifications</span></span><span class="chev">${ic("chev", 16)}</span></a></section>`); return p; };

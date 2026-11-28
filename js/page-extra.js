@@ -1,4 +1,4 @@
-/* ===== Rewards Hub, Academy, Price Alerts (Pages.assets / Pages.deposit live in page-x2.js) ===== */
+/* ===== Rewards Hub, Tutorial (was Academy), Price Alerts (Pages.assets / Pages.deposit live in page-x2.js) ===== */
 (function(){
 const C = window.CONFIG, {esc, ic, store, bus, money, signed, toast, spark, fmt} = U;
 const S = () => store.s;
@@ -70,12 +70,17 @@ const LESSONS = [
   {k:"lev", t:"Leverage & liquidation", lvl:"Advanced", body:["Leverage multiplies both profit and loss. At 50x a 2% move against you wipes the margin.","Liquidation price ≈ entry × (1 − 1/leverage) for longs. Always check the Est. liq. price before opening."], q:["Higher leverage moves the liquidation price…",["Closer to entry","Further from entry","Nowhere"],0]},
   {k:"risk", t:"Risk management rules", lvl:"All levels", body:["Risk 1–2% of your balance per trade. Always use a stop loss on Futures.","Don't chase losses. Keep a journal: your Assets page shows 7-day PnL and win rate to review your edge."], q:["A sensible risk per trade is…",["1–2% of balance","25% of balance","All-in"],0]}
 ];
+window.loadTutorial = window.loadTutorial || (cb => { if (window.TUT) return cb(); const sc = document.createElement("script"); sc.src = "js/tutorial.js?v=7.4"; sc.onload = cb; document.head.appendChild(sc); });
 Pages.academy = () => {
-  const html = `<div class="px-page">${hd("Academy")}
-    <div class="px-sec" style="padding-top:8px"><p class="px-t2">Short lessons with pictures and examples. Tap any lesson to read it.</p></div>
+  const x = `<button class="tt-x" data-ttpx aria-label="Close">${ic("x",20,2)}</button>`;
+  const html = `<div class="px-page"><header class="tt-head"><h1>Tutorial</h1>${x}</header>
+    <p class="tt-lead">Tap a feature to learn it step by step.</p><div id="ttf"></div>
+    <h2 class="tt-gk">General knowledge</h2><p class="tt-gks">Short lessons with pictures and examples. Tap any lesson to read it.</p>
     <div id="ll"></div></div>`;
   const LV = {Beginner:"br", Intermediate:"", Advanced:"dn", "All levels":"up"};
-  return {html, title:"Academy", mount(r){
+  return {html, title:"Tutorial", mount(r){
+    r.querySelector("[data-ttpx]").onclick = () => { if (history.length > 1) history.back(); else location.hash = "#/home"; };
+    window.loadTutorial(() => { const b = r.querySelector("#ttf"); if (b){ b.innerHTML = TUT.cardsHtml(); TUT.bind(b); } });
     const read = k => !!S().rewards.used["lesson:" + k];
     const render = () => {
       const n = LESSONS.filter(l => read(l.k)).length;
@@ -100,6 +105,7 @@ Pages.academy = () => {
     });
   }};
 };
+Pages.tutorial = Pages.academy;
 
 /* ---------- Price alerts ---------- */
 Pages.alerts = () => {

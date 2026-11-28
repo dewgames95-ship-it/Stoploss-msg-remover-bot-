@@ -59,6 +59,19 @@ function tpCalc({k, mode, val, ep, lev = 1, notional = 0, side}){
   const sd = side || (up ? (val >= ep ? "long" : "short") : (val <= ep ? "long" : "short")), mv = (val - ep) / ep * (sd === "long" ? 1 : -1);
   return {price: val, roi: mv * lev * 100, pnl: notional ? mv * notional : 0, side: sd};
 }
+/* v7.4: how many order-book rows fit next to the order form. st = {a, b, min, max} (asks / bids rows). Returns true when st changed (caller re-renders). */
+function fitBook(box, form, st){
+  try {
+    if (!box || !form || !box.isConnected) return false;
+    const r = box.querySelector(".r"); if (!r) return false;
+    const rh = r.getBoundingClientRect().height, fh = form.getBoundingClientRect().height, bh = box.getBoundingClientRect().height;
+    if (!(rh > 8) || !(fh > 60) || !(bh > 0)) return false;
+    const extra = Math.floor((fh - bh) / rh); if (!extra) return false;
+    const T = Math.max(2 * st.min, Math.min(2 * st.max, st.a + st.b + extra)), a = Math.ceil(T / 2), b = T - a;
+    if (a === st.a && b === st.b) return false;
+    st.a = a; st.b = b; return true;
+  } catch { return false; }
+}
 function unitSheet(coin, cur, onPick){
   const o = (k, n, d) => `<button class="un-o${cur === k ? " on" : ""}" data-un="${k}"><b>${n}</b><p>${d}</p></button>`;
   U.sheet("Unit Preference", o("coin", esc(coin), "Based on asset (BTC, ETH, BNB etc.) quantity, the order will execute as per quantity selected multiplied by the best available price for the current pair.") + o("usdt", "USDT", "The order will execute based on the total amount you want to spend, regardless of asset (BTC, ETH, BNB etc.) quantity."),
@@ -130,8 +143,8 @@ const hq = k => `<button type="button" class="hq" data-fh="${k}" aria-label="Hel
 document.addEventListener("click", e => {
   const t = e.target.closest && e.target.closest("[data-fh]"); if (!t) return;
   e.preventDefault(); e.stopPropagation(); const f = FH[t.dataset.fh]; if (!f) return;
-  if (window.UI && UI.help) UI.help(f[0], f[1]); else U.sheet(f[0], f[1]);
+  if (window.UI && UI.tip) UI.tip(f[0], f[1]); else if (window.UI && UI.help) UI.help(f[0], f[1]); else U.sheet(f[0], f[1]);
 }, true);
-window.TX = {flyMoney, clearFx, sweep, tapPrice, tpCalc, unitSheet, feeNote, buzz, sgn, numInput, numFmt, hq};
+window.TX = {fitBook, flyMoney, clearFx, sweep, tapPrice, tpCalc, unitSheet, feeNote, buzz, sgn, numInput, numFmt, hq};
 window.U.numInput = numInput;
 })();
