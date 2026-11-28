@@ -1,0 +1,85 @@
+/* ===== v7.2 palette layer (lead). OPT-IN + fully reversible:
+   only active when <html data-pal="slate|navy|mocha">. Remove the attribute (or this file) = old look back.
+   Same-hue shade gradients for page, cards, tiles and the primary button. Buy/Sell green/red never change. ===== */
+
+/* ---------- SLATE (teal-blue grey) #101C25 #203746 #35586A #63899A #A3BBC4 #E1EAEB ---------- */
+html:root[data-pal="slate"][data-theme="dark"]{
+  --bg:#0F1A22; --card:#13212B; --card-2:#172833; --chart-bg:#0F1A22; --panel:#172833; --input:#1B2E3A; --hover:#22394A;
+  --line:#1E3341; --line-2:#284556; --text:#E1EAEB; --text-2:#A3BBC4; --muted:#6F93A3;
+  --surface:#182A36; --cardfill:#182A36; --glass:rgba(15,26,34,.92); --sky-soft:#172833; --grad-soft:#172833;
+  --bg-top:#152733; --bg-bot:#0D171E;
+  --card-g1:#1A2E3B; --card-g2:#14232D; --card-bd:#24394A;
+  --surf-g1:#1A2E3B; --surf-g2:#14232D; --tile-g1:#213848; --tile-g2:#192C38;
+  --ctl-g1:#21384A; --ctl-g2:#1A2D3A; --sel-bg:linear-gradient(180deg,#2C4A5D,#23394A);
+  --brand:#8FB4C4; --brand-2:#A3BBC4; --brand-soft:rgba(143,180,196,.13); --brand-soft-2:rgba(143,180,196,.22);
+  --pal-btn:linear-gradient(180deg,#B4CAD2 0%,#8FAEBC 55%,#6E93A4 100%); --pal-btn-tx:#0F1A22;
+  --grad-brand:var(--pal-btn); --cta:var(--pal-btn); --grad:#8FB4C4;
+  --ig-1:#E1EAEB; --ig-2:#8FB4C4; --focus-bd:#35586A; --pal-sheet:#14232D;
+}
+html:root[data-pal="slate"][data-theme="light"]{
+  --bg:#F4F7F8; --card:#FFFFFF; --card-2:#EDF2F3; --panel:#EDF2F3; --input:#EDF2F3; --hover:#E1EAEB;
+  --line:#DDE6E8; --line-2:#CBD8DC; --text:#101C25; --text-2:#35586A; --muted:#63899A;
+  --surface:#EEF3F4; --cardfill:#EEF3F4; --bg-top:#E9F0F2; --bg-bot:#F8FAFA;
+  --card-g1:#FFFFFF; --card-g2:#F1F5F6; --card-bd:#DCE5E8; --tile-g1:#FFFFFF; --tile-g2:#EAF0F2;
+  --brand:#35586A; --brand-2:#203746; --brand-soft:rgba(53,88,106,.09); --brand-soft-2:rgba(53,88,106,.16);
+  --pal-btn:linear-gradient(180deg,#46708A 0%,#35586A 55%,#284556 100%); --pal-btn-tx:#FFFFFF;
+  --grad-brand:var(--pal-btn); --cta:var(--pal-btn); --grad:#35586A; --ig-1:#203746; --ig-2:#4E7A90; --pal-sheet:#FFFFFF;
+}
+
+/* ---------- NAVY (blue slate + pearl) #141E2B #26394D #405B72 #71899B #B2C1C5 #E8E9E2 ---------- */
+html:root[data-pal="navy"][data-theme="dark"]{
+  --bg:#121B27; --card:#16212F; --card-2:#1B2838; --chart-bg:#121B27; --panel:#1B2838; --input:#1F2E40; --hover:#26394D;
+  --line:#22324A; --line-2:#2D4259; --text:#E8E9E2; --text-2:#B2C1C5; --muted:#7A90A2;
+  --surface:#1C2939; --cardfill:#1C2939; --glass:rgba(18,27,39,.92); --sky-soft:#1B2838; --grad-soft:#1B2838;
+  --bg-top:#192638; --bg-bot:#0F1721;
+  --card-g1:#1E2C3E; --card-g2:#172231; --card-bd:#28394F;
+  --surf-g1:#1E2C3E; --surf-g2:#172231; --tile-g1:#25374B; --tile-g2:#1C2A3B;
+  --ctl-g1:#26394D; --ctl-g2:#1E2D3F; --sel-bg:linear-gradient(180deg,#33495F,#28394D);
+  --brand:#9DB2C4; --brand-2:#B2C1C5; --brand-soft:rgba(157,178,196,.13); --brand-soft-2:rgba(157,178,196,.22);
+  --pal-btn:linear-gradient(180deg,#EEEFE9 0%,#C9D3D6 55%,#A6B6BE 100%); --pal-btn-tx:#141E2B;
+  --grad-brand:var(--pal-btn); --cta:var(--pal-btn); --grad:#9DB2C4;
+  --ig-1:#E8E9E2; --ig-2:#9DB2C4; --focus-bd:#405B72; --pal-sheet:#172231;
+}
+html:root[data-pal="navy"][data-theme="light"]{
+  --bg:#F5F6F3; --card:#FFFFFF; --card-2:#EDEFEB; --panel:#EDEFEB; --input:#EDEFEB; --hover:#E3E6E1;
+  --line:#E1E4DE; --line-2:#CDD3D3; --text:#141E2B; --text-2:#405B72; --muted:#71899B;
+  --surface:#EFF1ED; --cardfill:#EFF1ED; --bg-top:#ECEEE9; --bg-bot:#FAFAF8;
+  --card-g1:#FFFFFF; --card-g2:#F2F3EF; --card-bd:#DFE2DC; --tile-g1:#FFFFFF; --tile-g2:#ECEEEA;
+  --brand:#26394D; --brand-2:#405B72; --brand-soft:rgba(38,57,77,.08); --brand-soft-2:rgba(38,57,77,.15);
+  --pal-btn:linear-gradient(180deg,#3A5470 0%,#26394D 55%,#1B2A3A 100%); --pal-btn-tx:#FFFFFF;
+  --grad-brand:var(--pal-btn); --cta:var(--pal-btn); --grad:#26394D; --ig-1:#141E2B; --ig-2:#405B72; --pal-sheet:#FFFFFF;
+}
+
+/* ---------- MOCHA (coffee + gold) #211713 #493126 #78533B #B18A62 #E0C58E #F6EEDB ---------- */
+html:root[data-pal="mocha"][data-theme="dark"]{
+  --bg:#1A1310; --card:#201814; --card-2:#271D18; --chart-bg:#1A1310; --panel:#271D18; --input:#2E221C; --hover:#3A2A21;
+  --line:#33261F; --line-2:#45332A; --text:#F6EEDB; --text-2:#D4C1A4; --muted:#A08468;
+  --surface:#291F19; --cardfill:#291F19; --glass:rgba(26,19,16,.92); --sky-soft:#271D18; --grad-soft:#271D18;
+  --bg-top:#261C17; --bg-bot:#15100D;
+  --card-g1:#2C211B; --card-g2:#221914; --card-bd:#3C2D24;
+  --surf-g1:#2C211B; --surf-g2:#221914; --tile-g1:#35281F; --tile-g2:#2A1F19;
+  --ctl-g1:#382A21; --ctl-g2:#2C2119; --sel-bg:linear-gradient(180deg,#4A3629,#3A2A21);
+  --brand:#E0C58E; --brand-2:#E8D2A2; --brand-soft:rgba(224,197,142,.12); --brand-soft-2:rgba(224,197,142,.2);
+  --pal-btn:linear-gradient(180deg,#EED7A6 0%,#E0C58E 45%,#C29E6E 100%); --pal-btn-tx:#211713;
+  --grad-brand:var(--pal-btn); --cta:var(--pal-btn); --grad:#E0C58E;
+  --ig-1:#F6EEDB; --ig-2:#E0C58E; --focus-bd:#78533B; --pal-sheet:#221914;
+}
+html:root[data-pal="mocha"][data-theme="light"]{
+  --bg:#FBF8F1; --card:#FFFFFF; --card-2:#F6EEDB; --panel:#F6EEDB; --input:#F5EEE0; --hover:#EFE4CC;
+  --line:#EDE3D1; --line-2:#DFD0B6; --text:#211713; --text-2:#5E4434; --muted:#94775B;
+  --surface:#F6F0E3; --cardfill:#F6F0E3; --bg-top:#F6EEDB; --bg-bot:#FDFBF6;
+  --card-g1:#FFFFFF; --card-g2:#F9F3E7; --card-bd:#EADFCB; --tile-g1:#FFFFFF; --tile-g2:#F5EDDD;
+  --brand:#78533B; --brand-2:#493126; --brand-soft:rgba(120,83,59,.09); --brand-soft-2:rgba(120,83,59,.16);
+  --pal-btn:linear-gradient(180deg,#8C6447 0%,#78533B 55%,#5F412E 100%); --pal-btn-tx:#FFFFFF;
+  --grad-brand:var(--pal-btn); --cta:var(--pal-btn); --grad:#78533B; --ig-1:#211713; --ig-2:#78533B; --pal-sheet:#FFFFFF;
+}
+
+/* ---------- shared rules (only under data-pal) ---------- */
+html:root[data-pal] body{background:linear-gradient(180deg,var(--bg-top) 0px,var(--bg-bot) 520px) no-repeat,var(--bg-bot);background-attachment:fixed}
+html:root[data-pal][data-theme] .sheet,html:root[data-pal][data-theme] .drawer,html:root[data-pal][data-theme] .modal{background:var(--pal-sheet)}
+html:root[data-pal] .btn-primary,html:root[data-pal] .btn.btn-primary,html:root[data-pal] .px-btn.pri,html:root[data-pal] .btn-brand{
+  background:var(--pal-btn)!important;color:var(--pal-btn-tx)!important;border-color:transparent!important;box-shadow:0 1px 0 rgba(255,255,255,.18) inset}
+html:root[data-pal] .btn-primary *,html:root[data-pal] .px-btn.pri *{color:inherit}
+/* light-accent palettes (dark theme): anything filled with the brand colour gets dark text */
+html:root[data-pal][data-theme="dark"] :is(.hm-dep,.cp,.tr-next,.cf-xf,.pd-xf,.at-xf,.at-fbtn,.cpy,.bt-cb,.px-lv,.chips button.on,.bb-chips button.on,.pd-chips-row button.on,.btn-primary,.px-btn.pri){color:var(--pal-btn-tx)!important}
+html:root[data-pal] :is(.hm-dep,.tr-next,.cpy,.bt-cb,.cf-xf){background:var(--pal-btn)!important;border-color:transparent!important}
