@@ -197,7 +197,7 @@ function initDraw(container){
   wrap.addEventListener("pointerdown", e => { if (D.sel && !e.target.closest(".dw3")) select(null); }, true);
   /* v7.4: while the drawing tools are open, a plain tap on the chart hides the tool row; the next tap brings it back */
   let tp = null;
-  wrap.addEventListener("pointerdown", e => { tp = cur && !cur.bar.classList.contains("hide") && !D.tool && !MS.phase && !SP && !e.target.closest(".hit,.hd,[data-mk],[data-drag],[data-qo],.mkpop,.lqbox,.lqpop,.aibox,.auto-btn") ? {x:e.clientX, y:e.clientY, t:Date.now()} : null; }, true);
+  wrap.addEventListener("pointerdown", e => { tp = cur && !cur.bar.classList.contains("hide") && !D.tool && !MS.phase && !SP && Date.now() - spOff > 250 && !e.target.closest(".hit,.hd,[data-mk],[data-drag],[data-qo],.mkpop,.lqbox,.lqpop,.aibox,.auto-btn") ? {x:e.clientX, y:e.clientY, t:Date.now()} : null; }, true);
   wrap.addEventListener("pointerup", e => { const s0 = tp; tp = null; if (!s0 || D.tool || MS.phase || !cur || Math.hypot(e.clientX - s0.x, e.clientY - s0.y) > 8 || Date.now() - s0.t > 450) return;
     styleClose(); cur.bar.classList.toggle("peek"); }, true);
   initMeasure(wrap);
@@ -305,8 +305,8 @@ function paint(o, d){ const c = d.c || null, ls = DASH[d.ls || "solid"] || "", k
   if (o.fill) o.fill.style.fill = c ? rgba(c, .12) : ""; if (o.txt) o.txt.style.fill = c || ""; if (o.ha) o.ha.style.stroke = c || ""; if (o.hb) o.hb.style.stroke = c || ""; }
 const tlab = t => { const d = new Date(t * 1000), z = n => String(n).padStart(2, "0"), MO = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"], sc = CH.sec || 60;
   return sc >= 86400 ? `${d.getDate()} ${MO[d.getMonth()]} '${String(d.getFullYear()).slice(2)}` : `${d.getDate()} ${MO[d.getMonth()]} ${z(d.getHours())}:${z(d.getMinutes())}${sc < 60 ? ":" + z(d.getSeconds()) : ""}`; };
-let SP = null;
-function styleClose(){ if (!SP) return; SP.el.remove(); document.removeEventListener("pointerdown", SP.out, true); SP.btn.classList.remove("on"); SP = null; }
+let SP = null, spOff = 0;
+function styleClose(){ if (!SP) return; spOff = Date.now(); SP.el.remove(); document.removeEventListener("pointerdown", SP.out, true); SP.btn.classList.remove("on"); SP = null; }
 function stylePop(btn){
   if (SP){ styleClose(); return; } if (!cur) return;
   const g = CH.geo(), sel = D.sel && g ? dstore(g.sym).find(x => x.id === D.sel) : null, st = sel ? {c:sel.c || SWATCH[0], ls:sel.ls || "solid"} : dsty();

@@ -199,4 +199,5 @@ html body .ob-src,html body .ob-out,html body .fee-b,html body .fxr .fee-l .fee-
 /* v7.4: book fits the form column (measure the natural form height), bigger price field when a book price is tapped, slip chip above the Fee line */
 .fx-grid>div:first-child,.fx-grid>.fbook,.sp-grid>.sp-form,.sp-grid>.sp-book{align-self:start}
 #lp,#spp{font-size:18px;font-weight:600;letter-spacing:.1px}
+@media (max-width:400px){#spp{font-size:16px;letter-spacing:0}}
 .fxr .slip0+.fee-l,.sp-form .slip0+.fee-l{margin-top:6px}

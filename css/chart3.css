@@ -347,3 +347,5 @@ html[data-theme="light"] .mkpop{background:rgba(255,255,255,.98);border-color:#E
 .mk-b span{color:#848E9C}
 .mk-b b{font-weight:600;text-align:right}
 .mk-b .up{color:var(--up,#2EBD85)}.mk-b .down{color:var(--down,#F6465D)}
+html body .cs .cs-top,html body .cs .cs-grid{display:grid!important}
+html body .cs .cs-top button,html body .cs .cs-chip{width:100%;min-width:0;margin:0}
