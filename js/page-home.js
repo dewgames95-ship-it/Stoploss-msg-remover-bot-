@@ -154,7 +154,7 @@ function moreSheet(){
   });
 }
 const SLIDES = [
-  ["Join the Rewards Hub and claim up to 500 USDT","Daily check-in, tasks and badges","#/rewards","trophy"],
+  ["Claim up to 500 USDT in rewards","Daily check-in, tasks and badges","#/rewards","trophy"],
   ["Earn up to 12% APR on idle USDT","Flexible and locked Earn products","#/earn","coins"],
   ["Futures Trading Competition: share 100,000 USDT","Trade perpetuals and climb the board","#/futures","podium"],
   ["Copy top traders with a single tap","Follow verified strategies","#/copy","rocket"],

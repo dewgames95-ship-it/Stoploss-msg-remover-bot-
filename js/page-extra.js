@@ -16,7 +16,7 @@ function taskProg(k){
 }
 Pages.rewards = () => {
   const html = `<div class="px-page">${hd("Rewards Hub")}
-    <div class="px-lv"><div class="a">Your level</div><div class="b" id="lv"></div><div class="px-bar"><i id="xpb"></i></div><div class="c" id="xpl"></div></div>
+    <div class="px-lv"><div class="a">Rewards level <span class="px-lvn">(XP from tasks, separate from VIP)</span></div><div class="b" id="lv"></div><div class="px-bar"><i id="xpb"></i></div><div class="c" id="xpl"></div></div>
     <div class="px-sec"><div class="px-sec-h"><h2>Daily check-in</h2><span class="px-mut" id="stk"></span></div><div class="px-strip" id="days"></div><button class="px-btn br blk" id="ci" style="margin-top:12px"></button></div>
     <div class="px-sec"><div class="px-sec-h"><h2>Tasks</h2><span class="px-mut" id="tcnt"></span></div><div id="tasks"></div></div>
     <div class="px-sec"><div class="px-sec-h"><h2>Badges</h2></div><div class="px-badges" id="bdg"></div></div></div>`;
@@ -24,7 +24,7 @@ Pages.rewards = () => {
     const $ = q => r.querySelector(q);
     const render = () => {
       const lv = E.level(), s = S(), st = E.streak(), done = s.rewards.checkins.includes(E.dayKey());
-      $("#lv").textContent = "Lv." + lv.lvl + " Trader"; $("#xpb").style.width = (lv.cur/lv.need*100) + "%"; $("#xpl").textContent = `${lv.cur} / ${lv.need} XP to Lv.${lv.lvl+1}`;
+      $("#lv").textContent = "Lv." + lv.lvl + " · " + (["Starter","Trader","Pro","Expert","Master"][Math.min(4, Math.max(0, lv.lvl - 1))]); $("#xpb").style.width = (lv.cur/lv.need*100) + "%"; $("#xpl").textContent = `${lv.cur} / ${lv.need} XP to Lv.${lv.lvl+1}`;
       $("#stk").textContent = `${st}-day streak`;
       const pos = done ? (st - 1) % 7 : st % 7;
       $("#days").innerHTML = E.CHECKIN.map((a,i) => { const d = i < pos || (done && i === pos);

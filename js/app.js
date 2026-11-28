@@ -33,7 +33,7 @@ function route(){
   document.title = (page.title || "Page") + " · " + C.APP_NAME;
   document.querySelector('meta[name="description"]').content = DESC[name] || "Binary options and futures trading on live markets.";
   document.body.classList.remove("no-nav");
-  renderNav(["chart","options","spot","predict","racer","apitrade","cfd"].includes(name) ? "futures" : name);
+  renderNav(name === "chart" ? "futures" : name);
   view.querySelectorAll("[data-back]").forEach(b => b.onclick = () => history.length > 1 ? history.back() : (location.hash = "#/home"));
   try { page.mount?.call(page, view); } catch(e){ console.error(e); toast("Something went wrong loading this page", "bad"); }
   window.scrollTo(0, 0);

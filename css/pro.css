@@ -39,3 +39,19 @@ html:root[data-theme] .btn-primary,html:root[data-theme] .px-btn.pri,html:root[d
 .ax-risk.lo{color:var(--up);background:var(--up-bg,rgba(46,189,133,.12))}
 .ax-risk.md{color:#D99A00;background:rgba(247,181,0,.13)}
 .ax-risk.hi{color:var(--down);background:var(--down-bg,rgba(246,70,93,.12))}
+
+/* ===== v7.3 review fixes ===== */
+/* trade strip: "More" always visible at the right edge, slightly smaller tabs on small phones */
+#view .tabs .tab.tab-more{position:sticky;right:-16px;z-index:2;margin-left:auto;padding-left:6px;padding-right:16px;margin-right:-16px;background:var(--bg-top);overflow:visible}
+#view .tabs .tab.tab-more::before{content:"";position:absolute;top:0;bottom:0;right:100%;width:22px;background:linear-gradient(90deg,rgba(0,0,0,0),var(--bg-top));pointer-events:none}
+@media (max-width:400px){#view .tabs .tab{font-size:15px!important}}
+/* one header pattern: sub pages get a centred title like the rest */
+.page-head>.h1:nth-child(2){flex:1;min-width:0;text-align:center;font-size:17px;font-weight:700}
+/* bots: content never hides under the floating Bots / My Investment bar */
+.bt-page{padding-bottom:calc(var(--nav-h,56px) + 84px)}
+/* earn: available vs staked line under the total */
+.pm-avl{font-size:12px;color:var(--muted);margin-top:4px}
+/* rewards level note */
+.px-lvn{font-size:11px;font-weight:500;opacity:.75}
+/* assets donut: compact legend for up to 9 wallets */
+.as-dn ul{gap:4px}.as-dn li{font-size:12px}

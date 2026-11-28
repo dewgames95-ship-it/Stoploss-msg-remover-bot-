@@ -38,6 +38,8 @@ const usd = (v, d = 2) => (v < 0 ? "-" : "") + "$" + fmt(Math.abs(v || 0), d);
 const usdS = v => (v > 0.004 ? "+" : v < -0.004 ? "-" : "") + "$" + fmt(Math.abs(v || 0), 2);
 const hUsd = v => { v = +v || 0; return v >= 1e6 ? "$" + (v / 1e6).toFixed(2) + "M" : v >= 100 ? "$" + fmt(v, 0) : "$" + fmt(v, 2); };
 const cmp = v => { v = +v || 0; const a = Math.abs(v); return a >= 1e9 ? (v/1e9).toFixed(1) + "B" : a >= 1e6 ? (v/1e6).toFixed(1) + "M" : a >= 1e3 ? (v/1e3).toFixed(a >= 1e4 ? 0 : 1) + "K" : fmt(v, 0); };
+/* v7.3: buy buttons show whole cents; extremes read "<1¢" / ">99¢" (like Polymarket) */
+const bc = p => { if (p == null || isNaN(p)) return "--"; const v = p * 100; return v < 1 ? "<1¢" : v > 99 ? ">99¢" : Math.round(v) + "¢"; };
 const cents = p => { if (p == null || isNaN(p)) return "--"; const v = p * 100; if (v > 0 && v < .1) return "<0.1¢"; return (Math.abs(v - Math.round(v)) < 1e-6 ? String(Math.round(v)) : v.toFixed(1)) + "¢"; };
 const chancePct = p => p == null || isNaN(p) ? "--" : p * 100 < 1 && p > 0 ? "<1%" : p * 100 > 99 && p < 1 ? ">99%" : Math.round(p * 100) + "%";
 const shr = v => fmt(v, 2);
@@ -973,7 +975,7 @@ function quickTrade(ev, m, oi, side = "buy"){
 /* =====================================================================================================
    Screen 1: Markets list  (#/predict)
    ===================================================================================================== */
-function ynBtn(m, i){ return `<button type="button" class="pd-ynb ${i ? "no" : "yes"}" data-buy="${m.id}" data-oi="${i}"><span>${esc(short(m.outs[i]))}</span><b class="num" data-${i ? "nb" : "yb"}="${m.id}">${cents(buyPx(m, i))}</b></button>`; }
+function ynBtn(m, i){ return `<button type="button" class="pd-ynb ${i ? "no" : "yes"}" data-buy="${m.id}" data-oi="${i}"><span>${esc(short(m.outs[i]))}</span><b class="num" data-${i ? "nb" : "yb"}="${m.id}">${bc(buyPx(m, i))}</b></button>`; }
 function card(e){
   const href = `#/predict/m/${encodeURIComponent(e.slug)}`, live = Date.parse(e.end) - now() < 86400e3 && Date.parse(e.end) > now();
   const foot = `<div class="pd-card-f"><span class="num">${live ? '<i class="pd-live"></i>' : ""}$${cmp(e.vol)} Vol.</span><span class="pd-endc"><span class="pd-endd">${ic("clock", 12)}${esc(dShort(e.end) || endsIn(e.end))}</span>${Date.parse(e.end) > now() ? `<small class="num" data-left="${esc(e.end)}">${leftTxt(e.end)}</small>` : ""}</span></div>`;
@@ -1017,7 +1019,7 @@ function listScreen(){
   const flush = raf(() => { dirty.forEach(tk => { const m = tokMap.get(tk); if (!m) return; const c = chance(m);
     root.querySelectorAll(`[data-ch="${m.id}"]`).forEach(el => setTxt(el, chancePct(c)));
     const g = root.querySelector(`[data-g="${m.id}"] .pd-g-fg`); if (g){ g.setAttribute("stroke-dashoffset", (100 - c * 100).toFixed(1)); g.style.stroke = gcol(c); }
-    root.querySelectorAll(`[data-yb="${m.id}"]`).forEach(el => setTxt(el, cents(buyPx(m, 0)))); root.querySelectorAll(`[data-nb="${m.id}"]`).forEach(el => setTxt(el, cents(buyPx(m, 1)))); }); dirty.clear(); });
+    root.querySelectorAll(`[data-yb="${m.id}"]`).forEach(el => setTxt(el, bc(buyPx(m, 0)))); root.querySelectorAll(`[data-nb="${m.id}"]`).forEach(el => setTxt(el, bc(buyPx(m, 1)))); }); dirty.clear(); });
   const onPx = tk => { if (tokMap.has(tk)){ dirty.add(tk); flush(); } };
   const showRounds = () => (cat === "hot" || cat === "live") && !qs && (cat === "live" || defF());
   function renderRounds(){

@@ -144,7 +144,7 @@ Pages.earn = () => {
   let tab = "flex", term = 30;
   const apr = v => fmt(v * 100, 2) + "%";
   const html = pwrap("Earn", `
-    <div class="pm-strip"><div class="lbl">Total Earn balance (USDT)</div><div class="big num" data-tot>0.00</div>
+    <div class="pm-strip"><div class="lbl">Total Earn balance (USDT)</div><div class="big num" data-tot>0.00</div><div class="pm-avl" data-av></div>
       <div class="pm-cols c2"><div><span>Cumulative interest</span><b class="num up" data-int>0.00</b></div><div><span>Today's estimated earnings</span><b class="num up" data-today>0.00</b></div></div>
       <div class="pm-acts"><button class="btn btn-primary" data-sub>Subscribe</button><button class="btn btn-ghost" data-red>Redeem</button></div></div>
     <section class="pm-sec"><h3 class="pm-st">Simple Earn <button class="hq" data-yh aria-label="Where does the yield come from?" type="button">?</button></h3>
@@ -161,7 +161,7 @@ Pages.earn = () => {
         return `<div class="pm-prod" data-p="${c}:${d}" style="cursor:pointer">${UI.coinImg(c, 28)}<div class="grow"><div class="pm-nm">${c} ${d ? `<span class="pm-pill b">${d} Days</span>` : `<span class="pm-pill">Flexible</span>`}</div><div class="pm-s">${d ? "Interest paid at maturity" : "Redeem any time"}</div></div>
           <div class="pm-apr"><b class="num">${apr(a)}</b><span>APR</span></div><button class="pm-btn" data-p="${c}:${d}">Subscribe</button></div>`; }).join("");
     };
-    const upd = () => { const t = earnTotals(); $("[data-tot]").textContent = money(t.total); $("[data-int]").textContent = fmt(t.interest, 2); $("[data-today]").textContent = fmt(t.today, 2);
+    const upd = () => { const t = earnTotals(), av = +(U.store.wb ? U.store.wb("earn") : 0) || 0; $("[data-tot]").textContent = money(t.total + av); const avEl = $("[data-av]"); if (avEl) avEl.textContent = `Available ${money(av)} · Staked ${money(t.total)}`; $("[data-int]").textContent = fmt(t.interest, 2); $("[data-today]").textContent = fmt(t.today, 2);
       const e = earnS();
       r.querySelectorAll("[data-acc]").forEach(el => { const id = el.dataset.acc; if (id === "flex") el.textContent = "+" + fmt(flexAcc(), 2); else { const p = e.locked.find(x => x.id === id); if (p) el.textContent = "+" + fmt(lockedAcc(p), 2); } });
       r.querySelectorAll("[data-pg]").forEach(el => { const p = e.locked.find(x => x.id === el.dataset.pg); if (p) el.style.width = Math.min(100, (Date.now() - p.start) / (p.days * DAY) * 100).toFixed(2) + "%"; }); };

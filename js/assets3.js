@@ -495,12 +495,12 @@ const {esc, store, money} = U;
 /* non-zero amounts below 0.0001 read "<0.0001" (balances / history amounts only, never market prices) */
 U.tiny = (v, dp = 4, f) => { const n = +v; if (n > 0 && n < 1e-4) return "<0.0001"; if (n < 0 && n > -1e-4) return "-<0.0001"; return f ? f(n) : U.fmt(n, dp); };
 const WL = ["spot","funding","futures","binary","options","earn","games","predict","cfd"];
-const COL = ["#2F5FE8","#45A6FF","#1E3FA8","#7FB8FF","#8A94A6","#5C6678"];
+const COL = ["#2F5FE8","#45A6FF","#1E3FA8","#7FB8FF","#3D7BFF","#A9CCFF","#8A94A6","#5C6678","#B7BFCC"];
 function donut(){
   const hide = !!store.s.settings.hideBal;
   const rows = WL.map(k => [k, Math.max(0, store.wb(k) || 0)]).filter(r => r[1] > 0).sort((a, b) => b[1] - a[1]);
   const tot = rows.reduce((a, r) => a + r[1], 0); if (!(tot > 0)) return "";
-  const top = rows.slice(0, 5), rest = rows.slice(5).reduce((a, r) => a + r[1], 0);
+  const top = rows.slice(0, 9), rest = rows.slice(9).reduce((a, r) => a + r[1], 0); /* v7.3: every wallet gets its own slice (no vague "Other" for 4 wallets) */
   if (rest > 0) top.push(["other", rest]);
   const R = 42, C = 2 * Math.PI * R; let off = 0;
   const arcs = top.map(([k, v], i) => { const f = v / tot, len = Math.max(0, f * C - (top.length > 1 ? 1.5 : 0)), a = `<circle cx="60" cy="60" r="${R}" fill="none" stroke="${COL[i]}" stroke-width="16" stroke-dasharray="${len.toFixed(2)} ${(C - len).toFixed(2)}" stroke-dashoffset="${(-off).toFixed(2)}" transform="rotate(-90 60 60)"/>`; off += f * C; return a; }).join("");
