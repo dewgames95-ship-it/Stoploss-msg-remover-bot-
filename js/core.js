@@ -10,8 +10,11 @@ const money = n => fmt(n, 2);
 const signed = (n,d=2) => (n>0?"+":n<0?"-":"") + fmt(Math.abs(n), d);
 const pct = n => (n>0?"+":"") + fmt(n, 2) + "%";
 const mmss = s => { s = Math.max(0, Math.ceil(s)); return String(Math.floor(s/60)).padStart(2,"0")+":"+String(s%60).padStart(2,"0"); };
-const timeStr = t => new Date(t).toLocaleTimeString("en-US", {hour:"2-digit",minute:"2-digit",second:"2-digit"});
-const dateStr = t => new Date(t).toLocaleString("en-US", {month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"});
+const MON = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const p2 = n => String(n).padStart(2,"0");
+const timeStr = t => { const d = new Date(t); return p2(d.getHours()) + ":" + p2(d.getMinutes()) + ":" + p2(d.getSeconds()); };
+/* v7.2: one date format everywhere: "27 Nov, 19:31" (year added only when it is not this year) */
+const dateStr = t => { const d = new Date(t); if (isNaN(d)) return "--"; return d.getDate() + " " + MON[d.getMonth()] + (d.getFullYear() !== new Date().getFullYear() ? " " + d.getFullYear() : "") + ", " + p2(d.getHours()) + ":" + p2(d.getMinutes()); };
 const uid = () => Math.random().toString(36).slice(2,10) + Date.now().toString(36).slice(-4);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
@@ -164,18 +167,30 @@ const store = {
 };
 
 /* ----- i18n ----- */
-const I18N = {
-  hi: {"Home":"होम","Bots":"बॉट्स","Trade":"ट्रेड","Referral":"रेफ़रल","Profile":"प्रोफ़ाइल","Deposit":"जमा करें","Withdraw":"निकासी",
-    "Activate Auto Trading":"ऑटो ट्रेडिंग चालू करें","Refer and Earn":"रेफ़र करें और कमाएँ","Get VIP Signals":"VIP सिग्नल पाएँ","Join Community":"कम्युनिटी से जुड़ें",
-    "About Us":"हमारे बारे में","Contact Support":"सपोर्ट से संपर्क","Total Assets":"कुल संपत्ति","Today's PnL":"आज का PnL","Markets":"मार्केट्स",
-    "Popular":"लोकप्रिय","Crypto":"क्रिप्टो","Forex":"फ़ॉरेक्स","Commodities":"कमोडिटी","Name":"नाम","Last Price":"अंतिम मूल्य","24h Chg%":"24घं बदलाव%",
-    "Up":"ऊपर","Down":"नीचे","Amount":"राशि","Balance":"बैलेंस","Live Positions":"लाइव पोज़ीशन","History":"इतिहास","Settings":"सेटिंग्स",
-    "Search e.g., SOL":"खोजें जैसे SOL","Market closed":"बाज़ार बंद","Chart only":"केवल चार्ट","Notifications":"सूचनाएँ","Language":"भाषा","Payout (if win)":"भुगतान (जीत पर)","Payout Ratio":"भुगतान अनुपात"}
-};
 const t = k => k; // English only
 
+/* ----- v7.2 shared helpers: skeleton, empty state, success pill ----- */
+function skel(n=3, kind="row"){
+  n = Math.max(1, n|0);
+  const one = kind === "card" ? '<div class="sk sk-card"></div>' : '<div class="sk-row"><i class="sk sk-av"></i><span class="sk-ln"><i class="sk"></i><i class="sk"></i></span><i class="sk sk-v"></i></div>';
+  return `<div class="sk-wrap" aria-hidden="true">${one.repeat(n)}</div>`;
+}
+function empty(text, label, href){
+  return `<div class="empty"><p>${esc(text)}</p>${label && href ? `<a class="btn btn-primary btn-sm empty-act" href="${esc(href)}">${esc(label)}</a>` : ""}</div>`;
+}
+let doneEl = null, doneT = 0;
+function done(text){
+  if (doneEl) doneEl.remove(); clearTimeout(doneT);
+  const el = doneEl = document.createElement("div"); el.className = "done-pill"; el.setAttribute("role","status");
+  el.innerHTML = `<span class="done-ck"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><b>${esc(text || "Done")}</b>`;
+  document.body.appendChild(el);
+  doneT = setTimeout(() => { el.classList.add("out"); setTimeout(() => { el.remove(); if (doneEl === el) doneEl = null; }, 200); }, 900);
+}
+
 /* ----- Toast ----- */
+const DONE_RE = /^(Limit order filled|Order filled|Order placed successfully|Position closed|Closed )/;
 function toast(msg, kind="info", ms=2600){
+  if (kind === "ok" && DONE_RE.test(String(msg)) && window.U && U.done) return U.done(String(msg));
   const box = $("#toasts"); const el = document.createElement("div");
   const icn = {ok:"check", bad:"x", warn:"info", info:"info"}[kind] || "info";
   el.className = "toast " + kind; el.setAttribute("role","status");
@@ -351,5 +366,5 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden && ac
 // Page zoom is disabled; only the chart handles pinch / wheel zoom.
 document.addEventListener("gesturestart", e => { if (!e.target.closest?.("#chart")) e.preventDefault(); });
 addEventListener("wheel", e => { if (e.ctrlKey && !e.target.closest?.("#chart")) e.preventDefault(); }, {passive:false});
-window.U = {$, $$, esc, clamp, fmt, money, signed, pct, mmss, timeStr, dateStr, uid, sleep, ic, bus, store, t, toast, sheet, drawer, modal, closeLayer, confirmBox, confirmTrade, beep, buzz, confetti, spark, copyText, fx};
+window.U = {$, $$, esc, clamp, fmt, money, signed, pct, mmss, timeStr, dateStr, skel, empty, done, uid, sleep, ic, bus, store, t, toast, sheet, drawer, modal, closeLayer, confirmBox, confirmTrade, beep, buzz, confetti, spark, copyText, fx};
 })();

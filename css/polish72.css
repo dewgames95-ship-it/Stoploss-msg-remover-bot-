@@ -1,0 +1,176 @@
+/* v7.2 polish: skeletons, success pill, pull-to-refresh, offline bar, readability, tap targets. Linked last. */
+/* no text below 11px (decorative badge letters inside icons excluded) */
+.ai-pk,
+.at-sv .ts,
+.tag,
+.pair-btn .coin,
+.pair-btn .letter,
+.legend,
+.exp-line span,
+.book-h,
+.ls,
+.cal div,
+.book,
+.pbox,
+.xlab,
+.hl,
+.plab,
+.bs,
+.cal2 .dw,
+.cal2 .d,
+.cal2 .d small,
+.az,
+.az button,
+.bnav a,
+.bx-in small,
+.perp,
+.fund,
+.ob-out,
+.ob-src,
+.auto-btn,
+.dh,
+.ts-g small,
+.ts-in small,
+.cbox,
+html[data-theme="light"] .cbox,
+.dtag,
+.fbtn2 small,
+.qt-cost small,
+.bb-in small,
+.bx-pay small,
+.bx-pay .pp,
+.bx-time .exp-chip small,
+.abtag span,
+.dock-perf div,
+.blk,
+body .cp-head .nm .perp,
+body .perf div,
+body .cp-bottom .ib,
+.vol-lg,
+.bx-q,
+.aibox .ai-pill em,
+.cf-sd,
+.ovl2 .hl,
+html[data-theme="light"] .xlab,
+.ovl2 .stsig i,
+.liq-tip span,
+.dw3 .dtx,
+html body .chart-wrap .ovl2 .pbox,
+html body .chart-wrap .ovl2 .pbox.pu,
+html body .chart-wrap .ovl2 .pbox.pd,
+html body .cbox,
+html[data-theme="light"] body .cbox,
+html body .cbox div,
+html body .cbox b,
+html body .auto-btn,
+.plab.bin-pl .bp-l,
+.ovl2 .srz em,
+.lqbox,
+.lqb-h b,
+.lqb-q,
+.lqp-t,
+.lqp-mut,
+.lqt-kv,
+.lqt-imp,
+.liq-tip .lqt-kv span,
+.liq-tip .lqt-imp span,
+.liq-tip small,
+.lqt-m div,
+.lqt-m b,
+.lg-cur,
+.wf-net,
+.fm-gt,
+.fee-b,
+.tsh .tsl,
+.fee-l .fee-q,
+.fkv .hq,
+.fxr .fee-l .fee-b,
+.fxr .fee-l,
+.fxr .fee-l .fee-q,
+.hm-sym em,
+.hm-kp span,
+.hm-ev em,
+.hm-bot u,
+.pf-id .pf-main,
+.ey-t,
+.ey-s,
+.op-tg small,
+.op-pch small,
+.hw-lb,
+.hw-zt,
+.op-q-b .btn small,
+.op-tg small .hq,
+.hq,
+.pn-ax,
+.pn-tag,
+.pn-d em,
+.pn-tag2,
+.pd-gauge small,
+.pd-ch-t,
+.pd-hn,
+.pd-lv,
+.pd-flow small,
+.pd-sl span,
+.pd-slt,
+.pd-hwg .hw-s2,
+.pr-pf,
+.pr-ob,
+.ps-pos,
+.ps-mini small,
+.sp-kv .hq,
+.sp-form .fee-l,
+.sp-form .fee-l .fee-b,
+.plab.bin-pl,
+.bin-page .bb-max,
+.bin-page .bb-in small,
+.bin-page .bb-v em,
+.bin-page .bx-pay small,
+.bin-page .bx-pay b em,
+.bin-page .bx-pay .pp,
+.bx-pay small .bx-q,
+.px-tag,
+.px-cal .w,
+.px-cal .d small,
+.px-az,
+.px-az button,
+.px-lc .b span,
+.px-opn .g span,
+.ax-q,
+.ax-ai,
+.ax-pc .ot{font-size:11px!important}
+.pd-gauge small,.pd-flow small{font-size:11px!important}
+
+/* skeleton */
+.sk-wrap{display:flex;flex-direction:column;gap:12px;padding:6px 0}
+.sk{display:block;background:linear-gradient(90deg,var(--card-2,#EEF1F6) 25%,var(--line,#E4E9F2) 50%,var(--card-2,#EEF1F6) 75%);background-size:200% 100%;animation:sk-sh 1.3s linear infinite;border-radius:6px}
+html[data-theme="dark"] .sk{background:linear-gradient(90deg,#1F2630 25%,#2B3340 50%,#1F2630 75%);background-size:200% 100%}
+.sk-row{display:flex;align-items:center;gap:12px;min-height:44px}
+.sk-av{width:34px;height:34px;border-radius:50%;flex:none}
+.sk-ln{flex:1;display:flex;flex-direction:column;gap:7px}
+.sk-ln .sk{height:10px;width:70%}.sk-ln .sk+.sk{width:40%}
+.sk-v{width:56px;height:14px;flex:none}
+.sk-card{height:120px;border-radius:12px}
+.sk-chart{position:absolute;inset:0;padding:16px;display:flex;align-items:stretch}.sk-chart .sk-wrap{width:100%;padding:0}.sk-chart .sk-card{height:100%;opacity:.55}
+@keyframes sk-sh{to{background-position:-200% 0}}
+/* success pill */
+.done-pill{position:fixed;left:50%;top:38%;z-index:600;transform:translateX(-50%);display:flex;align-items:center;gap:8px;max-width:calc(100vw - 32px);padding:10px 16px 10px 10px;border-radius:999px;background:var(--card,#fff);color:var(--text);border:1px solid var(--line-2,#D6DEEB);font-size:13px;pointer-events:none;animation:dn-in .28s cubic-bezier(.2,1.4,.4,1) both}
+.done-pill b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.done-pill.out{opacity:0;transition:opacity .2s}
+.done-ck{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:var(--up,#0ECB81);color:#fff;flex:none;animation:dn-pop .45s .08s cubic-bezier(.2,1.6,.4,1) both}
+.done-ck svg{stroke-dasharray:24;stroke-dashoffset:24;animation:dn-ck .35s .2s ease-out forwards}
+@keyframes dn-in{from{opacity:0;transform:translateX(-50%) scale(.8)}to{opacity:1;transform:translateX(-50%) scale(1)}}
+@keyframes dn-pop{from{transform:scale(.4)}to{transform:scale(1)}}
+@keyframes dn-ck{to{stroke-dashoffset:0}}
+/* pull to refresh */
+.ptr{position:fixed;left:50%;top:48px;z-index:420;width:34px;height:34px;margin-left:0;border-radius:50%;background:var(--card,#fff);border:1px solid var(--line-2,#D6DEEB);display:grid;place-items:center;opacity:0;transform:translate(-50%,0);pointer-events:none;transition:opacity .15s}
+.ptr i{width:16px;height:16px;border-radius:50%;border:2.5px solid var(--line-2,#D6DEEB);border-top-color:var(--brand,#2E6BFF)}
+.ptr.ready i{border-color:var(--brand,#2E6BFF) var(--brand,#2E6BFF) var(--brand,#2E6BFF) transparent}
+.ptr.spin{opacity:1!important;transition:transform .2s,opacity .15s}.ptr.spin i{animation:ptr-sp .7s linear infinite}
+@keyframes ptr-sp{to{transform:rotate(360deg)}}
+/* offline bar: slim, under the safe-area top */
+.offline{top:env(safe-area-inset-top,0px);font-size:12px;padding:5px 12px;line-height:1.3}
+/* tap targets: 40px hit area without layout shift */
+[data-tip],.tip,.hq,.fee-q,.bx-q,.lqb-q,.ax-q,button[aria-label="Help"],button[aria-label="Information"]{position:relative}
+[data-tip]::after,.tip::after,.hq::after,.fee-q::after,.bx-q::after,.lqb-q::after,.ax-q::after{content:"";position:absolute;left:50%;top:50%;width:40px;height:40px;transform:translate(-50%,-50%)}
+.empty-act{margin-top:10px}
+@media (prefers-reduced-motion:reduce){.sk,.done-pill,.done-ck,.done-ck svg,.ptr.spin i{animation:none!important}.done-ck svg{stroke-dashoffset:0}.sk{background:var(--card-2,#EEF1F6)}}

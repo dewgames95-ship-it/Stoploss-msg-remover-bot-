@@ -43,8 +43,8 @@ button.wl-row svg{color:var(--muted)}
 .wl-pi span{flex:1;min-width:0}.wl-pi b{display:block;font-size:15px}.wl-pi small{color:var(--muted);font-size:11.5px}
 .wl-pi small:empty{display:none}.wl-pi em{font-style:normal;color:var(--muted);font-size:13px}.wl-pi.on b{color:var(--brand-2,var(--brand))}
 /* v7.0 wallet icons (same icons as the Home screen) */
-.wl-ic{flex:none;display:inline-grid;place-items:center;width:30px;height:30px;border-radius:9px;background:var(--card-2,var(--input));border:1px solid var(--line);color:var(--brand-2,var(--brand))}
-.wl-ic svg{width:18px;height:18px}
+.wl-ic{flex:none;display:inline-grid;place-items:center;width:30px;height:30px;border-radius:9px;background:var(--card-2,var(--input));border:1px solid var(--line);color:var(--ig-1,var(--text))}
+.wl-ic svg{width:18px;height:18px;stroke:url(#ntIg);color:var(--ig-1,var(--text));fill:none}
 button.wl-row b{display:flex;align-items:center;gap:10px;min-width:0}
 button.wl-row b>span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .wl-pn{display:flex;align-items:center;gap:12px}

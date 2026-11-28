@@ -145,3 +145,10 @@ body .fxc .indbar .il{padding:5px 0}
 .indbar .il button .aispark{width:12px;height:12px;flex:none}
 .indbar .il button[data-ind="AI"].hot{color:var(--muted)}.indbar .il button[data-ind="AI"].hot.on{color:var(--text);font-weight:700}
 .uitip .ai-svg{width:100%;height:auto;max-height:90px}
+
+/* v7.2: minimum 11px text on the binary page; payout chip stays on one line at 360px */
+html body .bin-page .bx-pay small{font-size:11px;letter-spacing:0}
+html body .bin-page .bx-pay .pp{font-size:11px;padding:1px 6px;white-space:nowrap}
+html body .bin-page .bx-pay b em,html body .bin-page .bb-v em{font-size:11px}
+html body .bin-page .bx-pay{padding:8px 4px}
+html body .legend,html body .vol-lg,html body .vol-lg b,html body .pbox,html body .pbox .hl,html body .hl.l,html body .hl.r{font-size:11px}

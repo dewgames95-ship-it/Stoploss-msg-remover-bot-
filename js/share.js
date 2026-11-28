@@ -86,7 +86,7 @@ function drawCard(cv, d, ti){
   // footer: invite + QR
   const fy = 890, code = (store.s.profile && store.s.profile.ref) || "NOVA", url = location.origin + location.pathname + "#/referral?ref=" + code;
   rr(c, 40, fy, W - 80, 118, 22); c.fillStyle = "rgba(255,255,255,.96)"; c.fill();
-  c.fillStyle = "#6B7280"; c.font = `600 18px ${FONT}`; c.fillText(new Date(d.time || Date.now()).toLocaleString("en-GB", {day:"2-digit", month:"short", year:"numeric", hour:"2-digit", minute:"2-digit"}), 68, fy + 38);
+  c.fillStyle = "#6B7280"; c.font = `600 18px ${FONT}`; c.fillText(U.dateStr(d.time || Date.now()), 68, fy + 38);
   c.fillStyle = "#6B7280"; c.font = `600 20px ${FONT}`; c.fillText("Invite code", 68, fy + 72);
   c.fillStyle = "#0B0E14"; c.font = `800 34px ${FONT}`; c.fillText(code, 68, fy + 104);
   const qs = 86, qx = W - 40 - 16 - qs, qy = fy + 16, m = qrMatrix(url);

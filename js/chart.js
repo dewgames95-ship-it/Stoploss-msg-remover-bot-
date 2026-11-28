@@ -577,7 +577,7 @@ async function load(s, timeframe){
   msg(bars.length ? "" : "Waiting for live data…");
   if (p?.price) onTick(sym, p.price);
 }
-function msg(t){ if (ui.msg) ui.msg.innerHTML = t ? `<span>${t}</span>` : ""; }
+function msg(t){ if (ui.msg) ui.msg.innerHTML = !t ? "" : t === "Loading…" && U.skel ? `<div class="sk-chart">${U.skel(1, "card")}</div>` : `<span>${t}</span>`; }
 
 function onTick(s, price){
   if (s !== sym || !price || !chart) return;
@@ -812,7 +812,7 @@ function liveLines(now){
 /* ---- Tap a B/S marker → trade details ---- */
 let lastMarks = [];
 function markSheet(m){
-  const P = M.get(sym), r = m.r, f = v => v == null ? "--" : M.fmtPx(P, v), dt = t => t ? new Date(t).toLocaleString("en-US") : "--";
+  const P = M.get(sym), r = m.r, f = v => v == null ? "--" : M.fmtPx(P, v), dt = t => t ? U.dateStr(t) : "--";
   let rows;
   if (m.k === "bo" || m.k === "bh") rows = [["Type", "Binary " + (r.dir === "up" ? "Up" : "Down")], ["Amount", money(r.amount) + " USDT"], ["Entry price", f(r.entry)], ["Close price", f(r.exit)], ["Result", r.result ? `<span class="${r.profit >= 0 ? "up" : "down"}">${r.result === "win" ? "Won" : r.result === "loss" ? "Lost" : "Refunded"} ${signed(r.profit)} USDT</span>` : "Open"], ["Opened", dt(r.open)], ["Expires / closed", dt(r.closed || r.exp)]];
   else rows = [["Type", `Futures ${r.side === "long" ? "Long" : "Short"} ${r.lev}x`], [m.k === "fc" ? "Close price" : "Entry price", f(m.p)], ["Size", money((r.qty || r.closedVol || 0) * r.entry) + " USDT"], ["Margin", money(r.margin) + " USDT"], ...(r.profit != null ? [["Realized PnL", `<span class="${r.profit >= 0 ? "up" : "down"}">${signed(r.profit)} USDT</span>`]] : [["Unrealized PnL", `<span class="${E.futPnl(r).pnl >= 0 ? "up" : "down"}">${signed(E.futPnl(r).pnl)} USDT</span>`]]), ["Time", dt(m.t)]];

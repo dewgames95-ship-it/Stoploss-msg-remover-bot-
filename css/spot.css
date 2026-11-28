@@ -101,3 +101,6 @@
 .ug-est div{background:var(--card-2,var(--input));border-radius:var(--r-card,12px);padding:10px 6px;text-align:center;min-width:0}
 .ug-est span{display:block;font-size:11px;color:var(--muted)}
 .ug-est b{display:block;font-size:15px;font-weight:800;margin-top:2px;white-space:nowrap}
+
+/* v7.2: no text under 11px */
+html body .sp-form .fee-l .fee-b{font-size:11px}

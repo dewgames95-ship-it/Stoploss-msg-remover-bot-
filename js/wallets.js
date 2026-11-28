@@ -17,7 +17,7 @@ const floor2 = v => Math.floor((v + 1e-9) * 100) / 100;
   const fix = () => { const S = S0(); if (S.wallets) ["funding","games","predict","cfd"].forEach(k => { if (!(S.wallets[k] >= 0)) S.wallets[k] = 0; }); S.balance = Math.round(store.WALLETS.reduce((a, k) => a + (S.wallets[k] || 0), 0) * 100) / 100; };
   /* v7.0: demo account = 1,000 USDT in every wallet (new accounts, resets, and a one-time top-up of existing demo accounts) */
   const isDemo = () => { try { return (localStorage.getItem("nt_mode") || "demo") !== "real"; } catch { return true; } };
-  const fill = force => { const S = S0(); if (!isDemo() || !S.wallets || (S.w1000 && !force)) return; store.WALLETS.forEach(k => { if (force || !(S.wallets[k] >= 1000)) S.wallets[k] = 1000; }); S.w1000 = 1; };
+  const fill = force => { const S = S0(); if (!isDemo() || !S.wallets || (S.w1000 && !force)) return; const first = !S.w1000; store.WALLETS.forEach(k => { if (force || first || !(S.wallets[k] >= 1000)) S.wallets[k] = 1000; }); S.w1000 = 1; }; /* v7.2: a new demo account starts at exactly 1,000 in every wallet */
   fix(); fill(false); fix(); try { store.save(); } catch {}
   const rs = store.reset; store.reset = function(){ const r = rs.apply(this, arguments); fix(); fill(true); fix(); try { store.save(); } catch {} return r; };
 })();

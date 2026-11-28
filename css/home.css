@@ -197,3 +197,7 @@ a.hm-ar small{color:var(--muted);font-size:11px;flex-shrink:0}
 .hm-ax b{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
 .hm-ax p{margin:4px 0 0}
 .hm-ad>small{color:var(--muted);font-size:11px}
+
+/* v7.2 copy-trading risk badge */
+.hm-rk{font-style:normal;font-size:10px;font-weight:700;line-height:1;padding:3px 6px;border-radius:6px;margin-left:6px;vertical-align:1px;border:1px solid var(--line);color:var(--muted)}
+.hm-rk.lo{color:var(--up)}.hm-rk.hi{color:var(--down)}.hm-rk.md{color:var(--text)}

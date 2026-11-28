@@ -89,7 +89,7 @@ function marketList(box, o = {}){
     if (lazyIO){ lazyIO.disconnect(); lazyIO = null; }
     let l = applySort(list()); rows.clear();
     const more = limit && l.length > limit; if (limit) l = l.slice(0, limit);
-    if (!M.cryptoOrder.length && !q && !["forex","metals","fav","stocks","indices","commod"].includes(chip)){ box.innerHTML = Array(6).fill('<div class="skel"></div>').join(""); return; }
+    if (!M.cryptoOrder.length && !q && !["forex","metals","fav","stocks","indices","commod"].includes(chip)){ box.innerHTML = U.skel ? U.skel(6) : Array(6).fill('<div class="skel"></div>').join(""); return; }
     if (!l.length){ box.innerHTML = UI.emptyState(chip === "fav" ? "star" : "search", q ? `No results for “${q}”` : chip === "fav" ? "No favorites yet. Tap the star on a trading screen to add one." : "No markets here right now."); return; }
     const rowHtml = p => `<div class="hm-row" data-sym="${p.sym}" role="button" tabindex="0" aria-label="Open ${esc(M.label(p))}">
       <div class="hm-nm">${UI.pairIcon(p, 32)}<div class="hm-tx"><div class="hm-sym"><span class="hm-sy">${esc(p.type === "crypto" ? p.base + "USDT" : p.sym)}</span>${tag(p)}</div><div class="hm-s2"><span class="hm-fn">${esc(UI.fullName(p))}</span><span class="hm-vl">${vol(p)}</span></div></div></div>
@@ -177,13 +177,20 @@ function areaSpark(vals, w = 120, h = 40){
   return `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--up)" stop-opacity=".28"/><stop offset="1" stop-color="var(--up)" stop-opacity="0"/></linearGradient></defs><path d="${line}L${w} ${h}L0 ${h}Z" fill="url(#${id})"/><path d="${line}" fill="none" stroke="var(--up)" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/></svg>`;
 }
 const cmp = v => { const a = Math.abs(v); return "$" + (a >= 1e6 ? (v/1e6).toFixed(2) + "M" : a >= 1e3 ? (v/1e3).toFixed(1) + "K" : v.toFixed(0)); };
+/* risk badge from max drawdown / leverage of the leader (Low / Medium / High) */
+function riskTag(id){
+  const l = (window.SIMLEADS || []).find(x => x.id === id); if (!l) return "";
+  const mdd = +l.mdd || 0, lev = Math.max(...(l.levs || [1]));
+  const k = mdd >= 20 || lev >= 20 ? ["hi", "High"] : mdd < 10 && lev <= 5 ? ["lo", "Low"] : ["md", "Medium"];
+  return `<em class="hm-rk ${k[0]}">${k[1]}</em>`;
+}
 function drawCopy(root){
   const box = root.querySelector("#cpsec"); if (!box) return;
   const L = (window.COPY_LEADERS || []).slice().sort((a,b) => b.roi - a.roi).slice(0, 8);
   if (!L.length){ box.hidden = true; return; }
   box.innerHTML = `<a class="hm-sh" href="#/copy"><h2>Copy Trading</h2>${ic("chev",16,2)}</a><div class="hm-cps">${L.map(l => `<div class="hm-cp" data-ld="${l.id}" role="button" tabindex="0">
     <div class="hd">${window.ART && ART.avatar ? ART.avatar(l.id, 40) : avatar(l.name, 40)}<div class="nm"><b class="ellipsis">${esc(l.name)}</b><span>${esc(l.tag)} <i></i> ${ic("users",12,1.7)} <span class="num">${Number(l.f || 0).toLocaleString("en-US")} copiers</span></span></div></div>
-    <div class="lb">30D PnL</div><div class="roi num">+${l.roi.toFixed(2)}%</div><div class="sp">${areaSpark(l.getSpark(28))}</div>
+    <div class="lb">30D PnL${riskTag(l.id)}</div><div class="roi num">+${l.roi.toFixed(2)}%</div><div class="sp">${areaSpark(l.getSpark(28))}</div>
     <div class="ft"><span>AUM <b class="num">${cmp(l.aum)}</b></span><button class="cp" tabindex="-1">Copy</button></div></div>`).join("")}</div>`;
   box.onclick = e => { const c = e.target.closest("[data-ld]"); if (c) location.hash = "#/copy/" + c.dataset.ld; };
   box.onkeydown = e => { const c = e.target.closest("[data-ld]"); if (c && e.key === "Enter") c.click(); };
@@ -225,6 +232,7 @@ const annCache = {};
 const rel = ts => { const d = (Date.now() - ts) / 1000; if (!isFinite(d)) return ""; if (d < 60) return "just now"; if (d < 3600) return Math.floor(d/60) + "m ago"; if (d < 86400) return Math.floor(d/3600) + "h ago"; if (d < 2592000) return Math.floor(d/86400) + "d ago"; return new Date(ts).toLocaleDateString(); };
 const plain = h => { const d = document.createElement("div"); d.innerHTML = String(h || ""); return (d.textContent || "").replace(/\s+/g, " ").trim(); };
 const skel = n => Array(n).fill('<div class="hm-sk"><i></i><b></b></div>').join("");
+const emptyRetry = msg => `<div class="empty"><p>${esc(msg)}</p><button type="button" class="btn btn-primary btn-sm empty-act" data-retry>Retry</button></div>`;
 const errBox = msg => `<div class="hm-err"><p>${esc(msg)}</p><button data-retry>Retry</button></div>`;
 async function jget(url){ const r = await fetch(url); if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); }
 async function loadFeed(i){
@@ -292,10 +300,10 @@ Pages.home = () => {
     const bs = root.querySelector("#bs"), cnt = root.querySelector("#cnt"); let bi = 0, bt;
     const upd = () => { bi = Math.round(bs.scrollLeft / bs.clientWidth); cnt.textContent = `${bi + 1}/${SLIDES.length}`; };
     bs.addEventListener("scroll", upd, {passive:true});
-    const auto = () => { clearInterval(bt); bt = setInterval(() => bs.scrollTo({left:((bi + 1) % SLIDES.length) * bs.clientWidth, behavior:"smooth"}), 4500); };
+    const auto = () => { clearInterval(bt); bt = setInterval(() => bs.scrollTo({left:((bi + 1) % SLIDES.length) * bs.clientWidth, behavior:"smooth"}), 6500); };
     auto(); timers.push(() => clearInterval(bt));
     ["touchstart","pointerdown"].forEach(ev => bs.addEventListener(ev, () => clearInterval(bt), {passive:true}));
-    ["touchend","pointerup"].forEach(ev => bs.addEventListener(ev, auto, {passive:true}));
+    ["touchend","pointerup","touchcancel","pointercancel"].forEach(ev => bs.addEventListener(ev, auto, {passive:true}));
     /* strip: Feed / Announcements / Events / Academy */
     const strip = root.querySelector("#strip"), stb = root.querySelector("#stb"); let stTab = "feed", io = null, gen = 0, annCat = 48;
     const stop = () => { if (io){ io.disconnect(); io = null; } gen++; };
@@ -310,7 +318,7 @@ Pages.home = () => {
       async function step(){
         if (my !== gen || feedCache.busy) return;
         if (shown >= feedCache.items.length){
-          if (feedCache.loaded >= FEEDS.length){ fs.innerHTML = shown ? '<small class="hm-end">You are all caught up</small>' : errBox("No news available right now."); if (!shown) fs.querySelector("[data-retry]").onclick = () => { feedCache.loaded = 0; feedCache.items = []; fs.innerHTML = skel(3); step(); }; return; }
+          if (feedCache.loaded >= FEEDS.length){ fs.innerHTML = shown ? '<small class="hm-end">You are all caught up</small>' : emptyRetry("No news available right now."); if (!shown) fs.querySelector("[data-retry]").onclick = () => { feedCache.loaded = 0; feedCache.items = []; fs.innerHTML = skel(3); step(); }; return; }
           feedCache.busy = true; fs.innerHTML = skel(3);
           const idx = feedCache.loaded === 0 ? [0, 1] : [feedCache.loaded], res = await Promise.allSettled(idx.map(loadFeed));
           feedCache.busy = false; if (my !== gen) return;
@@ -342,7 +350,7 @@ Pages.home = () => {
           c.busy = false; c.page++; if (arts.length < 20) c.done = true; c.items.push(...arts);
           if (my !== gen) return;
           al.insertAdjacentHTML("beforeend", arts.map(row).join(""));
-          if (c.done){ as.innerHTML = c.items.length ? '<small class="hm-end">No more announcements</small>' : errBox("No announcements found."); if (!c.items.length) as.querySelector("[data-retry]").onclick = () => { c.done = false; c.page = 0; as.innerHTML = skel(4); step(); }; }
+          if (c.done){ as.innerHTML = c.items.length ? '<small class="hm-end">No more announcements</small>' : emptyRetry("No announcements found."); if (!c.items.length) as.querySelector("[data-retry]").onclick = () => { c.done = false; c.page = 0; as.innerHTML = skel(4); step(); }; }
           else { as.innerHTML = skel(1); watch(as, step); }
         } catch (e){ c.busy = false; if (my === gen) err(); }
       }

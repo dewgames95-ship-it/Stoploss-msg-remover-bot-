@@ -47,11 +47,11 @@ UI.coinSheet = function(coin, t, rerender){
     const rows = ["funding","spot","futures","binary","options","earn"].map(w => [UI.walletName(w), store.wb(w)]);
     const total = rows.reduce((a, r) => a + r[1], 0);
     body = `<div class="cs-h">${UI.coinImg("USDT", 40)}<div class="grow"><b>USDT</b><span>TetherUS</span></div><div class="r"><b class="num">${H(money(total))}</b><span class="num">${H("≈ $" + money(total * k))}</span></div></div>
-      <div class="cs-sec">Wallet balances</div>${rows.map(r => `<div class="cs-r"><span>${r[0]}</span><b class="num">${H(money(r[1]))}</b></div>`).join("")}
+      <div class="cs-sec">Wallet balances</div>${rows.map(r => `<div class="cs-r"><span>${r[0]}</span><b class="num">${H(U.tiny(r[1], 2, money))}</b></div>`).join("")}
       <div class="cs-acts"><a class="btn btn-primary" href="#/deposit">Deposit</a><a class="btn btn-ghost" href="#/withdraw/USDT">Withdraw</a><button class="btn btn-ghost" data-xf>Transfer</button></div>`;
   } else {
     const h = (t && t.hold || []).find(x => x.coin === coin) || {amt:0, val:0, pnl:0};
-    body = `<div class="cs-h">${UI.coinImg(coin, 40)}<div class="grow"><b>${esc(coin)}</b><span>${esc((window.COIN_NAMES && COIN_NAMES[coin]) || coin)}</span></div><div class="r"><b class="num">${H(fmt(h.amt, 6))}</b><span class="num">${H("≈ $" + money(h.val * k))}</span></div></div>
+    body = `<div class="cs-h">${UI.coinImg(coin, 40)}<div class="grow"><b>${esc(coin)}</b><span>${esc((window.COIN_NAMES && COIN_NAMES[coin]) || coin)}</span></div><div class="r"><b class="num">${H(U.tiny(h.amt, 6))}</b><span class="num">${H("≈ $" + money(h.val * k))}</span></div></div>
       <div class="cs-r"><span>Today's PnL</span><b class="num ${h.pnl >= 0 ? "up" : "down"}">${H((h.pnl >= 0 ? "+$" : "-$") + money(Math.abs(h.pnl)))}</b></div>
       <div class="cs-acts"><a class="btn btn-primary" href="#/spot/${esc(coin)}USDT">Trade</a><a class="btn btn-ghost" href="#/deposit/${esc(coin)}">Deposit</a></div>`;
   }
@@ -487,4 +487,46 @@ UI.assetsProdBind = function(box, tab, rerender){
     rerender();
   });
 };
+})();
+
+/* ===== v7.2 Assets overview: wallet split donut + tiny-amount helper ===== */
+(function(){
+const {esc, store, money} = U;
+/* non-zero amounts below 0.0001 read "<0.0001" (balances / history amounts only, never market prices) */
+U.tiny = (v, dp = 4, f) => { const n = +v; if (n > 0 && n < 1e-4) return "<0.0001"; if (n < 0 && n > -1e-4) return "-<0.0001"; return f ? f(n) : U.fmt(n, dp); };
+const WL = ["spot","funding","futures","binary","options","earn","games","predict","cfd"];
+const COL = ["#2F5FE8","#45A6FF","#1E3FA8","#7FB8FF","#8A94A6","#5C6678"];
+function donut(){
+  const hide = !!store.s.settings.hideBal;
+  const rows = WL.map(k => [k, Math.max(0, store.wb(k) || 0)]).filter(r => r[1] > 0).sort((a, b) => b[1] - a[1]);
+  const tot = rows.reduce((a, r) => a + r[1], 0); if (!(tot > 0)) return "";
+  const top = rows.slice(0, 5), rest = rows.slice(5).reduce((a, r) => a + r[1], 0);
+  if (rest > 0) top.push(["other", rest]);
+  const R = 42, C = 2 * Math.PI * R; let off = 0;
+  const arcs = top.map(([k, v], i) => { const f = v / tot, len = Math.max(0, f * C - (top.length > 1 ? 1.5 : 0)), a = `<circle cx="60" cy="60" r="${R}" fill="none" stroke="${COL[i]}" stroke-width="16" stroke-dasharray="${len.toFixed(2)} ${(C - len).toFixed(2)}" stroke-dashoffset="${(-off).toFixed(2)}" transform="rotate(-90 60 60)"/>`; off += f * C; return a; }).join("");
+  const leg = top.map(([k, v], i) => `<li><i style="background:${COL[i]}"></i><span class="ellipsis">${esc(k === "other" ? "Other" : UI.walletName(k))}</span><b class="num">${(v / tot * 100).toFixed(1)}%</b></li>`).join("");
+  return `<div class="as-dn" data-dn><svg viewBox="0 0 120 120" width="112" height="112" role="img" aria-label="Wallet split"><circle cx="60" cy="60" r="${R}" fill="none" stroke="var(--line)" stroke-width="16" opacity=".4"/>${arcs}<text x="60" y="56" text-anchor="middle" class="dn-l">Total</text><text x="60" y="72" text-anchor="middle" class="dn-v num">${hide ? "***" : tot >= 1e6 ? (tot / 1e6).toFixed(2) + "M" : tot >= 1e4 ? (tot / 1e3).toFixed(1) + "K" : money(tot)}</text></svg><ul>${leg}</ul></div>`;
+}
+const wrap = window.Pages && Pages.assets && Pages.assets;
+if (wrap){
+  Pages.assets = function(){
+    const pg = wrap.apply(this, arguments), om = pg.mount;
+    pg.mount = function(root){
+      om.call(this, root);
+      const ab = root.querySelector("#ab"); if (!ab) return;
+      const put = () => {
+        const on = root.querySelector("#atabs .on"), ex = ab.querySelector("[data-dn]");
+        if (!on || on.dataset.at !== "overview"){ if (ex) ex.remove(); return; }
+        const h = ab.querySelector(".px-sec-h"); if (!h) return;
+        const html = donut(); if (!html) return;
+        const t = document.createElement("div"); t.innerHTML = html; const n = t.firstElementChild;
+        if (ex){ if (ex.innerHTML === n.innerHTML) return; ex.replaceWith(n); } else h.parentNode.insertBefore(n, h);
+      };
+      const mo = new MutationObserver(() => { mo.disconnect(); try { put(); } catch {} mo.observe(ab, {childList:true}); });
+      mo.observe(ab, {childList:true}); try { put(); } catch {}
+      const u = this.unmount; this.unmount = function(){ mo.disconnect(); return u && u.apply(this, arguments); };
+    };
+    return pg;
+  };
+}
 })();

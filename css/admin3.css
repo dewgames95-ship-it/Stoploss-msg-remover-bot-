@@ -33,3 +33,32 @@
 .a3-bar{height:8px;border-radius:4px;background:var(--input);overflow:hidden;margin-top:12px}.a3-bar i{display:block;height:100%;background:var(--a2);border-radius:4px}
 .a3-bl{font-size:12px;color:var(--muted);margin:6px 0 10px}
 .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+
+/* ===== v7.2 admin part 2 polish ===== */
+/* trading tabs: horizontal scroll with a fade at the edges */
+.a3-stripw{position:relative;margin:0 -2px 10px}
+.a3-stripw .a3-strip{margin:0;padding:0 2px;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch}
+.a3-stripw .a2-chip{scroll-snap-align:start}
+.a3-stripw:before,.a3-stripw:after{content:"";position:absolute;top:0;bottom:0;width:34px;pointer-events:none;z-index:2;opacity:0;transition:opacity .15s}
+.a3-stripw:before{left:0;background:linear-gradient(90deg,var(--card-g1,var(--bg)),transparent)}
+.a3-stripw:after{right:0;background:linear-gradient(270deg,var(--card-g1,var(--bg)),transparent)}
+.a3-stripw.fl:before,.a3-stripw.fr:after{opacity:1}
+/* user dashboard */
+.a3-un .a3-pl{display:flex;flex-wrap:wrap;gap:4px 0;margin-top:6px}.a3-pl .a2-pill{margin-left:0;margin-right:6px}
+.a3-tls{list-style:none;margin:0;padding:0;position:relative}
+.a3-tl{display:flex;align-items:flex-start;gap:10px;padding:0 0 14px;position:relative}
+.a3-tl:before{content:"";position:absolute;left:12px;top:26px;bottom:2px;width:1px;background:var(--line)}
+.a3-tl:last-child{padding-bottom:0}.a3-tl:last-child:before{display:none}
+.a3-td{width:25px;height:25px;border-radius:50%;background:var(--a2-soft);color:var(--a2);display:grid;place-items:center;flex:none;z-index:1}
+.a3-tl.dep .a3-td{background:var(--up-bg);color:var(--up)}.a3-tl.wd .a3-td,.a3-tl.freeze .a3-td{background:var(--down-bg);color:var(--down)}.a3-tl.trade .a3-td,.a3-tl.adm .a3-td{background:var(--input);color:var(--text-2)}
+.a3-tl>div{flex:1;min-width:0}.a3-tl b{display:block;font-size:13px;font-weight:600;overflow-wrap:anywhere}.a3-tl small{display:block;font-size:11.5px;color:var(--muted)}
+.a3-tl em{font-style:normal;font-size:12.5px;font-weight:600;flex:none;max-width:38%;text-align:right}
+.a3-nl{margin-top:12px}.a3-note{padding:10px 12px;background:var(--input);border-radius:var(--r-ctl,8px);margin-bottom:8px}
+.a3-note p{margin:0 0 6px;font-size:13px;line-height:1.45;white-space:pre-wrap;overflow-wrap:anywhere}.a3-note>div{display:flex;justify-content:space-between;align-items:center}.a3-note small{color:var(--muted);font-size:11.5px}
+.a3-nd{font-size:12px;font-weight:600;color:var(--down);padding:4px 6px}
+/* HD wallet: collapsible warning */
+.a3-rt{display:flex;align-items:center;gap:9px;width:100%;text-align:left;color:var(--text);font-size:15px;font-weight:700;min-height:36px}
+.a3-rt .a2-ht{flex:1}.a3-rc{display:grid;place-items:center;color:var(--muted);transition:transform .18s}.a3-rt[aria-expanded=true] .a3-rc{transform:rotate(90deg)}
+.a3-rt+ul{margin-top:12px}.a3-warn ul[hidden]{display:none}
+#a3ai{display:contents}
+@media (min-width:1024px){.a3-pc{margin-bottom:10px}.a3-wts{grid-template-columns:repeat(5,minmax(0,1fr))}.a3-stripw:before{background:linear-gradient(90deg,var(--card-g1,var(--bg)),transparent)}}
