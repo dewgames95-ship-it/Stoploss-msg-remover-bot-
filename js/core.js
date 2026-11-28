@@ -122,11 +122,12 @@ const PREF_DEF = {
   snd: {open:true, close:true, win:true, loss:true, alert:true, notify:true, err:true},
   chart: {bs:true, pos:true, ord:true, hilo:true, cd:true},                     // B/S markers, position lines, order lines, high/low, candle countdown
   hideSmall:false, pnlBasis:"24h",
-  layout: {kline:"bottom", order:"left", bstab:true, step:false, slideVib:true},   // Binance Preferences > Layout
+  layout: {kline:"top", order:"left", bstab:true, step:false, slideVib:true},   // Binance Preferences > Layout
   futp: {mode:"classic", posMode:"oneway", asset:"single", unit:"USDT", trig:"last", protect:true, tapFill:false, showRz:true, levSet:false},   // Preferences > Trading Mode
   notif: {fill:true, tpsl:true, liq:true, funding:false, binary:true, news:true}
 };
 for (const k in PREF_DEF){ const d = PREF_DEF[k]; S.settings[k] = typeof d === "object" ? Object.assign({}, d, S.settings[k] || {}) : (S.settings[k] ?? d); }
+if (!S.settings.klTop74){ S.settings.klTop74 = true; S.settings.layout.kline = "top"; }   // v7.4 one-time: chart on top of the trading page for everyone (still changeable in Preferences)
 if (!S.settings.v5){ Object.assign(S.settings, {v5:true, theme:"light", sound:true, haptic:true}); }
 if (S.profile && S.profile.name === "Demo Trader") S.profile.name = "Trader" + Math.floor(1000 + Math.random()*9000);
 ["fut","rewards","vault"].forEach(k => S[k] = Object.assign(defaults()[k], S[k] || {}));

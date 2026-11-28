@@ -915,9 +915,9 @@ Pages.trade = (params) => {
 
 /* ---------------- Futures trade history (#/history) ---------------- */
 Pages.history = () => {
-  let tab = "ord";
+  let tab = "pos";
   const html = `<header class="page-head"><button class="icon-btn" data-back aria-label="Back">${ic("back",22)}</button><div class="grow" style="text-align:center"><div class="h1" style="font-size:18px">My Trades</div><div class="label">USDⓈ-M Futures</div></div><button class="hx-exp" data-exp type="button">Export</button></header>
-    <div class="ptabs" style="margin-top:0"><button class="on" data-ht="ord">Order History</button><button data-ht="pos">Position History</button><button data-ht="trade">Trade History</button><button data-ht="bin">Binary</button></div>
+    <div class="ptabs" style="margin-top:0"><button data-ht="ord">Order History</button><button class="on" data-ht="pos">Position History</button><button data-ht="trade">Trade History</button><button data-ht="bin">Binary</button></div>
     <p class="label" style="margin:10px 0">Last updated: <span id="lu"></span></p><div id="hl"></div>`;
   return {html, title:"My Trades", mount(r){
     const render = () => {

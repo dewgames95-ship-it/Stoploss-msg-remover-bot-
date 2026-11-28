@@ -12,8 +12,13 @@ const TEXTS = ["Solid setup, thanks for sharing.","Been watching the same level 
 const ago = m => m < 1 ? "Just now" : m < 60 ? m + "m ago" : m < 1440 ? Math.floor(m / 60) + "h ago" : Math.floor(m / 1440) + "d ago";
 const initials = n => esc(String(n).replace(/[^A-Za-z]/g, "").slice(0, 2).toUpperCase() || "U");
 const avatar = (seed, size) => window.ART && ART.avatar ? ART.avatar("c_" + seed, size) : `<span class="sc-ini" style="width:${size}px;height:${size}px">${initials(seed)}</span>`;
-const seeded = (pid, n) => { const r = rng("cm_" + pid), out = []; let m = 3 + Math.floor(r() * 20);
-  for (let i = 0; i < n; i++){ const nm = NAMES[Math.floor(r() * NAMES.length)]; out.push({id:pid + "#" + i, name:nm, text:TEXTS[Math.floor(r() * TEXTS.length)], ago:m, likes:Math.floor(r() * r() * 40)}); m += 4 + Math.floor(r() * 90); }
+const seeded = (pid, n, postTs) => { const r = rng("cm_" + pid), out = [], maxM = postTs ? Math.max(0, Math.floor((Date.now() - postTs) / 60000)) : 0, raw = [];
+  /* v7.4: a comment can never be older than its post (age <= post age) */
+  for (let i = 0; i < n; i++) raw.push([NAMES[Math.floor(r() * NAMES.length)], TEXTS[Math.floor(r() * TEXTS.length)], Math.floor(r() * r() * 40), r()]);
+  let m = 3 + Math.floor(r() * 20);
+  const fr = raw.map(x => x[3]).sort((a, b) => a - b);
+  raw.forEach((x, i) => { let a; if (postTs) a = Math.min(maxM, Math.floor(fr[i] * maxM)); else { a = m; m += 4 + Math.floor(r() * 90); }
+    out.push({id:pid + "#" + i, name:x[0], text:x[1], ago:a, likes:x[2]}); });
   return out; };
 const isLiked = id => !!st.likes[id];
 const likeCount = (id, base) => base + (isLiked(id) ? 1 : 0);
@@ -22,7 +27,7 @@ const cmCount = (id, base) => base + (st.cm[id] ? st.cm[id].length : 0);
 function bar(id, likes, cm, meta){
   meta = meta || {};
   const on = isLiked(id);
-  return `<div class="sc-bar" data-sid="${esc(id)}" data-bl="${likes}" data-bc="${cm}" data-who="${esc(meta.who || "")}" data-text="${esc(meta.text || "")}" data-url="${esc(meta.url || "")}">
+  return `<div class="sc-bar" data-sid="${esc(id)}" data-bl="${likes}" data-bc="${cm}" data-pts="${+meta.ts || 0}" data-who="${esc(meta.who || "")}" data-text="${esc(meta.text || "")}" data-url="${esc(meta.url || "")}">
     <button class="sc-b sc-like${on ? " on" : ""}" data-sa="like" aria-pressed="${on}" aria-label="Like"><span class="sc-ic">${ic("heart", 15, 1.7)}</span><span class="sc-n num">${likeCount(id, likes)}</span></button>
     <button class="sc-b" data-sa="cm" aria-label="Comments">${ic("chat", 15, 1.7)}<span class="sc-c num">${cmCount(id, cm)}</span></button>
     <button class="sc-b" data-sa="share" aria-label="Share">${ic("share", 15, 1.7)}</button></div>`;
@@ -37,7 +42,7 @@ function share(b){
 
 function comments(b){
   const id = b.dataset.sid, base = +b.dataset.bc;
-  const seed = seeded(id, base);
+  const seed = seeded(id, base, +b.dataset.pts || 0);
   const row = c => `<div class="sc-r">${avatar(c.name, 32)}<div class="g"><div class="t"><b>${esc(c.name)}</b><span>${ago(c.ago)}</span></div><p>${esc(c.text)}</p></div><button class="sc-cl${st.cl[c.id] ? " on" : ""}" data-cl="${esc(c.id)}" aria-label="Like comment">${ic("heart", 13, 1.7)}<span class="num">${c.likes + (st.cl[c.id] ? 1 : 0)}</span></button></div>`;
   const mine = () => (st.cm[id] || []).map((m, i) => ({id:id + "@" + i, name:"You", text:m.t, ago:Math.floor((Date.now() - m.ts) / 60000), likes:0})).reverse();
   const all = () => mine().concat(seed);

@@ -154,7 +154,7 @@ function moreSheet(){
   });
 }
 const SLIDES = [
-  ["Claim up to 500 USDT in rewards","Daily check-in, tasks and badges","#/rewards","trophy"],
+  ["Join the Rewards Hub and claim up to 500 USDT","Daily check-in, tasks and badges","#/rewards","trophy"],
   ["Earn up to 12% APR on idle USDT","Flexible and locked Earn products","#/earn","coins"],
   ["Futures Trading Competition: share 100,000 USDT","Trade perpetuals and climb the board","#/futures","podium"],
   ["Copy top traders with a single tap","Follow verified strategies","#/copy","rocket"],
@@ -313,7 +313,7 @@ Pages.home = () => {
       const my = gen; let shown = 0;
       stb.innerHTML = `<p class="hm-cap">Binance Square posts aren't available via a public API — showing live crypto news.</p><div id="fl"></div><div id="fs" class="hm-sent"></div>`;
       const fl = stb.querySelector("#fl"), fs = stb.querySelector("#fs"); SOCIAL.bind(stb);
-      const card = x => `<div class="hm-fw"><a class="hm-fc" href="${esc(x.link)}" target="_blank" rel="noopener noreferrer"><div class="b"><div class="m"><i class="hm-src">${FAV[x.src] ? `<img src="https://www.google.com/s2/favicons?domain=${FAV[x.src]}&sz=64" alt="" width="20" height="20" referrerpolicy="no-referrer" onerror="this.remove()">` : ""}<u>${esc(x.src[0])}</u></i><span>${esc(x.src)}</span><span>· ${rel(x.ts)}</span></div><h4>${esc(x.title)}</h4>${x.desc ? `<p>${esc(x.desc)}</p>` : ""}</div>${x.img ? `<img src="${esc(x.img)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : ""}</a>${SOCIAL.bar("nw:" + SOCIAL.hash(x.link), 8 + SOCIAL.hash(x.link) % 190, 1 + SOCIAL.hash(x.title) % 22, {who:x.src, text:x.title, url:x.link})}</div>`;
+      const card = x => `<div class="hm-fw"><a class="hm-fc" href="${esc(x.link)}" target="_blank" rel="noopener noreferrer"><div class="b"><div class="m"><i class="hm-src">${FAV[x.src] ? `<img src="https://www.google.com/s2/favicons?domain=${FAV[x.src]}&sz=64" alt="" width="20" height="20" referrerpolicy="no-referrer" onerror="this.remove()">` : ""}<u>${esc(x.src[0])}</u></i><span>${esc(x.src)}</span><span>· ${rel(x.ts)}</span></div><h4>${esc(x.title)}</h4>${x.desc ? `<p>${esc(x.desc)}</p>` : ""}</div>${x.img ? `<img src="${esc(x.img)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : ""}</a>${SOCIAL.bar("nw:" + SOCIAL.hash(x.link), 8 + SOCIAL.hash(x.link) % 190, 1 + SOCIAL.hash(x.title) % 22, {who:x.src, text:x.title, url:x.link, ts:x.ts})}</div>`;
       const err = m => { fs.innerHTML = errBox(m); fs.querySelector("[data-retry]").onclick = () => { feedCache.busy = false; fs.innerHTML = skel(3); step(); }; };
       async function step(){
         if (my !== gen || feedCache.busy) return;
