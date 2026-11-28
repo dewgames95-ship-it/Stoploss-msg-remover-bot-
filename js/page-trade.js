@@ -136,7 +136,7 @@ function loadingPage(title){
 function chartBlock(){
   const MAIN = ["tick","1s","5s","30s","1m","15m","1h","4h","1d"];
   return `<div class="tfbar"><div class="tfs" id="tfs">${MAIN.map(x => `<button data-tf="${x}">${TFL[x] || x}</button>`).join("")}<button class="tf-more" data-tfmore><span id="tfml">More</span> ${ic("chevd",10)}</button></div>
-      <button class="ti" data-fs aria-label="Fullscreen">${ic("expand",15)}</button><button class="ti" data-drawt aria-label="Drawing tools">${ic("pen",15)}</button><button class="ti" data-indset aria-label="Indicator settings">${ic("grid",15)}</button><button class="ti" data-ctype aria-label="Chart type">${ic("candle",15)}</button></div>
+      <button class="ti" data-measure aria-label="Measure"></button><button class="ti" data-drawt aria-label="Drawing tools">${ic("pen",15)}</button><button class="ti" data-chset aria-label="Chart settings"></button><button class="ti" data-fs aria-label="Fullscreen">${ic("expand",15)}</button></div>
     <div class="drawbar hide" id="drawbar">${[["trend","Trend line"],["ray","Ray"],["hline","Horizontal"],["rect","Rectangle"],["fib","Fib"]].map(([k,n]) => `<button data-tool="${k}">${n}</button>`).join("")}<button data-undo>${ic("reset",13)} Undo</button><button data-clear>${ic("trash",13)} Clear</button></div>
     <div class="cp-chart" id="cc"><div class="fs-head"><button class="icon-btn" data-fsx aria-label="Exit fullscreen">${ic("back",20)}</button><b id="fsl"></b><span class="grow"></span><b class="num" id="fsp"></b></div>
       <div class="chart-wrap"><div id="chart"></div><div class="legend" id="lg"></div><div class="chart-msg" id="cmsg"></div></div></div>
@@ -179,7 +179,7 @@ async function dockPerf(root, sym){ const r = await CH.performance(sym); const e
 const MINI_TFS = ["1s","5s","30s","1m","5m","15m","1h","4h","1d","3d","1w","1M"];
 function miniChartBlock(sym){
   return `<div class="tfbar mini"><div class="tfs" id="tfs">${MINI_TFS.map(x => `<button data-tf="${x}">${TFL[x] || x}</button>`).join("")}</div>
-    <button class="ti" data-ctype aria-label="Line / candles">${ic("candle",15)}</button><a class="ti" href="#/chart/${sym}" aria-label="Full chart">${ic("expand",14)}</a></div>
+    <a class="ti" href="#/chart/${sym}" aria-label="Full chart">${ic("expand",14)}</a></div>
     <div class="cp-chart" id="cc"><div class="chart-wrap"><div id="chart"></div><div class="legend" id="lg"></div><div class="chart-msg" id="cmsg"></div></div></div>`;
 }
 function indGuide(cb){

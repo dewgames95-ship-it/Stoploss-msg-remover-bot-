@@ -208,7 +208,7 @@ function wrapSettings(){
   const _s = window.Pages && Pages.settings; if (!_s) return;
   Pages.settings = function(){
     const p = _s.apply(this, arguments);
-    const rowHtml = () => `<span class="dc-fl">${(window.LOGOS && LOGOS.flag) ? LOGOS.flag(CUR[code()].f, 30) : ""}</span><div class="pm-main"><div class="pm-t">Display currency</div><div class="pm-s">Prices and balances also show in this currency</div></div><b class="dc-cur">${code()} · ${CUR[code()].sym.trim()}</b><span class="dc-chev">›</span>`;
+    const rowHtml = () => `<span class="dc-fl">${(window.LOGOS && LOGOS.flag) ? LOGOS.flag(CUR[code()].f, 30) : ""}</span><div class="pm-main"><div class="pm-t">Display currency</div><div class="pm-s">Prices and balances also show in this currency</div></div><b class="dc-cur">${code()}${CUR[code()].sym.trim() === code() ? "" : " · " + CUR[code()].sym.trim()}</b><span class="dc-chev">›</span>`;
     const row = `<section class="pm-sec"><h3 class="pm-st">Currency</h3><button type="button" class="pm-row dc-row" id="dcRow">${rowHtml()}</button></section>`;
     const re = /<section class="pm-sec [^"]*"><h3 class="pm-st">Guide/;
     p.html = re.test(p.html) ? p.html.replace(re, m => row + m) : p.html.replace('<div class="pm-page">', '<div class="pm-page">' + row);
@@ -217,7 +217,7 @@ function wrapSettings(){
       const out = mt && mt.apply(this, arguments);
       const rb = r.querySelector("#dcRow");
       if (rb) rb.onclick = () => {
-        const list = () => Object.keys(CUR).map(k => `<button type="button" class="dc-it${k === code() ? " on" : ""}" data-cur="${k}"><span class="dc-fl">${(window.LOGOS && LOGOS.flag) ? LOGOS.flag(CUR[k].f, 30) : ""}</span><span class="dc-tx"><b>${CUR[k].n}</b><small>${k} · ${CUR[k].sym.trim()}${k === "USD" ? "" : " · 1 USD = " + (rate(k) >= 100 ? rate(k).toFixed(2) : rate(k).toFixed(4)) + " " + k}</small></span>${k === code() ? '<i class="dc-ck">✓</i>' : ""}</button>`).join("");
+        const list = () => Object.keys(CUR).map(k => `<button type="button" class="dc-it${k === code() ? " on" : ""}" data-cur="${k}"><span class="dc-fl">${(window.LOGOS && LOGOS.flag) ? LOGOS.flag(CUR[k].f, 30) : ""}</span><span class="dc-tx"><b>${CUR[k].n}</b><small>${k}${CUR[k].sym.trim() === k ? "" : " · " + CUR[k].sym.trim()}${k === "USD" ? "" : " · 1 USD = " + (rate(k) >= 100 ? rate(k).toFixed(2) : rate(k).toFixed(4)) + " " + k}</small></span>${k === code() ? '<i class="dc-ck">✓</i>' : ""}</button>`).join("");
         U.sheet("Display currency", `<div class="dc-list">${list()}</div>`, el => {
           el.querySelectorAll("[data-cur]").forEach(b => b.onclick = () => {
             S().settings.currency = b.dataset.cur; U.store.save(); loadRates(); rescan();

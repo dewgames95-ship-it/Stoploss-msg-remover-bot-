@@ -487,7 +487,7 @@ function fxSynthBars(p, sec){
 const SYNTH = {NVDA:[180,"NVIDIA Corp"], GOOGL:[280,"Alphabet Inc"], TSLA:[430,"Tesla Inc"], MSTR:[300,"Strategy Inc"], STRC:[100,"Strategy Variable Rate Pref."], AAPL:[270,"Apple Inc"], META:[640,"Meta Platforms"], AMZN:[230,"Amazon.com Inc"]};
 let synthOn = false;
 function addSynthetic(){
-  if (synthOn) return; synthOn = true;
+  if (synthOn || (tfLoaded && [...pairs.values()].some(p => p.src === "bnf"))) return; synthOn = true;   // v7.4: real Binance TradFi list replaces the placeholders
   try {
     let saved = {}; try { saved = JSON.parse(localStorage.getItem("synth_px_v1") || "{}"); } catch {}
     const list = [];

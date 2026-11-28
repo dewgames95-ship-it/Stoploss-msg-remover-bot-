@@ -283,3 +283,67 @@ html:root[data-theme] body .indbar .il button,html:root[data-theme] body .indbar
 .lqbox.sm .lqb-r b{margin-right:2px}
 .lqbox.sm .lqb-s{margin-top:1px;padding-top:2px;gap:6px}
 .lqp-kv+p{margin-top:8px}
+
+/* ===== v7.4 (agent E): measure tool, chart settings sheet, drawing colour / style + tap-to-hide, B/S trade window ===== */
+/* toolbar icons */
+.tfbar [data-measure] svg,.tfbar [data-chset] svg{width:17px;height:17px}
+.tfbar [data-measure].on{color:var(--brand-2,#2E6BFF);background:var(--brand-soft)}
+
+/* measure layer */
+.msr{position:absolute;inset:0;z-index:8;pointer-events:none;overflow:hidden}
+.msr.armed{pointer-events:auto;cursor:crosshair;touch-action:none}
+.msr-svg{position:absolute;left:0;top:0;pointer-events:none}
+.msr-pl{position:absolute;transform:translateY(-50%);color:#fff;font-size:10.5px;font-weight:700;line-height:16px;padding:0 5px;border-radius:3px;white-space:nowrap;font-variant-numeric:tabular-nums;pointer-events:none;margin-left:2px}
+.msr-tl{position:absolute;transform:translate(-50%,-50%);color:#fff;font-size:10.5px;font-weight:700;line-height:17px;padding:0 6px;border-radius:3px;white-space:nowrap;font-variant-numeric:tabular-nums;pointer-events:none}
+.msr-info{position:absolute;color:#fff;font-size:11px;font-weight:600;line-height:15px;padding:5px 9px;border-radius:6px;text-align:center;white-space:nowrap;pointer-events:none;box-shadow:0 2px 10px rgba(0,0,0,.18)}
+.msr-info div{font-variant-numeric:tabular-nums}
+
+/* drawing tools: floats over the top of the chart (a tap on the chart hides / shows it without moving the chart) */
+.cp-chart{position:relative}
+.cp-chart>.dw3-bar{position:absolute;left:0;right:0;top:0;z-index:12;border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--chart-bg,var(--bg)) 94%,transparent);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px);transition:opacity .14s ease,transform .14s ease}
+.cp-chart>.dw3-bar.peek{opacity:0;transform:translateY(-6px);pointer-events:none}
+.dw3-bar .dw3-sty{gap:5px;padding:0 9px}
+.dw3-sty .dw3-sw{width:12px;height:12px;border-radius:3px;background:var(--dc,#2E6BFF)}
+.dw3-sty .dw3-ln{width:16px;height:0;border-top:2px solid var(--text-2)}
+.dw3-sty[data-ls="dash"] .dw3-ln{border-top-style:dashed}
+.dw3-sty[data-ls="dot"] .dw3-ln{border-top-style:dotted}
+.dw3-pop{position:absolute;z-index:13;width:152px;padding:9px;border-radius:var(--r-card,12px);background:linear-gradient(180deg,var(--card-g1,var(--card-2,#29303A)),var(--card-g2,var(--card-2,#29303A)));border:1px solid var(--card-bd,var(--line-2,#3A424E));animation:tfpIn .14s ease-out}
+.dsp-c{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.dsp-c button{height:30px;border-radius:7px;background:var(--dc);border:2px solid transparent;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12)}
+.dsp-c button.on{border-color:var(--text);box-shadow:inset 0 0 0 2px var(--card-2,#29303A)}
+html[data-theme="light"] .dsp-c button.on{box-shadow:inset 0 0 0 2px #fff}
+.dsp-l{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:9px;padding-top:9px;border-top:1px solid var(--line)}
+.dsp-l button{height:28px;border-radius:7px;display:grid;place-items:center;background:var(--input,transparent);border:1px solid transparent}
+.dsp-l button.on{border-color:color-mix(in srgb,var(--brand-2,#2E6BFF) 60%,var(--line));background:var(--brand-soft)}
+.dsp-l i{display:block;width:26px;height:0;border-top:2px solid var(--text)}
+.dsp-l .ln-dash{border-top-style:dashed}.dsp-l .ln-dot{border-top-style:dotted}
+.dw3 .dtx.v{text-anchor:start}
+
+/* chart settings sheet */
+.cs{padding:2px 0 10px}
+.cs-top{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.cs-top button{display:flex;align-items:center;justify-content:center;gap:6px;height:44px;border-radius:var(--r-ctl,8px);border:1px solid var(--card-bd,var(--line));background:linear-gradient(180deg,var(--card-g1,var(--card)),var(--card-g2,var(--card)));color:var(--text);font-size:13px;font-weight:600}
+.cs-top button svg{color:var(--text-2);flex:none}
+.cs-sec{font-size:12.5px;color:var(--muted);font-weight:600;margin:18px 0 10px}
+.cs-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.cs-chip{position:relative;height:42px;border-radius:var(--r-ctl,8px);border:1px solid var(--line);background:transparent;color:var(--text-2);font-size:13px;font-weight:600;overflow:hidden;padding:0 10px}
+.cs-chip.on{border-color:color-mix(in srgb,var(--brand-2,#2E6BFF) 70%,var(--line));color:var(--text);background:color-mix(in srgb,var(--brand-2,#2E6BFF) 7%,transparent)}
+.cs-ck{position:absolute;right:-1px;top:-1px;width:18px;height:16px;border-radius:0 var(--r-ctl,8px) 0 7px;background:var(--brand-2,#2E6BFF);color:#fff;display:none;place-items:center}
+.cs-chip.on .cs-ck{display:grid}
+
+/* B / S markers are tappable → small trade window */
+html body .ovl2 .bs{pointer-events:auto;cursor:pointer;touch-action:none}
+html body .ovl2 .bs::after{content:"";position:absolute;inset:-8px}
+.mkpop{position:absolute;z-index:14;width:196px;border-radius:10px;background:rgba(30,35,41,.96);border:1px solid #2B3139;color:#EAECEF;font-size:11px;box-shadow:0 6px 20px rgba(0,0,0,.28);animation:tfpIn .14s ease-out}
+html[data-theme="light"] .mkpop{background:rgba(255,255,255,.98);border-color:#E6E8EA;color:#1E2329;box-shadow:0 6px 20px rgba(0,0,0,.12)}
+.mk-h{display:flex;align-items:center;gap:6px;padding:7px 4px 6px 10px;border-bottom:1px solid rgba(132,142,156,.22)}
+.mk-h b{font-size:12px;font-weight:700}
+.mk-h em{font-style:normal;font-size:10.5px;color:#848E9C;font-weight:600;flex:1}
+.mk-s{width:16px;height:16px;border-radius:4px;display:grid;place-items:center;font-style:normal;font-size:10px;font-weight:800;color:#fff;flex:none}
+.mk-s.b{background:var(--up,#2EBD85)}.mk-s.s{background:var(--down,#F6465D)}
+.mk-x{width:26px;height:26px;display:grid;place-items:center;border-radius:6px;color:#848E9C;flex:none}
+.mk-b{padding:5px 10px 8px}
+.mk-b div{display:flex;justify-content:space-between;gap:10px;line-height:19px}
+.mk-b span{color:#848E9C}
+.mk-b b{font-weight:600;text-align:right}
+.mk-b .up{color:var(--up,#2EBD85)}.mk-b .down{color:var(--down,#F6465D)}

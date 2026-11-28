@@ -98,6 +98,7 @@ function arrangeBar(tb){
   if (!tb.querySelector("[data-drawt]")) tb.insertAdjacentHTML("beforeend", penBtn());
   if (!tb.querySelector("[data-chset]")) tb.insertAdjacentHTML("beforeend", csetBtn());
   if (!tb.querySelector("[data-fs],a.ti[href^='#/chart']")) tb.insertAdjacentHTML("beforeend", fsBtn());
+  tb.querySelectorAll("[data-measure]:empty").forEach(b => b.innerHTML = IC_RULER); tb.querySelectorAll("[data-chset]:empty").forEach(b => b.innerHTML = IC_CSET);
   [tb.querySelector("[data-measure]"), tb.querySelector("[data-drawt]"), tb.querySelector("[data-chset]"), tb.querySelector("[data-fs],a.ti[href^='#/chart']")].forEach(b => b && tb.appendChild(b));
 }
 let cur = null;   // {svg, bar, wrap, box}

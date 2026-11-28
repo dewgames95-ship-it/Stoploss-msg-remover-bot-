@@ -17,14 +17,14 @@ function evt(s){
   const t = s * SLOT + SLOT * (0.05 + 0.9 * hash(s, 2));
   let w = hash(s, 6) * WSUM, c = COINS[0]; for (const x of COINS){ if ((w -= x[2]) < 0){ c = x; break; } }
   const d = c[3], px = priceOf(c), min = c[0] === "USDT" ? 1 : ((STD()[c[0]] || {}).min || 0);
-  let usd = Math.pow(10, 5 * Math.pow(hash(s, 4), 1.7));          // $1 .. $100,000, most of the mass at the small end
+  let usd = Math.pow(10, 5 * Math.pow(hash(s, 4), 2.2));          // $1 .. $100,000, most of the mass at the small end
   if (hash(s, 5) < 0.4){ const st = usd >= 5000 ? 1000 : usd >= 1000 ? 500 : usd >= 200 ? 100 : usd >= 50 ? 50 : usd >= 10 ? 10 : 1; usd = Math.max(st, Math.round(usd / st) * st); }
   usd = Math.min(100000, Math.max(1, usd));
   let amt = usd / px;
   if (hash(s, 5) >= 0.4 || c[0] !== "USDT" && c[0] !== "USDC") amt = +amt.toFixed(d); else amt = +amt.toFixed(2);
   if (c[0] !== "USDT" && c[0] !== "USDC" && hash(s, 5) < 0.4){ const sig = Math.pow(10, Math.floor(Math.log10(amt)) - 1); amt = +(Math.round(amt / sig) * sig).toFixed(d); }
   if (min > 0 && amt < min) amt = +(min * (1 + hash(s, 9) * 0.6)).toFixed(Math.max(d, 6));   // never below the real minimum withdrawal
-  if (amt < 1 / px && c[0] === "USDT") amt = 1;
+  if (amt * px < 1) amt = +Math.max(c[0] === "USDT" ? 1 : 0, Math.ceil(1.0001 / px * Math.pow(10, d)) / Math.pow(10, d)).toFixed(d);
   if (Math.abs(amt - Math.round(amt)) < 1e-9 && hash(s, 5) >= 0.4) amt += Math.pow(10, -d) * (1 + Math.floor(hash(s, 8) * 80));
   amt = +amt.toFixed(Math.max(d, amt < min * 1.0001 ? 6 : d));
   const uid = ((((s % 9000) + 9000) % 9000) * 7919 + 1234) % 9000 + 1000;
