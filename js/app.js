@@ -4,7 +4,7 @@ const C = window.CONFIG, {$, ic, t, store, bus, toast, signed} = U;
 const S = store.s;
 let current = null, curName = "", lastHash = location.hash, guardBusy = false;
 const DESC = {home:"Live crypto, forex and gold prices, binary options and futures.", markets:"Live prices for 100+ crypto pairs, forex and metals.", trade:"Trade Up or Down on live charts with 30s–5m expiries.", futures:"USDT-margined futures up to 125x with TP/SL.", assets:"Your balances, PnL and transactions.", bots:"Automated trading bots on live prices.", referral:"Invite friends and earn commission.", profile:"Your trading stats and account.", deposit:"Add USDT to your trading account instantly.", withdraw:"Move funds to your Vault and earn interest.", auto:"Activate automatic trading.", vip:"Momentum signals for every tradable pair.", community:"Chat with other traders.", about:"About NovaTrade.", support:"Contact NovaTrade support by phone, email or ticket.", settings:"Theme, language, sounds and defaults.", rewards:"Daily check-in, tasks and badges.", academy:"Learn trading, indicators and risk management.", alerts:"Price alerts for any market.", options:"Buy BTC, ETH and altcoin call & put options, cash-settled in USDT."};
-const NAV = [["home","Home","nhome"],["markets","Markets","nmkt"],["trade","Trade","ntrade"],["futures","Futures","nfut"],["assets","Assets","nasset"]];
+const NAV = [["home","Home","nhome"],["markets","Markets","nmkt"],["trade","Binary","ntrade"],["futures","Futures","nfut"],["assets","Assets","nasset"]];
 
 const mq = matchMedia("(prefers-color-scheme: dark)");
 function setTheme(th){
