@@ -188,5 +188,10 @@ html:root[data-theme] .fxr>.fx-head,html:root[data-theme] .bin-page>.fx-head{bac
 .fbook .r.me>span:first-of-type::after{content:"";display:inline-block;width:6px;height:6px;margin-left:6px;border-radius:50%;background:#F0B90B;vertical-align:middle;box-shadow:0 0 0 2px rgba(240,185,11,.28)}
 .fbook .r.me{background:rgba(240,185,11,.08)}
 /* O2: 0% slippage chip (same class + text on Futures and Spot) */
-.slip0{display:flex;align-items:center;gap:5px;margin:0 0 8px;padding:5px 7px;border:1px solid color-mix(in srgb,var(--brand) 22%,transparent);border-radius:var(--r-ctl);background:color-mix(in srgb,var(--brand) 7%,transparent);color:var(--text-2);font-size:10.5px;line-height:1.35}
+.slip0{display:flex;align-items:center;gap:5px;margin:0 0 8px;padding:5px 7px;border:1px solid color-mix(in srgb,var(--brand) 22%,transparent);border-radius:var(--r-ctl);background:color-mix(in srgb,var(--brand) 7%,transparent);color:var(--text-2);font-size:11px;line-height:1.35}
 .slip0 svg{flex:none;color:var(--brand)}
+.slip0{display:inline-flex;width:auto;max-width:100%;white-space:nowrap;cursor:pointer;padding:4px 8px;font-size:11px;touch-action:manipulation}
+.slip0 span{overflow:hidden;text-overflow:ellipsis}
+
+/* v7.2: no text under 11px in order book, sentiment bar and tags */
+html body .ob-src,html body .ob-out,html body .fee-b,html body .fxr .fee-l .fee-b,html body .sp-form .fee-l .fee-b{font-size:11px}

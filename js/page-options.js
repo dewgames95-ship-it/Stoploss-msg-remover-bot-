@@ -46,7 +46,7 @@ function symName(pos){ const d = new Date(pos.exp);
   return `${pos.base}-${pad(d.getUTCFullYear()%100)}${pad(d.getUTCMonth()+1)}${pad(d.getUTCDate())}-${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}-${pos.strike}-${pos.type === "call" ? "C" : "P"}`; }
 const expLabel = ms => { const d = new Date(ms); return `${pad(d.getUTCDate())}/${pad(d.getUTCMonth()+1)} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())} UTC`; };
 function cd(ms){ const s = Math.max(0, Math.floor(ms/1000)); if (s >= 86400) return `${Math.floor(s/86400)}d ${Math.floor(s%86400/3600)}h`; if (s >= 3600) return `${Math.floor(s/3600)}h ${pad(Math.floor(s%3600/60))}m`; return mmss(s); }
-const dtStr = ms => U.dateStr ? U.dateStr(ms) : new Date(ms).toLocaleString("en-US");
+const dtStr = ms => U.dateStr ? U.dateStr(ms) : String(ms);
 
 /* ---------- formatting ---------- */
 const fp = v => v < 1e-4 ? "<0.0001" : v >= 100 ? money(v) : v >= 1 ? v.toFixed(3) : v >= .01 ? v.toFixed(4) : v.toFixed(6);
@@ -328,7 +328,7 @@ Pages.options = (params) => {
         <div class="op-q-s"><input type="range" id="qRng" min="0" max="100" step="1" value="0" aria-label="Share of Options wallet"><b class="num" id="qPct">0%</b></div>
         <div class="op-q-b"><button class="btn btn-up" data-qside="call" type="button"><span>Up</span><small class="num" id="qKc"></small></button><button class="btn btn-down" data-qside="put" type="button"><span>Down</span><small class="num" id="qKp"></small></button></div>
       </div>
-      <div class="op-sec" style="margin:14px 0 0">Your prediction ${hq("callput")}</div>
+      <div class="op-sec" style="margin:14px 0 0">Direction ${hq("callput")}</div>
       <div class="op-dir" id="sDir">
         <button class="op-up ${side === "call" ? "on" : ""}" data-side="call"><span class="op-dir-i">${ic("up",18,2)}</span><b>Price will go UP</b><small>Buy Call</small></button>
         <button class="op-dn ${side === "put" ? "on" : ""}" data-side="put"><span class="op-dir-i">${ic("down",18,2)}</span><b>Price will go DOWN</b><small>Buy Put</small></button></div>

@@ -318,7 +318,7 @@ function logins(){
   if (!l.length) l = [{t:Date.now(), dev:(A().devName ? A().devName() : "This browser"), how:"Current session", cur:true}];
   return l;
 }
-const ds = t => { try { return U.dateStr(t); } catch(e){ return new Date(t).toLocaleString("en-US"); } };
+const ds = t => { try { return U.dateStr(t); } catch(e){ return String(t); } };
 function loginSheet(){
   U.sheet("Login history", logins().map(x => `<div class="pm-row"><div class="pm-main"><div class="pm-t">${esc(x.dev)}${x.cur ? ' <span class="lg-cur">This device</span>' : ""}</div><div class="pm-s">${esc(x.how || "Password")}</div></div><span class="pm-s">${ds(x.t)}</span></div>`).join("") + `<p class="pm-s" style="margin-top:10px">Only sign-ins on this device are recorded.</p>`);
 }
@@ -341,4 +341,52 @@ wrap("security", p => {
   mnt(p, r => { r.querySelector("[data-kycrow]").onclick = openKyc; r.querySelector("[data-lgrow]").onclick = loginSheet; r.querySelector("[data-dvrow]").onclick = devicesSheet; });
 });
 window.KYC = {open:openKyc, status:() => kyc().status, reset:() => { wr({status:"none"}); refreshBadges(); }};
+})();
+
+/* ===== v7.2 History page: "Order history" with product filter chips ===== */
+(function(){
+"use strict";
+const U = window.U, esc = U.esc, S = () => U.store.s;
+if (!window.Pages || !Pages.history || Pages.history.__v72) return;
+const orig = Pages.history;
+const lbl = s => { try { const p = M.get(s); return p ? M.label(p) : s; } catch(e){ return s; } };
+const sgn = v => (v > 0 ? "+" : v < 0 ? "-" : "") + U.money(Math.abs(v));
+const f4 = v => U.tiny ? U.tiny(v, 4) : U.fmt(v, 4);
+function records(){
+  const s = S(), out = [], px = v => { const n = +v; return n ? (n >= 100 ? U.fmt(n, 2) : n >= 1 ? U.fmt(n, 4) : U.fmt(n, 6)) : "-"; };
+  (s.fut && s.fut.history || []).forEach(x => out.push({p:"Futures", t:x.closed, n:lbl(x.sym) + " Perp", tag:(x.side === "long" ? "Long " : "Short ") + (x.lev || "") + "x", sub:px(x.entry) + " → " + px(x.exit), pnl:+x.profit || 0}));
+  (s.history || []).forEach(x => out.push({p:"Binary", t:x.closed, n:lbl(x.sym), tag:(x.dir === "up" ? "Up " : "Down ") + (x.expiry < 60 ? x.expiry + "s" : x.expiry / 60 + "m"), sub:px(x.entry) + " → " + px(x.exit), pnl:+x.profit || 0}));
+  (s.spot && s.spot.history || []).forEach(x => out.push({p:"Spot", t:x.ts, n:lbl(x.sym), tag:x.side === "buy" ? "Buy" : "Sell", sub:f4(x.qty) + " @ " + px(x.price), pnl:null}));
+  (s.opt && s.opt.history || []).forEach(x => out.push({p:"Options", t:x.closed, n:((x.base || "") + " " + (x.strike || "") + " " + (x.type || "")).trim() || "Option", tag:x.result || "Closed", sub:"Qty " + f4(x.qty || 0), pnl:+x.pnl || 0}));
+  (s.cfd && s.cfd.history || []).forEach(x => out.push({p:"CFD", t:x.tc, n:lbl(x.sym), tag:(x.side === "long" || x.side === "buy" ? "Buy " : "Sell ") + (x.lots != null ? f4(x.lots) + " lots" : ""), sub:px(x.entry) + " → " + px(x.close), pnl:+x.pnl || 0}));
+  try { const d = window.PRED && PRED.data(); (d && d.history || []).forEach(h => out.push({p:"Prediction", t:h.t, n:String(h.q || h.title || "Market"), tag:String(h.kind || "Trade"), sub:h.shares ? f4(h.shares) + " shares" : "", pnl:h.pnl != null ? +h.pnl : null})); } catch(e){}
+  return out.filter(x => x.t).sort((a, b) => b.t - a.t);
+}
+Pages.history = function(){
+  const pg = orig.apply(this, arguments), om = pg.mount;
+  pg.html = pg.html.replace(">My Trades<", ">Order history<").replace(">USDⓈ-M Futures<", ">All products<").replace('<div class="ptabs"', '<div class="hx-chips chips" id="hxc" role="tablist" aria-label="Product filter"></div><div class="ptabs"').replace('<div id="hl"></div>', '<div id="hl"></div><div id="hu"></div>');
+  pg.title = "Order history";
+  pg.mount = function(r){
+    om.call(this, r);
+    const recs = records(), prods = ["Futures", "Spot", "Binary", "Options", "CFD", "Prediction"].filter(p => recs.some(x => x.p === p));
+    const chips = r.querySelector("#hxc"), tabs = r.querySelector(".ptabs"), hl = r.querySelector("#hl"), hu = r.querySelector("#hu"), lu = r.querySelector("#lu");
+    let cur = "All"; try { const v = sessionStorage.getItem("hxProd"); if (v) cur = v; } catch(e){}
+    if (cur !== "All" && !prods.includes(cur)) cur = "All";
+    const list = items => items.length ? items.slice(0, 150).map(x => `<div class="pc"><div class="pc-h"><span class="sym">${esc(x.n)}</span><span class="perp">${esc(x.p)}${x.tag ? " · " + esc(x.tag) : ""}</span><span class="grow"></span>${x.pnl == null ? "" : `<b class="num ${x.pnl > 0 ? "up" : x.pnl < 0 ? "down" : ""}">${sgn(x.pnl)}</b>`}</div><div class="ph-t"><span>${esc(x.sub || "")}</span><b>${U.dateStr(x.t)}</b></div></div>`).join("") : `<div class="empty"><p>No records yet.</p></div>`;
+    const apply = () => {
+      chips.querySelectorAll("button").forEach(b => { const on = b.dataset.p === cur; b.classList.toggle("on", on); b.setAttribute("aria-selected", on); });
+      try { sessionStorage.setItem("hxProd", cur); } catch(e){}
+      const native = cur === "Futures" || cur === "Binary";
+      tabs.hidden = !native; hl.hidden = !native; hu.hidden = native;
+      if (native){ const t = r.querySelector(`[data-ht="${cur === "Binary" ? "bin" : "pos"}"]`); if (t) t.click(); }
+      else hu.innerHTML = list(cur === "All" ? recs : recs.filter(x => x.p === cur));
+    };
+    if (prods.length) chips.innerHTML = ["All", ...prods].map(p => `<button type="button" role="tab" data-p="${p}">${p}</button>`).join("");
+    else { chips.hidden = true; cur = "All"; }
+    chips.onclick = e => { const b = e.target.closest("[data-p]"); if (!b) return; cur = b.dataset.p; apply(); };
+    if (prods.length) apply(); else { tabs.hidden = false; hu.hidden = true; if (!recs.length && lu) { /* original lists show their own empty state */ } }
+  };
+  return pg;
+};
+Pages.history.__v72 = 1;
 })();

@@ -4,7 +4,7 @@ const C = window.CONFIG, {$, ic, t, store, bus, toast, signed} = U;
 const S = store.s;
 let current = null, curName = "", lastHash = location.hash, guardBusy = false;
 const DESC = {home:"Live crypto, forex and gold prices, binary options and futures.", markets:"Live prices for 100+ crypto pairs, forex and metals.", trade:"Trade Up or Down on live charts with 30s–5m expiries.", futures:"USDT-margined futures up to 125x with TP/SL.", assets:"Your balances, PnL and transactions.", bots:"Automated trading bots on live prices.", referral:"Invite friends and earn commission.", profile:"Your trading stats and account.", deposit:"Add USDT to your trading account instantly.", withdraw:"Move funds to your Vault and earn interest.", auto:"Activate automatic trading.", vip:"Momentum signals for every tradable pair.", community:"Chat with other traders.", about:"About NovaTrade.", support:"Contact NovaTrade support by phone, email or ticket.", settings:"Theme, language, sounds and defaults.", rewards:"Daily check-in, tasks and badges.", academy:"Learn trading, indicators and risk management.", alerts:"Price alerts for any market.", options:"Buy BTC, ETH and altcoin call & put options, cash-settled in USDT."};
-const NAV = [["home","Home","nhome"],["markets","Markets","nmkt"],["trade","Trade","ntrade"],["futures","Futures","nfut"],["assets","Assets","nasset"]];
+const NAV = [["home","Home","nhome"],["markets","Markets","nmkt"],["trade","Binary","ntrade"],["futures","Futures","nfut"],["assets","Assets","nasset"]];
 
 const mq = matchMedia("(prefers-color-scheme: dark)");
 function setTheme(th){
@@ -98,7 +98,7 @@ window.App = {route, setTheme, guardNav};
     const symOf = k => { const a = links.find(x => (x.getAttribute("href") || "").startsWith("#/" + k + "/")); return a ? a.getAttribute("href").split("/")[2] : "BTCUSDT"; };
     const sym = symOf("futures") || symOf("spot"), cur = (location.hash.split("/")[1] || "").split("?")[0];
     const act = cur === "chart" ? "futures" : cur;
-    const st = (links[0] && links[0].getAttribute("style")) || "font-size:17px";
+    const st = (links[0] && links[0].getAttribute("style")) || "font-size:16px";
     /* v7.2: 5 main tabs + "More" (the rest open in a sheet); the current page always shows as a tab */
     const show = TABS.filter(([k]) => MAIN.includes(k) || k === act);
     t.innerHTML = show.map(([k, n, hot, vt]) => {
@@ -118,4 +118,55 @@ window.App = {route, setTheme, guardNav};
   const scan = () => document.querySelectorAll("#view .tabs").forEach(norm);
   new MutationObserver(scan).observe(document.getElementById("view"), {childList: true, subtree: true});
   scan();
+})();
+
+/* v7.2: offline banner text, pull-to-refresh, aria-labels for icon-only controls */
+(function(){
+  const off = document.getElementById("offline");
+  if (off){ off.textContent = "You're offline. Prices may be delayed."; const f = () => { off.classList.toggle("hide", navigator.onLine); document.body.classList.toggle("is-offline", !navigator.onLine); }; addEventListener("online", f); addEventListener("offline", f); f(); }
+  /* pull to refresh */
+  const view = document.getElementById("view"); if (!view) return;
+  let y0 = 0, dy = 0, on = false, ind = null;
+  const skip = () => /^#\/(admin|racer|chart)/.test(location.hash) || document.querySelector("#scrim.show") || document.body.classList.contains("no-pull");
+  const mk = () => { if (!ind){ ind = document.createElement("div"); ind.className = "ptr"; ind.innerHTML = '<i></i>'; document.body.appendChild(ind); } return ind; };
+  view.addEventListener("touchstart", e => {
+    on = false; dy = 0;
+    if (e.touches.length !== 1 || window.scrollY > 0 || document.scrollingElement.scrollTop > 0 || skip()) return;
+    if (e.target.closest("input,textarea,select,canvas,.no-drag,.tabs,[data-nopull]")) return;
+    y0 = e.touches[0].clientY; on = true;
+  }, {passive: true});
+  view.addEventListener("touchmove", e => {
+    if (!on) return; dy = e.touches[0].clientY - y0;
+    if (dy <= 8){ if (ind) ind.style.opacity = 0; return; }
+    const el = mk(), d = Math.min(dy, 110) * .6;
+    el.style.opacity = Math.min(1, dy / 70); el.style.transform = `translate(-50%,${d}px) rotate(${dy * 3}deg)`; el.classList.toggle("ready", dy > 70);
+  }, {passive: true});
+  const end = () => {
+    if (!on) return; on = false;
+    const go = dy > 70 && !skip(); dy = 0;
+    if (ind){ if (go){ ind.classList.add("spin"); ind.style.transform = "translate(-50%,44px)"; } else ind.style.opacity = 0; }
+    if (go){ U.buzz && U.buzz(); setTimeout(() => { try { App.route(); } catch {} if (ind){ ind.classList.remove("spin", "ready"); ind.style.opacity = 0; ind.style.transform = "translate(-50%,0)"; } }, 450); }
+    else if (ind) ind.classList.remove("ready");
+  };
+  view.addEventListener("touchend", end, {passive: true}); view.addEventListener("touchcancel", end, {passive: true});
+  /* aria-labels */
+  const NAMES = {back:"Back", close:"Close", share:"Share", more:"More", menu:"Menu", search:"Search", star:"Favorite", fav:"Favorite", info:"Information", help:"Help", bell:"Notifications", settings:"Settings", copy:"Copy", delete:"Delete", del:"Delete", edit:"Edit", refresh:"Refresh", eye:"Show or hide balance", add:"Add", plus:"Add", minus:"Remove", filter:"Filter", sort:"Sort", scan:"Scan", chat:"Support chat", cancel:"Cancel", tip:"Help"};
+  const label = el => {
+    if (el.hasAttribute("aria-label") || el.hasAttribute("aria-labelledby") || el.closest("[aria-hidden=true]")) return;
+    if ((el.textContent || "").trim()) return;
+    if (!el.querySelector("svg,img,i,span") && !el.className) return;
+    let n = el.getAttribute("title");
+    if (!n){
+      const keys = [...[...el.attributes].map(a => a.name.replace(/^data-/, "")), ...String(el.className && el.className.baseVal === undefined ? el.className : "").split(/\s+/)];
+      for (const k of keys){ const m = k.toLowerCase().split(/[-_]/).find(w => NAMES[w]); if (m){ n = NAMES[m]; break; } }
+    }
+    if (n) el.setAttribute("aria-label", n);
+  };
+  const sweep = root => { if (root.nodeType !== 1) return; if (root.matches("button,a")) label(root); root.querySelectorAll("button,a").forEach(label); };
+  let q = 0, pend = new Set();
+  new MutationObserver(ms => {
+    ms.forEach(m => m.addedNodes.forEach(n => pend.add(n)));
+    if (q) return; q = setTimeout(() => { q = 0; const p = [...pend]; pend.clear(); p.forEach(sweep); }, 120);
+  }).observe(document.body, {childList: true, subtree: true});
+  sweep(document.body);
 })();

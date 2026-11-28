@@ -78,7 +78,7 @@ const connSave = c => { try { localStorage.setItem(CK, JSON.stringify(c)); retur
 const connDrop = () => { try { localStorage.removeItem(CK); } catch {} };
 const maskKey = k => k.length <= 8 ? "••••••••" : k.slice(0, 4) + "••••••••" + k.slice(-4);
 const STATUS = "Connected · Live connection coming soon — trades run on your NovaTrade Futures wallet for now";
-const exLogo = (ex, size = 36) => `<span class="at-lg" style="width:${size}px;height:${size}px;font-size:${Math.round(size * .44)}px"><b>${esc(ex.name[0])}</b><img src="https://www.google.com/s2/favicons?domain=${ex.site}&sz=64" alt="" loading="lazy" decoding="async" onerror="this.remove()"></span>`;
+const exLogo = (ex, size = 36) => `<span class="at-lg" style="width:${size}px;height:${size}px;font-size:${Math.round(size * .44)}px"><b>${esc(ex.name[0])}</b><img src="assets/logos/${ex.site}.png" alt="" loading="lazy" decoding="async" onerror="this.remove()"></span>`;
 
 /* ---------- formatting ---------- */
 const usd = (v, d = 2) => (v < 0 ? "-" : "") + fmt(Math.abs(v || 0), d);
