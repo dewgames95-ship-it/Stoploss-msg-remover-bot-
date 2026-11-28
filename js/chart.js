@@ -81,8 +81,8 @@ const fmtVol = v => v >= 1e9 ? (v/1e9).toFixed(2)+"B" : v >= 1e6 ? (v/1e6).toFix
 function mount(container, parts, detailCb){
   destroy();
   el = container; ui = parts || {}; onDetail = detailCb;
-  inds = ui.noInd ? [] : (store.s.settings.inds || []).slice(); { let n = 0; inds = inds.filter(k => k !== "AI" && (k === "VOL" || ++n <= MAXI)); } if (ui.mode === "bin" && !ui.noInd && store.s.settings.aiFc !== false) inds.push("AI"); type = store.s.settings.chartType || "candle";
-  offs.push(bus.on("tick", onTick), bus.on("trade", onTrade), bus.on("theme", () => { if (chart){ build(); } }), bus.on("positions", syncLines), bus.on("history", syncLines), bus.on("settled", binFx));
+  inds = ui.noInd ? [] : (store.s.settings.inds || []).slice(); { let n = 0; inds = inds.filter(k => k !== "AI" && (k === "VOL" || ++n <= MAXI)); } if (ui.mode === "bin" && !ui.noInd && store.s.settings.aiFc !== false) inds.push("AI"); type = "candle";   // v7.4: the candle/line toggle was removed — the "Time" interval is the line view
+  offs.push(bus.on("tick", onTick), bus.on("trade", onTrade), bus.on("theme", () => { if (chart){ build(); } }), bus.on("positions", syncLines), bus.on("history", syncLines), bus.on("chartprefs", applyPrefs), bus.on("settled", binFx));
   ro = new ResizeObserver(() => { if (chart) chart.applyOptions({width: el.clientWidth, height: el.clientHeight}); ui.liqTip?.classList.add("hide"); });
   ro.observe(el);
   // overlay layers
@@ -123,9 +123,9 @@ function build(){
   S = {};
   const lineMode = tf === "tick" || type === "line";
   if (lineMode){
-    S.main = chart.addSeries(LW.AreaSeries, {lineColor:"#2E6BFF", topColor:"rgba(46,107,255,.30)", bottomColor:"rgba(46,107,255,0)", lineWidth:1.5, lineType: tf === "tick" ? 2 : 0, priceFormat:pf, autoscaleInfoProvider:fitInfo, lastPriceAnimation:1, lastValueVisible:false, priceLineVisible:true, priceLineColor: dark() ? "#B7BDC6" : "#474D57", priceLineStyle:2, crosshairMarkerRadius:3});
+    S.main = chart.addSeries(LW.AreaSeries, {lineColor:"#2E6BFF", topColor:"rgba(46,107,255,.30)", bottomColor:"rgba(46,107,255,0)", lineWidth:1.5, lineType: tf === "tick" ? 2 : 0, priceFormat:pf, autoscaleInfoProvider:fitInfo, lastPriceAnimation:1, lastValueVisible:false, priceLineVisible:(store.s.settings.chart || {}).pl !== false, priceLineColor: dark() ? "#B7BDC6" : "#474D57", priceLineStyle:2, crosshairMarkerRadius:3});
   } else {
-    S.main = chart.addSeries(LW.CandlestickSeries, {upColor:UP, downColor:DN, borderVisible:false, wickUpColor:UP, wickDownColor:DN, priceFormat:pf, autoscaleInfoProvider:fitInfo, lastValueVisible:false, priceLineVisible:true, priceLineColor: dark() ? "#B7BDC6" : "#474D57", priceLineStyle:2});
+    S.main = chart.addSeries(LW.CandlestickSeries, {upColor:UP, downColor:DN, borderVisible:false, wickUpColor:UP, wickDownColor:DN, priceFormat:pf, autoscaleInfoProvider:fitInfo, lastValueVisible:false, priceLineVisible:(store.s.settings.chart || {}).pl !== false, priceLineColor: dark() ? "#B7BDC6" : "#474D57", priceLineStyle:2});
   }
   chart.priceScale("right").applyOptions({mode: pctMode ? 2 : 0});
   try { LW.createTextWatermark(chart.panes()[0], {horzAlign:"center", vertAlign:"center", lines:[{text:"NovaTrade", color: dark() ? "rgba(148,163,184,.07)" : "rgba(100,116,139,.07)", fontSize:28, fontStyle:"700"}]}); } catch {}
@@ -559,13 +559,45 @@ function aiInfo(){
 }
 function bindAi(){ ui.aiBox?.addEventListener("click", e => { if (e.target.closest("[data-aiq]")){ e.stopPropagation(); U.buzz(10); aiInfo(); } }); }
 
+/* ---- v7.4: candles WITH Binance quote volume (USDT) — kline field [7] — for the crosshair window, the volume legend and the measure tool.
+   Crypto = Binance spot klines (same source as M.candles), Binance-futures-only pairs = fapi klines. Anything else (or an API failure) falls back
+   to M.candles (tick volume, no USDT value). While the chart is open the last two klines are re-read every 5 s so volume keeps matching Binance. ---- */
+let qvTm = 0;
+async function restJSON(hosts, path){ for (const h of hosts || []){ try { const r = await fetch(h + path, {cache:"no-store"}); if (r.ok) return await r.json(); } catch {} } throw new Error("rest"); }
+const kq = r => ({time: Math.floor(r[0]/1000), open:+r[1], high:+r[2], low:+r[3], close:+r[4], volume:+r[5], qv:+r[7]});
+function aggQ(rows, s){ const out = []; for (const b of rows){ const t = Math.floor(b.time / s) * s, l = out[out.length-1];
+  if (l && l.time === t){ l.high = Math.max(l.high, b.high); l.low = Math.min(l.low, b.low); l.close = b.close; l.volume += b.volume; l.qv += b.qv; } else out.push(Object.assign({}, b, {time:t})); } return out; }
+async function candlesQ(s, t){
+  const p = M.get(s), C0 = window.CONFIG || {}, sc = M.TF_SEC[t];
+  try {
+    if (p && p.type === "crypto"){
+      if (sc < 60){
+        const pages = t === "tick" || t === "1s" || t === "5s" ? 1 : t === "15s" ? 2 : 3; let end = null, all = [];
+        for (let i = 0; i < pages; i++){ const rows = await restJSON(C0.BINANCE_REST, `/api/v3/klines?symbol=${s}&interval=1s&limit=1000` + (end ? `&endTime=${end}` : "")); all = rows.map(kq).concat(all); if (!rows.length) break; end = rows[0][0] - 1; }
+        return aggQ(t === "tick" ? all.slice(-600) : t === "1s" ? all.slice(-900) : all, sc);
+      }
+      return (await restJSON(C0.BINANCE_REST, `/api/v3/klines?symbol=${s}&interval=${t}&limit=500`)).map(kq);
+    }
+    if (p && p.src === "bnf" && sc >= 60) return (await restJSON(C0.BINANCE_FAPI, `/fapi/v1/klines?symbol=${s}&interval=${t}&limit=500`)).map(kq).filter(b => b.open > 0);
+  } catch {}
+  return M.candles(s, t);
+}
+async function qvPoll(){
+  if (document.hidden || !bars.length || sec < 60) return; const s0 = sym, t0 = tf, p = M.get(s0), C0 = window.CONFIG || {};
+  try {
+    const rows = p.type === "crypto" ? await restJSON(C0.BINANCE_REST, `/api/v3/klines?symbol=${s0}&interval=${t0}&limit=2`) : p.src === "bnf" ? await restJSON(C0.BINANCE_FAPI, `/fapi/v1/klines?symbol=${s0}&interval=${t0}&limit=2`) : null;
+    if (!rows || s0 !== sym || t0 !== tf) return;
+    rows.map(kq).forEach(k => { const i = findIdx(k.time); if (i >= 0){ const b = bars[i]; if (k.volume >= b.volume || i < bars.length - 1){ b.volume = k.volume; b.qv = k.qv; } } });
+    dirty = true; if (hover != null) crossBox();
+  } catch {}
+}
 async function load(s, timeframe){
   sym = s; tf = timeframe; sec = M.TF_SEC[tf];
   const seq = ++loadSeq;
-  bars = []; aiSt = null; build(); msg("Loading…");
+  bars = []; aiSt = null; closeMk(); build(); msg("Loading…");
   let data = [];
   for (let i=0;i<5;i++){
-    try { data = await M.candles(sym, tf); break; }
+    try { data = await candlesQ(sym, tf); break; }
     catch { if (seq !== loadSeq) return; msg("Reconnecting…"); await U.sleep(800 * 2**i); }
   }
   if (seq !== loadSeq) return;
@@ -575,6 +607,7 @@ async function load(s, timeframe){
   setAll();
   chart.timeScale().scrollToRealTime();
   msg(bars.length ? "" : "Waiting for live data…");
+  clearInterval(qvTm); qvTm = bars.length && bars[0].qv != null && sec >= 60 ? setInterval(qvPoll, 5000) : 0;
   if (p?.price) onTick(sym, p.price);
 }
 function msg(t){ if (ui.msg) ui.msg.innerHTML = !t ? "" : t === "Loading…" && U.skel ? `<div class="sk-chart">${U.skel(1, "card")}</div>` : `<span>${t}</span>`; }
@@ -585,10 +618,10 @@ function onTick(s, price){
   if (l && bt < l.time) return;
   const nonC = M.get(sym).type !== "crypto";
   if (l && l.time === bt){ l.high = Math.max(l.high, price); l.low = Math.min(l.low, price); l.close = price; if (nonC) l.volume += 1; }
-  else bars.push({time:bt, open: l ? l.close : price, high:price, low:price, close:price, volume: nonC ? 1 : 0});
+  else bars.push(Object.assign({time:bt, open: l ? l.close : price, high:price, low:price, close:price, volume: nonC ? 1 : 0}, l && l.qv != null ? {qv:0} : {}));
   dirty = true; msg("");
 }
-function onTrade(s, tr){ if (s !== sym || !bars.length) return; const bt = Math.floor(tr.t/1000/sec)*sec, l = bars[bars.length-1]; if (l.time === bt) l.volume += tr.q; }
+function onTrade(s, tr){ if (s !== sym || !bars.length) return; const bt = Math.floor(tr.t/1000/sec)*sec, l = bars[bars.length-1]; if (l.time === bt){ l.volume += tr.q; if (l.qv != null) l.qv += tr.q * tr.p; } }
 function loop(){
   raf = requestAnimationFrame(loop);
   const n = performance.now();
@@ -609,7 +642,7 @@ function legend(){
   if (r.vw) h += `<div><span>VWAP <b style="color:${COL.vwap}">${f(r.vw[i])}</b></span></div>`;
   if (r.st) h += `<div><span>SUPERTREND(${IS("SUPER").n},${IS("SUPER").m}) <b style="color:${r.st.dir[i] === 1 ? UP : DN}">${f(r.st.val[i])}</b></span></div>`;
   if (ui.legend._h !== h){ ui.legend._h = h; ui.legend.innerHTML = h; aiBoxPos(); }
-  if (S.vol && ui.vlg && chart){ const b = bars[i] || {}, v = b.volume || 0, q = v * (b.close || 0), k = n => n >= 1e9 ? (n/1e9).toFixed(2) + "B" : n >= 1e6 ? (n/1e6).toFixed(2) + "M" : n >= 1e3 ? (n/1e3).toFixed(2) + "K" : n.toFixed(2);
+  if (S.vol && ui.vlg && chart){ const b = bars[i] || {}, v = b.volume || 0, q = b.qv != null ? b.qv : v * (b.close || 0), k = n => n >= 1e9 ? (n/1e9).toFixed(2) + "B" : n >= 1e6 ? (n/1e6).toFixed(2) + "M" : n >= 1e3 ? (n/1e3).toFixed(2) + "K" : n.toFixed(2);
     try { ui.vlg.style.top = (chart.panes()[0].getHeight() + 3) + "px"; } catch {}
     ui.vlg.innerHTML = `Vol(${U.esc(p.base || "")}): <b>${k(v)}</b>&nbsp;&nbsp;Vol(${U.esc(p.quote || "USDT")}): <b>${k(q)}</b>`; }
 }
@@ -621,9 +654,8 @@ function crossBox(){
   const ch = b.close - prev, chp = ch / prev * 100, rng = (b.high - b.low) / (b.low || 1) * 100, d = new Date(b.time*1000);
   const ts = `${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")},${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}${sec < 60 ? ":" + String(d.getSeconds()).padStart(2,"0") : ""}`;
   const c = ch >= 0 ? "up" : "down";
-  box.innerHTML = [["Time",ts],["Open",f(b.open)],["High",f(b.high)],["Low",f(b.low)],["Close",f(b.close)],["Chg",`<span class="${c}">${ch>=0?"+":""}${M.fmtPx(p,ch)}</span>`],["%Chg",`<span class="${c}">${chp>=0?"+":""}${chp.toFixed(2)}%</span>`],["Range",rng.toFixed(2)+"%"],["Vol",fmtVol(b.volume||0)]].map(([k,v]) => `<div><span>${k}</span><b>${v}</b></div>`).join("");
-  const bt = lastMarks.filter(m => { const i = barAt(Math.floor(m.t / 1000)); return i === hover; });
-  if (bt.length) box.innerHTML += bt.slice(0, 3).map(m => `<div class="cb-t"><span class="${m.s === "B" ? "up" : "down"}">${m.s === "B" ? "Buy" : "Sell"}</span><b>${M.fmtPx(p, m.p)}</b></div>`).join("");
+  box.innerHTML = [["Time",ts],["Open",f(b.open)],["High",f(b.high)],["Low",f(b.low)],["Close",f(b.close)],["Chg",`<span class="${c}">${ch>=0?"+":""}${M.fmtPx(p,ch)}</span>`],["%Chg",`<span class="${c}">${chp>=0?"+":""}${chp.toFixed(2)}%</span>`],["Range",rng.toFixed(2)+"%"],b.qv != null ? ["Vol(USDT)",fmtVol(b.qv)] : ["Vol",fmtVol(b.volume||0)]].map(([k,v]) => `<div><span>${k}</span><b>${v}</b></div>`).join("");
+  // v7.4: the Buy / Sell rows are gone — tap a B / S marker on the chart for that trade's details
   const w = el.clientWidth; box.classList.remove("hide");
   box.style.left = hoverPt.x > w/2 ? "6px" : ""; box.style.right = hoverPt.x > w/2 ? "" : "70px";
   priceLabel();
@@ -657,11 +689,13 @@ function syncLines(){
   if (bin) s.positions.filter(x => x.sym === sym).forEach(p => { want.set("b"+p.id, {price:p.entry, color: p.dir === "up" ? UP : DN, lineStyle:2}); lineSpec.set("b"+p.id, {kind:"bin", pos:p}); });
   if (fut) s.fut.positions.filter(x => x.sym === sym).forEach(p => {
     want.set("f"+p.id, {price:p.entry, color: p.side === "long" ? UP : DN, lineStyle:2}); lineSpec.set("f"+p.id, {kind:"fut", pos:p});
-    if (p.liq > 0) want.set("l"+p.id, {price:p.liq, color:"#F7931A", lineStyle:2});
+    if (p.liq > 0 && cp.liq !== false) want.set("l"+p.id, {price:p.liq, color:"#F7931A", lineStyle:2});
+    if (cp.tpsl === false) return;
     if (p.tp){ want.set("t"+p.id, {price:p.tp, color:UP, lineStyle:2}); lineSpec.set("t"+p.id, {kind:"tp", pos:p}); }
     if (p.sl){ want.set("s"+p.id, {price:p.sl, color:DN, lineStyle:2}); lineSpec.set("s"+p.id, {kind:"sl", pos:p}); }
   });
   if (ordOn) s.fut.orders.filter(x => x.sym === sym).forEach(o => want.set("o"+o.id, {price:o.price, color:"#0EA5E9", lineStyle:2}));
+  if (ui.mode !== "none" && cp.al === true) (s.alerts || []).filter(a => a.sym === sym && !a.done).forEach(a => want.set("a"+a.id, {price:a.price, color:"#8B7CFF", lineStyle:1}));   // v7.4 chart settings: price alert lines (off by default)
   extraSpec.forEach(x => want.set("x"+x.id, {price:x.price, color:x.color, lineStyle:x.lineStyle ?? 0, ax:x}));   // CH.setExtra (e.g. options entry line)
   for (const [k, l] of lines){ if (!want.has(k)){ try { S.main.removePriceLine(l); } catch {} lines.delete(k); } }
   for (const [k, o] of want){
@@ -725,7 +759,7 @@ function overlay(){
 
     }
     const pv = k => dragS && dragS.id === pos.id && (dragS.kind === k || (dragS.kind === "new" && dragS.as === k)) ? dragS.price : pos[k];
-    [["tp","TP"],["sl","SL"]].forEach(([k, n]) => { const v = pv(k); if (!v) return; const yy = S.main.priceToCoordinate(v); if (yy == null) return;
+    if (cp.tpsl !== false) [["tp","TP"],["sl","SL"]].forEach(([k, n]) => { const v = pv(k); if (!v) return; const yy = S.main.priceToCoordinate(v); if (yy == null) return;
       const est = E.futPnl(pos, v).pnl, roi = est / (pos.margin || 1) * 100, act = dragS && dragS.id === pos.id && (dragS.kind === k || dragS.as === k);
       if (act) h += `<div class="dline ${k}" style="top:${yy}px"></div>`;
       h += `<div class="plab o ${est>=0?"g":"r"} drag${act ? " act" : ""}" data-drag="${k}:${pos.id}" data-ln="${k}${pos.id}" style="top:${yy}px;left:${Math.max(4, axisX/2 - 90)}px"><span>${dragIcon} ${n} ${M.fmtPx(p, v)}</span><span>PnL ${signed(est)} (${roi >= 0 ? "+" : ""}${roi.toFixed(1)}%)</span></div>`; });
@@ -809,19 +843,40 @@ function liveLines(now){
   }
 }
 
-/* ---- Tap a B/S marker → trade details ---- */
-let lastMarks = [];
-function markSheet(m){
-  const P = M.get(sym), r = m.r, f = v => v == null ? "--" : M.fmtPx(P, v), dt = t => t ? U.dateStr(t) : "--";
-  let rows;
-  if (m.k === "bo" || m.k === "bh") rows = [["Type", "Binary " + (r.dir === "up" ? "Up" : "Down")], ["Amount", money(r.amount) + " USDT"], ["Entry price", f(r.entry)], ["Close price", f(r.exit)], ["Result", r.result ? `<span class="${r.profit >= 0 ? "up" : "down"}">${r.result === "win" ? "Won" : r.result === "loss" ? "Lost" : "Refunded"} ${signed(r.profit)} USDT</span>` : "Open"], ["Opened", dt(r.open)], ["Expires / closed", dt(r.closed || r.exp)]];
-  else rows = [["Type", `Futures ${r.side === "long" ? "Long" : "Short"} ${r.lev}x`], [m.k === "fc" ? "Close price" : "Entry price", f(m.p)], ["Size", money((r.qty || r.closedVol || 0) * r.entry) + " USDT"], ["Margin", money(r.margin) + " USDT"], ...(r.profit != null ? [["Realized PnL", `<span class="${r.profit >= 0 ? "up" : "down"}">${signed(r.profit)} USDT</span>`]] : [["Unrealized PnL", `<span class="${E.futPnl(r).pnl >= 0 ? "up" : "down"}">${signed(E.futPnl(r).pnl)} USDT</span>`]]), ["Time", dt(m.t)]];
-  U.sheet(`${m.s === "B" ? "Buy" : "Sell"} · ${M.label(P)}`, `<div class="cf-rows">${rows.map(([a, b]) => `<div><span>${a}</span><b class="num">${b}</b></div>`).join("")}</div>`);
+/* ---- Tap a B/S marker → small trade window next to the marker (side, amount, entry / exit, PnL, ROI). ❌ or a tap on the chart closes it ---- */
+let lastMarks = [], mkEl = null;
+function closeMk(){ if (mkEl){ mkEl.remove(); mkEl = null; } }
+function markPop(m, cx, cy){
+  closeMk(); if (!el) return;
+  const P = M.get(sym), r = m.r, f = v => v == null || !isFinite(v) ? "--" : M.fmtPx(P, v), pc = v => (v >= 0 ? "+" : "") + v.toFixed(2) + "%", cl = v => v >= 0 ? "up" : "down";
+  let title, rows;
+  if (m.k === "bo" || m.k === "bh"){
+    const up = r.dir === "up", live = m.k === "bo" ? E.livePnl(r) : null, pnl = r.profit != null ? r.profit : live && live.win != null ? (live.win ? live.pnl : -r.amount) : null;
+    title = `<i class="mk-s ${up ? "b" : "s"}">${up ? "B" : "S"}</i><b>${up ? "Up" : "Down"}</b><em>Binary</em>`;
+    rows = [["Amount", money(r.amount) + " USDT"], ["Entry price", f(r.entry)], ["Exit price", r.exit != null && m.k === "bh" ? f(r.exit) : "--"],
+      ["PnL", pnl == null ? "--" : `<span class="${cl(pnl)}">${signed(pnl)} USDT</span>`], ["ROI", pnl == null ? "--" : `<span class="${cl(pnl)}">${pc(pnl / (r.amount || 1) * 100)}</span>`]];
+  } else {
+    const lng = r.side === "long", open = r.profit == null, pnl = open ? E.futPnl(r).pnl : r.profit, roi = open ? pnl / (r.margin || 1) * 100 : (r.roi != null ? r.roi : pnl / (r.margin || 1) * 100);
+    const qty = open ? r.qty : (r.maxQty || r.closedVol || 0), buy = m.s === "B";
+    title = `<i class="mk-s ${buy ? "b" : "s"}">${m.s}</i><b>${m.k === "fc" ? (lng ? "Close Long" : "Close Short") : (lng ? "Open Long" : "Open Short")}</b><em>${r.lev}x</em>`;
+    rows = [["Amount", `${U.fmt ? U.fmt(qty, qty >= 100 ? 2 : 4) : qty} ${U.esc(P.base || "")}`], ["Value", money(qty * r.entry) + " USDT"], ["Entry price", f(r.entry)], ["Exit price", open ? "--" : f(r.exit)],
+      [open ? "Unrealized PnL" : "PnL", `<span class="${cl(pnl)}">${signed(pnl)} USDT</span>`], ["ROI", `<span class="${cl(roi)}">${pc(roi)}</span>`]];
+  }
+  rows.push(["Time", m.t ? U.dateStr(m.t) : "--"]);
+  const d = mkEl = document.createElement("div"); d.className = "mkpop"; d.setAttribute("role", "dialog");
+  d.innerHTML = `<div class="mk-h">${title}<button class="mk-x" data-mkx aria-label="Close">${U.ic("close", 13)}</button></div><div class="mk-b">${rows.map(([k, v]) => `<div><span>${k}</span><b class="num">${v}</b></div>`).join("")}</div>`;
+  el.parentElement.appendChild(d);
+  const W = el.clientWidth, H = el.clientHeight, w = d.offsetWidth || 180, h = d.offsetHeight || 150, r0 = el.getBoundingClientRect(), x = cx - r0.left, y = cy - r0.top;
+  d.style.left = Math.max(4, Math.min(x - w / 2, W - w - 66)) + "px";
+  d.style.top = (y - h - 14 >= 4 ? y - h - 14 : Math.min(y + 14, H - h - 4)) + "px";
+  d.querySelector("[data-mkx]").onclick = e => { e.stopPropagation(); U.buzz(8); closeMk(); };
+  d.addEventListener("pointerdown", e => e.stopPropagation());
 }
 function bindMarks(){
   const host = el.parentElement; let st = null;
-  host.addEventListener("pointerdown", e => { const t = e.target.closest("[data-mk]"); st = t ? {i:+t.dataset.mk, x:e.clientX, y:e.clientY} : null; }, true);
-  host.addEventListener("pointerup", e => { if (!st) return; const m = lastMarks[st.i]; if (m && Math.hypot(e.clientX - st.x, e.clientY - st.y) < 8) markSheet(m); st = null; }, true);
+  host.addEventListener("pointerdown", e => { const t = e.target.closest("[data-mk]"); st = t ? {i:+t.dataset.mk, x:e.clientX, y:e.clientY} : null;
+    if (t){ e.preventDefault(); e.stopPropagation(); } else if (mkEl && !e.target.closest(".mkpop")) closeMk(); }, true);
+  host.addEventListener("pointerup", e => { if (!st) return; const m = lastMarks[st.i]; if (m && Math.hypot(e.clientX - st.x, e.clientY - st.y) < 10){ U.buzz(10); markPop(m, st.x, st.y); } st = null; }, true);
 }
 /* ---- Drag the right price axis vertically to stretch / squeeze the price scale (touch + mouse) ---- */
 function bindAxisDrag(){
@@ -950,12 +1005,13 @@ function setInds(list){
   const aiCh = added.includes("AI") || (inds.includes("AI") && !list.includes("AI"));
   inds = list.slice(); if (ui.mode === "bin") store.s.settings.aiFc = inds.includes("AI"); store.s.settings.inds = inds.filter(k => k !== "AI"); store.save();   // AI Forecast (binary only) keeps its own on/off flag
   const keep = chart ? chart.timeScale().getVisibleLogicalRange() : null; build(); if (aiCh) chart.timeScale().scrollToRealTime(); else if (keep) chart.timeScale().setVisibleLogicalRange(keep); return true; }
+function applyPrefs(){ if (!S.main) return; try { S.main.applyOptions({priceLineVisible:(store.s.settings.chart || {}).pl !== false}); } catch {} syncLines(); if (ui.ovl2) ui.ovl2._h = null; }
 function refresh(){ if (!chart) return; const keep = chart.timeScale().getVisibleLogicalRange(); srKey = ""; liqData = null; build(); if (keep) chart.timeScale().setVisibleLogicalRange(keep); }
 function setType(t){ type = t; store.s.settings.chartType = t; store.save(); build(); chart.timeScale().scrollToRealTime(); }
 function zoom(f){ if (!chart) return; const ts = chart.timeScale(), cur = ts.options().barSpacing; ts.applyOptions({barSpacing: U.clamp(cur * f, 1, 60)}); }
 function reset(){ chart?.timeScale().scrollToRealTime(); chart?.priceScale("right").applyOptions({autoScale:true}); checkAuto(); }
 function resize(){ if (chart && el) chart.applyOptions({width: el.clientWidth, height: el.clientHeight}); }
-function destroy(){ aiOn = false; aiSt = null; aiSum = null; extraSpec = []; offs.forEach(f => f()); offs = []; ro?.disconnect(); cancelAnimationFrame(raf); if (chart) chart.remove(); chart = null; S = {}; lines.clear(); loadSeq++; bars = []; draw = {tool:null, temp:null}; ui.xlab?.remove(); }
+function destroy(){ clearInterval(qvTm); qvTm = 0; closeMk(); aiOn = false; aiSt = null; aiSum = null; extraSpec = []; offs.forEach(f => f()); offs = []; ro?.disconnect(); cancelAnimationFrame(raf); if (chart) chart.remove(); chart = null; S = {}; lines.clear(); loadSeq++; bars = []; draw = {tool:null, temp:null}; ui.xlab?.remove(); }
 async function perfStats(s){
   const out = {}; try {
     const d = await M.candles(s, "1d"); if (!d.length) return out; const last = d[d.length-1].close;
@@ -963,5 +1019,5 @@ async function perfStats(s){
   } catch {} return out;
 }
 
-window.CH = {setExtra: l => { extraSpec = Array.isArray(l) ? l : []; syncLines(); }, liqState: () => liqData, geo: () => chart && S.main && bars.length ? {sym, el, tf, sec, pw: chart.timeScale().width(), h: chart.panes()[0].getHeight(), t2x: timeToX, x2t: xToTime, p2y: p => S.main.priceToCoordinate(p), y2p: y => S.main.coordinateToPrice(y)} : null, IDEF, IS, refresh, MAXI, setBinExp: f => { binExpFn = f; }, mount, load, zoom, reset, destroy, setInds, setType, resize, syncLines, setTool, undoDraw, clearDraw, performance: perfStats, get tool(){ return draw.tool; }, get mode(){ return ui.mode; }, aiState: () => ({on:aiOn, st:aiSt, sum:aiSum}), get inds(){ return inds; }, get type(){ return type; }, fmtVol};
+window.CH = {setExtra: l => { extraSpec = Array.isArray(l) ? l : []; syncLines(); }, liqState: () => liqData, geo: () => chart && S.main && bars.length ? {sym, el, tf, sec, pw: chart.timeScale().width(), h: chart.panes()[0].getHeight(), t2x: timeToX, x2t: xToTime, p2y: p => S.main.priceToCoordinate(p), y2p: y => S.main.coordinateToPrice(y)} : null, IDEF, IS, refresh, MAXI, setBinExp: f => { binExpFn = f; }, mount, load, zoom, reset, destroy, setInds, setType, resize, syncLines, setTool, undoDraw, clearDraw, performance: perfStats, get tool(){ return draw.tool; }, get mode(){ return ui.mode; }, aiState: () => ({on:aiOn, st:aiSt, sum:aiSum}), get inds(){ return inds; }, get type(){ return type; }, get bars(){ return bars; }, get sec(){ return sec; }, applyPrefs, fmtVol};
 })();

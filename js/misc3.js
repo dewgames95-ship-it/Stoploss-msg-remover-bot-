@@ -126,16 +126,24 @@ document.addEventListener("click", e => { const b = e.target.closest("[data-exp]
 (function(){
 "use strict";
 const U = window.U, S = () => U.store.s;
-const KFX = "nt_fx", FALL = {INR:88, EUR:0.92};
-const CUR = {USD:{sym:"$", loc:"en-US", n:"US Dollar"}, INR:{sym:"₹", loc:"en-IN", n:"Indian Rupee"}, EUR:{sym:"€", loc:"en-US", n:"Euro"}};
+const KFX = "nt_fx", FALL = {INR:88, EUR:0.92, GBP:0.79, JPY:150, AED:3.6725, CAD:1.38, AUD:1.52, SGD:1.33, CNY:7.2, KRW:1380, RUB:92, TRY:34, BRL:5.5, CHF:0.88, HKD:7.8, SAR:3.75, NGN:1500, PKR:280, IDR:15800, THB:35, MXN:18.5, ZAR:18};
+/* v7.4: flag (country code), name, symbol, locale, d = no decimals for big amounts */
+const CUR = {
+  USD:{sym:"$", loc:"en-US", n:"US Dollar", f:"us"}, INR:{sym:"₹", loc:"en-IN", n:"Indian Rupee", f:"in"}, EUR:{sym:"€", loc:"en-US", n:"Euro", f:"eu"}, GBP:{sym:"£", loc:"en-US", n:"British Pound", f:"gb"},
+  JPY:{sym:"¥", loc:"en-US", n:"Japanese Yen", f:"jp", d:1}, AED:{sym:"AED ", loc:"en-US", n:"UAE Dirham", f:"ae"}, CAD:{sym:"C$", loc:"en-US", n:"Canadian Dollar", f:"ca"}, AUD:{sym:"A$", loc:"en-US", n:"Australian Dollar", f:"au"},
+  SGD:{sym:"S$", loc:"en-US", n:"Singapore Dollar", f:"sg"}, CNY:{sym:"CN¥", loc:"en-US", n:"Chinese Yuan", f:"cn"}, KRW:{sym:"₩", loc:"en-US", n:"South Korean Won", f:"kr", d:1}, RUB:{sym:"₽", loc:"en-US", n:"Russian Ruble", f:"ru"},
+  TRY:{sym:"₺", loc:"en-US", n:"Turkish Lira", f:"tr"}, BRL:{sym:"R$", loc:"en-US", n:"Brazilian Real", f:"br"}, CHF:{sym:"CHF ", loc:"en-US", n:"Swiss Franc", f:"ch"}, HKD:{sym:"HK$", loc:"en-US", n:"Hong Kong Dollar", f:"hk"},
+  SAR:{sym:"SAR ", loc:"en-US", n:"Saudi Riyal", f:"sa"}, NGN:{sym:"₦", loc:"en-US", n:"Nigerian Naira", f:"ng"}, PKR:{sym:"Rs ", loc:"en-US", n:"Pakistani Rupee", f:"pk"}, IDR:{sym:"Rp ", loc:"en-US", n:"Indonesian Rupiah", f:"id", d:1},
+  THB:{sym:"฿", loc:"en-US", n:"Thai Baht", f:"th"}, MXN:{sym:"MX$", loc:"en-US", n:"Mexican Peso", f:"mx"}, ZAR:{sym:"R ", loc:"en-US", n:"South African Rand", f:"za"}
+};
 let rates = Object.assign({}, FALL), fxT = 0;
-try { const c = JSON.parse(localStorage.getItem(KFX) || "null"); if (c && c.INR > 0){ rates = {INR:c.INR, EUR:c.EUR || FALL.EUR}; fxT = c.t || 0; } } catch(e){}
+try { const c = JSON.parse(localStorage.getItem(KFX) || "null"); if (c && c.INR > 0){ Object.keys(c).forEach(k => { if (CUR[k] && c[k] > 0) rates[k] = c[k]; }); fxT = c.t || 0; } } catch(e){}
 function loadRates(){
-  if (Date.now() - fxT < 864e5) return;
+  if (Date.now() - fxT < 6 * 36e5) return;
   fetch("https://open.er-api.com/v6/latest/USD").then(r => r.ok ? r.json() : Promise.reject()).then(j => {
     const r = j && j.rates; if (!r || !(r.INR > 0)) return;
-    rates = {INR:r.INR, EUR:r.EUR > 0 ? r.EUR : FALL.EUR}; fxT = Date.now();
-    try { localStorage.setItem(KFX, JSON.stringify({t:fxT, INR:rates.INR, EUR:rates.EUR})); } catch(e){}
+    const o = {t:Date.now()}; Object.keys(CUR).forEach(k => { if (k !== "USD" && r[k] > 0){ rates[k] = r[k]; o[k] = r[k]; } }); fxT = o.t;
+    try { localStorage.setItem(KFX, JSON.stringify(o)); } catch(e){}
     rescan();
   }).catch(() => {});
 }
@@ -144,8 +152,8 @@ const rate = c => c === "USD" ? 1 : rates[c] || FALL[c];
 const nf = {};
 function fmtCur(usd, dec, c){
   c = c || code(); const v = usd * rate(c), a = Math.abs(v);
-  const md = a >= 1 ? 2 : Math.min(8, Math.max(2, dec || 4)), key = c + md;
-  const f = nf[key] || (nf[key] = new Intl.NumberFormat(CUR[c].loc, {minimumFractionDigits:2, maximumFractionDigits:md}));
+  const big = CUR[c].d && a >= 100, md = big ? 0 : a >= 1 ? 2 : Math.min(8, Math.max(2, dec || 4)), key = c + md;
+  const f = nf[key] || (nf[key] = new Intl.NumberFormat(CUR[c].loc, {minimumFractionDigits:big ? 0 : 2, maximumFractionDigits:md}));
   return CUR[c].sym + f.format(v);
 }
 /* U.fiat(usdAmount [, withApprox=true]) -> "≈ ₹5,23,000.12" */
@@ -153,7 +161,7 @@ U.fiat = (usd, approx) => (approx === false ? "" : "≈ ") + fmtCur(+usd || 0, 2
 U.cur = {code, rate, fmt: v => fmtCur(+v || 0, 2), symbol: () => CUR[code()].sym, list: () => Object.keys(CUR), refresh: loadRates};
 
 const RX = /^(≈ )?\$(-?[\d,]+(?:\.(\d+))?)$/;
-const SEL = '[data-usd], #lusd, .pk-p small, .px-coin .px-mut, .wd-coin .r span, .px-acc small, .sp-book .mid small';
+const SEL = '[data-usd], #lusd, .pk-p small, .px-coin .px-mut, .wd-coin .r span, .px-acc small, .sp-book .mid small, .uc-sub span:first-child, .hm-px span, .cs-h .r span, .cs-r span';
 function fix(n){
   const v = n.nodeValue; if (v == null || v.length > 40) return;
   const cc = code();
@@ -200,17 +208,23 @@ function wrapSettings(){
   const _s = window.Pages && Pages.settings; if (!_s) return;
   Pages.settings = function(){
     const p = _s.apply(this, arguments);
-    const row = `<section class="pm-sec"><h3 class="pm-st">Currency</h3><div class="pm-row"><div class="pm-main"><div class="pm-t">Display currency</div><div class="pm-s">Fiat values next to balances and prices (rate updates daily)</div></div><div class="pm-seg" id="dcSeg">${Object.keys(CUR).map(k => `<button data-cur="${k}" class="${k === code() ? "on" : ""}">${k === "USD" ? "USD" : k + " " + CUR[k].sym}</button>`).join("")}</div></div></section>`;
+    const rowHtml = () => `<span class="dc-fl">${(window.LOGOS && LOGOS.flag) ? LOGOS.flag(CUR[code()].f, 30) : ""}</span><div class="pm-main"><div class="pm-t">Display currency</div><div class="pm-s">Prices and balances also show in this currency</div></div><b class="dc-cur">${code()}${CUR[code()].sym.trim() === code() ? "" : " · " + CUR[code()].sym.trim()}</b><span class="dc-chev">›</span>`;
+    const row = `<section class="pm-sec"><h3 class="pm-st">Currency</h3><button type="button" class="pm-row dc-row" id="dcRow">${rowHtml()}</button></section>`;
     const re = /<section class="pm-sec [^"]*"><h3 class="pm-st">Guide/;
     p.html = re.test(p.html) ? p.html.replace(re, m => row + m) : p.html.replace('<div class="pm-page">', '<div class="pm-page">' + row);
     const mt = p.mount;
     p.mount = function(r){
       const out = mt && mt.apply(this, arguments);
-      r.querySelectorAll("[data-cur]").forEach(b => b.onclick = () => {
-        S().settings.currency = b.dataset.cur; U.store.save();
-        r.querySelectorAll("[data-cur]").forEach(x => x.classList.toggle("on", x === b));
-        loadRates(); rescan(); U.toast("Display currency: " + b.dataset.cur, "ok", 1200);
-      });
+      const rb = r.querySelector("#dcRow");
+      if (rb) rb.onclick = () => {
+        const list = () => Object.keys(CUR).map(k => `<button type="button" class="dc-it${k === code() ? " on" : ""}" data-cur="${k}"><span class="dc-fl">${(window.LOGOS && LOGOS.flag) ? LOGOS.flag(CUR[k].f, 30) : ""}</span><span class="dc-tx"><b>${CUR[k].n}</b><small>${k}${CUR[k].sym.trim() === k ? "" : " · " + CUR[k].sym.trim()}${k === "USD" ? "" : " · 1 USD = " + (rate(k) >= 100 ? rate(k).toFixed(2) : rate(k).toFixed(4)) + " " + k}</small></span>${k === code() ? '<i class="dc-ck">✓</i>' : ""}</button>`).join("");
+        U.sheet("Display currency", `<div class="dc-list">${list()}</div>`, el => {
+          el.querySelectorAll("[data-cur]").forEach(b => b.onclick = () => {
+            S().settings.currency = b.dataset.cur; U.store.save(); loadRates(); rescan();
+            rb.innerHTML = rowHtml(); U.closeLayer(); U.toast("Display currency: " + b.dataset.cur, "ok", 1200);
+          });
+        });
+      };
       return out;
     };
     return p;

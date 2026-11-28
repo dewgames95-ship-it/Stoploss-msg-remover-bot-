@@ -7,7 +7,7 @@ const TOURS = {
     {sel:".hm-dep", title:"Deposit", text:"Add USDT to your account in one tap before you start trading."},
     {sel:".hm-sc", title:"Shortcuts", text:"Copy trading, rewards, earn and more are one swipe away."},
     {sel:".hm-chips", title:"Market lists", text:"Switch between Favorites, Hot, Gainers and more. Tap a row to open its chart."},
-    {sel:"#strip", title:"News & Feed", text:"Headlines, announcements, events and Academy lessons live in this strip."}
+    {sel:"#strip", title:"News & Feed", text:"Headlines, announcements, events and Tutorial lessons live in this strip."}
   ],
   trade: [
     {sel:"[data-pick]", title:"Pick a pair", text:"Tap the pair name to switch to another market."},

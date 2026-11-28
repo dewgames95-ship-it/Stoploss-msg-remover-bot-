@@ -1,0 +1,73 @@
+/* v7.4 pair detail (More Settings, news line, Info sub-tabs, futures menu grid) + Easy futures mode */
+.cd-h-s .cp-chart .chart-wrap{height:36vh;min-height:230px;max-height:340px}
+.cd-h-l .cp-chart .chart-wrap{height:68vh;min-height:420px;max-height:760px}
+.cd-nomulti #perf{display:none}
+.cd-news{display:flex;align-items:center;gap:6px;padding:10px 0;border-bottom:1px solid var(--line);margin:0 -16px;padding-left:16px;padding-right:12px}
+.cd-news.hide{display:none}
+.cd-nw{flex:1;min-width:0;display:flex;align-items:center;gap:10px;text-align:left;font-size:14px;color:var(--text);padding:2px 0}
+.cd-nw svg{flex-shrink:0;color:var(--brand)}
+.cd-nw span{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cd-nx{width:32px;height:32px;display:grid;place-items:center;color:var(--muted);flex-shrink:0}
+/* info sub-tabs */
+.cd-subs{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin:0 -16px 14px;padding:0 16px}
+.cd-subs::-webkit-scrollbar{display:none}
+.cd-subs button{flex-shrink:0;height:32px;padding:0 14px;border-radius:16px;background:var(--card-2);color:var(--text-2);font-size:13px;font-weight:600;border:1px solid transparent;white-space:nowrap}
+.cd-subs button.on{color:var(--text);border-color:var(--brand);background:linear-gradient(180deg,var(--card-g1,var(--card-2)),var(--card-g2,var(--card-2)))}
+.cd-h{font-size:15px;font-weight:700;margin:6px 0 8px;display:flex;align-items:center;gap:6px}
+.cd-kv>div{display:flex;justify-content:space-between;gap:14px;padding:11px 0;border-bottom:1px solid var(--line);font-size:13.5px}
+.cd-kv span{color:var(--muted);display:flex;align-items:center;gap:4px;min-width:0}
+.cd-kv b{font-weight:600;text-align:right;overflow-wrap:anywhere}
+.cd-q{display:inline-grid;place-items:center;color:var(--muted);cursor:pointer;vertical-align:middle}
+.cd-tbl{overflow-x:auto}
+.cd-th,.cd-tr{display:grid;grid-template-columns:.4fr 1.45fr .75fr .9fr 1.35fr;gap:5px;padding:10px 0;font-size:12px;border-bottom:1px solid var(--line);align-items:center}
+.cd-th{color:var(--muted);font-size:12px}
+.cd-th span,.cd-tr span{min-width:0}
+.cd-th span:not(:first-child),.cd-tr span:not(:first-child){text-align:right}
+.cd-th2,.cd-tr2{grid-template-columns:1.4fr 1fr}
+.cd-th3,.cd-tr3{grid-template-columns:1.4fr 1fr .8fr}
+.cd-tr3 small{display:block;color:var(--muted);font-size:11px}
+.cd-fh{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px}
+.cd-fh>div{border:1px solid var(--card-bd,var(--line));border-radius:var(--r-card,12px);background:linear-gradient(180deg,var(--card-g1,var(--card)),var(--card-g2,var(--card)));padding:12px 14px;display:flex;flex-direction:column;gap:4px}
+.cd-fh span{font-size:12px;color:var(--muted)}.cd-fh b{font-size:17px}
+.cd-fc svg{width:100%;height:124px;display:block}
+.cd-fa{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin:2px 0 12px}
+.cd-fail{display:flex;gap:10px;align-items:flex-start;padding:16px 14px;border:1px solid var(--line);border-radius:var(--r-card,12px);color:var(--text-2);font-size:13.5px;line-height:1.45}
+.cd-fail svg{flex-shrink:0;margin-top:2px;color:var(--muted)}
+.cd-note{font-size:12.5px;color:var(--muted);line-height:1.5;margin:10px 0 0}
+/* More Settings */
+.cd-more{padding-bottom:8px}
+.cd-mr{border-bottom:1px solid var(--line)}
+.cd-mrb{width:100%;display:flex;align-items:center;gap:8px;padding:16px 0;text-align:left;min-height:54px}
+.cd-t{flex:1;font-size:15px;font-weight:600;display:flex;align-items:center;gap:6px;min-width:0}
+.cd-v{color:var(--text-2);font-size:14px;display:flex;align-items:center}
+.cd-mrb svg{color:var(--muted);flex-shrink:0;transition:transform .15s}
+.cd-mrb.open svg{transform:rotate(90deg)}
+.cd-tg{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:16px 0;min-height:54px}
+.cd-opt{padding:0 0 14px}.cd-opt.hide{display:none}
+.cd-seg{display:flex;gap:4px;padding:3px;border-radius:10px;background:var(--input,var(--card-2))}
+.cd-seg button{flex:1;height:34px;border-radius:8px;font-size:13px;font-weight:600;color:var(--text-2);padding:0 6px}
+.cd-seg button.on{background:var(--card);color:var(--text);border:1px solid var(--card-bd,var(--line))}
+.cd-arr{display:inline-flex;gap:2px;font-size:17px;font-weight:700}
+.cd-mh{font-size:13px;color:var(--muted);margin:16px 0 2px}
+/* futures menu grid */
+.cd-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px 6px;padding:10px 0 18px}
+.cd-gi{display:flex;flex-direction:column;align-items:center;gap:8px;min-width:0;padding:2px}
+.cd-gic{width:56px;height:56px;border-radius:18px;display:grid;place-items:center;color:var(--text);background:linear-gradient(180deg,var(--card-g1,var(--card-2)),var(--card-g2,var(--card-2)));border:1px solid var(--card-bd,var(--line))}
+.cd-gi:active .cd-gic{filter:brightness(1.15)}
+.cd-gl{font-size:12px;color:var(--text);text-align:center;line-height:1.25;overflow-wrap:anywhere}
+/* Preferences graphics */
+.pr-mini{max-width:150px;margin:8px 0 2px}
+/* Easy futures mode: simpler order form (Preferences > Trading Mode > Futures Mode) */
+html[data-fmode="easy"] .fxr .fx-row [data-mode],
+html[data-fmode="easy"] .fxr .fx-row [data-asset]{display:none}
+html[data-fmode="easy"] .fxr .fx-row{grid-template-columns:1fr}
+html[data-fmode="easy"] .fxr .slip0,
+html[data-fmode="easy"] .fxr [data-info="otype"]{display:none}
+html[data-fmode="easy"] .fxr #openBox .row.between,
+html[data-fmode="easy"] .fxr #tpsl,
+html[data-fmode="easy"] .fxr #openBox .fx-meta,
+html[data-fmode="easy"] .fxr #openBox .fkv:has(#efee),
+html[data-fmode="easy"] .fxr #openBox .fee-l{display:none}
+html[data-fmode="easy"] .fxr .fbtn2{height:54px;font-size:17px;font-weight:700;border-radius:14px}
+html[data-fmode="easy"] .fxr .fbtn2 small{font-size:12px}
+html[data-fmode="easy"] .fxr .famt{height:46px}

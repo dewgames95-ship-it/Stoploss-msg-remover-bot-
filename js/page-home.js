@@ -39,7 +39,7 @@ function art(kind, size = 104){
 window.HM = {avatar, art, hash};
 
 /* ---------- Reusable live market list ---------- */
-const CHIPS = [["fav","Favorites"],["hot","Hot"],["gainers","Gainers"],["losers","Losers"],["new","New"],["stocks","Stocks"],["indices","Indices"],["forex","Forex"],["metals","Metals"],["commod","Commodities"]];
+const CHIPS = [["all","All"],["fav","Favorites"],["hot","Hot"],["gainers","Gainers"],["losers","Losers"],["new","New"],["stocks","Stocks"],["indices","Indices"],["forex","Forex"],["metals","Metals"],["commod","Commodities"]];
 function marketList(box, o = {}){
   let chip = o.tab || sessionStorage.getItem("mktChip") || "hot", sub = sessionStorage.getItem("mktSub") || "perp", q = "", limit = o.limit || 0;
   const rows = new Map(), dirty = new Set(), offs = [];
@@ -62,12 +62,15 @@ function marketList(box, o = {}){
   }
   const hb = (k, n) => `<button type="button" data-sort="${k}" class="${sort?.k === k ? "on" : ""}" aria-label="Sort by ${n}">${n}<i>${sort?.k === k ? (sort.d === "desc" ? "▼" : "▲") : "⇅"}</i></button>`;
   const crypto = () => M.cryptoOrder.map(s => M.get(s)).filter(Boolean);
-  function list(){
-    const all = [...M.pairs.values()], qq = q.trim().toUpperCase().replace("/","");
+  const TORD = {crypto:0, stock:1, index:2, forex:3, metal:4, commodity:5};
+  const list = (c0, s0) => listBy(c0 || chip, s0 || sub, c0 ? "" : q.trim().toUpperCase().replace("/",""));
+  function listBy(chip, sub, qq){
+    const all = [...M.pairs.values()];
     const moving = () => [...crypto(), ...all.filter(p => p.type !== "crypto" && !p.closed)];
     if (qq) return all.filter(p => p.sym.includes(qq) || p.name.toUpperCase().includes(qq) || M.label(p).replace("/","").includes(qq)).sort((a,b) => (b.tradable - a.tradable) || ((a.rank||999) - (b.rank||999)));
     let l;
     if (chip === "fav") l = S().favs.map(s => M.get(s)).filter(Boolean);
+    else if (chip === "all") l = [...crypto(), ...all.filter(p => p.type !== "crypto").sort((a,b) => (TORD[a.type] - TORD[b.type]) || ((b.qv||0) - (a.qv||0)) || String(a.sym).localeCompare(b.sym))];
     else if (chip === "gainers") l = moving().filter(p => p.chg > 0).sort((a,b) => b.chg - a.chg);
     else if (chip === "losers") l = moving().filter(p => p.chg < 0).sort((a,b) => a.chg - b.chg);
     else if (chip === "new") l = all.filter(p => p.listed).sort((a,b) => b.listed - a.listed || (a.rank||999) - (b.rank||999)).slice(0, 40);
@@ -80,13 +83,17 @@ function marketList(box, o = {}){
     /* v6.9: one entry per instrument - perp tab prefers the Binance 24/7 contract, spot tab hides perp-only twins */
     return chip === "fav" ? l : l.filter(p => sub === "perp" ? !p.fdup : !p.perpOnly);
   }
+  /* v7.4: how many pairs each category has for this tab (empty categories are hidden by bindChips) */
+  const counts = () => { const o = {}; CHIPS.forEach(([k]) => { try { o[k] = k === "fav" ? 1 : listBy(k, sub, "").length; } catch(e){ o[k] = 1; } }); return o; };
   const vol = p => p.qv ? CH.fmtVol(p.qv) : ({forex:"Forex", metal:"Spot metal", stock:"Stock", index:"Index", commodity:"Commodity"})[p.type] || "";
   const tag = p => UI.mktTag(p, sub);
   const chgHtml = p => p.closed ? `<span class="hm-chg cl">Closed</span>` : p.chg == null ? `<span class="hm-chg cl">--</span>` : `<span class="hm-chg ${p.chg < 0 ? "neg" : ""}">${p.chg >= 0 ? "+" : ""}${p.chg.toFixed(2)}%</span>`;
   const usd = p => "$" + M.fmtPx(p, p.quote === "JPY" ? p.price / (M.get("USDJPY")?.price || 1) : p.quote === "USDT" ? p.price * M.usdtUsd() : p.price);
   let lazyIO = null;
+  let api;
   function render(){
     if (lazyIO){ lazyIO.disconnect(); lazyIO = null; }
+    try { api && api.onRender && api.onRender(); } catch(e){}
     let l = applySort(list()); rows.clear();
     const more = limit && l.length > limit; if (limit) l = l.slice(0, limit);
     if (!M.cryptoOrder.length && !q && !["forex","metals","fav","stocks","indices","commod"].includes(chip)){ box.innerHTML = U.skel ? U.skel(6) : Array(6).fill('<div class="skel"></div>').join(""); return; }
@@ -124,27 +131,35 @@ function marketList(box, o = {}){
   offs.push(bus.on("tick", s => dirty.add(s)), bus.on("meta", s => dirty.add(s)), bus.on("list", render));
   const iv = setInterval(flush, 500);
   render();
-  return {render, setTab(k){ chip = k; sessionStorage.setItem("mktChip", k); render(); }, setSub(k){ sub = k; sessionStorage.setItem("mktSub", k); render(); }, setQ(v){ q = v; render(); }, get tab(){ return chip; }, get sub(){ return sub; }, destroy(){ offs.forEach(f => f()); clearInterval(iv); lazyIO?.disconnect(); }};
+  return api = {render, counts, setTab(k, quiet){ chip = k; sessionStorage.setItem("mktChip", k); if (!quiet) render(); }, setSub(k){ sub = k; sessionStorage.setItem("mktSub", k); render(); }, setQ(v){ q = v; render(); }, get tab(){ return chip; }, get sub(){ return sub; }, destroy(){ offs.forEach(f => f()); clearInterval(iv); lazyIO?.disconnect(); }};
 }
 window.UI.marketList = marketList;
 const curChip = () => sessionStorage.getItem("mktChip") || "hot", curSub = () => sessionStorage.getItem("mktSub") || "perp";
 const chipsHtml = () => `<div class="hm-chips" role="tablist">${CHIPS.map(([k,n]) => `<button data-chip="${k}" role="tab" class="${curChip()===k?"on":""}">${esc(n)}</button>`).join("")}</div>
   <div class="hm-sub"><button data-sub="perp" class="${curSub()==="perp"?"on":""}">Perp Futures</button><button data-sub="spot" class="${curSub()==="spot"?"on":""}">Spot</button></div>`;
 function bindChips(root, ml){
+  /* v7.4: hide categories that have no pairs for the selected tab; fall back to "All" if the open one disappears */
+  const sync = () => {
+    const n = ml.counts(); let cur = ml.tab;
+    root.querySelectorAll("[data-chip]").forEach(b => { const k = b.dataset.chip; b.hidden = !(k === "fav" || n[k] > 0 || n[k] == null); });
+    const bt = root.querySelector(`[data-chip="${cur}"]`);
+    if (bt && bt.hidden && ml.tab !== "all"){ cur = "all"; root.querySelectorAll("[data-chip]").forEach(x => x.classList.toggle("on", x.dataset.chip === "all")); ml.setTab("all", true); }
+  };
+  ml.onRender = sync; sync();
   root.querySelectorAll("[data-chip]").forEach(b => b.onclick = () => { root.querySelectorAll("[data-chip]").forEach(x => x.classList.toggle("on", x === b)); ml.setTab(b.dataset.chip); });
   root.querySelectorAll("[data-sub]").forEach(b => b.onclick = () => { root.querySelectorAll("[data-sub]").forEach(x => x.classList.toggle("on", x === b)); ml.setSub(b.dataset.sub); });
 }
 
 /* ---------- Home ---------- */
 const SHORT = [
-  ["Copy Trading","users","#/copy"],["Rewards Hub","gift","#/rewards"],["Futures","layers","#/futures"],["Spot","chart","#/spot"],["Options","target","#/options"],
+  ["Copy Trading","users","#/copy"],["Rewards Hub","gift","#/rewards"],["Futures","layers","#/futures"],["Tutorial","book","#/academy"],["Options","target","#/options"],
   ["Trading Bots","bot","#/bots"],["Earn","earn","#/earn"],["Money Game","car","#/racer"],["Prediction","predict","#/predict"]
 ];
 /* "More" sheet: every shortcut, grouped (Binance style) */
 const ALLSC = [
   ["Trade", [["Markets","chart","#/markets"],["Futures","layers","#/futures"],["Spot","swap","#/spot"],["Binary","clock","#/trade"],["Prediction","predict","#/predict"],["Money Game","car","#/racer"],["Options","target","#/options"],["Copy Trading","users","#/copy"],["Trading Bots","bot","#/bots"]]],
   ["Funds", [["Assets","wallet","#/assets"],["Deposit","down","#/deposit"],["Withdraw","up","#/withdraw"],["Earn","earn","#/earn"],["PnL Analysis","pie","#/pnl"],["Trade History","history","#/history"]]],
-  ["Rewards & Tools", [["Rewards Hub","trophy","#/rewards"],["Referral","share","#/referral"],["Price Alerts","ring","#/alerts"],["Academy","book","#/academy"],["Vouchers","gift","#/rewards"]]],
+  ["Rewards & Tools", [["Rewards Hub","trophy","#/rewards"],["Referral","share","#/referral"],["Price Alerts","ring","#/alerts"],["Tutorial","book","#/academy"],["Vouchers","gift","#/rewards"]]],
   ["Account", [["Profile","users","#/profile"],["Security","shield","#/security"],["Settings","gear","#/settings"],["Support","headset","#/support"],["Community","chat","#/community"],["About","info","#/about"]]]
 ];
 function moreSheet(){
@@ -242,6 +257,39 @@ async function loadFeed(i){
   return (j.items || []).map(it => ({src:name, title:plain(it.title), desc:plain(it.description || it.content).slice(0, 220), img:it.thumbnail || (it.enclosure && it.enclosure.link) || (/<img[^>]+src="([^"]+)"/.exec(it.content || "") || [])[1] || "", link:it.link, ts:Date.parse((it.pubDate || "").replace(" ", "T") + "Z") || Date.parse(it.pubDate) || 0}));
 }
 
+/* ---------- v7.4 announcements: category art + short details sheet ---------- */
+window.loadTutorial = window.loadTutorial || (cb => { if (window.TUT) return cb(); const sc = document.createElement("script"); sc.src = "js/tutorial.js?v=7.4"; sc.onload = cb; document.head.appendChild(sc); });
+const extIc = n => `<svg width="${n}" height="${n}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 01-1 1H5a1 1 0 01-1-1V7a1 1 0 011-1h5"/></svg>`;
+const annUrl = code => "https://www.binance.com/en/support/announcement/detail/" + encodeURIComponent(code || "");
+function annKind(t, cat){
+  t = String(t || "");
+  if (/delist|remove|cease|terminate|discontinu|monitoring tag/i.test(t) || cat === 161) return ["alert", 355, "Delisting"];
+  if (/airdrop|reward|campaign|promotion|giveaway|competition|launchpool|megadrop|hodler|bonus|voucher|carnival|activity/i.test(t) || cat === 93) return ["gift", 32, "Activity"];
+  if (/futures|perpetual|margin|contract|leverage|options/i.test(t)) return ["layers", 262, "Derivatives"];
+  if (/stock|tokenized|bstock/i.test(t)) return ["trend", 168, "Markets"];
+  if (/maintenance|upgrade|suspend|wallet|network|notice|system/i.test(t)) return ["ring", 200, "Notice"];
+  if (/list|add|launch|will add|new/i.test(t) || cat === 48) return ["rocket", 218, "New listing"];
+  return ["globe", 218, "News"];
+}
+function annText(b){
+  let j = b; if (typeof b === "string"){ try { j = JSON.parse(b); } catch { return plain(b); } }
+  const out = []; let img = "";
+  (function w(n){ if (!n || out.join(" ").length > 420) return; if (Array.isArray(n)) return n.forEach(w);
+    if (n.node === "text" && n.text) out.push(n.text); else if (n.node === "element" && n.tag === "img" && n.attr && n.attr.src && !img) img = n.attr.src;
+    if (n.child) w(n.child); })(j);
+  return {text: out.join(" ").replace(/\s+/g, " ").trim(), img};
+}
+function annSheet(x, cat){
+  const k = annKind(x.title, cat), when = x.releaseDate ? U.dateStr ? U.dateStr(x.releaseDate) : new Date(x.releaseDate).toLocaleString() : "";
+  U.sheet("Announcement", `<div class="hm-an"><div class="hm-ah"><span class="hm-at lg" style="--h:${k[1]}">${ic(k[0], 26, 1.8)}</span><div><em>${esc(k[2])}</em><small>${esc(when)}</small></div></div><h3>${esc(x.title)}</h3><div class="hm-aimg" id="anim" hidden></div><p class="hm-asum" id="ansum"><span class="hm-shim"></span><span class="hm-shim w2"></span></p><a class="hm-bx hm-bxl" href="${annUrl(x.code)}" target="_blank" rel="noopener noreferrer" aria-label="View on Binance">${extIc(15)}<span>View on Binance</span></a></div>`, el => {
+    const sum = el.querySelector("#ansum"), fb = () => { if (el.isConnected) sum.textContent = "Tap View on Binance for the full announcement."; };
+    jget("https://www.binance.com/bapi/composite/v1/public/cms/article/detail/query?articleCode=" + encodeURIComponent(x.code)).then(j => {
+      if (!el.isConnected) return; const d = annText(j && j.data && j.data.body);
+      if (d && d.text){ sum.textContent = d.text.length > 340 ? d.text.slice(0, 337).replace(/\s+\S*$/, "") + "..." : d.text; if (d.img){ const m = el.querySelector("#anim"); m.hidden = false; m.innerHTML = `<img src="${esc(d.img)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentNode.hidden=true">`; } } else fb();
+    }).catch(fb);
+  });
+}
+
 Pages.home = () => {
   let offs = [], timers = [], ml;
   const s = S();
@@ -266,7 +314,7 @@ Pages.home = () => {
   <section aria-label="Markets">${chipsHtml()}<div id="mlist"></div></section>
   <section class="hm-sec" id="cpsec" aria-label="Copy Trading"></section>
   <section class="hm-sec" aria-label="Trading Bots"><a class="hm-sh" href="#/bots"><h2>Trading Bots</h2>${ic("chev",16,2)}</a><div class="hm-bots">${BOTS.map(([n,d,v,l]) => `<a class="hm-bot" href="#/bots"><span class="hm-bi">${ic("bot",18,1.7)}</span><b>${esc(n)}</b><small>${esc(d)}</small><i class="num">${esc(v)}</i><u>${esc(l)}</u></a>`).join("")}</div></section>
-  <div class="hm-strip-sp"></div><div class="hm-strip" id="strip"><div class="hm-st-t" role="tablist"><button data-st="feed" role="tab">Feed</button><button data-st="announce" role="tab">Announcements</button><button data-st="academy" role="tab">Academy</button><span class="x" data-sx role="button" tabindex="0" aria-label="Expand">${ic("chevd",16)}</span></div><div class="hm-st-b" id="stb"></div></div>`;
+  <div class="hm-strip-sp"></div><div class="hm-strip" id="strip"><div class="hm-st-t" role="tablist"><button data-st="feed" role="tab">Feed</button><button data-st="announce" role="tab">Announcements</button><button data-st="academy" role="tab">Tutorial</button><span class="x" data-sx role="button" tabindex="0" aria-label="Expand">${ic("chevd",16)}</span></div><div class="hm-st-b" id="stb"></div></div>`;
 
   function renderBal(){
     const b = document.getElementById("bal"); if (!b) return;
@@ -304,7 +352,7 @@ Pages.home = () => {
     auto(); timers.push(() => clearInterval(bt));
     ["touchstart","pointerdown"].forEach(ev => bs.addEventListener(ev, () => clearInterval(bt), {passive:true}));
     ["touchend","pointerup","touchcancel","pointercancel"].forEach(ev => bs.addEventListener(ev, auto, {passive:true}));
-    /* strip: Feed / Announcements / Events / Academy */
+    /* strip: Feed / Announcements / Events / Tutorial */
     const strip = root.querySelector("#strip"), stb = root.querySelector("#stb"); let stTab = "feed", io = null, gen = 0, annCat = 48;
     const stop = () => { if (io){ io.disconnect(); io = null; } gen++; };
     const watch = (el, fn) => { if (io) io.disconnect(); io = new IntersectionObserver(es => { if (es.some(x => x.isIntersecting)) fn(); }, {root:stb, rootMargin:"200px"}); io.observe(el); };
@@ -313,7 +361,7 @@ Pages.home = () => {
       const my = gen; let shown = 0;
       stb.innerHTML = `<p class="hm-cap">Binance Square posts aren't available via a public API — showing live crypto news.</p><div id="fl"></div><div id="fs" class="hm-sent"></div>`;
       const fl = stb.querySelector("#fl"), fs = stb.querySelector("#fs"); SOCIAL.bind(stb);
-      const card = x => `<div class="hm-fw"><a class="hm-fc" href="${esc(x.link)}" target="_blank" rel="noopener noreferrer"><div class="b"><div class="m"><i class="hm-src">${FAV[x.src] ? `<img src="https://www.google.com/s2/favicons?domain=${FAV[x.src]}&sz=64" alt="" width="20" height="20" referrerpolicy="no-referrer" onerror="this.remove()">` : ""}<u>${esc(x.src[0])}</u></i><span>${esc(x.src)}</span><span>· ${rel(x.ts)}</span></div><h4>${esc(x.title)}</h4>${x.desc ? `<p>${esc(x.desc)}</p>` : ""}</div>${x.img ? `<img src="${esc(x.img)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : ""}</a>${SOCIAL.bar("nw:" + SOCIAL.hash(x.link), 8 + SOCIAL.hash(x.link) % 190, 1 + SOCIAL.hash(x.title) % 22, {who:x.src, text:x.title, url:x.link})}</div>`;
+      const card = x => `<div class="hm-fw"><a class="hm-fc" href="${esc(x.link)}" target="_blank" rel="noopener noreferrer"><div class="b"><div class="m"><i class="hm-src">${FAV[x.src] ? `<img src="https://www.google.com/s2/favicons?domain=${FAV[x.src]}&sz=64" alt="" width="20" height="20" referrerpolicy="no-referrer" onerror="this.remove()">` : ""}<u>${esc(x.src[0])}</u></i><span>${esc(x.src)}</span><span>· ${rel(x.ts)}</span></div><h4>${esc(x.title)}</h4>${x.desc ? `<p>${esc(x.desc)}</p>` : ""}</div>${x.img ? `<img src="${esc(x.img)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : ""}</a>${SOCIAL.bar("nw:" + SOCIAL.hash(x.link), 8 + SOCIAL.hash(x.link) % 190, 1 + SOCIAL.hash(x.title) % 22, {who:x.src, text:x.title, url:x.link, ts:x.ts})}</div>`;
       const err = m => { fs.innerHTML = errBox(m); fs.querySelector("[data-retry]").onclick = () => { feedCache.busy = false; fs.innerHTML = skel(3); step(); }; };
       async function step(){
         if (my !== gen || feedCache.busy) return;
@@ -339,7 +387,12 @@ Pages.home = () => {
       stb.innerHTML = `<div class="hm-sc2">${ANN_CATS.map(([id,n]) => `<button data-ac="${id}" class="${id === annCat ? "on" : ""}">${n}</button>`).join("")}</div><div id="al"></div><div id="as" class="hm-sent"></div>`;
       stb.querySelectorAll("[data-ac]").forEach(b => b.onclick = () => { annCat = +b.dataset.ac; stop(); drawAnn(); });
       const al = stb.querySelector("#al"), as = stb.querySelector("#as");
-      const row = x => `<a class="hm-ar" href="https://www.binance.com/en/support/announcement/detail/${esc(x.code)}" target="_blank" rel="noopener noreferrer"><span>${esc(x.title)}</span><small>${rel(x.releaseDate)}</small></a>`;
+      const row = x => { const k = annKind(x.title, annCat); return `<div class="hm-ar" role="button" tabindex="0" data-ai="${esc(x.code)}"><span class="hm-at" style="--h:${k[1]}">${ic(k[0], 20, 1.8)}</span><div class="hm-ab"><span>${esc(x.title)}</span><small>${rel(x.releaseDate)}</small></div><a class="hm-bx" href="${annUrl(x.code)}" target="_blank" rel="noopener noreferrer" aria-label="View on Binance" data-bx>${extIc(15)}</a></div>`; };
+      const byCode = code => c.items.find(x => x.code === code);
+      const openAnn = code => { const x = byCode(code); if (x) annSheet(x, annCat); };
+      if (!al._b){ al._b = 1;
+        al.addEventListener("click", e => { if (e.target.closest("[data-bx]")){ e.stopPropagation(); return; } const r = e.target.closest("[data-ai]"); if (r) openAnn(r.dataset.ai); });
+        al.addEventListener("keydown", e => { if (e.key === "Enter" && !e.target.closest("[data-bx]")){ const r = e.target.closest("[data-ai]"); if (r) openAnn(r.dataset.ai); } }); }
       const err = () => { as.innerHTML = errBox("Couldn't load announcements."); as.querySelector("[data-retry]").onclick = () => { as.innerHTML = skel(4); step(); }; };
       async function step(){
         if (my !== gen || c.busy || c.done) return;
@@ -363,7 +416,8 @@ Pages.home = () => {
       else if (stTab === "announce") drawAnn();
       else if (stTab === "events") stb.innerHTML = EVENTS.map(([n,d,h,tg,a]) => `<a class="hm-ev" href="${h}">${art(a, 52).replace('class="art"','class="art" width="52" height="52"')}<div><b>${esc(n)}</b><span>${esc(d)}</span></div><em>${esc(tg)}</em></a>`).join("");
       else {
-        stb.innerHTML = LESSONS.map(([n,m,g,sum], i) => `<button type="button" class="hm-ac" data-ls="${i}">${lgx(g)}<div><b>${esc(n)}</b><span>${esc(sum)}</span><small>${esc(m)} read</small></div>${ic("chev",16,2)}</button>`).join("");
+        stb.innerHTML = `<div id="ttf" class="hm-ttf"></div><h3 class="hm-gk">General knowledge</h3>` + LESSONS.map(([n,m,g,sum], i) => `<button type="button" class="hm-ac" data-ls="${i}">${lgx(g)}<div><b>${esc(n)}</b><span>${esc(sum)}</span><small>${esc(m)} read</small></div>${ic("chev",16,2)}</button>`).join("");
+        const my = gen; window.loadTutorial(() => { const b = stb.querySelector("#ttf"); if (b && my === gen){ b.innerHTML = TUT.cardsHtml(); TUT.bind(b); } });
         stb.querySelectorAll("[data-ls]").forEach(b => b.onclick = () => { const [n,m,g,sum,body,ex] = LESSONS[+b.dataset.ls]; U.sheet(n, `<div class="hm-ad"><div class="hm-ag">${lgx(g)}</div><p class="hm-as">${esc(sum)}</p>${body.map(p => `<p>${esc(p)}</p>`).join("")}<div class="hm-ax"><b>Example</b><p>${esc(ex.replace(/^Example: /, "").replace(/^./, c => c.toUpperCase()))}</p></div><small>${esc(m)} read</small></div>`); });
       }
     };
@@ -384,20 +438,47 @@ Pages.markets = () => {
   let ml;
   const html = `<header class="hm-pg"><h1>Markets</h1><a class="hm-ib" href="#/alerts" aria-label="Price alerts">${ic("bell",21)}</a></header>
     <label class="hm-search" id="hs"><span class="hm-sr" style="display:contents">${ic("search",16)}</span><input id="mq" type="search" placeholder="Search crypto, stocks, indices, forex" aria-label="Search markets" autocomplete="off"></label>
-    <div class="hm-kp" id="ov" style="margin-top:12px"></div>
+    <div class="hm-kp mk-sc" id="ov" style="margin-top:12px"></div>
     <section>${chipsHtml()}<div id="ml"></div></section>`;
   return {html, title:"Markets", mount(r){
     ml = marketList(r.querySelector("#ml"));
     bindChips(r, ml);
     r.querySelector("#mq").addEventListener("input", e => ml.setQ(e.target.value));
-    const ov = () => {
-      const c = M.cryptoOrder.map(x => M.get(x)).filter(Boolean); if (!c.length) return;
-      const up = c.filter(p => p.chg > 0).length, vol = c.reduce((a,p) => a + (p.qv||0), 0), btc = M.get("BTCUSDT"), g = M.get("XAUUSD");
-      r.querySelector("#ov").innerHTML = `<div><span>24h Volume</span><b class="num">$${CH.fmtVol(vol)}</b></div><div><span>Up / Down</span><b class="num"><span class="up" style="display:inline">${up}</span> / <span class="down" style="display:inline">${c.length-up}</span></b></div>
-        <div><span>BTC</span><b class="num ${btc?.chg>=0?"up":"down"}">${M.fmtPx(btc)}</b></div><div><span>Gold</span><b class="num ${g?.chg>=0?"up":"down"}">${M.fmtPx(g)}</b></div>`;
+    /* v7.4: one scrolling row of stat cards (Binance data). Numbers are never cut off: font shrinks to fit the card. */
+    const ovBox = r.querySelector("#ov"); let st = null, stBusy = false, alive = true;
+    const CARDS = ["vol","spot","fut","ud","btc","eth","gold","liql","liqs"], LBL = {vol:"24h Volume", spot:"Spot Vol.", fut:"Futures Vol.", ud:"Up / Down", btc:"BTC", eth:"ETH", gold:"Gold", liql:"24h Liq. Long", liqs:"24h Liq. Short"};
+    const cv = v => v == null ? "--" : "$" + CH.fmtVol(v), pc = p => p && p.chg != null ? (p.chg >= 0 ? "+" : "") + p.chg.toFixed(2) + "%" : "";
+    const fit = b => { b.style.fontSize = ""; let fs = parseFloat(getComputedStyle(b).fontSize) || 15; while (b.scrollWidth > b.clientWidth + 0.5 && fs > 9){ fs -= 0.5; b.style.fontSize = fs + "px"; } };
+    const val = k => {
+      const btc = M.get("BTCUSDT"), eth = M.get("ETHUSDT"), g = M.get("XAUUSD") || M.get("XAUUSDT"), ss = (st && st.spotVol) ? st : null, sp = M.spotStats;
+      const dir = p => p ? (p.chg >= 0 ? "up" : "down") : "";
+      switch (k){
+        case "vol": { const v = (st && st.spotVol ? st.spotVol : sp ? sp.vol : 0) + (st && st.futVol ? st.futVol : 0); return v ? [cv(v), "", "Spot + Futures"] : ["--", "", ""]; }
+        case "spot": { const v = st && st.spotVol || sp && sp.vol; return [cv(v || null), "", "Binance"]; }
+        case "fut": return [cv(st && st.futVol), "", "Binance"];
+        case "ud": { const u = sp ? sp.up : st && st.up, d = sp ? sp.dn : st && st.dn; return u == null ? ["--", "", ""] : [`<span class="up">${u}</span> / <span class="down">${d}</span>`, "", "Spot pairs"]; }
+        case "btc": return [btc ? M.fmtPx(btc) : "--", dir(btc), pc(btc)];
+        case "eth": return [eth ? M.fmtPx(eth) : "--", dir(eth), pc(eth)];
+        case "gold": return [g ? M.fmtPx(g) : "--", dir(g), pc(g)];
+        case "liql": return [cv(st && st.liqL), "up", "est."];
+        case "liqs": return [cv(st && st.liqS), "down", "est."];
+      }
+      return ["--", "", ""];
     };
-    ov(); const iv = setInterval(ov, 3000); const off = bus.on("list", ov);
-    this.unmount = () => { ml.destroy(); clearInterval(iv); off(); };
+    const ov = () => {
+      if (!alive) return;
+      if (!ovBox.firstChild) ovBox.innerHTML = CARDS.map(k => `<div class="mk-c" data-k="${k}"><span>${LBL[k]}</span><b class="num"></b><small class="num"></small></div>`).join("");
+      CARDS.forEach(k => {
+        const c = ovBox.querySelector(`[data-k="${k}"]`), b = c.querySelector("b"), sm = c.querySelector("small"), [t, cls, sub] = val(k);
+        const sig = t + "|" + cls; if (b.dataset.sig !== sig){ b.dataset.sig = sig; b.innerHTML = t; b.className = "num " + (k === "ud" ? "" : cls); fit(b); }
+        if (sm.textContent !== sub){ sm.textContent = sub; }
+        sm.className = "num " + ((k === "btc" || k === "eth" || k === "gold") ? cls : "");
+      });
+    };
+    const loadSt = () => { if (stBusy) return; stBusy = true; M.stats().then(x => { st = x; stBusy = false; ov(); }).catch(() => { stBusy = false; }); };
+    ov(); loadSt(); const iv = setInterval(ov, 3000), iv2 = setInterval(loadSt, 60000); const off = bus.on("list", ov);
+    const offFit = () => { alive = false; clearInterval(iv2); };
+    this.unmount = () => { ml.destroy(); clearInterval(iv); off(); offFit(); };
   }};
 };
 })();

@@ -16,3 +16,30 @@
 .hx-chips,.hx-chips.chips{display:flex;flex-wrap:nowrap;gap:8px;overflow-x:auto;scrollbar-width:none;margin:10px 0 6px;padding-bottom:2px}
 .hx-chips::-webkit-scrollbar{display:none}
 .hx-chips button{flex:none;height:32px;padding:0 14px;border-radius:var(--r-ctl,8px);font-size:13px;font-weight:600}
+
+/* ===== v7.4 Markets stat cards: one scrolling row, nothing truncated ===== */
+.hm-kp.mk-sc{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin-left:-16px;margin-right:-16px;padding:0 16px 2px;scroll-padding-left:16px;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch}
+.hm-kp.mk-sc::-webkit-scrollbar{display:none}
+.hm-kp.mk-sc .mk-c{flex:0 0 118px;width:118px;box-sizing:border-box;padding:10px 12px;scroll-snap-align:start;background:linear-gradient(180deg,var(--card-g1),var(--card-g2));border:1px solid var(--card-bd);border-radius:var(--r-card)}
+.hm-kp.mk-sc .mk-c span{display:block;font-size:11px;line-height:14px;color:var(--muted);white-space:nowrap;overflow:visible;text-overflow:clip}
+.hm-kp.mk-sc .mk-c b{display:block;margin-top:4px;font-size:15px;line-height:20px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:clip;font-variant-numeric:tabular-nums}
+.hm-kp.mk-sc .mk-c b span{display:inline;font-size:inherit;line-height:inherit;color:inherit}
+.hm-kp.mk-sc .mk-c small{display:block;margin-top:2px;min-height:14px;font-size:10.5px;line-height:14px;color:var(--muted);white-space:nowrap}
+.hm-kp.mk-sc .mk-c small.up{color:var(--up,#16A765)}
+.hm-kp.mk-sc .mk-c small.down{color:var(--down,#E0364C)}
+.hm-chips button[hidden]{display:none}
+
+/* ===== v7.4 Display currency picker (Settings) ===== */
+.dc-row{display:flex;align-items:center;gap:12px;width:100%;text-align:left}
+.dc-row .dc-fl,.dc-it .dc-fl{flex:0 0 30px;width:30px;height:30px;display:inline-flex}
+.dc-row .dc-fl svg,.dc-it .dc-fl svg{width:30px;height:30px}
+.dc-row .pm-main{flex:1;min-width:0}
+.dc-cur{flex:0 0 auto;font-size:13px;font-weight:600;white-space:nowrap}
+.dc-chev{flex:0 0 auto;color:var(--muted);font-size:18px;line-height:1}
+.dc-list{display:flex;flex-direction:column;max-height:60vh;overflow-y:auto}
+.dc-it{display:flex;align-items:center;gap:12px;width:100%;padding:10px 4px;text-align:left;border-bottom:1px solid var(--line)}
+.dc-it .dc-tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.dc-it .dc-tx b{font-size:14px;font-weight:600}
+.dc-it .dc-tx small{font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dc-it.on .dc-tx b{color:var(--brand)}
+.dc-ck{font-style:normal;color:var(--brand);font-weight:700}

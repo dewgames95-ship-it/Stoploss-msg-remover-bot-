@@ -1,4 +1,4 @@
-/* ===== Rewards Hub, Academy, Price Alerts (Pages.assets / Pages.deposit live in page-x2.js) ===== */
+/* ===== Rewards Hub, Tutorial (was Academy), Price Alerts (Pages.assets / Pages.deposit live in page-x2.js) ===== */
 (function(){
 const C = window.CONFIG, {esc, ic, store, bus, money, signed, toast, spark, fmt} = U;
 const S = () => store.s;
@@ -16,7 +16,7 @@ function taskProg(k){
 }
 Pages.rewards = () => {
   const html = `<div class="px-page">${hd("Rewards Hub")}
-    <div class="px-lv"><div class="a">Your level</div><div class="b" id="lv"></div><div class="px-bar"><i id="xpb"></i></div><div class="c" id="xpl"></div></div>
+    <div class="px-lv"><div class="a">Rewards level <span class="px-lvn">(XP from tasks, separate from VIP)</span></div><div class="b" id="lv"></div><div class="px-bar"><i id="xpb"></i></div><div class="c" id="xpl"></div></div>
     <div class="px-sec"><div class="px-sec-h"><h2>Daily check-in</h2><span class="px-mut" id="stk"></span></div><div class="px-strip" id="days"></div><button class="px-btn br blk" id="ci" style="margin-top:12px"></button></div>
     <div class="px-sec"><div class="px-sec-h"><h2>Tasks</h2><span class="px-mut" id="tcnt"></span></div><div id="tasks"></div></div>
     <div class="px-sec"><div class="px-sec-h"><h2>Badges</h2></div><div class="px-badges" id="bdg"></div></div></div>`;
@@ -24,7 +24,7 @@ Pages.rewards = () => {
     const $ = q => r.querySelector(q);
     const render = () => {
       const lv = E.level(), s = S(), st = E.streak(), done = s.rewards.checkins.includes(E.dayKey());
-      $("#lv").textContent = "Lv." + lv.lvl + " Trader"; $("#xpb").style.width = (lv.cur/lv.need*100) + "%"; $("#xpl").textContent = `${lv.cur} / ${lv.need} XP to Lv.${lv.lvl+1}`;
+      $("#lv").textContent = "Lv." + lv.lvl + " · " + (["Starter","Trader","Pro","Expert","Master"][Math.min(4, Math.max(0, lv.lvl - 1))]); $("#xpb").style.width = (lv.cur/lv.need*100) + "%"; $("#xpl").textContent = `${lv.cur} / ${lv.need} XP to Lv.${lv.lvl+1}`;
       $("#stk").textContent = `${st}-day streak`;
       const pos = done ? (st - 1) % 7 : st % 7;
       $("#days").innerHTML = E.CHECKIN.map((a,i) => { const d = i < pos || (done && i === pos);
@@ -70,12 +70,17 @@ const LESSONS = [
   {k:"lev", t:"Leverage & liquidation", lvl:"Advanced", body:["Leverage multiplies both profit and loss. At 50x a 2% move against you wipes the margin.","Liquidation price ≈ entry × (1 − 1/leverage) for longs. Always check the Est. liq. price before opening."], q:["Higher leverage moves the liquidation price…",["Closer to entry","Further from entry","Nowhere"],0]},
   {k:"risk", t:"Risk management rules", lvl:"All levels", body:["Risk 1–2% of your balance per trade. Always use a stop loss on Futures.","Don't chase losses. Keep a journal: your Assets page shows 7-day PnL and win rate to review your edge."], q:["A sensible risk per trade is…",["1–2% of balance","25% of balance","All-in"],0]}
 ];
+window.loadTutorial = window.loadTutorial || (cb => { if (window.TUT) return cb(); const sc = document.createElement("script"); sc.src = "js/tutorial.js?v=7.4"; sc.onload = cb; document.head.appendChild(sc); });
 Pages.academy = () => {
-  const html = `<div class="px-page">${hd("Academy")}
-    <div class="px-sec" style="padding-top:8px"><p class="px-t2">Short lessons with pictures and examples. Tap any lesson to read it.</p></div>
+  const x = `<button class="tt-x" data-ttpx aria-label="Close">${ic("x",20,2)}</button>`;
+  const html = `<div class="px-page"><header class="tt-head"><h1>Tutorial</h1>${x}</header>
+    <p class="tt-lead">Tap a feature to learn it step by step.</p><div id="ttf"></div>
+    <h2 class="tt-gk">General knowledge</h2><p class="tt-gks">Short lessons with pictures and examples. Tap any lesson to read it.</p>
     <div id="ll"></div></div>`;
   const LV = {Beginner:"br", Intermediate:"", Advanced:"dn", "All levels":"up"};
-  return {html, title:"Academy", mount(r){
+  return {html, title:"Tutorial", mount(r){
+    r.querySelector("[data-ttpx]").onclick = () => { if (history.length > 1) history.back(); else location.hash = "#/home"; };
+    window.loadTutorial(() => { const b = r.querySelector("#ttf"); if (b){ b.innerHTML = TUT.cardsHtml(); TUT.bind(b); } });
     const read = k => !!S().rewards.used["lesson:" + k];
     const render = () => {
       const n = LESSONS.filter(l => read(l.k)).length;
@@ -100,6 +105,7 @@ Pages.academy = () => {
     });
   }};
 };
+Pages.tutorial = Pages.academy;
 
 /* ---------- Price alerts ---------- */
 Pages.alerts = () => {

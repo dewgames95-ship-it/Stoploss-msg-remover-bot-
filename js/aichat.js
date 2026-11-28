@@ -29,7 +29,7 @@ const ROUTES = {
   trade:["Binary", "Predict Up or Down over short expiries.", "clock"], options:["Options", "Call and put options settled in USDT.", "target"],
   assets:["Assets", "All your wallets, balances and PnL.", "wallet"], deposit:["Deposit", "Add USDT to your account.", "down"], withdraw:["Withdraw", "Move funds out of your account.", "up"],
   earn:["Earn", "Earn interest on idle USDT, flexible or locked.", "earn"], bots:["Trading Bots", "Run strategy bots on live prices.", "bot"], rewards:["Rewards", "Daily check-in, tasks and badges.", "gift"],
-  alerts:["Price Alerts", "Get notified when a price is reached.", "bell"], academy:["Academy", "Short lessons on trading, indicators and risk.", "book"], settings:["Settings", "Theme, sounds, defaults and data.", "gear"],
+  alerts:["Price Alerts", "Get notified when a price is reached.", "bell"], academy:["Tutorial", "Step-by-step guides for every feature, plus short lessons.", "book"], settings:["Settings", "Theme, sounds, defaults and data.", "gear"],
   profile:["Profile", "Your stats, account and security.", "users"], support:["Support", "Contact us or browse quick help.", "headset"], copy:["Copy Trading", "Follow verified traders with a single tap.", "users"],
   predict:["Prediction", "Event markets with live odds.", "predict"], racer:["Money Game", "A fast arcade game with real rewards.", "car"], history:["History", "All your past trades and orders.", "history"],
   referral:["Referral", "Invite friends and earn commission.", "share"], about:["About", "About the app and data sources.", "info"], community:["Community", "Chat with other traders.", "chat"],

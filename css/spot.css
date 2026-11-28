@@ -104,3 +104,11 @@
 
 /* v7.2: no text under 11px */
 html body .sp-form .fee-l .fee-b{font-size:11px}
+
+/* v7.4: chart on top of the page (Preferences > Layout > K-line: Top) */
+.sp-chart.sp-top{position:static;left:auto;right:auto;bottom:auto;z-index:auto;box-shadow:none;background:transparent;border-top:0;border-bottom:1px solid var(--line);margin:8px -16px 0}
+.sp-chart.sp-top .sp-cbar{display:none}
+.sp-chart.sp-top .sp-cbody{display:block;height:auto;padding:0 16px}
+.sp-chart.sp-top .sp-cbody .cp-chart{height:auto}
+.sp-chart.sp-top .cp-chart .chart-wrap{height:200px;min-height:180px}
+.sp.k-top .sp-pad{height:24px}
