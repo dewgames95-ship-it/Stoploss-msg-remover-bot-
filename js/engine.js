@@ -411,7 +411,7 @@ const TASKS = [
   {k:"ind", n:"Add 3 chart indicators", xp:30, reward:10},
   {k:"alert", n:"Create a price alert", xp:30, reward:10},
   {k:"bot", n:"Start a trading bot", xp:50, reward:20},
-  {k:"learn", n:"Read 2 Academy lessons", xp:40, reward:15}
+  {k:"learn", n:"Read 2 Tutorial lessons", xp:40, reward:15}
 ];
 const BADGES = [
   {k:"first", e:"🚀", n:"First Trade"}, {k:"win3", e:"🏆", n:"Hat-trick"}, {k:"futures", e:"⚡", n:"Leverage"}, {k:"tpsl", e:"🛡️", n:"Risk Pro"},

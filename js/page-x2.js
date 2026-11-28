@@ -259,15 +259,16 @@ Pages.assets = (params) => {
 /* ======================= DEPOSIT ======================= */
 const NETS = {
   USDT:[["BSC","BNB Smart Chain (BEP20)","bnb",1,1],["TRX","Tron (TRC20)","trx",1,1],["ETH","Ethereum (ERC20)","eth",1,2],["POL","Polygon POS","pol",1,1],["SOL","Solana","sol",1,1],["ARBITRUM","Arbitrum One","arb",1,1],["OPTIMISM","Optimism","op",1,1]],
-  BTC:[["BTC","Bitcoin","btc",0.00006,10],["BSC","BNB Smart Chain (BEP20)","bnb",0.000001,1]],
-  ETH:[["ETH","Ethereum (ERC20)","eth",0.000001,2],["ARBITRUM","Arbitrum One","arb",0.000001,1],["OPTIMISM","Optimism","op",0.000001,1],["BSC","BNB Smart Chain (BEP20)","bnb",0.000001,1]],
-  BNB:[["BSC","BNB Smart Chain (BEP20)","bnb",0.00001,1]], SOL:[["SOL","Solana","sol",0.001,1]], TRX:[["TRX","Tron (TRC20)","trx",0.1,1]]
+  BTC:[["BTC","Bitcoin","btc",0.00001,10],["BSC","BNB Smart Chain (BEP20)","bnb",0.00001,1]],
+  ETH:[["ETH","Ethereum (ERC20)","eth",0.00001,2],["ARBITRUM","Arbitrum One","arb",0.00001,1],["OPTIMISM","Optimism","op",0.00001,1],["BSC","BNB Smart Chain (BEP20)","bnb",0.00001,1]],
+  BNB:[["BSC","BNB Smart Chain (BEP20)","bnb",0.0001,1]], SOL:[["SOL","Solana","sol",0.001,1]], TRX:[["TRX","Tron (TRC20)","trx",0.1,1]],
+  XRP:[["XRP","XRP Ledger","xrp",1,1]], DOGE:[["DOGE","Dogecoin","doge",1,10]], LTC:[["LTC","Litecoin","ltc",0.0001,10]], TON:[["TON","TON","ton",0.01,1]]
 };
 const netsFor = c => NETS[c] || [["BSC","BNB Smart Chain (BEP20)","bnb",0.01,1],[c,(window.COIN_NAMES[c] || c) + " Network",c.toLowerCase(),0.01,2]];
 const coinIcon = (c, size=36) => UI.coinImg(c, size);
-/* v7.1: minimum deposit = 1 USDT value for every coin (USDT = 1 USDT; others = 1 USDT / live price, rounded up) */
-const depMin = (coin, fallback) => { if (coin === "USDT") return 1; const p = M.get(coin + "USDT")?.price; return p > 0 ? Math.ceil(1 / p * 1e6) / 1e6 : fallback; };
-const depMinTxt = (coin, fallback) => coin === "USDT" ? "1 USDT" : fmt(depMin(coin, fallback), 6).replace(/\.?0+$/, "") + " " + coin + " (≈ 1 USDT)";
+/* v7.4: USDT minimum deposit = 1 USDT; every other coin uses the Binance standard minimum deposit for that network */
+const depMin = (coin, fallback) => coin === "USDT" ? 1 : fallback;
+const depMinTxt = (coin, fallback) => coin === "USDT" ? "1 USDT" : fmt(depMin(coin, fallback), 8).replace(/\.?0+$/, "") + " " + coin;
 function paperAddr(coin, net){ let h = 0; const seed = S().profile.uid + coin + net; for (const ch of seed) h = (h * 131 + ch.charCodeAt(0)) >>> 0; let hex = ""; for (let i=0;i<8;i++){ h = (h * 1103515245 + 12345) >>> 0; hex += h.toString(16).padStart(8,"0"); } return "PAPER" + net.slice(0,3) + hex.slice(0, 33); }
 Pages.deposit = (params) => {
   const coin = (params[0] || "").toUpperCase(), net = (params[1] || "").toUpperCase();
@@ -333,7 +334,7 @@ function depositPage(coin, net){
         el.querySelectorAll("[data-u]").forEach(b => b.onclick = () => { el.querySelector("#dv").value = coin === "USDT" ? b.dataset.u : +(b.dataset.u / (px||1)).toFixed(6); upd(); });
         el.querySelector("[data-ok]").onclick = () => {
           const v = parseFloat(el.querySelector("#dv").value), usd = v * px;
-          const e = !(v > 0) ? "Please enter the amount." : usd < 1 - 1e-9 ? `Minimum deposit is ${depMinTxt(coin, nd[3])}.` : !px ? "Price unavailable. Try again shortly." : usd > 1000000 ? "Maximum 1,000,000 USDT per deposit." : "";
+          const e = !(v > 0) ? "Please enter the amount." : (coin === "USDT" ? usd < 1 - 1e-9 : v < depMin(coin, nd[3]) - 1e-12) ? `Minimum deposit is ${depMinTxt(coin, nd[3])}.` : !px ? "Price unavailable. Try again shortly." : usd > 1000000 ? "Maximum 1,000,000 USDT per deposit." : "";
           if (e){ el.querySelector("#de").textContent = e; return; }
           U.closeLayer();
           const box = r.querySelector("#pend"), id = U.uid();

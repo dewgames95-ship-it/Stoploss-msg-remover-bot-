@@ -160,11 +160,14 @@ Pages.spot = (params) => {
   let unitMode = s.settings.spotUnit === "usdt" ? "usdt" : "coin", tsM = "price", lastStep = -1, root, offs = [], timers = [], side = "buy", otype = "limit", sliderPct = 0, ptab = "open", curOnly = false, chartOpen = false, unChart = null, prec = 0;
   const $ = q => root.querySelector(q);
   const side0 = () => unit;
-  const html = `<div class="sp">
+  const kl = (s.settings.layout || {}).kline || "top";
+  const chartHtml = kl === "none" ? "" : `<section class="sp-chart${kl === "top" ? " sp-top open" : ""}" id="spch"><button class="sp-cbar" data-cch><span>${esc(UI.fullName(M.get(sym)))} Chart</span><span class="ci">${ic("chevd",16)}</span></button><div class="sp-cbody">${UI.miniChartBlock(sym)}</div></section>`;
+  const html = `<div class="sp k-${kl}">
   <div class="tabs" style="gap:20px;margin:0 -16px;padding:4px 16px 0;border:0"><a class="tab" href="#/futures/${sym}" style="font-size:17px">USDⓈ-M</a><button class="tab on" style="font-size:17px">Spot</button><a class="tab" href="#/trade/${sym}" style="font-size:17px">Binary</a><a class="tab tab-hot" href="#/predict" style="font-size:17px">Prediction</a><a class="tab tab-hot" href="#/racer" style="font-size:17px">Money Game</a><a class="tab" href="#/options" style="font-size:17px">Options</a><a class="tab" href="#/copy" style="font-size:17px">Copy</a></div>
   <header class="sp-head"><div class="grow"><button class="sp-nm" data-pick>${esc(label0)}${ic("chevd",16)}</button><div class="num" id="spchg" style="font-size:13px"></div></div>
     <a class="icon-btn" href="#/chart/${sym}?spot" aria-label="Chart">${ic("candle",22,1.6)}</a></header>
   ${isUC ? `<section class="uc-hd" id="ucHd" aria-label="USDC/USDT price"></section>` : ""}
+  ${kl === "top" ? chartHtml : ""}
   <div class="sp-grid">
     <div class="sp-form">
       <div class="sp-seg"><button class="b on" data-side="buy">Buy</button><button class="s" data-side="sell">Sell</button></div>
@@ -176,8 +179,8 @@ Pages.spot = (params) => {
       <div class="sp-kv"><span><span id="sptl">Total</span>${TX.hq("total")}</span><b id="sptot">-- ${Q}</b></div>
       <div id="sptprow" class="sp-tprow"><label class="fchk" style="margin:0"><input type="checkbox" id="sptpc"> <u data-info="tpsl">TP/SL</u></label><button class="tsm hide" id="sptsm" type="button">⇄ <span>ROI %</span></button></div>
       <div id="sptpsl" class="hide"><div class="tsh" id="sptsh"></div>
-        <div class="sp-in"><input id="sptp" type="number" inputmode="decimal" placeholder="Take Profit"><em class="gh" id="sptpg"></em><span class="tpu">${Q}</span></div>
-        <div class="sp-in"><input id="spsl2" type="number" inputmode="decimal" placeholder="Stop Loss"><em class="gh" id="spslg"></em><span class="tpu">${Q}</span></div></div>
+        <div class="sp-in"><input id="sptp" type="number" inputmode="decimal" placeholder="TP price"><em class="gh" id="sptpg"></em><span class="tpu">${Q}</span></div>
+        <div class="sp-in"><input id="spsl2" type="number" inputmode="decimal" placeholder="SL price"><em class="gh" id="spslg"></em><span class="tpu">${Q}</span></div></div>
       <div class="sp-kv"><span>Avbl${TX.hq("avbl")}</span><b><span id="spav"></span> <button class="wl-plus" data-wlto="spot" aria-label="Transfer in">${ic("plus",13,3)}</button></b></div>
       <div class="sp-kv"><span data-info="fee"><u>Est. Fee</u></span><b id="spef">-- USDT</b></div>
       <button class="sp-go b" id="spgo"></button>
@@ -192,7 +195,7 @@ Pages.spot = (params) => {
   <div class="sp-tools"><label class="sp-chk"><input type="checkbox" id="spcur"> Current pair</label><button class="btn btn-ghost btn-sm" data-cancelall>Cancel all</button></div>
   <div id="splist"></div>
   <div class="sp-pad"></div>
-  <section class="sp-chart" id="spch"><button class="sp-cbar" data-cch><span>${esc(UI.fullName(M.get(sym)))} Chart</span><span class="ci">${ic("chevd",16)}</span></button><div class="sp-cbody">${UI.miniChartBlock(sym)}</div></section>
+  ${kl === "top" ? "" : chartHtml}
   </div>`;
 
   const stepOf = () => Math.pow(10, -(P().dp ?? 2));
@@ -256,20 +259,21 @@ Pages.spot = (params) => {
   }
 
   /* --- order book --- */
+  let bkDepth = 0; const bkSt = {a:7, b:7, min:3, max:20};   // v7.4: rows per side, auto-fitted to the order form height
   function renderBook(){
     const box = $("#spbook"); if (!box) return; const p = P();
-    const PM = [1, 10, 100, 1000], stp = stepOf() * PM[prec] , NR = 7;
+    const PM = [1, 10, 100, 1000], stp = stepOf() * PM[prec], NA = bkSt.a, NB = bkSt.b;
     const agg = (rows, isBid) => { if (!prec) return rows; const m = new Map(); rows.forEach(([px, q]) => { const k = (isBid ? Math.floor(+px / stp + 1e-9) : Math.ceil(+px / stp - 1e-9)) * stp; m.set(k, (m.get(k) || 0) + +q); });
       return [...m.entries()].sort((a, b) => isBid ? b[0] - a[0] : a[0] - b[0]); };
-    const pad = a => { a = a.slice(0, NR); while (a.length < NR) a.push(null); return a; };
-    let bids = pad(agg(M.book.bids, true)), asks = pad(agg(M.book.asks, false)).reverse();
+    const pad = (a, n) => { a = a.slice(0, n); while (a.length < n) a.push(null); return a; };
+    let bids = pad(agg(M.book.bids, true), NB), asks = pad(agg(M.book.asks, false), NA).reverse();
     if (!isCrypto){
       if (!p.price){ bids = []; asks = []; }
       else {
         const st = Math.pow(10, -(p.dp ?? 2)), hs = (i, k) => { const x = Math.sin((sym.length * 131 + sym.charCodeAt(0) * 7 + i * 17 + k * 101) * 12.9898) * 43758.5453; return x - Math.floor(x); };
         const base = p.type === "stock" ? 40 : p.type === "forex" ? 120 : 15, sz = (i, k) => +(base * (0.2 + hs(i, k) * 1.8) * (1 + i * 0.15)).toFixed(2);
-        bids = [...Array(7)].map((_, i) => [p.price - st * (i + 1), sz(i, 1)]);
-        asks = [...Array(7)].map((_, i) => [p.price + st * (7 - i), sz(6 - i, 2)]);
+        bids = [...Array(NB)].map((_, i) => [p.price - st * (i + 1), sz(i, 1)]);
+        asks = [...Array(NA)].map((_, i) => [p.price + st * (NA - i), sz(NA - 1 - i, 2)]);
       }
     }
     const val = r => r ? +r[1] : 0, mx = Math.max(1e-12, ...bids.map(val), ...asks.map(val)), fq = x => x ? fmt(x, x < 1 ? 5 : x < 100 ? 3 : 1) : "--";
@@ -288,6 +292,7 @@ Pages.spot = (params) => {
       ${bids.map(b => row(b, "up")).join("")}${outside ? `<div class="ob-out">${ic("info",11)} ${outside} of your orders outside the visible book</div>` : ""}
       <div class="sp-ratio num"><span class="up">${bp.toFixed(0)}%</span><div class="bar"><i style="width:${bp}%"></i></div><span class="down">${(100 - bp).toFixed(0)}%</span></div>
       <button class="sp-prec" data-prec type="button"><span class="num">${M.fmtPx(p, stp)}</span>${ic("chevd",13)}</button>`;
+    if (bkDepth < 2 && TX.fitBook(box, box.parentNode.firstElementChild, bkSt)){ bkDepth++; try { return renderBook(); } finally { bkDepth--; } }
     const ch = $("#spchg"); ch.textContent = p.closed ? "Market closed" : p.chg == null ? "" : pct(p.chg); ch.className = "num " + ((p.chg || 0) < 0 ? "down" : "up");
   }
 
@@ -377,10 +382,10 @@ Pages.spot = (params) => {
     $("#spp").addEventListener("input", () => { if (side === "buy" && sliderPct) setPct(sliderPct); else renderForm(); });
     $("#spgo").onclick = submit;
     $("#spbook").addEventListener("click", e => { if (e.target.closest("[data-prec]")) precSheet(); });
-    TX.tapPrice($("#spbook"), px => { if (!(px > 0)) return; otype = "limit"; $("#spp").value = +(+px).toFixed(P().dp ?? 2); if (side === "buy" && sliderPct) setPct(sliderPct); else renderForm(); TX.buzz(8); toast("Limit price set to " + M.fmtPx(P(), px), "info", 1200); });
+    TX.tapPrice($("#spbook"), px => { if (!(px > 0)) return; otype = "limit"; $("#spp").value = +(+px).toFixed(P().dp ?? 2); if (side === "buy" && sliderPct) setPct(sliderPct); else renderForm(); TX.buzz(8); });
     $("[data-unit]").onclick = () => TX.unitSheet(unit, unitMode, k => { const q = qtyOf(); unitMode = k; s.settings.spotUnit = k; store.save(); setQty(q); renderForm(); });
     $("#sptpc").onchange = renderForm;
-    $("#sptsm").onclick = () => { tsM = tsM === "roi" ? "price" : "roi"; $("#sptsm span").textContent = tsM === "roi" ? "Price" : "ROI %"; $("#sptp").placeholder = tsM === "roi" ? "TP ROI %" : "Take Profit"; $("#spsl2").placeholder = tsM === "roi" ? "SL ROI %" : "Stop Loss"; root.querySelectorAll("#sptpsl .tpu").forEach(x => x.textContent = tsM === "roi" ? "%" : Q); $("#sptp").value = $("#spsl2").value = ""; renderForm(); };
+    $("#sptsm").onclick = () => { tsM = tsM === "roi" ? "price" : "roi"; $("#sptsm span").textContent = tsM === "roi" ? "Price" : "ROI %"; $("#sptp").placeholder = tsM === "roi" ? "TP ROI %" : "TP price"; $("#spsl2").placeholder = tsM === "roi" ? "SL ROI %" : "SL price"; root.querySelectorAll("#sptpsl .tpu").forEach(x => x.textContent = tsM === "roi" ? "%" : Q); $("#sptp").value = $("#spsl2").value = ""; renderForm(); };
     $("#sptp").addEventListener("input", renderForm); $("#spsl2").addEventListener("input", renderForm);
     root.querySelectorAll("[data-pt]").forEach(b => b.onclick = () => setPtab(b.dataset.pt));
     $("#spcur").onchange = e => { curOnly = e.target.checked; renderList(); };
@@ -388,7 +393,8 @@ Pages.spot = (params) => {
       if (await U.confirmBox("Cancel all orders", `Cancel ${l.length} open order${l.length > 1 ? "s" : ""}?`, "Cancel all", true)){ l.forEach(o => cancel(o.id)); toast("Orders cancelled", "ok"); } };
     $("#splist").addEventListener("click", e => { const bs = e.target.closest("[data-botstop]"); if (bs){ const sp = spot(), b = (sp.bots || []).find(x => x.id === bs.dataset.botstop); if (b){ const pr = botProfit(b); b.running = false; store.addWallet("spot", b.invest + pr, "bot"); store.save(); toast(`Bot stopped · ${signed(pr)} USDT profit`, "ok"); bus.emit("spot"); } return; }
       if (e.target.closest("[data-botnew]")) return; const c = e.target.closest("[data-cancel]"); if (c){ cancel(c.dataset.cancel); toast("Order cancelled", "ok"); } });
-    $("[data-cch]").onclick = toggleChart;
+    if (kl === "top"){ chartOpen = true; unChart = UI.bindChart(root, sym, "tf_spot", "1m", UI.candleDetail(sym), {mini:true, tfs:UI.MINI_TFS}); } else if ($("[data-cch]")) $("[data-cch]").onclick = toggleChart;
+    try { const form = $(".sp-form"); let raf = 0, ro = new ResizeObserver(() => { cancelAnimationFrame(raf); raf = requestAnimationFrame(renderBook); }); ro.observe(form); timers.push(() => { ro.disconnect(); cancelAnimationFrame(raf); }); } catch {}   // v7.4 re-fit the book when the form height changes
     let tT = 0, bT = 0;
     offs.push(bus.on("tick", x => { if (x === sym && performance.now() - tT > 250){ tT = performance.now(); renderForm(); renderUc(); if (ptab === "hold") renderList(); if (!isCrypto) renderBook(); } }),
       bus.on("depth", x => { if (x === sym && performance.now() - bT > 400){ bT = performance.now(); renderBook(); } }),

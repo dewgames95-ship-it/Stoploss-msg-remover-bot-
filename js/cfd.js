@@ -28,6 +28,7 @@ def("forex", "GBPUSD", "British Pound / US Dollar", ["GBPUSD"], 5, 100000, "unit
 def("forex", "USDJPY", "US Dollar / Japanese Yen", ["USDJPY"], 3, 100000, "units", .012, .01, "b");
 def("forex", "AUDUSD", "Australian Dollar / US Dollar", ["AUDUSD"], 5, 100000, "units", 1.2e-4, 1e-4);
 def("forex", "USDCAD", "US Dollar / Canadian Dollar", ["USDCAD"], 5, 100000, "units", 1.5e-4, 1e-4, "b");
+def("forex", "USDINR", "US Dollar / Indian Rupee", ["USDINR"], 4, 100000, "units", .03, .01, "b");
 def("commodities", "XAUUSD", "Gold", ["XAUUSD", "XAUUSDT"], 2, 100, "oz", .3, .01);
 def("commodities", "XAGUSD", "Silver", ["XAGUSD", "XAGUSDT"], 3, 5000, "oz", .03, .001);
 def("commodities", "USOIL", "WTI Crude Oil", ["USOIL", "CLUSDT"], 3, 1000, "bbl", .03, .01);

@@ -39,3 +39,24 @@ html:root[data-theme] .btn-primary,html:root[data-theme] .px-btn.pri,html:root[d
 .ax-risk.lo{color:var(--up);background:var(--up-bg,rgba(46,189,133,.12))}
 .ax-risk.md{color:#D99A00;background:rgba(247,181,0,.13)}
 .ax-risk.hi{color:var(--down);background:var(--down-bg,rgba(246,70,93,.12))}
+
+/* ===== v7.3 review fixes ===== */
+/* one header pattern: sub pages get a centred title like the rest */
+.page-head>.h1:nth-child(2){flex:1;min-width:0;text-align:center;font-size:17px;font-weight:700}
+/* earn: available vs staked line under the total */
+.pm-avl{font-size:12px;color:var(--muted);margin-top:4px}
+/* rewards level note */
+.px-lvn{font-size:11px;font-weight:500;opacity:.75}
+
+/* ===== v7.4 (lead) ===== */
+/* pull-to-refresh: no native rubber-band / colour flash, the page stays still */
+html,body{overscroll-behavior-y:none}
+/* "?" help icons: clean 16px ring, glyph never touches the border (the 11px text floor does not apply to icon glyphs) */
+html:root[data-theme] :is(.hq,.fee-q,.lqb-q,.bx-q,.ax-q){display:inline-grid!important;place-items:center;box-sizing:border-box;width:16px!important;height:16px!important;min-width:16px;padding:0!important;border-radius:50%;border:1.3px solid currentColor!important;color:var(--muted);background:transparent!important;font:700 9.5px/1 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif!important;font-size:9.5px!important;letter-spacing:0;text-indent:0;vertical-align:-3px;opacity:.9}
+html:root[data-theme] :is(.hq,.fee-q,.lqb-q,.bx-q,.ax-q):active{color:var(--text)}
+html:root[data-theme] :is(.hq,.fee-q,.lqb-q,.bx-q,.ax-q) svg{width:10px;height:10px}
+/* add-margin "+" next to Margin (USDT): smaller, lighter ring, centred plus */
+html:root[data-theme] .pc-addm{width:16px;height:16px;border:1.2px solid var(--muted);color:var(--text-2,var(--muted))}
+html:root[data-theme] .pc-addm svg{width:9px;height:9px;stroke-width:2.6}
+/* position cards: a little wider so less page background shows at the sides */
+html:root[data-theme] .fxr .pc,html:root[data-theme] .bin-page .pc{margin-left:-10px;margin-right:-10px;padding-left:14px;padding-right:14px}

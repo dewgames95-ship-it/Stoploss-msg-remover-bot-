@@ -4,7 +4,7 @@ const C = window.CONFIG, {$, ic, t, store, bus, toast, signed} = U;
 const S = store.s;
 let current = null, curName = "", lastHash = location.hash, guardBusy = false;
 const DESC = {home:"Live crypto, forex and gold prices, binary options and futures.", markets:"Live prices for 100+ crypto pairs, forex and metals.", trade:"Trade Up or Down on live charts with 30s–5m expiries.", futures:"USDT-margined futures up to 125x with TP/SL.", assets:"Your balances, PnL and transactions.", bots:"Automated trading bots on live prices.", referral:"Invite friends and earn commission.", profile:"Your trading stats and account.", deposit:"Add USDT to your trading account instantly.", withdraw:"Move funds to your Vault and earn interest.", auto:"Activate automatic trading.", vip:"Momentum signals for every tradable pair.", community:"Chat with other traders.", about:"About NovaTrade.", support:"Contact NovaTrade support by phone, email or ticket.", settings:"Theme, language, sounds and defaults.", rewards:"Daily check-in, tasks and badges.", academy:"Learn trading, indicators and risk management.", alerts:"Price alerts for any market.", options:"Buy BTC, ETH and altcoin call & put options, cash-settled in USDT."};
-const NAV = [["home","Home","nhome"],["markets","Markets","nmkt"],["trade","Binary","ntrade"],["futures","Futures","nfut"],["assets","Assets","nasset"]];
+const NAV = [["home","Home","nhome"],["markets","Markets","nmkt"],["trade","Up / Down","nupdown"],["futures","Futures","nfut"],["assets","Assets","nasset"]];
 
 const mq = matchMedia("(prefers-color-scheme: dark)");
 function setTheme(th){
@@ -14,7 +14,7 @@ function setTheme(th){
 }
 mq.addEventListener?.("change", () => { if (S.settings.theme === "system") setTheme("system"); });
 function renderNav(active){
-  $("#bnav").innerHTML = `<div class="bnav-in">${NAV.map(([k,n,i]) => `<a href="#/${k}" class="${active===k?"on":""}" ${active===k?'aria-current="page"':""}><span class="ni">${ic(i,24,1.6)}</span><span>${t(n)}</span></a>`).join("")}</div>`;
+  $("#bnav").innerHTML = `<div class="bnav-in">${NAV.map(([k,n,i]) => `<a href="#/${k}" class="${active===k?"on":""}" ${active===k?'aria-current="page"':""}><span class="ni">${i === "nupdown" ? '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 20V5"/><path d="M4 9l4-4 4 4"/><path d="M16 4v15"/><path d="M12 15l4 4 4-4"/></svg>' : ic(i,24,1.6)}</span><span>${t(n)}</span></a>`).join("")}</div>`;
 }
 function route(){
   const raw = location.hash.replace(/^#\/?/, "") || "home";
@@ -33,7 +33,7 @@ function route(){
   document.title = (page.title || "Page") + " · " + C.APP_NAME;
   document.querySelector('meta[name="description"]').content = DESC[name] || "Binary options and futures trading on live markets.";
   document.body.classList.remove("no-nav");
-  renderNav(["chart","options","spot","predict","racer","apitrade","cfd"].includes(name) ? "futures" : name);
+  renderNav(name === "chart" ? "futures" : name);
   view.querySelectorAll("[data-back]").forEach(b => b.onclick = () => history.length > 1 ? history.back() : (location.hash = "#/home"));
   try { page.mount?.call(page, view); } catch(e){ console.error(e); toast("Something went wrong loading this page", "bad"); }
   window.scrollTo(0, 0);
@@ -145,7 +145,7 @@ window.App = {route, setTheme, guardNav};
     if (!on) return; on = false;
     const go = dy > 70 && !skip(); dy = 0;
     if (ind){ if (go){ ind.classList.add("spin"); ind.style.transform = "translate(-50%,44px)"; } else ind.style.opacity = 0; }
-    if (go){ U.buzz && U.buzz(); setTimeout(() => { try { App.route(); } catch {} if (ind){ ind.classList.remove("spin", "ready"); ind.style.opacity = 0; ind.style.transform = "translate(-50%,0)"; } }, 450); }
+    if (go){ U.buzz && U.buzz(); setTimeout(() => { const h = view.offsetHeight, sy = window.scrollY; view.style.minHeight = h + "px"; /* v7.4: keep height so nothing jumps while the page re-renders */ try { App.route(); } catch {} requestAnimationFrame(() => { window.scrollTo(0, sy); setTimeout(() => { view.style.minHeight = ""; }, 400); }); if (ind){ ind.classList.remove("spin", "ready"); ind.style.opacity = 0; ind.style.transform = "translate(-50%,0)"; } }, 450); }
     else if (ind) ind.classList.remove("ready");
   };
   view.addEventListener("touchend", end, {passive: true}); view.addEventListener("touchcancel", end, {passive: true});
