@@ -1,7 +1,7 @@
 /* v7.1 Admin panel part 2 (loads after admin2.js): user dashboard, trading control per product, HD wallet, AI assistant. Registers into Admin2.V. */
 (function(){
 const X = window.Admin2; if (!X || !window.U) return;
-const {V, A, I, esc, n2, n0, tstr, dstr, sgn, card, secH, kpi, empty, field, tog, kv, chips, bindChips, walletChips, tipBtn, wic, wname, WK, readS, run, peek, bal, totalOf, rd, wr} = X;
+const {V, A, I, esc, n2, n0, tstr, dstr, sgn, card, secH, kpi, empty, field, tog, kv, chips, bindChips, walletChips, tipBtn, wic, wname, WK, readS, run, peek, bal, totalOf, rd, wr, ago, pill, kycPill, modePill, confirmSheet, setFrozen, uInfo, ownerId} = X;
 const {store, toast} = U;
 const M_ = () => window.M, E_ = () => window.E;
 const mk = sym => { try { return M_() && M_().get(sym); } catch { return null; } };
@@ -27,6 +27,7 @@ const PRODS = [
   {k:"cfd", l:"CFD Trade", ic:"candle", w:"cfd", tip:["CFD Trade", "<p>Open CFD positions (forex, gold, indices, crypto). Change TP / SL or close at market.</p>"]}
 ];
 let TAB = "futures", SUB = "open";
+const emp = t => empty(t, "Add balance", `data-adjw="${(PRODS.find(x => x.k === TAB) || PRODS[0]).w}"`);
 const pIc = (k, z = 16) => U.ic ? U.ic(k, z, 1.8) : "";
 const subSeg = (opts, cur) => `<div class="a3-sub" role="tablist">${opts.map(([v, l, c]) => `<button role="tab" class="${cur === v ? "on" : ""}" data-sub="${v}">${l}${c != null ? `<em>${c}</em>` : ""}</button>`).join("")}</div>`;
 const acts = (...b) => `<div class="a3-ac">${b.join("")}</div>`;
@@ -46,9 +47,9 @@ function ordCard(o){
 const histRow = (ic, a, b, r, rc) => `<div class="a2-ac"><span class="a2-ai">${I(ic, 16)}</span><div><b>${a}</b><small>${b}</small></div><em class="${rc || ""}">${r}</em></div>`;
 function pFut(s){
   const f = s.fut, sub = SUB === "orders" || SUB === "hist" ? SUB : "open";
-  const body = sub === "open" ? (f.positions.length ? f.positions.map(futCard).join("") : empty("No open positions."))
-    : sub === "orders" ? (f.orders.length ? f.orders.map(ordCard).join("") : empty("No open orders."))
-    : (f.history.length ? f.history.slice(0, 30).map(h => histRow("trade", `${esc(lbl(h.sym))} ${esc(h.side)} ${h.lev || ""}x`, `${esc(h.reason || "closed")} · ${tstr(h.closed)}`, sgn(h.profit || 0), cls(h.profit))).join("") : empty("No history yet."));
+  const body = sub === "open" ? (f.positions.length ? f.positions.map(futCard).join("") : emp("No open positions."))
+    : sub === "orders" ? (f.orders.length ? f.orders.map(ordCard).join("") : emp("No open orders."))
+    : (f.history.length ? f.history.slice(0, 30).map(h => histRow("trade", `${esc(lbl(h.sym))} ${esc(h.side)} ${h.lev || ""}x`, `${esc(h.reason || "closed")} · ${tstr(h.closed)}`, sgn(h.profit || 0), cls(h.profit))).join("") : emp("No history yet."));
   return subSeg([["open", "Positions", f.positions.length], ["orders", "Orders", f.orders.length], ["hist", "History"]], sub) + body;
 }
 function futModify(id){
@@ -82,8 +83,8 @@ function pSpot(s){
   const hold = Object.entries(s.spot.hold || {}).filter(([, h]) => h && h.qty > 1e-9), ord = s.spot.orders || [], hist = s.spot.history || [], sub = SUB === "orders" || SUB === "hist" ? SUB : "open";
   const hc = ([k, h]) => { const sym = h.sym || k + "USDT", mark = px(sym, 0), val = h.qty * mark, pnl = mark ? val - (h.cost || 0) : 0; return `<div class="a3-pc"><div class="a3-ph2">${pic(sym)}<div class="a3-pt"><b>${esc(k)}</b><span>${fp(h.qty)} held</span></div><div class="a3-pp"><b class="num">${n2(val)}</b><small class="${cls(pnl)}">${mark ? sgn(pnl) : "-"}</small></div></div><div class="a3-g">${tile("Avg cost", h.qty ? fp((h.cost || 0) / h.qty) : "-")}${tile("Mark", mark ? fp(mark) : "-")}${tile("TP / SL", `${h.tp ? fp(h.tp) : "-"} / ${h.sl ? fp(h.sl) : "-"}`)}</div>${acts(btn("stpsl", k, "TP / SL"), btn("ssell", k, "Sell all", "dn"))}</div>`; };
   const oc = o => `<div class="a3-pc"><div class="a3-ph2">${pic(o.sym)}<div class="a3-pt"><b>${esc(lbl(o.sym))}</b><span><i class="a3-tag ${o.side === "buy" ? "up" : "down"}">Limit ${o.side === "buy" ? "Buy" : "Sell"}</i></span></div><div class="a3-pp"><b class="num">${fp(o.price)}</b><small>${fp(o.qty)} qty</small></div></div>${acts(btn("scancel", o.id, "Cancel order", "dn"))}</div>`;
-  const body = sub === "open" ? (hold.length ? hold.map(hc).join("") : empty("No holdings.")) : sub === "orders" ? (ord.length ? ord.map(oc).join("") : empty("No open orders.")) :
-    (hist.length ? hist.slice(0, 30).map(h => histRow("chart", `${esc(h.side === "buy" ? "Buy" : "Sell")} ${esc(lbl(h.sym))}`, `${fp(h.qty)} @ ${fp(h.price)} · ${tstr(h.ts)}`, n2((h.qty || 0) * (h.price || 0)))).join("") : empty("No history yet."));
+  const body = sub === "open" ? (hold.length ? hold.map(hc).join("") : emp("No holdings.")) : sub === "orders" ? (ord.length ? ord.map(oc).join("") : emp("No open orders.")) :
+    (hist.length ? hist.slice(0, 30).map(h => histRow("chart", `${esc(h.side === "buy" ? "Buy" : "Sell")} ${esc(lbl(h.sym))}`, `${fp(h.qty)} @ ${fp(h.price)} · ${tstr(h.ts)}`, n2((h.qty || 0) * (h.price || 0)))).join("") : emp("No history yet."));
   return subSeg([["open", "Holdings", hold.length], ["orders", "Orders", ord.length], ["hist", "History"]], sub) + body;
 }
 function spotTpSl(k){
@@ -99,7 +100,7 @@ function pBin(s){
   const c = p => { const mark = px(p.sym, p.entry), win = p.dir === "up" ? mark > p.entry : mark < p.entry, left = Math.max(0, p.exp - Date.now());
     return `<div class="a3-pc"><div class="a3-ph2">${pic(p.sym)}<div class="a3-pt"><b>${esc(lbl(p.sym))}</b><span><i class="a3-tag ${p.dir === "up" ? "up" : "down"}">${p.dir === "up" ? "Up" : "Down"}</i> ${Math.ceil(left / 1000)}s left</span></div><div class="a3-pp"><b class="num">${n2(p.amount)}</b><small class="${mark === p.entry ? "" : win ? "up" : "down"}">${mark === p.entry ? "Even" : win ? "Winning" : "Losing"}</small></div></div>
       <div class="a3-g">${tile("Entry", fp(p.entry))}${tile("Now", fp(mark))}${tile("Payout", "x" + (1 + (p.payout ?? .92)).toFixed(2))}</div>${acts(btn("bclose", p.id, "Close", "dn"))}</div>`; };
-  const body = sub === "open" ? (pos.length ? pos.map(c).join("") : empty("No open trades.")) : (hist.length ? hist.slice(0, 30).map(h => histRow("clock", `${esc(lbl(h.sym))} ${h.dir === "up" ? "Up" : "Down"}`, `${esc(h.result || "")} · ${tstr(h.closed || h.open)}`, sgn(h.profit || 0), cls(h.profit))).join("") : empty("No history yet."));
+  const body = sub === "open" ? (pos.length ? pos.map(c).join("") : emp("No open trades.")) : (hist.length ? hist.slice(0, 30).map(h => histRow("clock", `${esc(lbl(h.sym))} ${h.dir === "up" ? "Up" : "Down"}`, `${esc(h.result || "")} · ${tstr(h.closed || h.open)}`, sgn(h.profit || 0), cls(h.profit))).join("") : emp("No history yet."));
   return subSeg([["open", "Open", pos.length], ["hist", "History"]], sub) + body;
 }
 function binClose(id){
@@ -120,7 +121,7 @@ function pOpt(s){
   const pos = s.opt.positions || [], hist = s.opt.history || [], sub = SUB === "hist" ? "hist" : "open";
   const nm = p => `${p.base} ${p.strike} ${p.type === "call" ? "Call" : "Put"}`;
   const c = p => `<div class="a3-pc"><div class="a3-ph2">${pic(p.base + "USDT")}<div class="a3-pt"><b>${esc(nm(p))}</b><span><i class="a3-tag ${p.type === "call" ? "up" : "down"}">${p.type === "call" ? "Call" : "Put"}</i> exp ${tstr(p.exp)}</span></div><div class="a3-pp"><b class="num">${n2(p.cost)}</b><small>premium</small></div></div><div class="a3-g">${tile("Quantity", fp(p.qty))}${tile("Strike", fp(p.strike))}${tile("Spot", fp(px(p.base + "USDT", 0)))}</div>${acts(btn("oclose", p.id, "Close", "dn"))}</div>`;
-  const body = sub === "open" ? (pos.length ? pos.map(c).join("") : empty("No open options.")) : (hist.length ? hist.slice(0, 30).map(h => histRow("target", esc(nm(h)), `${esc(h.result || "")} · ${tstr(h.closed)}`, sgn(h.pnl || 0), cls(h.pnl))).join("") : empty("No history yet."));
+  const body = sub === "open" ? (pos.length ? pos.map(c).join("") : emp("No open options.")) : (hist.length ? hist.slice(0, 30).map(h => histRow("target", esc(nm(h)), `${esc(h.result || "")} · ${tstr(h.closed)}`, sgn(h.pnl || 0), cls(h.pnl))).join("") : emp("No history yet."));
   return subSeg([["open", "Open", pos.length], ["hist", "History"]], sub) + body;
 }
 function optClose(id){
@@ -136,20 +137,20 @@ function optClose(id){
 function pEarn(s){
   const L = (s.earn && s.earn.locked) || [], vb = +(s.vault && s.vault.bal) || 0, now = Date.now();
   return `<div class="a3-g3">${tile("Flexible balance", n2(vb) + " USDT")}${tile("Locked plans", String(L.filter(x => !x.flex).length))}${tile("Wallet", n2(bal("earn")) + " USDT")}</div>` +
-    (L.length ? L.map(x => { const acc = x.amount * x.apr * Math.min(now - x.start, x.days * 864e5) / 31536e6; return `<div class="a3-pc"><div class="a3-ph2"><div class="a3-pt"><b>${esc(x.coin || "USDT")} ${x.flex ? "Flexible" : x.days + "D locked"}</b><span>APR ${n2((x.apr || 0) * 100)}% · since ${dstr(x.start)}</span></div><div class="a3-pp"><b class="num">${n2(x.amount)}</b><small class="up">+${n2(acc)}</small></div></div></div>`; }).join("") : empty("No Earn subscriptions."));
+    (L.length ? L.map(x => { const acc = x.amount * x.apr * Math.min(now - x.start, x.days * 864e5) / 31536e6; return `<div class="a3-pc"><div class="a3-ph2"><div class="a3-pt"><b>${esc(x.coin || "USDT")} ${x.flex ? "Flexible" : x.days + "D locked"}</b><span>APR ${n2((x.apr || 0) * 100)}% · since ${dstr(x.start)}</span></div><div class="a3-pp"><b class="num">${n2(x.amount)}</b><small class="up">+${n2(acc)}</small></div></div></div>`; }).join("") : emp("No Earn subscriptions."));
 }
 /* ----- money game / prediction (read) ----- */
 function pGame(){
   const d = racerD(), w = d.bets.filter(b => b.win).length;
   return `<div class="a3-g3">${tile("Bets", n0(d.bets.length))}${tile("Wins", n0(w))}${tile("Races", n0(d.races.length))}</div>` +
-    (d.bets.length ? d.bets.slice(-15).reverse().map(b => histRow("car", `${n2(b.amount)} USDT, car ${esc(b.car)}/${esc(b.cars)}`, `${esc(b.mode || "")} x${esc(b.mult ?? "")} · ${b.t ? tstr(b.t) : ""}`, b.win ? "+" + n2((+b.payout || 0) - (+b.amount || 0)) : "-" + n2(b.amount), b.win ? "up" : "down")).join("") : empty("No bets yet."));
+    (d.bets.length ? d.bets.slice(-15).reverse().map(b => histRow("car", `${n2(b.amount)} USDT, car ${esc(b.car)}/${esc(b.cars)}`, `${esc(b.mode || "")} x${esc(b.mult ?? "")} · ${b.t ? tstr(b.t) : ""}`, b.win ? "+" + n2((+b.payout || 0) - (+b.amount || 0)) : "-" + n2(b.amount), b.win ? "up" : "down")).join("") : emp("No bets yet."));
 }
 function pPred(){
   const d = predD(), row = (o, ic, t) => histRow(ic, esc(o.title || o.market || o.q || o.sym || o.id || t), esc(o.side || o.dir || o.type || o.status || ""), n2(amt(o)));
   return `<div class="a3-g3">${tile("Orders", n0(d.orders.length))}${tile("Positions", n0(d.positions.length))}${tile("History", n0(d.history.length))}</div>` +
     (d.orders.length ? `<div class="a2-lbl">Open orders</div>` + d.orders.slice(-10).reverse().map(o => row(o, "chip", "Order")).join("") : "") +
     (d.positions.length ? `<div class="a2-lbl">Positions</div>` + d.positions.slice(-10).reverse().map(o => row(o, "trade", "Position")).join("") : "") +
-    (d.history.length ? `<div class="a2-lbl">History</div>` + d.history.slice(-10).reverse().map(o => row(o, "flag", "Trade")).join("") : "") + (d.orders.length + d.positions.length + d.history.length ? "" : empty("No prediction activity yet."));
+    (d.history.length ? `<div class="a2-lbl">History</div>` + d.history.slice(-10).reverse().map(o => row(o, "flag", "Trade")).join("") : "") + (d.orders.length + d.positions.length + d.history.length ? "" : emp("No prediction activity yet."));
 }
 function pCfd(){
   if (!window.CFD) return empty("The CFD module is not loaded.");
@@ -157,7 +158,7 @@ function pCfd(){
   try { pos = peek(() => CFD.positions()); hist = peek(() => CFD.history()); } catch {}
   const c = p => `<div class="a3-pc"><div class="a3-ph2">${pic(p.sym)}<div class="a3-pt"><b>${esc(p.sym)}</b><span><i class="a3-tag ${p.side === "buy" ? "up" : "down"}">${p.side === "buy" ? "Buy" : "Sell"} ${fp(p.lots)} lot</i></span></div><div class="a3-pp"><b class="num ${cls(p.pnl)}">${sgn(p.pnl)}</b><small class="${cls(p.roi)}">${pc(p.roi)}</small></div></div>
     <div class="a3-g">${tile("Entry", fp(p.entry))}${tile("Price", fp(p.price))}${tile("Margin", n2(p.margin))}${tile("TP / SL", `${p.tp ? fp(p.tp) : "-"} / ${p.sl ? fp(p.sl) : "-"}`)}</div>${acts(btn("cmod", p.id, "Modify"), btn("cclose", p.id, "Close", "dn"))}</div>`;
-  const body = sub === "open" ? (pos.length ? pos.map(c).join("") : empty("No open CFD positions.")) : (hist.length ? hist.slice(0, 30).map(h => histRow("candle", `${esc(h.sym)} ${h.side === "buy" ? "Buy" : "Sell"} ${fp(h.lots)} lot`, tstr(h.closed), sgn(h.pnl || 0), cls(h.pnl))).join("") : empty("No history yet."));
+  const body = sub === "open" ? (pos.length ? pos.map(c).join("") : emp("No open CFD positions.")) : (hist.length ? hist.slice(0, 30).map(h => histRow("candle", `${esc(h.sym)} ${h.side === "buy" ? "Buy" : "Sell"} ${fp(h.lots)} lot`, tstr(h.closed), sgn(h.pnl || 0), cls(h.pnl))).join("") : emp("No history yet."));
   return subSeg([["open", "Positions", pos.length], ["hist", "History"]], sub) + body;
 }
 function cfdModify(id){
@@ -168,16 +169,18 @@ function cfdModify(id){
 }
 function panelHtml(s){
   const pr = PRODS.find(x => x.k === TAB) || PRODS[0];
-  const strip = `<div class="a2-chips row a3-strip" id="a3tabs" role="tablist">${PRODS.map(p => `<button type="button" role="tab" aria-selected="${p.k === TAB}" class="a2-chip ${p.k === TAB ? "on" : ""}" data-v="${p.k}"><i class="a3-ti">${pIc(p.ic)}</i><span>${p.l}</span></button>`).join("")}</div>`;
+  const strip = `<div class="a3-stripw" id="a3sw"><div class="a2-chips row a3-strip" id="a3tabs" role="tablist">${PRODS.map(p => `<button type="button" role="tab" aria-selected="${p.k === TAB}" class="a2-chip ${p.k === TAB ? "on" : ""}" data-v="${p.k}"><i class="a3-ti">${pIc(p.ic)}</i><span>${p.l}</span></button>`).join("")}</div></div>`;
   const head = `<div class="a3-wb"><span class="a2-hi">${pIc(pr.ic, 18)}</span><div><b>${pr.l} wallet</b><small class="num">${n2(bal(pr.w))} USDT</small></div>${tipBtn("prod")}<button class="a2-b sm" data-adjw="${pr.w}">${I("plus", 14)} Balance</button></div>`;
   const body = TAB === "futures" ? pFut(s) : TAB === "spot" ? pSpot(s) : TAB === "binary" ? pBin(s) : TAB === "options" ? pOpt(s) : TAB === "earn" ? pEarn(s) : TAB === "game" ? pGame() : TAB === "predict" ? pPred() : pCfd();
   return strip + head + `<div class="a3-body">${body}</div>`;
 }
 let ROOT = null, onChange = null;
-function redraw(){ if (!ROOT) return; const el = ROOT.querySelector("#a3p"); if (!el) return; const st = el.scrollLeft; el.innerHTML = panelHtml(readS()); const tb = el.querySelector("#a3tabs"); try { const on = tb.querySelector(".on"); on && on.scrollIntoView({block:"nearest", inline:"center"}); } catch {} bindPanel(); onChange && onChange(); }
+function redraw(center){ if (!ROOT) return; const el = ROOT.querySelector("#a3p"); if (!el) return; const old = el.querySelector("#a3tabs"), sl = old ? old.scrollLeft : 0; el.innerHTML = panelHtml(readS()); const tb = el.querySelector("#a3tabs"); try { if (center === true){ const on = tb.querySelector(".on"); if (on) tb.scrollLeft = Math.max(0, on.offsetLeft - (tb.clientWidth - on.offsetWidth) / 2); } else tb.scrollLeft = sl; } catch {} bindPanel(); onChange && onChange(); }
 function bindPanel(){
   const el = ROOT.querySelector("#a3p");
-  el.querySelectorAll("#a3tabs .a2-chip").forEach(b => b.onclick = () => { TAB = b.dataset.v; SUB = "open"; U.buzz && U.buzz(8); redraw(); });
+  el.querySelectorAll("#a3tabs .a2-chip").forEach(b => b.onclick = () => { TAB = b.dataset.v; SUB = "open"; U.buzz && U.buzz(8); redraw(true); });
+  const tb = el.querySelector("#a3tabs"), sw = el.querySelector("#a3sw");
+  if (tb && sw){ const f = () => { sw.classList.toggle("fl", tb.scrollLeft > 4); sw.classList.toggle("fr", tb.scrollLeft + tb.clientWidth < tb.scrollWidth - 4); }; tb.addEventListener("scroll", f, {passive:true}); f(); setTimeout(f, 80); }
   el.querySelectorAll("[data-sub]").forEach(b => b.onclick = () => { SUB = b.dataset.sub; redraw(); });
   el.querySelectorAll("[data-adjw]").forEach(b => b.onclick = () => X.adjustSheet(b.dataset.adjw));
   el.querySelectorAll("[data-tip=prod]").forEach(b => b.onclick = () => { const p = PRODS.find(x => x.k === TAB); X.showTip(p.tip[0], p.tip[1]); });
@@ -215,25 +218,56 @@ const stopLive = () => { clearInterval(liveT); ROOT = null; onChange = null; };
 X.TIPS.prod = ["Wallet balance", "<p>The balance of this product's wallet. Use <b>Balance</b> to add or deduct funds. The user receives a notification.</p>"];
 
 /* ================= user dashboard ================= */
+const KNT = "nt_adm_notes";
+const notesOf = id => { const a = (rd(KNT, {}) || {})[id]; return Array.isArray(a) ? a : []; };
+const saveNotes = (id, a) => { const m = rd(KNT, {}) || {}; m[id] = a.slice(0, 50); wr(KNT, m); };
+const TLK = {login:["users", ""], dep:["fin", "upc"], wd:["out", "dn"], trade:["trade", ""], adm:["cog", ""], freeze:["lock", "dn"]};
+function timeline(u){
+  const s = readS(), out = [], ow = ownerId(), mine = !ow || ow === u.id;
+  A.logins().filter(l => l.uid === u.id).forEach(l => out.push({t:l.t, k:"login", a:"Logged in", b:`${l.dev || "Browser"} · ${l.how || "Password"}`}));
+  if (u.createdAt) out.push({t:u.createdAt, k:"login", a:"Account created", b:u.ref ? "Referral " + u.ref : "Registered"});
+  if (u.frozenAt) out.push({t:u.frozenAt, k:"freeze", a:u.frozen ? "Account frozen" : "Account unfrozen", b:"By admin"});
+  if (mine){
+    (s.tx || []).forEach(x => { const k = x.kind; if (k === "deposit" && !/^Earn/.test(x.method || "")) out.push({t:x.t, k:"dep", a:`Deposit +${n2(x.amount)} USDT`, b:`${x.method || ""}${x.status ? " · " + x.status : ""}`, r:"+" + n2(x.amount), c:"up"});
+      else if (k === "withdrawal") out.push({t:x.t, k:"wd", a:`Withdrawal ${n2(x.amount)} ${x.coin || "USDT"}`, b:`${x.method || ""} · ${x.status || ""}`, r:"-" + n2(x.amount), c:"down"});
+      else if (k === "admin-credit" || k === "admin-debit") out.push({t:x.t, k:"adm", a:k === "admin-credit" ? "Balance added by admin" : "Balance deducted by admin", b:x.method || "", r:(k === "admin-credit" ? "+" : "-") + n2(x.amount), c:k === "admin-credit" ? "up" : "down"}); });
+    (s.history || []).slice(0, 25).forEach(h => out.push({t:h.closed || h.open, k:"trade", a:`Binary ${lbl(h.sym)} ${h.dir === "up" ? "Up" : "Down"} · ${h.result || ""}`, b:`${n2(h.amount)} USDT`, r:sgn(h.profit || 0), c:cls(h.profit)}));
+    ((s.fut && s.fut.history) || []).slice(0, 25).forEach(h => out.push({t:h.closed || h.open, k:"trade", a:`Futures ${lbl(h.sym)} ${h.side || ""} closed`, b:`${n2(h.margin)} USDT margin`, r:sgn(h.profit || 0), c:cls(h.profit)}));
+    ((s.opt && s.opt.history) || []).slice(0, 15).forEach(h => out.push({t:h.closed, k:"trade", a:`Options ${h.base || ""} ${h.strike || ""} ${h.type || ""}`, b:h.result || "", r:sgn(h.pnl || 0), c:cls(h.pnl)}));
+    ((s.spot && s.spot.history) || []).slice(0, 15).forEach(h => out.push({t:h.ts, k:"trade", a:`Spot ${h.side === "buy" ? "Buy" : "Sell"} ${lbl(h.sym)}`, b:`${fp(h.qty)} @ ${fp(h.price)}`}));
+  }
+  return out.filter(x => x.t).sort((a, b) => b.t - a.t).slice(0, 60);
+}
+const tlRow = e => `<li class="a3-tl ${e.k}"><i class="a3-td">${I((TLK[e.k] || TLK.trade)[0], 13)}</i><div><b>${esc(e.a)}</b><small>${esc(e.b || "")}${e.b ? " · " : ""}${tstr(e.t)} (${ago(e.t)})</small></div>${e.r ? `<em class="${e.c || ""}">${e.r}</em>` : ""}</li>`;
+const noteRow = n => `<div class="a3-note"><p>${esc(n.text)}</p><div><small>${tstr(n.t)}</small><button type="button" class="a3-nd" data-nd="${esc(n.id)}" aria-label="Delete note">Delete</button></div></div>`;
 V.user = id => {
   const u = A.accounts().find(x => x.id === id);
   if (!u) return {title:"User", back:"#/admin/users", html:empty("User not found.")};
-  const lg = A.logins().filter(l => l.uid === u.id).slice(0, 6), kyc = u.kyc || "verified";
+  const lg = A.logins().filter(l => l.uid === u.id).slice(0, 6), kyc = u.kyc || "verified", info = uInfo(u), tl = timeline(u);
   const total = () => totalOf();
   const tiles = () => WK.map(k => `<button class="a3-wt" data-wt="${k}"><span class="a2-wi">${wic(k, 18)}</span><small>${esc(wname(k))}</small><b class="num">${n2(bal(k))}</b></button>`).join("");
-  const html = `<div class="a2-card a3-uh"><span class="a2-av big">${esc((u.name || "?")[0].toUpperCase())}</span><div class="a3-un"><b>${esc(u.name)}</b><small>${esc(u.email)}</small><small>Joined ${dstr(u.createdAt)}</small></div><span class="a2-role ${esc(u.role)}">${esc(u.role)}</span></div>
-    <section class="a2-card a3-tot"><div class="a3-tt"><small>Total assets (${X.view === "real" ? "Real" : "Demo"})</small><b class="num" id="a3tot">${n2(total())}</b><em>USDT</em></div><div class="a3-wts" id="a3wts">${tiles()}</div><div class="a2-btns"><button class="a2-b pri" data-adj>${I("plus", 16)} Add or deduct balance</button></div></section>
-    <section class="a2-card">${secH(I("trade", 18), "Trading control", "usertrade")}<div id="a3p"></div></section>
-    ${card(secH(I("shield", 18), "Account", null), `<div class="a2-lbl">KYC status</div>${chips("a3kyc", [{v:"verified", l:"Verified"}, {v:"pending", l:"Pending"}, {v:"rejected", l:"Rejected"}], kyc)}${kv("Referral used", esc(u.ref || "None"))}${kv("Status", `<span class="${u.blocked ? "down" : "up"}">${u.blocked ? "Blocked" : "Active"}</span>`)}
-      <div class="a2-btns col">${u.role === "admin" ? "" : `<button class="a2-b ${u.blocked ? "pri" : "dng"}" data-blk>${u.blocked ? "Unblock user" : "Block user"}</button>`}<button class="a2-b" data-pw>Reset password</button><button class="a2-b" data-rst>Reset ${X.view === "real" ? "Real" : "Demo"} account</button></div>`)}
-    ${card(secH(I("users", 18), "Login history", null), lg.length ? lg.map(l => X.actRow("users", esc(l.dev || "Browser"), esc(l.how || "Password"), tstr(l.t))).join("") : empty("No logins recorded."))}`;
+  const html = `<div class="a2-card a3-uh"><span class="a2-av big">${esc((u.name || "?")[0].toUpperCase())}</span><div class="a3-un"><b>${esc(u.name)}</b><small>${esc(u.email)}</small><small>Joined ${dstr(u.createdAt)} · Last active ${ago(info.last)}</small><span class="a3-pl" id="a3pl">${modePill(info.mode)}${kycPill(kyc)}${u.frozen ? pill("Frozen", "warn") : ""}${u.blocked ? pill("Blocked", "bad") : ""}</span></div><span class="a2-role ${esc(u.role)}">${esc(u.role)}</span></div>
+    <section class="a2-card a3-tot s2"><div class="a3-tt"><small>Total assets (${X.view === "real" ? "Real" : "Demo"})</small><b class="num" id="a3tot">${n2(total())}</b><em>USDT</em></div><div class="a3-wts" id="a3wts">${tiles()}</div><div class="a2-btns"><button class="a2-b pri" data-adj>${I("plus", 16)} Add or deduct balance</button></div></section>
+    <section class="a2-card s2">${secH(I("trade", 18), "Trading control", "usertrade")}<div id="a3p"></div></section>
+    ${card(secH(I("shield", 18), "Account", null), `<div class="a2-lbl">KYC status</div>${chips("a3kyc", [{v:"verified", l:"Verified"}, {v:"pending", l:"Pending"}, {v:"rejected", l:"Rejected"}], kyc)}${kv("Referral used", esc(u.ref || "None"))}${kv("Status", `<span class="${u.blocked ? "down" : u.frozen ? "" : "up"}">${u.blocked ? "Blocked" : u.frozen ? "Frozen" : "Active"}</span>`)}
+      <div class="a2-btns col">${u.role === "admin" ? "" : `<button class="a2-b ${u.frozen ? "pri" : ""}" data-frz>${I("lock", 16)} ${u.frozen ? "Unfreeze account" : "Freeze account"}</button><button class="a2-b ${u.blocked ? "pri" : "dng"}" data-blk>${u.blocked ? "Unblock user" : "Block user"}</button>`}<button class="a2-b" data-pw>Reset password</button><button class="a2-b" data-rst>Reset ${X.view === "real" ? "Real" : "Demo"} account</button></div>`)}
+    ${card(secH(I("pulse", 18), "Activity timeline", "usertl"), tl.length ? `<ul class="a3-tls" id="a3tl">${tl.slice(0, 8).map(tlRow).join("")}</ul>${tl.length > 8 ? `<button type="button" class="a2-b sm" id="a3tlm" style="margin-top:8px">Show all ${tl.length}</button>` : ""}` : empty("No activity yet for this user.", "Add balance", 'data-ea="adj"'), "s2")}
+    ${card(secH(I("edit", 18), "Admin notes", "usernote"), `<label class="a2-f"><span>Private note (only admins see it)</span><textarea id="a3nt" maxlength="500" placeholder="e.g. Verified by phone, VIP client"></textarea></label><button class="a2-b pri" id="a3ns">Save note</button><div id="a3nl" class="a3-nl"></div>`)}
+    ${card(secH(I("users", 18), "Login history", null), lg.length ? lg.map(l => X.actRow("users", esc(l.dev || "Browser"), esc(l.how || "Password"), tstr(l.t))).join("") : empty("No logins recorded yet.", "Back to users", 'href="#/admin/users"'))}`;
+  X.TIPS.usertl = ["Activity timeline", "<p>Logins, deposits, trades and withdrawals of this account, newest first, from the data stored on this device.</p>"];
+  X.TIPS.usernote = ["Admin notes", "<p>Private notes about this user. They are saved on this device and are never shown to the user.</p>"];
   X.TIPS.usertrade = ["Trading control", "<p>Everything this account has open in each product. Tap a product tab, then <b>Modify</b> to change TP / SL or leverage, or <b>Close</b> to close it. Changes are saved to the account and the user is notified.</p>"];
   return {title:u.name || "User", back:"#/admin/users", html, mount(r){
     const q = x => r.querySelector(x), sv = fn => { const l = A.accounts(), x = l.find(z => z.id === id); fn(x); A.saveAccounts(l); };
     const upd = () => { q("#a3tot").textContent = n2(total()); q("#a3wts").innerHTML = tiles(); q("#a3wts").querySelectorAll("[data-wt]").forEach(b => b.onclick = () => X.adjustSheet(b.dataset.wt)); };
-    mountPanel(r, upd); startLive(); upd();
+    mountPanel(r, upd); startLive(); upd(); try { const tb = r.querySelector("#a3tabs"), on = tb && tb.querySelector(".on"); if (on) tb.scrollLeft = Math.max(0, on.offsetLeft - (tb.clientWidth - on.offsetWidth) / 2); } catch {}
     q("[data-adj]").onclick = () => X.adjustSheet();
     bindChips(r, "a3kyc", v => { sv(x => x.kyc = v); toast("KYC updated", "ok"); });
+    const nl = q("#a3nl"), drawN = () => { const l = notesOf(id); nl.innerHTML = l.length ? l.map(noteRow).join("") : `<p class="a2-hint">No notes yet.</p>`; nl.querySelectorAll("[data-nd]").forEach(d => d.onclick = () => { saveNotes(id, notesOf(id).filter(z => z.id !== d.dataset.nd)); toast("Note deleted", "ok"); drawN(); }); };
+    q("#a3ns").onclick = () => { const t = q("#a3nt").value.trim(); if (!t) return toast("Write a note first", "bad"); saveNotes(id, [{id:U.uid(), t:Date.now(), text:t}, ...notesOf(id)]); q("#a3nt").value = ""; U.buzz && U.buzz(8); toast("Note saved", "ok"); drawN(); };
+    drawN();
+    const tm = q("#a3tlm"); if (tm) tm.onclick = () => { q("#a3tl").innerHTML = tl.map(tlRow).join(""); tm.remove(); };
+    const fz = q("[data-frz]"); if (fz) fz.onclick = () => confirmSheet(u.frozen ? "Unfreeze account?" : "Freeze account?", "", u.frozen ? "The user can trade and withdraw again." : "The account is flagged as frozen in the admin panel. You can unfreeze it at any time.", u.frozen ? "Unfreeze" : "Freeze", u.frozen ? "pri" : "dng", () => { setFrozen([id], !u.frozen); toast(u.frozen ? "Account unfrozen" : "Account frozen", "ok"); App.route(); });
     const b = q("[data-blk]"); if (b) b.onclick = () => { sv(x => x.blocked = !x.blocked); toast("Status updated", "ok"); App.route(); };
     q("[data-pw]").onclick = async () => { if (!await U.confirmBox("Reset password?", "The password becomes Temp1234 for this user.", "Reset", true)) return; const h = await A.hash(u.email, "Temp1234"); sv(x => x.passHash = h); toast("Password reset to Temp1234", "ok"); };
     q("[data-rst]").onclick = async () => {
@@ -253,10 +287,10 @@ const binForm = () => { const a = A.adminSettings(), pin = (g, l) => field(l + "
 V.trading = tab => {
   if (tab && PRODS.some(p => p.k === tab)){ TAB = tab; SUB = "open"; }
   const sets = {binary:["Binary settings", binForm], game:["Money Game settings", gameForm], predict:["Prediction settings", predForm]};
-  const html = `<section class="a2-card">${secH(I("trade", 18), "Trading", "trading")}<div class="a3-kp" id="a3kp"></div><div id="a3p"></div></section><div id="a3set"></div>`;
+  const html = `<section class="a2-card s2">${secH(I("trade", 18), "Positions and orders", "trading")}<div class="a3-kp" id="a3kp"></div><div id="a3p"></div></section><div id="a3set"></div>`;
   return {title:"Trading", html, mount(r){
     const q = x => r.querySelector(x);
-    const kp = () => { const s = readS(); q("#a3kp").innerHTML = `<div class="a2-kpis">${kpi("Futures open", n0(s.fut.positions.length), "layers")}${kpi("Binary open", n0((s.positions || []).length), "clock")}${kpi("Spot holdings", n0(Object.keys(s.spot.hold || {}).length), "chart")}${kpi("Options open", n0((s.opt.positions || []).length), "target")}</div>`; };
+    const kp = () => { const s = readS(); q("#a3kp").innerHTML = `<div class="a2-kpis c4">${kpi("Futures open", n0(s.fut.positions.length), "layers")}${kpi("Binary open", n0((s.positions || []).length), "clock")}${kpi("Spot holdings", n0(Object.keys(s.spot.hold || {}).length), "chart")}${kpi("Options open", n0((s.opt.positions || []).length), "target")}</div>`; };
     const drawSet = () => { const d = sets[TAB], box = q("#a3set"); if (!d){ box.innerHTML = ""; return; } box.innerHTML = `<section class="a2-card">${secH(I("cog", 18), d[0], null)}${d[1]()}</section>`; bindSettings(box); };
     mountPanel(r, () => { kp(); }); kp(); drawSet(); startLive();
     /* re-draw the settings card when the product tab changes */
@@ -354,11 +388,11 @@ function hdwView(root){
   V_hdwDraw = () => hdwView(root);
 }
 V.hdw = () => {
-  const html = `<section class="a2-card a3-warn"><div class="a2-h"><span class="a2-hi dn">${I("shield", 18)}</span><span class="a2-ht">Read this first</span></div>
-    <ul><li>Anyone with the seed phrase controls <b>all</b> funds in that wallet. Use a dedicated deposit wallet, never your main one.</li><li>The seed is encrypted on this device with your PIN (AES-256-GCM, PBKDF2) and is never sent anywhere or shown again. If you forget the PIN it cannot be recovered, so keep your backup.</li><li>A compromised phone or browser can still be dangerous. <b>xpub (watch-only)</b> is safer: it only creates addresses and holds no private key.</li></ul></section>
+  const html = `<section class="a2-card a3-warn"><button type="button" class="a3-rt" data-rt aria-expanded="false" aria-controls="a3rw"><span class="a2-hi dn">${I("shield", 18)}</span><span class="a2-ht">Read this first</span><i class="a3-rc">${I("chev", 16)}</i></button>
+    <ul id="a3rw" hidden><li>Anyone with the seed phrase controls <b>all</b> funds in that wallet. Use a dedicated deposit wallet, never your main one.</li><li>The seed is encrypted on this device with your PIN (AES-256-GCM, PBKDF2) and is never sent anywhere or shown again. If you forget the PIN it cannot be recovered, so keep your backup.</li><li>A compromised phone or browser can still be dangerous. <b>xpub (watch-only)</b> is safer: it only creates addresses and holds no private key.</li></ul></section>
     <section class="a2-card">${secH(I("key", 18), "HD wallet", "hdw")}<div data-hdw></div></section>
     <section class="a2-card">${secH(I("info", 18), "How deposits work", null)}<p class="a2-hint">Each user gets one deposit address (EVM: BEP20 / ERC20). When funds arrive, approve the deposit in Requests, or switch Auto-credit on in Finance.</p><a class="a2-link" href="#/admin/requests">${I("inbox", 16)}<span>Open requests</span>${I("chev", 14)}</a></section>`;
-  return {title:"HD Wallet", noMode:true, html, mount(r){ hdwView(r); loadEthers().catch(() => {}); }, unmount(){ lock(); V_hdwDraw = null; }};
+  return {title:"HD Wallet", noMode:true, layout:"c2", html, mount(r){ const rt = r.querySelector("[data-rt]"); rt.onclick = () => { const o = rt.getAttribute("aria-expanded") !== "true"; rt.setAttribute("aria-expanded", o); r.querySelector("#a3rw").hidden = !o; }; hdwView(r); loadEthers().catch(() => {}); }, unmount(){ lock(); V_hdwDraw = null; }};
 };
 
 /* ================= AI assistant ================= */
@@ -377,11 +411,11 @@ V.ai = () => {
     return card(secH(I("key", 18), "API key", "aikey"), c.key && !editing ? `${kv("Key", `<span class="mono">${esc(mask(c.key))}</span>`)}<div class="a2-btns"><button class="a2-b" id="a3chg">Change</button><button class="a2-b dng" id="a3rmk">Remove</button><button class="a2-b" id="a3tst">Test key</button></div><div class="a2-hint" id="a3tr"></div>`
       : `<p class="a2-hint">No key set. The assistant uses built-in answers until you add one.</p>${field("Gemini API key", "a3k", "", {type:"password", ph:"AIza..."})}<button class="a2-b pri" id="a3sk">Save key</button>${editing ? '<button class="a2-b" id="a3ck">Cancel</button>' : ""}`) +
       card(secH(I("ai", 18), "Default model", null), chips("a3md", MODELS, c.model, "c3")) +
-      card(secH(I("pulse", 18), "Usage today", "aiuse"), `<div class="a2-kpis">${kpi("Requests", n0(u.req), "pulse")}${kpi("Tokens", n0(u.tok), "chip")}</div><div class="a3-bar"><i style="width:${pct}%"></i></div><div class="a3-bl"><span>${n0(u.req)} of ${n0(c.cap)} requests (${pct}%)</span></div>${field("Daily request limit for this meter", "a3cap", c.cap, {step:1, min:1})}
+      card(secH(I("pulse", 18), "Usage today", "aiuse"), `<div class="a2-kpis c2">${kpi("Requests", n0(u.req), "pulse")}${kpi("Tokens", n0(u.tok), "chip")}</div><div class="a3-bar"><i style="width:${pct}%"></i></div><div class="a3-bl"><span>${n0(u.req)} of ${n0(c.cap)} requests (${pct}%)</span></div>${field("Daily request limit for this meter", "a3cap", c.cap, {step:1, min:1})}
         <p class="a2-hint">Free tier: each model has its own limits per minute and per day. The remaining quota is shown in Google AI Studio under Usage, because Google does not return it to apps. Set the limit above to match your plan.</p><a class="a2-link" href="https://aistudio.google.com/usage" target="_blank" rel="noopener noreferrer">${I("eye", 16)}<span>Open AI Studio usage</span>${I("chev", 14)}</a>`) +
       card(secH(I("edit", 18), "Instructions and rules", "airules"), `<label class="a2-f"><span>Custom instructions</span><textarea id="a3sy" maxlength="2000" placeholder="e.g. Answer briefly. Use simple English.">${esc(c.system)}</textarea></label><label class="a2-f"><span>Rules (never to be broken)</span><textarea id="a3ru" maxlength="2000" placeholder="e.g. Never give financial advice. Never promise profit.">${esc(c.rules)}</textarea></label><button class="a2-b pri" id="a3sv">Save instructions and rules</button>`);
   };
-  return {title:"AI Assistant", noMode:true, html:`<div id="a3ai">${draw()}</div>`, mount(r){
+  return {title:"AI Assistant", noMode:true, layout:"c2", html:`<div id="a3ai">${draw()}</div>`, mount(r){
     const box = r.querySelector("#a3ai"), save = o => { wr(KAI, Object.assign(aiCfg(), o)); };
     const bind = () => {
       const q = x => box.querySelector(x);

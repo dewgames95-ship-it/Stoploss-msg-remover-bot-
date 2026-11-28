@@ -611,7 +611,7 @@ function bindCommon(root, offs){
   /* v6.9: leaving Prediction (tab strip / bottom nav / back) asks first; moving between Prediction screens does not */
   if (window.App && App.guardNav){
     App.guardNav("Prediction"); const ask = window.NAV_GUARD;
-    const g = (to, from) => /^#\/predict/.test(to || "") ? true : ask(to, from);
+    const g = (to, from) => /^#\/predict/.test(to || "") || !orderPending() ? true : ask(to, from);   // v7.2: only ask while an order is being placed
     window.NAV_GUARD = g; offs.push(() => { if (window.NAV_GUARD === g) window.NAV_GUARD = null; });
   }
   root.querySelectorAll("[data-acct]").forEach(b => b.onclick = e => { e.stopPropagation(); if (window.ACCT) ACCT.sheet(); else toast("Demo account", "info"); });
@@ -710,10 +710,14 @@ function sharesForProceeds(L, target, fb, cap){
   return sh;
 }
 const fl2 = v => Math.floor((v + 1e-9) * 100) / 100;
+/* v7.2: an order is "in progress" while a trade panel in an open sheet/page has an amount typed or a request in flight */
+const PANELS = new Set();
+const orderPending = () => { let on = busy.size > 0; PANELS.forEach(p => { if (!p.host || !p.host.isConnected) PANELS.delete(p); else if (p.pending()) on = true; }); return on; };
 function tradePanel(host, st, opts = {}){
   const uid = "t" + U.uid().slice(0, 6); let busyGo = false;
   if (!st.unit) st.unit = "usd";
-  const P = {st, render, tick, host};
+  const P = {st, render, tick, host, pending: () => busyGo || (+st.amt || 0) > 0 || (+st.sh || 0) > 0};
+  PANELS.add(P);
   const q = s => host.querySelector(s);
   const px = i => st.side === "buy" ? buyPx(st.m, i) : sellPx(st.m, i);
   const posNow = () => findPos(st.m.tokens[st.oi]);

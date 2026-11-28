@@ -192,3 +192,6 @@ html:root[data-theme] .fxr>.fx-head,html:root[data-theme] .bin-page>.fx-head{bac
 .slip0 svg{flex:none;color:var(--brand)}
 .slip0{display:inline-flex;width:auto;max-width:100%;white-space:nowrap;cursor:pointer;padding:4px 8px;font-size:11px;touch-action:manipulation}
 .slip0 span{overflow:hidden;text-overflow:ellipsis}
+
+/* v7.2: no text under 11px in order book, sentiment bar and tags */
+html body .ob-src,html body .ob-out,html body .fee-b,html body .fxr .fee-l .fee-b,html body .sp-form .fee-l .fee-b{font-size:11px}

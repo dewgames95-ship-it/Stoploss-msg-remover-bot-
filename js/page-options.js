@@ -328,7 +328,7 @@ Pages.options = (params) => {
         <div class="op-q-s"><input type="range" id="qRng" min="0" max="100" step="1" value="0" aria-label="Share of Options wallet"><b class="num" id="qPct">0%</b></div>
         <div class="op-q-b"><button class="btn btn-up" data-qside="call" type="button"><span>Up</span><small class="num" id="qKc"></small></button><button class="btn btn-down" data-qside="put" type="button"><span>Down</span><small class="num" id="qKp"></small></button></div>
       </div>
-      <div class="op-sec" style="margin:14px 0 0">Your prediction ${hq("callput")}</div>
+      <div class="op-sec" style="margin:14px 0 0">Direction ${hq("callput")}</div>
       <div class="op-dir" id="sDir">
         <button class="op-up ${side === "call" ? "on" : ""}" data-side="call"><span class="op-dir-i">${ic("up",18,2)}</span><b>Price will go UP</b><small>Buy Call</small></button>
         <button class="op-dn ${side === "put" ? "on" : ""}" data-side="put"><span class="op-dir-i">${ic("down",18,2)}</span><b>Price will go DOWN</b><small>Buy Put</small></button></div>

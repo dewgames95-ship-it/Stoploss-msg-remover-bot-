@@ -730,3 +730,8 @@ html[data-theme="dark"]{--pd-g1:color-mix(in srgb,var(--brand) 8%,var(--pd-box))
 .pd-hwx-r .num{color:var(--text)}
 .pd-hwx .up{color:var(--up)}.pd-hwx .down{color:var(--down)}
 .pd-hiw-pop .pd-fine{margin-top:10px}
+
+/* v7.2: category chips stay under the top edge while the market list scrolls */
+#pdCats.pd-chips-row{position:sticky;top:0;z-index:25;background:var(--bg);margin-bottom:0;padding-top:8px;padding-bottom:10px}
+/* body is an overflow container elsewhere (overflow-x:hidden), which breaks position:sticky: clip instead on the list screen */
+html body:has(#pdCats){overflow-x:clip;overflow-y:visible}
